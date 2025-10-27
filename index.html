@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Omni Flow</title> <!-- Default Title -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class', 
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Sora', 'sans-serif'], 
+            },
+            colors: {
+              primary: {
+                DEFAULT: 'hsl(var(--primary))',
+                light: 'hsl(var(--primary-light))',
+                dark: 'hsl(var(--primary-dark))',
+                foreground: 'hsl(var(--primary-foreground))',
+              },
+              accent: { // Warm accent
+                DEFAULT: 'hsl(var(--accent))',
+                light: 'hsl(var(--accent-light))',
+                dark: 'hsl(var(--accent-dark))',
+              },
+              background: 'hsl(var(--page-background))', 
+              foreground: 'hsl(var(--page-foreground))', 
+              
+              'panel-light': 'var(--panel-bg-light)', 
+              'panel-dark': 'var(--panel-bg-dark)',    
+              
+              'border-light': 'var(--panel-border-light)', 
+              'border-dark': 'var(--panel-border-dark)',
+
+              card: 'hsl(var(--card))', // Will be updated to match panel style
+              'dark-card': 'hsl(var(--dark-card))', // Will be updated to match panel style
+
+              'neon-accent': 'hsl(var(--neon-accent))', 
+              'neon-accent-secondary': 'hsl(var(--neon-accent-secondary))',
+              'landing-bg': 'hsl(var(--landing-bg))',
+              'landing-bg-darker': 'hsl(var(--landing-bg-darker))',
+              'landing-border': 'hsl(var(--landing-border))',
+
+              // Status colors for consistency
+              status_success: 'hsl(var(--status-success))',
+              status_warning: 'hsl(var(--status-warning))',
+              status_error: 'hsl(var(--status-error))',
+              status_neutral: 'hsl(var(--status-neutral))',
+              status_info: 'hsl(var(--status-info))',
+            },
+            borderRadius: {
+              'xl': '1rem', // 16px
+              '2xl': '1.5rem', // 24px
+              '3xl': '2rem', // 32px
+              '4xl': '2.5rem', // 40px
+              'squircle-sm': '0.75rem', // 12px for buttons/inputs
+              'squircle-md': '1rem',    // 16px for cards
+              'squircle-lg': '1.5rem',  // 24px for panels
+            },
+            boxShadow: {
+              'glass': '0 8px 32px 0 hsla(var(--shadow-color-rgb), 0.1), 0 4px 16px 0 hsla(var(--shadow-color-rgb), 0.08)',
+              'glass-lg': '0 12px 40px 0 hsla(var(--shadow-color-rgb), 0.12), 0 6px 20px 0 hsla(var(--shadow-color-rgb), 0.09)',
+              'inner-glass': 'inset 0 1px 2px 0 hsla(var(--accent-rgb), 0.08), inset 0 0.5px 1px 0 hsla(var(--accent-rgb),0.05)',
+              'subtle-glow-light': '0 0 15px 5px hsla(var(--accent-rgb), 0.15)',
+              'subtle-glow-dark': '0 0 20px 5px hsla(var(--accent-rgb), 0.25)',
+              'neon-glow': '0 0 10px hsla(var(--neon-accent-rgb), 0.6), 0 0 20px hsla(var(--neon-accent-rgb), 0.4), 0 0 30px hsla(var(--neon-accent-rgb), 0.2)',
+              'card-hover-landing': '0 10px 30px -5px rgba(var(--neon-accent-rgb), 0.2), 0 8px 15px -6px rgba(var(--neon-accent-rgb), 0.15)',
+            },
+            keyframes: {
+              slowGradientShift: {
+                '0%, 100%': { 'background-position': '0% 50%' },
+                '50%': { 'background-position': '100% 50%' },
+              },
+              fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+              spinner: { 'to': { transform: 'rotate(360deg)' } },
+              checkmarkAppear: {
+                '0%': { opacity: '0', transform: 'scale(0.5) rotate(-45deg)' },
+                '70%': { opacity: '1', transform: 'scale(1.1) rotate(0deg)' },
+                '100%': { opacity: '1', transform: 'scale(1) rotate(0deg)' },
+              },
+              faqOpen: { '0%': { opacity: '0', transform: 'translateY(-8px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+              shimmer: {
+                '0%': { backgroundPosition: '-1000px 0' },
+                '100%': { backgroundPosition: '1000px 0' },
+              },
+              gridPan: {
+                '0%': { 'background-position': '0% 0%' },
+                '100%': { 'background-position': '100% 100%' },
+              },
+              globeCoreSpin: {
+                'from': { transform: 'rotateY(0deg) rotateX(0deg)' },
+                'to': { transform: 'rotateY(360deg) rotateX(360deg)' },
+              },
+              globeOrbit1: {
+                'from': { transform: 'rotateZ(0deg) rotateY(65deg) rotateX(10deg)' },
+                'to': { transform: 'rotateZ(360deg) rotateY(65deg) rotateX(10deg)' },
+              },
+              globeOrbit2: {
+                'from': { transform: 'rotateZ(0deg) rotateY(-65deg) rotateX(15deg)' },
+                'to': { transform: 'rotateZ(-360deg) rotateY(-65deg) rotateX(15deg)' },
+              },
+              globeOrbit3: {
+                'from': { transform: 'rotateY(0deg) rotateX(80deg) rotateZ(20deg)' },
+                'to': { transform: 'rotateY(360deg) rotateX(80deg) rotateZ(20deg)' },
+              },
+              satellitePulse: {
+                '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 4px 1px hsla(var(--neon-accent-secondary-rgb), 0.7)' },
+                '50%': { transform: 'scale(1.2)', boxShadow: '0 0 8px 3px hsla(var(--neon-accent-secondary-rgb), 0.9)' },
+              },
+              floatUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+            },
+            animation: {
+              slowGradientShift: 'slowGradientShift 45s ease infinite',
+              fadeIn: 'fadeIn 0.4s ease-out forwards',
+              spinner: 'spinner 0.7s linear infinite',
+              checkmarkAppear: 'checkmarkAppear 0.35s ease-out forwards',
+              faqOpen: 'faqOpen 0.25s ease-out forwards',
+              shimmer: 'shimmer 2s infinite linear',
+              gridPan: 'gridPan 120s linear infinite alternate',
+              floatUp: 'floatUp 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards',
+            }
+          }
+        }
+      }
+    </script>
+    <style type="text/tailwindcss">
+      @layer base {
+        :root {
+          /* Light Mode - Omni Flow App - Cool Blues & Warm Accent */
+          --page-background-base-light: 210 60% 97%;
+          --page-foreground-light: 215 40% 25%;
+          --panel-bg-light: hsla(220, 50%, 95%, 0.7);
+          --panel-border-light: hsla(220, 30%, 80%, 0.4);
+          --card-bg-light: hsla(220, 50%, 98%, 0.65);
+          --card-border-light: hsla(220, 30%, 85%, 0.35);
+
+          /* Shared Values */
+          --primary: 262.1 83.3% 57.8%; 
+          --primary-rgb: 139, 92, 246; 
+          --primary-light: 262.1 93.3% 67.8%;
+          --primary-dark: 262.1 73.3% 47.8%;
+          --primary-foreground: 0 0% 100%;
+          --accent: var(--primary);
+          --accent-rgb: var(--primary-rgb);
+          --accent-light: var(--primary-light);
+          --accent-dark: var(--primary-dark);
+          --shadow-color-rgb: 200, 210, 230;
+          
+          /* Status Colors */
+          --status-success: 145 63% 49%;
+          --status-warning: 35 84% 62%;
+          --status-error: 0 72% 51%;  
+          --status-neutral: 215 20% 65%;
+          --status-info: 200 80% 55%; 
+
+          /* Landing Page Specific Colors - NEW THEME */
+          --neon-accent: 210 100% 56%; 
+          --neon-accent-rgb: 20, 144, 255;
+          --neon-accent-secondary: 262.1 93.3% 67.8%;
+          --neon-accent-secondary-rgb: 173, 129, 255;
+          --landing-bg: 235 21% 11%;
+          --landing-bg-darker: 236 25% 8%;
+          --landing-border: 233 14% 21%;
+        }
+
+        html.dark { 
+          /* Dark Mode - Omni Flow App */
+          --page-background-base-dark: 220 25% 10%;
+          --page-foreground-dark: 210 30% 88%;
+          --panel-bg-dark: hsla(225, 20%, 18%, 0.65);
+          --panel-border-dark: hsla(225, 15%, 35%, 0.4);
+          --card-bg-dark: hsla(225, 20%, 15%, 0.6);
+          --card-border-dark: hsla(225, 15%, 30%, 0.35);
+          --shadow-color-rgb: 0, 0, 0;
+        }
+        
+        /* Unified variables that switch with dark mode */
+        :root {
+          --page-background: var(--page-background-base-light);
+          --page-foreground: var(--page-foreground-light);
+          --panel-background: var(--panel-bg-light);
+          --panel-border: var(--panel-border-light);
+          --card-background: var(--card-bg-light);
+          --card-border: var(--card-border-light);
+        }
+        html.dark {
+          --page-background: var(--page-background-base-dark);
+          --page-foreground: var(--page-foreground-dark);
+          --panel-background: var(--panel-bg-dark);
+          --panel-border: var(--panel-border-dark);
+          --card-background: var(--card-bg-dark);
+          --card-border: var(--card-border-dark);
+        }
+
+        body { 
+          @apply text-[hsl(var(--page-foreground))];
+          background-image: linear-gradient(135deg, hsl(var(--page-background)) 0%, hsl(var(--page-background) / 0.95) 50%, hsl(var(--page-background) / 0.9) 100%);
+          font-family: theme('fontFamily.sans');
+          line-height: 1.6;
+          background-size: 200% 200%;
+          @apply animate-slowGradientShift;
+          transition: background 1.5s ease-in-out, color 1s ease-in-out;
+        }
+        
+        body.landing-page-active {
+            background-color: hsl(var(--landing-bg));
+            background-image:
+              radial-gradient(hsl(var(--landing-border)) 0.5px, transparent 0.5px),
+              radial-gradient(hsl(var(--landing-border)) 0.5px, hsl(var(--landing-bg)) 0.5px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            color: hsl(220, 20%, 80%);
+            animation: gridPan 120s linear infinite alternate;
+            font-family: theme('fontFamily.display');
+        }
+        html.dark body.landing-page-active { 
+            background-color: hsl(var(--landing-bg));
+        }
+
+        .glass-panel { 
+            @apply backdrop-blur-lg shadow-glass transition-all duration-500 ease-out rounded-squircle-lg; 
+            background-color: var(--panel-background);
+            border: 1px solid var(--panel-border);
+        }
+        .auth-panel {
+            background-color: hsla(var(--page-background-base-dark), 0.75);
+            @apply backdrop-blur-lg shadow-glass-lg rounded-squircle-lg;
+            border: 1px solid var(--panel-border);
+        }
+        html.dark .auth-panel {
+             background-color: hsla(var(--page-background-base-dark), 0.75);
+             border: 1px solid var(--panel-border-dark);
+        }
+
+        input[type="text"], input[type="email"], input[type="password"], input[type="date"], textarea, select {
+          @apply block w-full text-sm rounded-squircle-sm shadow-sm transition-all duration-300 ease-out;
+          @apply focus:ring-2 focus:ring-opacity-75 py-2.5 px-3.5;
+          background-color: hsla(var(--page-background), 0.5);
+          border: 1px solid hsla(var(--page-foreground), 0.15);
+          color: hsl(var(--page-foreground));
+        }
+        html:not(.dark) input, html:not(.dark) textarea, html:not(.dark) select {
+            background-color: hsla(var(--page-background-base-light), 0.6);
+            border-color: hsla(var(--page-foreground-light), 0.2);
+            color: hsl(var(--page-foreground-light));
+            @apply placeholder-slate-400;
+        }
+        html.dark input, html.dark textarea, html.dark select {
+            background-color: hsla(var(--page-background-base-dark), 0.3);
+            border-color: hsla(var(--page-foreground-dark), 0.25);
+            color: hsl(var(--page-foreground-dark));
+            @apply placeholder-slate-500;
+        }
+        input:focus, textarea:focus, select:focus {
+          @apply ring-[hsl(var(--accent))] border-[hsl(var(--accent))] shadow-inner-glass;
+           background-color: hsla(var(--page-background), 0.65);
+        }
+         html:not(.dark) input:focus, html:not(.dark) textarea:focus, html:not(.dark) select:focus {
+            background-color: hsla(var(--page-background-base-light), 0.75);
+        }
+        html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
+            background-color: hsla(var(--page-background-base-dark), 0.4);
+        }
+
+        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--accent) / 0.6) transparent; }
+        .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background-color: hsl(var(--accent) / 0.5); border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background-color: hsl(var(--accent) / 0.8); }
+
+        label { @apply text-sm font-medium tracking-wide; color: hsl(var(--page-foreground) / 0.85); }
+        html.dark label { color: hsl(var(--page-foreground-dark) / 0.8); }
+      }
+      
+       @layer utilities {
+        .truncate-2-lines { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .text-shadow-subtle { text-shadow: 0 1px 3px hsla(var(--shadow-color-rgb), 0.1), 0 0.5px 1.5px hsla(var(--shadow-color-rgb), 0.08); }
+        html.dark .text-shadow-subtle { text-shadow: 0 1px 4px hsla(var(--shadow-color-rgb), 0.2), 0 0.5px 2px hsla(var(--shadow-color-rgb), 0.15); }
+        .global-spinner-overlay { @apply fixed inset-0 z-[100] flex items-center justify-center; background-color: hsla(var(--page-background), 0.5); @apply backdrop-blur-sm; }
+        .global-spinner { @apply w-12 h-12 border-4 border-[hsl(var(--accent))] border-t-transparent rounded-full animate-spinner; }
+        .checkmark-icon-container { @apply absolute inset-y-0 right-0 top-0 pr-3 flex items-center pointer-events-none; }
+        .checkmark-icon { @apply inline-block w-5 h-5 text-[hsl(var(--status-success))] animate-checkmarkAppear; }
+
+        /* App Gradient Text */
+        .text-gradient-accent { @apply bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-light))] bg-clip-text text-transparent; }
+
+        /* Landing Page Specific utilities */
+        .text-gradient-neon { @apply bg-gradient-to-r from-neon-accent to-neon-accent-secondary bg-clip-text text-transparent; }
+        
+        .landing-header-container { @apply max-w-screen-xl mx-auto px-4 sm:px-6 py-3 my-3 sm:my-4; }
+        .landing-header-container { @apply bg-black/20 backdrop-blur-lg border border-landing-border rounded-xl shadow-lg; }
+
+        .hero-cta-primary { @apply inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white bg-neon-accent rounded-lg shadow-lg transition-all duration-300 ease-out transform hover:scale-105 hover:shadow-neon-glow; }
+        .hero-cta-secondary { @apply inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-slate-100 bg-slate-500/20 rounded-lg shadow-lg border border-slate-500/50 backdrop-blur-sm transition-all duration-300 ease-out transform hover:scale-105 hover:bg-slate-500/40 hover:border-slate-400; }
+        
+        /* New 3D Globe styles */
+        .tech-globe-container { @apply relative w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96; perspective: 1000px; }
+        .globe-shadow { @apply absolute bottom-0 left-1/2 w-4/5 h-8 bg-black/50 rounded-[50%] -translate-x-1/2 blur-2xl; }
+        .globe-core-wrapper { @apply absolute inset-0 w-full h-full; transform-style: preserve-3d; animation: globeCoreSpin 45s linear infinite; }
+        .globe-core { @apply absolute inset-[15%] rounded-full; background: radial-gradient(circle at 30% 30%, hsla(var(--neon-accent-rgb), 0.3), hsla(var(--neon-accent-secondary-rgb), 0.2) 60%, transparent 100%), radial-gradient(circle at 70% 80%, hsla(var(--neon-accent-secondary-rgb), 0.4), transparent), hsl(var(--landing-bg-darker)); border: 1px solid hsla(var(--neon-accent-rgb), 0.4); box-shadow: inset 0 0 20px 5px hsla(var(--neon-accent-rgb), 0.2), 0 0 30px -10px hsla(var(--neon-accent-rgb), 0.5); transform-style: preserve-3d; }
+        .grid-line { @apply absolute top-0 left-1/2 w-px h-full bg-gradient-to-b from-transparent via-neon-accent/40 to-transparent; transform-origin: center; }
+        .grid-line-horizontal { @apply h-px w-full top-1/2 left-0 bg-gradient-to-r from-transparent via-neon-accent/40 to-transparent; }
+        /* Create multiple grid lines with transforms */
+        .grid-line:nth-child(2) { transform: translateX(-50%) rotateY(30deg); }
+        .grid-line:nth-child(3) { transform: translateX(-50%) rotateY(60deg); }
+        .grid-line:nth-child(4) { transform: translateX(-50%) rotateY(90deg); }
+        .grid-line:nth-child(5) { transform: translateX(-50%) rotateY(120deg); }
+        .grid-line:nth-child(6) { transform: translateX(-50%) rotateY(150deg); }
+        .grid-line-horizontal:nth-child(7) { transform: translateY(-50%) rotateX(30deg); }
+        .grid-line-horizontal:nth-child(8) { transform: translateY(-50%) rotateX(60deg); }
+        .grid-line-horizontal:nth-child(9) { transform: translateY(-50%) rotateX(120deg); }
+        .grid-line-horizontal:nth-child(10) { transform: translateY(-50%) rotateX(150deg); }
+
+        .orbit-path { @apply absolute inset-0 rounded-full border border-dashed border-slate-500/20; transform-style: preserve-3d; }
+        .orbit-path-1 { animation: globeOrbit1 12s linear infinite; }
+        .orbit-path-2 { animation: globeOrbit2 15s linear infinite; }
+        .orbit-path-3 { animation: globeOrbit3 18s linear infinite; }
+        .orbit-satellite { @apply absolute w-2 h-2 top-0 left-1/2 -ml-1 -mt-1 rounded-full bg-neon-accent-secondary; animation: satellitePulse 2s ease-in-out infinite; }
+        
+        /* New Feature Card styles */
+        .feature-card { @apply relative bg-slate-900/40 p-6 rounded-xl border border-landing-border overflow-hidden transition-all duration-300; }
+        .feature-card:hover { transform: translateY(-4px); border-color: hsla(var(--neon-accent-rgb), 0.5); box-shadow: 0 10px 30px -10px hsla(var(--neon-accent-rgb), 0.2); }
+        .feature-card::before { content: ''; @apply absolute -top-1/2 -left-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_var(--angle),transparent_0_30%,hsl(var(--neon-accent))_48%_52%,transparent_70%_100%)] opacity-0 transition-opacity duration-500; animation: 20s linear 0s infinite normal none running rotate-gradient; }
+        .feature-card:hover::before { @apply opacity-20; }
+        @property --angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+        @keyframes rotate-gradient { 100% { --angle: 360deg; } }
+        .feature-icon-wrapper { @apply inline-flex items-center justify-center p-3 bg-neon-accent/10 rounded-lg mb-4; }
+       }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.6.0",
+    "react": "https://esm.sh/react@^19.1.0",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react-dom/client": "https://esm.sh/react-dom@^19.1.0/client",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/"
+  }
+}
+</script>
+</head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
