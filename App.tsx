@@ -241,13 +241,12 @@ function App() {
 
 
   useEffect(() => {
-    console.log('[App.tsx AuthEffect] Initializing auth listener. Current appLoading state:', useAppStore.getState().appLoading);
+    console.log('[App.tsx AuthEffect] Initializing auth listener.');
     setAppLoading(true);
 
     const { data: authListener } = supabaseService.onAuthStateChange(
       async (_event, session) => {
         console.log(`[App.tsx AuthEffect] onAuthStateChange triggered. Event: ${_event}, Session: ${session ? `Exists (User ID: ${session.user?.id})` : 'Null'}`);
-        setAppLoading(true);
         setAuthError(null);
 
         if (session && session.user) {
@@ -305,27 +304,6 @@ function App() {
         }
       }
     );
-
-    const checkInitialSession = async () => {
-        console.log("[App.tsx AuthEffect] checkInitialSession called.");
-        const { data: { session } } = await supabaseService.getSession();
-        if (!session && useAppStore.getState().appLoading) {
-            console.log("[App.tsx AuthEffect] checkInitialSession: No session and app is loading. Setting appLoading to false.");
-            setAppLoading(false);
-        } else if (session && !useAppStore.getState().currentUser && useAppStore.getState().appLoading) {
-            console.log("[App.tsx AuthEffect] checkInitialSession: Session exists, but currentUser not set and app loading. Auth listener should handle setting appLoading to false eventually.");
-        } else if (useAppStore.getState().currentUser && useAppStore.getState().appLoading){
-            console.log("[App.tsx AuthEffect] checkInitialSession: App is loading and currentUser exists. Setting appLoading to false.");
-            setAppLoading(false);
-        } else if (!useAppStore.getState().appLoading) {
-             console.log("[App.tsx AuthEffect] checkInitialSession: App not loading. No action needed.");
-        } else { 
-            console.log("[App.tsx AuthEffect] checkInitialSession: Fallback - app is loading. Setting appLoading to false.");
-            setAppLoading(false);
-        }
-    };
-    checkInitialSession();
-
 
     return () => {
       if (authListener && authListener.subscription) {
