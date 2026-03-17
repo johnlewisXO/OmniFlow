@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { TaskPriority, TaskStatus, UserRole, ActiveView } from '../types'; 
+import { TaskPriority, TaskStatus, UserRole, ActiveView } from './types'; 
 
 // Manually define ALL_ACTIVE_VIEWS from the ActiveView type
 export const ALL_ACTIVE_VIEWS: ActiveView[] = [

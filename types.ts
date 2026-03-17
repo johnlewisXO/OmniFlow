@@ -96,6 +96,16 @@ export interface OrganizationCheckState {
   error?: string | null;
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'task_added' | 'task_updated' | 'project_added' | 'project_updated' | 'system';
+  related_entity_id?: string;
+  read: boolean;
+  created_at: string;
+}
+
 export interface AppStore {
   darkMode: boolean;
   toggleDarkMode: () => void;
@@ -202,6 +212,12 @@ export interface AppStore {
   deleteUserFromOrganization: (userId: string) => Promise<void>;
   isDeletingUser: string | null; // Stores ID of user being deleted
   deleteUserError: string | null;
+
+  notifications: Notification[];
+  addNotification: (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => void;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  clearNotifications: () => void;
 
   // Password Update
   isPasswordUpdateModalOpen: boolean;

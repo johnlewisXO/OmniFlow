@@ -1,7 +1,7 @@
 
 
 import { useState, useCallback, useEffect } from 'react';
-import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, Organization, ActiveView, OrganizationCheckState } from '../types';
+import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, Organization, ActiveView, OrganizationCheckState, Notification } from '../types';
 import { ICON_MAP } from '../constants';
 import supabaseService from '../services/supabaseService';
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
@@ -55,9 +55,12 @@ interface StoreState {
 
   // Password Update
   isPasswordUpdateModalOpen: boolean;
+
+  notifications: Notification[];
 }
 
 const _darkMode = typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false;
+const _notifications = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('notifications') || '[]') : [];
 
 const initialStoreStateValues: StoreState = {
   darkMode: _darkMode,
@@ -100,6 +103,8 @@ const initialStoreStateValues: StoreState = {
 
   // Password Update
   isPasswordUpdateModalOpen: false,
+
+  notifications: _notifications,
 };
 
 const parseErrorMessage = (error: any, defaultMessage: string = "An unexpected error occurred."): string => {
@@ -194,6 +199,47 @@ const appActionsCreator = (
   get: () => StoreState
 ) => {
   const selfActions = {
+    addNotification: (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => {
+      const newNotification: Notification = {
+        ...notification,
+        id: crypto.randomUUID(),
+        created_at: new Date().toISOString(),
+        read: false,
+      };
+      updateState(s => {
+        const newNotifications = [newNotification, ...s.notifications];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('notifications', JSON.stringify(newNotifications));
+        }
+        return { ...s, notifications: newNotifications };
+      });
+    },
+    markNotificationAsRead: (id: string) => {
+      updateState(s => {
+        const newNotifications = s.notifications.map(n => n.id === id ? { ...n, read: true } : n);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('notifications', JSON.stringify(newNotifications));
+        }
+        return { ...s, notifications: newNotifications };
+      });
+    },
+    markAllNotificationsAsRead: () => {
+      updateState(s => {
+        const newNotifications = s.notifications.map(n => ({ ...n, read: true }));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('notifications', JSON.stringify(newNotifications));
+        }
+        return { ...s, notifications: newNotifications };
+      });
+    },
+    clearNotifications: () => {
+      updateState(s => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('notifications');
+        }
+        return { ...s, notifications: [] };
+      });
+    },
     fetchProjects: async () => {
       const currentUser = get().currentUser;
       if (!currentUser) {
@@ -422,6 +468,12 @@ const appActionsCreator = (
       try {
         await supabaseService.createTask(taskData);
         await selfActions.fetchTasksForProject(activeProject.id); 
+        selfActions.addNotification({
+          title: 'Task Created',
+          message: `Task "${taskData.title}" was created in project "${activeProject.name}"`,
+          type: 'task_added',
+          related_entity_id: activeProject.id
+        });
         updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [] }));
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to create task.');
@@ -435,6 +487,7 @@ const appActionsCreator = (
           return;
         }
         const originalTasks = get().tasks;
+        const originalTask = originalTasks.find(t => t.id === taskId);
         const updatedTasksOptimistic = originalTasks.map(t => 
             t.id === taskId ? { ...t, ...updates } : t
         );
@@ -443,6 +496,14 @@ const appActionsCreator = (
         try {
             await supabaseService.updateTask(taskId, updates);
             await selfActions.fetchTasksForProject(activeProject.id); 
+            if (originalTask) {
+              selfActions.addNotification({
+                title: 'Task Updated',
+                message: `Task "${updates.title || originalTask.title}" was updated in project "${activeProject.name}"`,
+                type: 'task_updated',
+                related_entity_id: taskId
+              });
+            }
              updateState(s => ({ ...s, isLoadingTasks: false }));
         } catch (error: any) {
             const message = parseErrorMessage(error, `Failed to update task ${taskId}. Reverting.`);
@@ -617,6 +678,15 @@ const appActionsCreator = (
           isCreateProjectModalOpen: false,
         }));
         
+        if (newProjectFromService) {
+          selfActions.addNotification({
+            title: 'Project Created',
+            message: `Project "${newProjectFromService.name}" was successfully created.`,
+            type: 'project_added',
+            related_entity_id: newProjectFromService.id
+          });
+        }
+
         if (projectToActivate) {
           selfActions.setActiveProject(projectToActivate.id); 
         } else {

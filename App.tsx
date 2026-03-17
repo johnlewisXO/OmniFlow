@@ -30,7 +30,6 @@ import { MyTasksPage } from './components/tasks/MyTasksPage';
 import { InboxPage } from './components/inbox/InboxPage';
 import { ReportsPage } from './components/reports/ReportsPage';
 import { TeamManagementPage } from './components/team/TeamManagementPage'; 
-import { UserLogsPage } from './components/logs/UserLogsPage';
 
 const MainAppLayout: React.FC = () => {
   const {
@@ -118,7 +117,7 @@ const MainAppLayout: React.FC = () => {
         return <ReportsPage />;
       case 'user_logs_view':
         if (currentUser.role === UserRole.OWNER || currentUser.role === UserRole.ADMIN) {
-          return <UserLogsPage />;
+          return <div className="p-6">User Logs (Coming Soon)</div>;
         }
         return <MemberDashboard />; // Fallback if not authorized
       case 'team_management':
@@ -242,72 +241,88 @@ function App() {
 
   useEffect(() => {
     console.log('[App.tsx AuthEffect] Initializing auth listener.');
-    setAppLoading(true);
+    let mounted = true;
 
-    const { data: authListener } = supabaseService.onAuthStateChange(
-      async (_event, session) => {
-        console.log(`[App.tsx AuthEffect] onAuthStateChange triggered. Event: ${_event}, Session: ${session ? `Exists (User ID: ${session.user?.id})` : 'Null'}`);
-        setAuthError(null);
+    const handleSession = async (session: any) => {
+      if (!mounted) return;
+      setAuthError(null);
 
-        if (session && session.user) {
-          console.log(`[App.tsx AuthEffect] Session and user exist. User ID: ${session.user.id}. Fetching profile.`);
-          try {
-            const userProfile = await supabaseService.getUserProfile(session.user.id);
-            if (userProfile) {
-              console.log(`[App.tsx AuthEffect] Profile fetched: ID ${userProfile.id}, Email: ${userProfile.email}, OrgID: ${userProfile.organization_id}, Role: ${userProfile.role}`);
-              let finalRole: UserRole | undefined = undefined;
-              if (userProfile.role) {
-                const roleString = String(userProfile.role).toUpperCase();
-                if (Object.values(UserRole).includes(roleString as UserRole)) {
-                  finalRole = roleString as UserRole;
-                } else {
-                    console.warn(`[App.tsx AuthEffect] Invalid role '${userProfile.role}' received for user ${userProfile.id}.`);
-                }
+      if (session && session.user) {
+        console.log(`[App.tsx AuthEffect] Session and user exist. User ID: ${session.user.id}. Fetching profile.`);
+        try {
+          const userProfile = await supabaseService.getUserProfile(session.user.id);
+          if (userProfile && mounted) {
+            console.log(`[App.tsx AuthEffect] Profile fetched: ID ${userProfile.id}`);
+            let finalRole: UserRole | undefined = undefined;
+            if (userProfile.role) {
+              const roleString = String(userProfile.role).toUpperCase();
+              if (Object.values(UserRole).includes(roleString as UserRole)) {
+                finalRole = roleString as UserRole;
               }
-              const appUserPayload: AppUserType = {
-                id: userProfile.id,
-                supabase_auth_id: session.user.id,
-                email: session.user.email || userProfile.email || '', 
-                full_name: userProfile.full_name,
-                avatar_url: userProfile.avatar_url,
-                organization_id: userProfile.organization_id,
-                role: finalRole,
-              };
-              console.log(`[App.tsx AuthEffect] Calling setCurrentUser with payload:`, JSON.stringify(appUserPayload));
-              setCurrentUser(appUserPayload);
-
-              if (!currentRoute.startsWith('#/app')) {
-                console.log(`[App.tsx AuthEffect] User authenticated, current route is "${currentRoute}". Redirecting to #/app.`);
-                window.location.hash = '#/app';
-              }
-            } else {
-               console.warn(`[App.tsx AuthEffect] Profile not found for user ID: ${session.user.id}. Setting current user to null.`);
-               setCurrentUser(null);
-               setAuthError("Profile not found after authentication. Please sign up or contact support.");
-               await supabaseService.signOutUser().catch(e => console.error("[App.tsx AuthEffect] Sign out error after profile not found:", e));
             }
-          } catch (error: any) {
+            const appUserPayload: AppUserType = {
+              id: userProfile.id,
+              supabase_auth_id: session.user.id,
+              email: session.user.email || userProfile.email || '', 
+              full_name: userProfile.full_name,
+              avatar_url: userProfile.avatar_url,
+              organization_id: userProfile.organization_id,
+              role: finalRole,
+            };
+            setCurrentUser(appUserPayload);
+
+            if (!currentRoute.startsWith('#/app')) {
+              window.location.hash = '#/app';
+            }
+          } else if (mounted) {
+             setCurrentUser(null);
+             setAuthError("Profile not found after authentication. Please sign up or contact support.");
+             await supabaseService.signOutUser().catch(e => console.error(e));
+          }
+        } catch (error: any) {
+          if (mounted) {
             console.error("[App.tsx AuthEffect] Error fetching/setting user profile:", error);
             setCurrentUser(null);
             setAuthError(localParseErrorMessage(error, "Failed to load your profile information."));
-            await supabaseService.signOutUser().catch(e => console.error("[App.tsx AuthEffect] Sign out error after profile fetch exception:", e));
-          } finally {
-            console.log("[App.tsx AuthEffect] Finished processing session/user block. Setting appLoading to false.");
-            setAppLoading(false);
+            await supabaseService.signOutUser().catch(e => console.error(e));
           }
-        } else {
+        } finally {
+          if (mounted) setAppLoading(false);
+        }
+      } else {
+        if (mounted) {
           console.log("[App.tsx AuthEffect] No session or user. Setting current user to null.");
           setCurrentUser(null);
           setAuthError(null);
-          console.log("[App.tsx AuthEffect] Finished processing no session block. Setting appLoading to false.");
           setAppLoading(false);
         }
+      }
+    };
+
+    const initializeAuth = async () => {
+      setAppLoading(true);
+      try {
+        const { data: { session } } = await supabaseService.getSession();
+        await handleSession(session);
+      } catch (e) {
+        console.error("Failed to get initial session", e);
+        if (mounted) setAppLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    const { data: authListener } = supabaseService.onAuthStateChange(
+      async (_event, session) => {
+        if (_event === 'INITIAL_SESSION') return;
+        console.log(`[App.tsx AuthEffect] onAuthStateChange triggered. Event: ${_event}`);
+        await handleSession(session);
       }
     );
 
     return () => {
+      mounted = false;
       if (authListener && authListener.subscription) {
-        console.log("[App.tsx AuthEffect] Unsubscribing from auth listener.");
         authListener.subscription.unsubscribe();
       }
     };
@@ -315,37 +330,32 @@ function App() {
 
 
   useEffect(() => {
-    const latestStoreState = useAppStore.getState();
-    const currentUserID = latestStoreState.currentUser?.id;
-    const currentOrgID = latestStoreState.currentUser?.organization_id;
-    const currentAppLoadingState = latestStoreState.appLoading;
+    console.log(`[App.tsx DataFetchEffect] Evaluating. AppLoading: ${appLoading}, UserID: ${currentUser?.id}, UserRole: ${currentUser?.role}, OrgID: ${currentUser?.organization_id}`);
 
-    console.log(`[App.tsx DataFetchEffect] Evaluating. AppLoading: ${currentAppLoadingState}, UserID: ${currentUserID}, UserRole: ${latestStoreState.currentUser?.role}, OrgID: ${currentOrgID}`);
-
-    if (currentAppLoadingState) {
+    if (appLoading) {
       console.log("[App.tsx DataFetchEffect] App is loading, deferring data fetch.");
       return;
     }
 
-    if (currentUserID) {
-      console.log(`[App.tsx DataFetchEffect] User ${currentUserID} (Org: ${currentOrgID || 'N/A'}) exists. Triggering fetchProjects.`);
+    if (currentUser?.id) {
+      console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} (Org: ${currentUser.organization_id || 'N/A'}) exists. Triggering fetchProjects.`);
       fetchProjects().catch(e => console.error("[App.tsx DataFetchEffect] Error during fetchProjects:", e));
 
-      if (currentOrgID) {
-        console.log(`[App.tsx DataFetchEffect] User ${currentUserID} belongs to Org ${currentOrgID}. Triggering fetchUsersForAssignmentList.`);
+      if (currentUser.organization_id) {
+        console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} belongs to Org ${currentUser.organization_id}. Triggering fetchUsersForAssignmentList.`);
         fetchUsersForAssignmentList().catch(e => console.error("[App.tsx DataFetchEffect] Error during fetchUsersForAssignmentList:", e));
-        if (latestStoreState.projectsError === "You can create personal projects or join an organization to see shared projects.") {
+        if (projectsError === "You can create personal projects or join an organization to see shared projects.") {
              setProjectsError(null);
          }
       } else {
-        console.log(`[App.tsx DataFetchEffect] User ${currentUserID} has NO Org ID. Clearing org-specific user list.`);
+        console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} has NO Org ID. Clearing org-specific user list.`);
         setUsers([]);
         setUsersForAssignmentError("Join an organization to collaborate with team members.");
-         if (latestStoreState.projectsError === "You are not part of an organization. Join or create one to see projects.") {
+         if (projectsError === "You are not part of an organization. Join or create one to see projects.") {
              setProjectsError("You can create personal projects or join an organization to see shared projects.");
          }
       }
-      if (latestStoreState.authError === "You are not part of an organization. Join or create one to see projects.") {
+      if (authError === "You are not part of an organization. Join or create one to see projects.") {
             setAuthError(null);
        }
     } else {
@@ -357,7 +367,7 @@ function App() {
       setProjectsError(null);
       setUsersForAssignmentError(null);
       setTasksError(null);
-      if (currentRoute.startsWith('#/app') && latestStoreState.activeView !== 'overview') {
+      if (currentRoute.startsWith('#/app') && activeView !== 'overview') {
            console.log(`[App.tsx DataFetchEffect] No user, on app route, not on overview. Setting activeView to 'overview'.`);
            setActiveView('overview');
       }

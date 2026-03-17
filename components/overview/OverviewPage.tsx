@@ -45,7 +45,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ showWelcomeMessage =
           Detailed activity logs and comprehensive analytics charts will be available here soon.
           Stay tuned for more insights into your team's productivity and project progress! (Preview)
         </p>
-        <div className="mt-4 h-48 flex items-center justify-center border-2 border-dashed rounded-md ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
+        <div className={`mt-4 h-48 flex items-center justify-center border-2 border-dashed rounded-md ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
             <p className={`${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Chart/Feed Area [Coming Soon]</p>
         </div>
       </div>

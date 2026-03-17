@@ -62,7 +62,7 @@ export const AdminDashboard: React.FC = () => {
         <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           A detailed log of important actions taken across the organization will be displayed here. (e.g., project creation, user invitations, role changes).
         </p>
-         <div className="mt-4 h-48 flex items-center justify-center border-2 border-dashed rounded-md ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
+         <div className={`mt-4 h-48 flex items-center justify-center border-2 border-dashed rounded-md ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
             <p className={`${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Activity Feed Area [Coming Soon]</p>
         </div>
       </div>
