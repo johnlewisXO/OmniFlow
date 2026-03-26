@@ -86,7 +86,8 @@ export type ActiveView =
   'inbox_view' |        
   'reports_view' |
   'team_management' |
-  'user_logs_view';      
+  'user_logs_view' |
+  'profile_settings';      
 
 export interface OrganizationCheckState {
   loading: boolean;

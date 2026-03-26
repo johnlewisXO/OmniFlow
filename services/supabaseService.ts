@@ -228,7 +228,7 @@ const supabaseService = {
 
     const { data: profileData, error: profileError } = await supabase
       .from('user_profiles')
-      .insert(profilePayload)
+      .upsert(profilePayload)
       .select()
       .single();
 

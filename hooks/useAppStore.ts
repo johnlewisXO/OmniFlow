@@ -62,6 +62,8 @@ interface StoreState {
 
 const _darkMode = typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false;
 const _notifications = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('notifications') || '[]') : [];
+const _activeView = typeof window !== 'undefined' ? (localStorage.getItem('activeView') as ActiveView || 'overview') : 'overview';
+const _activeProjectId = typeof window !== 'undefined' ? localStorage.getItem('activeProjectId') : null;
 
 const initialStoreStateValues: StoreState = {
   darkMode: _darkMode,
@@ -70,8 +72,8 @@ const initialStoreStateValues: StoreState = {
   projects: [],
   tasks: [],
   myTasks: [],
-  activeProject: null,
-  activeView: 'overview',
+  activeProject: null, // We'll set this after projects fetch
+  activeView: _activeView,
   isModalOpen: false, 
   isViewTaskModalOpen: false, 
   taskToView: null,          
@@ -88,7 +90,7 @@ const initialStoreStateValues: StoreState = {
   appLoading: true,
 
   isLoadingProjects: true,
-  isLoadingTasks: true,
+  isLoadingTasks: true, // Will be set to false if no active project
   isLoadingUsersForAssignment: true,
   projectsError: null,
   tasksError: null,
@@ -393,7 +395,30 @@ const appActionsCreator = (
       updateState(s => ({ ...s, isLoadingProjects: true, projectsError: null }));
       try {
         const projects = await supabaseService.getProjects();
-        updateState(s => ({ ...s, projects, isLoadingProjects: false }));
+        
+        // Restore active project if it exists in the fetched projects
+        const savedProjectId = typeof window !== 'undefined' ? localStorage.getItem('activeProjectId') : null;
+        let restoredProject = null;
+        if (savedProjectId) {
+          restoredProject = projects.find(p => p.id === savedProjectId) || null;
+          if (!restoredProject && typeof window !== 'undefined') {
+            localStorage.removeItem('activeProjectId');
+          }
+        }
+
+        const currentActiveProject = get().activeProject;
+        updateState(s => ({ 
+          ...s, 
+          projects, 
+          isLoadingProjects: false,
+          activeProject: restoredProject || s.activeProject
+        }));
+
+        if (restoredProject) {
+          selfActions.fetchTasksForProject(restoredProject.id);
+        } else if (!currentActiveProject) {
+          updateState(s => ({ ...s, isLoadingTasks: false }));
+        }
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to fetch projects.');
         updateState(s => ({ ...s, isLoadingProjects: false, projectsError: message, projects: [] }));
@@ -476,6 +501,14 @@ const appActionsCreator = (
       }
     },
     setActiveProject: (projectId: string | null) => {
+      if (typeof window !== 'undefined') {
+        if (projectId) {
+          localStorage.setItem('activeProjectId', projectId);
+        } else {
+          localStorage.removeItem('activeProjectId');
+        }
+      }
+      
       if (projectId) {
         const project = get().projects.find(p => p.id === projectId) || null;
         updateState(s => ({
@@ -486,6 +519,9 @@ const appActionsCreator = (
           tasksError: null,
           activeView: 'kanban'
         }));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('activeView', 'kanban');
+        }
         if (project) {
           selfActions.fetchTasksForProject(project.id);
         } else {
@@ -502,6 +538,9 @@ const appActionsCreator = (
           suggestedTaskTitles: [],
           activeView: 'overview' 
         }));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('activeView', 'overview');
+        }
       }
     },
     fetchUsersForAssignmentList: async () => { 
@@ -547,6 +586,9 @@ const appActionsCreator = (
   Object.assign(selfActions, {
     toggleDarkMode: () => updateState(s => ({ ...s, darkMode: !s.darkMode })),
     setActiveView: (view: ActiveView) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('activeView', view);
+        }
         updateState(s => ({ ...s, activeView: view }));
         const currentStore = get();
         if (view === 'team_management' && currentStore.currentUser?.organization_id && currentStore.users.length === 0 && !currentStore.isLoadingUsersForAssignment) {
@@ -584,6 +626,10 @@ const appActionsCreator = (
       }
     },
     signOut: async () => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('activeView');
+        localStorage.removeItem('activeProjectId');
+      }
       updateState(s => ({ ...s, authLoading: true, authError: null, activeProject: null, projects: [], tasks: [], users: [], activeView: 'overview', currentUser: null }));
       try {
         await supabaseService.signOutUser();
@@ -608,10 +654,17 @@ const appActionsCreator = (
         } else if (currentActiveProject && !currentActiveProject.organization_id && currentActiveProject.owner_id !== user.id) {
           nextActiveProject = null;
         }
-        if (!nextActiveProject && nextActiveView === 'kanban') {
-          nextActiveView = 'projects_overview'; 
-        } else if (!nextActiveProject && !['overview', 'projects_overview', 'my_tasks_view', 'inbox_view', 'reports_view', 'team_management', 'admin_settings', 'user_logs_view'].includes(nextActiveView)) {
+        if (!nextActiveProject && !['kanban', 'overview', 'projects_overview', 'my_tasks_view', 'inbox_view', 'reports_view', 'team_management', 'admin_settings', 'user_logs_view', 'profile_settings'].includes(nextActiveView)) {
            nextActiveView = 'overview';
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('activeView', nextActiveView);
+        if (nextActiveProject) {
+          localStorage.setItem('activeProjectId', nextActiveProject.id);
+        } else if (!user || (currentActiveProject && currentActiveProject.organization_id && currentActiveProject.organization_id !== user.organization_id) || (currentActiveProject && !currentActiveProject.organization_id && currentActiveProject.owner_id !== user.id)) {
+          localStorage.removeItem('activeProjectId');
         }
       }
 

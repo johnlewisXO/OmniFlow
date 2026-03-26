@@ -232,6 +232,19 @@ export const Sidebar: React.FC = () => {
                        border ${darkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-white/90 border-slate-300'} backdrop-blur-md`}
           >
             <button
+              onClick={() => {
+                setActiveView('profile_settings');
+                setProfileMenuOpen(false);
+              }}
+              className={`w-full flex items-center space-x-2 px-4 py-2 text-sm 
+                         ${darkMode ? 'text-slate-300 hover:bg-slate-700/50 hover:text-white' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'} 
+                         transition-colors`}
+            >
+              <ICON_MAP.UserCircleIcon className="w-4 h-4" />
+              <span>Profile Settings</span>
+            </button>
+            <div className={`h-px w-full my-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
+            <button
               onClick={handleLogout}
               className={`w-full flex items-center space-x-2 px-4 py-2 text-sm 
                          ${darkMode ? 'text-status-error hover:bg-status-error/20' : 'text-status-error hover:bg-status-error/10'} 

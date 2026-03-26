@@ -16,6 +16,7 @@ import { User as AppUserType, Project, UserRole, ActiveView } from './types';
 import { AdminDashboard } from './components/dashboards/AdminDashboard';
 import { ProjectManagerDashboard } from './components/dashboards/ProjectManagerDashboard';
 import { MemberDashboard } from './components/dashboards/MemberDashboard';
+import { ProfileSettingsPage } from './components/ProfileSettingsPage';
 import { OwnerDashboard } from './components/dashboards/OwnerDashboard';
 import { ClientViewerDashboard } from './components/dashboards/ClientViewerDashboard';
 import { KanbanBoard } from './components/tasks/KanbanBoard';
@@ -177,6 +178,8 @@ const MainAppLayout: React.FC = () => {
           return <AdminDashboard />;
         }
         return <MemberDashboard />;
+      case 'profile_settings':
+        return <ProfileSettingsPage />;
       default:
          if (currentUser.role === UserRole.OWNER) return <OwnerDashboard />;
          if (currentUser.role === UserRole.ADMIN) return <AdminDashboard />;
@@ -288,6 +291,7 @@ function App() {
     activeView, setActiveView,
     users, setUsers,
     tasks, setTasks,
+    isLoadingProjects,
     setTasksError, setProjectsError, setUsersForAssignmentError,
   } = useAppStore();
 
@@ -357,7 +361,7 @@ function App() {
             };
             setCurrentUser(appUserPayload);
 
-            if (!currentRoute.startsWith('#/app')) {
+            if (!window.location.hash.startsWith('#/app')) {
               window.location.hash = '#/app';
             }
           } else if (mounted) {
@@ -412,7 +416,7 @@ function App() {
         authListener.subscription.unsubscribe();
       }
     };
-  }, [setCurrentUser, setAppLoading, setAuthError, currentRoute]);
+  }, [setCurrentUser, setAppLoading, setAuthError]);
 
 
   useEffect(() => {
@@ -496,13 +500,13 @@ function App() {
   ]);
 
    useEffect(() => {
-    if (appLoading || !currentUser) return;
+    if (appLoading || !currentUser || isLoadingProjects) return;
 
     if (activeView === 'kanban' && !activeProject) {
       console.log("[App.tsx ViewConsistencyEffect] Active view is 'kanban' but no active project. Setting view to 'projects_overview'.");
       setActiveView('projects_overview');
     }
-  }, [currentUser, projects, activeProject, activeView, setActiveProject, setActiveView, appLoading]);
+  }, [currentUser, projects, activeProject, activeView, setActiveProject, setActiveView, appLoading, isLoadingProjects]);
 
 
   const isAppRoute = currentRoute.startsWith('#/app');
