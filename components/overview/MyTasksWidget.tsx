@@ -6,12 +6,11 @@ import { ICON_MAP } from '../../constants';
 import { Task } from '../../types';
 
 export const MyTasksWidget: React.FC = () => {
-  const { tasks, currentUser, darkMode } = useAppStore();
+  const { myTasks, currentUser, darkMode, isLoadingTasks } = useAppStore();
   const ClipboardListIcon: React.FC<{ className?: string }> = ICON_MAP.ClipboardListIcon;
 
   // Basic filtering for tasks assigned to current user and due soon (example logic)
-  const myTasks = tasks
-    .filter(task => task.assignee_id === currentUser?.id) 
+  const upcomingTasks = myTasks
     .sort((a, b) => {
       if (a.dueDate && b.dueDate) return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       if (a.dueDate) return -1;
@@ -26,23 +25,37 @@ export const MyTasksWidget: React.FC = () => {
         <ClipboardListIcon className={`w-6 h-6 mr-3 ${darkMode ? 'text-primary-light' : 'text-primary'}`} />
         <h2 className="text-xl font-semibold">My Upcoming Tasks</h2>
       </div>
-      {myTasks.length === 0 && (
-        <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>You have no upcoming tasks assigned to you, or tasks data is still loading.</p>
+      
+      {isLoadingTasks ? (
+        <ul className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <li key={i} className={`p-3 rounded-md animate-pulse ${darkMode ? 'bg-slate-700/40 border-slate-600/30' : 'bg-white/50 border-slate-200/50'} border`}>
+              <div className="flex justify-between items-center mb-2">
+                <div className={`h-4 w-1/2 rounded ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}></div>
+                <div className={`h-4 w-16 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}></div>
+              </div>
+              <div className={`h-3 w-1/3 rounded ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}></div>
+            </li>
+          ))}
+        </ul>
+      ) : upcomingTasks.length === 0 ? (
+        <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>You have no upcoming tasks assigned to you.</p>
+      ) : (
+        <ul className="space-y-3">
+          {upcomingTasks.map(task => (
+            <li
+              key={task.id}
+              className={`p-3 rounded-md transition-all ${darkMode ? 'bg-slate-700/70 hover:bg-slate-700' : 'bg-white/80 hover:bg-slate-50'} border ${darkMode ? 'border-slate-600/50' : 'border-slate-200/60'}`}
+            >
+              <div className="flex justify-between items-center">
+                  <span className={`font-medium text-sm ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{task.title}</span>
+                  {task.dueDate && <span className={`text-xs px-2 py-0.5 rounded-full ${darkMode ? 'bg-primary/30 text-primary-light' : 'bg-primary/10 text-primary-dark'}`}>{new Date(task.dueDate).toLocaleDateString()}</span>}
+              </div>
+              <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Project: {task.projectId}</p> {/* Replace with project name lookup later */}
+            </li>
+          ))}
+        </ul>
       )}
-      <ul className="space-y-3">
-        {myTasks.map(task => (
-          <li
-            key={task.id}
-            className={`p-3 rounded-md transition-all ${darkMode ? 'bg-slate-700/70 hover:bg-slate-700' : 'bg-white/80 hover:bg-slate-50'} border ${darkMode ? 'border-slate-600/50' : 'border-slate-200/60'}`}
-          >
-            <div className="flex justify-between items-center">
-                <span className={`font-medium text-sm ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{task.title}</span>
-                {task.dueDate && <span className={`text-xs px-2 py-0.5 rounded-full ${darkMode ? 'bg-primary/30 text-primary-light' : 'bg-primary/10 text-primary-dark'}`}>{new Date(task.dueDate).toLocaleDateString()}</span>}
-            </div>
-            <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Project: {task.projectId}</p> {/* Replace with project name lookup later */}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 };

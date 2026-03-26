@@ -52,6 +52,8 @@ export const ICON_MAP = {
   // Add other icons as needed, for example:
   DevicePhoneMobileIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75A2.25 2.25 0 0015.75 1.5m-7.5 0P3.75 3v11.25A2.25 2.25 0 006 16.5h.095M10.5 1.5L11.409 3M10.5 1.5L9.591 3m0 0L8.25 5.25m2.341-2.25L10.5 5.25m0 0L11.409 3M15.75 1.5l-1.409 1.5M15.75 1.5L14.659 3M9.591 3l1.409 1.5M11.409 3l-1.409 1.5m0 9.75H13.5M13.5 12.75H10.5m0 0H9.75m2.063 2.063C11.536 15.029 11 15.536 11 16.25v.75m3-3.75v.75c0 .713-.536 1.221-1.25 1.438M10.5 12.75h2.25M10.5 12.75a2.25 2.25 0 00-2.25 2.25v.095c0 .544.225 1.041.604 1.401l.705.704M10.5 12.75L11.25 12" />),
   CodeBracketIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />),
+  BellIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />),
+  CheckIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />),
 };
 
 export const SIDENAV_ITEMS: {

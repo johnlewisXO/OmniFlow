@@ -23,9 +23,19 @@ export const ProjectsOverviewPage: React.FC = () => {
       </div>
 
       {isLoadingProjects && (
-        <div className="text-center py-10">
-          <SpinnerIcon className={`w-12 h-12 mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-500'} animate-spin`} />
-          <p className={`mt-4 text-lg ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Loading Projects...</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className={`p-6 rounded-xl border shadow-sm animate-pulse ${darkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
+              <div className="flex items-center mb-4">
+                <div className={`w-8 h-8 rounded-md mr-3 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                <div className={`h-5 w-32 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+              </div>
+              <div className={`h-4 w-24 rounded mb-3 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+              <div className={`h-3 w-full rounded mb-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+              <div className={`h-3 w-2/3 rounded mb-4 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+              <div className={`h-2 w-full rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+            </div>
+          ))}
         </div>
       )}
 

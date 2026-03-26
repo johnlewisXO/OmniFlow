@@ -13,21 +13,25 @@ export const Header: React.FC = () => {
     activeProject, 
     openModal, 
     currentUser, 
-    signOut 
+    signOut,
+    notifications,
+    setActiveView
   } = useAppStore();
 
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
 
-
   const SunIcon = ICON_MAP.SunIcon;
   const MoonIcon = ICON_MAP.MoonIcon;
   const PlusIcon = ICON_MAP.PlusIcon;
   const LogoutIcon = ICON_MAP.LogoutIcon;
+  const BellIcon = ICON_MAP.BellIcon;
 
   const headerTextColor = darkMode ? 'text-slate-100' : 'text-slate-800'; // Or use --page-foreground
   const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = async () => {
     try {
@@ -67,6 +71,16 @@ export const Header: React.FC = () => {
           {activeProject && <p className={`text-sm ${subTextColor}`}>Manage tasks and progress for {activeProject.name}.</p>}
         </div>
         <div className="flex items-center space-x-3 md:space-x-4">
+          <button
+            onClick={() => setActiveView('inbox_view')}
+            className={`relative p-2 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'}`}
+            aria-label="Notifications"
+          >
+            <BellIcon className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+            )}
+          </button>
           <Button
             variant="secondary" 
             size="icon"

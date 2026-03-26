@@ -12,6 +12,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 }
 
 const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export { supabase };
 
 interface UserProfileDb { 
   id: string; 
@@ -301,6 +302,38 @@ const supabaseService = {
     return data.map(mapDbTaskToAppTask);
   },
 
+  getMyTasks: async (): Promise<Task[]> => {
+    const { data: authUser } = await supabase.auth.getUser();
+    if (!authUser.user) throw new Error("User not authenticated");
+    
+    // Fetch tasks where assigned_to (assignee_id) is the current user
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('assignee_id', authUser.user.id);
+      
+    if (error) throw error;
+    return data.map(mapDbTaskToAppTask);
+  },
+
+  getNotifications: async (): Promise<any[]> => {
+    const { data: authUser } = await supabase.auth.getUser();
+    if (!authUser.user) return [];
+    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', authUser.user.id).order('created_at', { ascending: false });
+    if (error) {
+      console.warn("Notifications table might not exist:", error);
+      throw error;
+    }
+    return data || [];
+  },
+
+  insertNotification: async (notification: any): Promise<void> => {
+    const { error } = await supabase.from('notifications').insert([notification]);
+    if (error) {
+      console.warn("Failed to insert notification, table might not exist:", error);
+    }
+  },
+
   getUsersByOrganizationId: async (organizationId: string): Promise<AppUserType[]> => {
     const { data, error } = await supabase.from('user_profiles').select('*').eq('organization_id', organizationId);
     if (error) throw error;
@@ -327,8 +360,9 @@ const supabaseService = {
       creator_id: authUser.user.id
     };
 
-    const { error } = await supabase.from('tasks').insert(dbTaskData);
+    const { data, error } = await supabase.from('tasks').insert(dbTaskData).select().single();
     if (error) throw error;
+    return mapDbTaskToAppTask(data);
   },
 
   updateTask: async (taskId: string, updates: Partial<Omit<Task, 'id'>>) => {

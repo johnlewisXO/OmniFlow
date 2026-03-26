@@ -98,10 +98,14 @@ export interface OrganizationCheckState {
 
 export interface Notification {
   id: string;
+  user_id?: string;
+  actor_id?: string;
+  type: string;
+  entity_type?: 'task' | 'project' | 'user' | 'system';
+  entity_id?: string;
   title: string;
   message: string;
-  type: 'task_added' | 'task_updated' | 'project_added' | 'project_updated' | 'system';
-  related_entity_id?: string;
+  metadata?: Record<string, any>;
   read: boolean;
   created_at: string;
 }
@@ -113,6 +117,7 @@ export interface AppStore {
   users: User[];
   projects: Project[];
   tasks: Task[];
+  myTasks: Task[];
 
   currentUser: User | null;
   authLoading: boolean;
@@ -150,6 +155,8 @@ export interface AppStore {
   fetchTasksForProject: (projectId: string) => Promise<void>;
   fetchUsersForAssignmentList: () => Promise<void>; // Used for assignees and now team management
   fetchAllTasksForAllProjects: () => Promise<void>; // For My Tasks view
+  fetchMyTasks: () => Promise<void>;
+  fetchNotifications: () => Promise<void>;
 
   isLoadingProjects: boolean;
   isLoadingTasks: boolean;
@@ -214,10 +221,12 @@ export interface AppStore {
   deleteUserError: string | null;
 
   notifications: Notification[];
-  addNotification: (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => void;
+  addNotification: (notification: Partial<Notification> & Omit<Notification, 'id' | 'created_at' | 'read'>) => void;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
   clearNotifications: () => void;
+  emitEvent: (eventType: string, payload: any) => void;
+  handleEvent: (eventType: string, payload: any) => void;
 
   // Password Update
   isPasswordUpdateModalOpen: boolean;

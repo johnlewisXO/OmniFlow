@@ -5,6 +5,7 @@ import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, Orga
 import { ICON_MAP } from '../constants';
 import supabaseService from '../services/supabaseService';
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
+import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
 
 // --- NO MOCK DATA ---
 
@@ -68,6 +69,7 @@ const initialStoreStateValues: StoreState = {
   currentUser: null,
   projects: [],
   tasks: [],
+  myTasks: [],
   activeProject: null,
   activeView: 'overview',
   isModalOpen: false, 
@@ -85,9 +87,9 @@ const initialStoreStateValues: StoreState = {
   authError: null,
   appLoading: true,
 
-  isLoadingProjects: false,
-  isLoadingTasks: false,
-  isLoadingUsersForAssignment: false,
+  isLoadingProjects: true,
+  isLoadingTasks: true,
+  isLoadingUsersForAssignment: true,
   projectsError: null,
   tasksError: null,
   usersForAssignmentError: null,
@@ -199,20 +201,162 @@ const appActionsCreator = (
   get: () => StoreState
 ) => {
   const selfActions = {
-    addNotification: (notification: Omit<Notification, 'id' | 'created_at' | 'read'>) => {
+    emitEvent: (eventType: string, payload: any) => {
+      selfActions.handleEvent(eventType, payload);
+    },
+    handleEvent: (eventType: string, payload: any) => {
+      const { currentUser } = get();
+      if (!currentUser) return;
+
+      let notification: Omit<Notification, 'id' | 'created_at' | 'read'> | null = null;
+
+      switch (eventType) {
+        case 'TASK_CREATED':
+          notification = {
+            type: eventType,
+            title: 'New Task Created',
+            message: `Task "${payload.task.title}" was created in project.`,
+            entity_type: 'task',
+            entity_id: payload.task.id,
+            actor_id: currentUser.id,
+            user_id: payload.task.assignee_id || currentUser.id, // Notify assignee or self
+          };
+          break;
+        case 'TASK_ASSIGNED':
+          notification = {
+            type: eventType,
+            title: 'Task Assigned',
+            message: `You were assigned to task "${payload.task.title}".`,
+            entity_type: 'task',
+            entity_id: payload.task.id,
+            actor_id: currentUser.id,
+            user_id: payload.task.assignee_id,
+          };
+          break;
+        case 'TASK_UPDATED':
+          notification = {
+            type: eventType,
+            title: 'Task Updated',
+            message: `Task "${payload.task.title}" was updated.`,
+            entity_type: 'task',
+            entity_id: payload.task.id,
+            actor_id: currentUser.id,
+            user_id: payload.task.assignee_id || currentUser.id,
+          };
+          break;
+        case 'TASK_STATUS_UPDATED':
+          notification = {
+            type: eventType,
+            title: 'Task Status Updated',
+            message: `Task "${payload.task.title}" status changed to ${payload.task.status}.`,
+            entity_type: 'task',
+            entity_id: payload.task.id,
+            actor_id: currentUser.id,
+            user_id: payload.task.assignee_id || currentUser.id,
+          };
+          break;
+        case 'PROJECT_CREATED':
+          notification = {
+            type: eventType,
+            title: 'Project Created',
+            message: `Project "${payload.project.name}" was created.`,
+            entity_type: 'project',
+            entity_id: payload.project.id,
+            actor_id: currentUser.id,
+            user_id: currentUser.id,
+          };
+          break;
+        case 'TASK_DUE_SOON':
+          notification = {
+            type: eventType,
+            title: 'Task Due Soon',
+            message: `Task "${payload.task.title}" is due today.`,
+            entity_type: 'task',
+            entity_id: payload.task.id,
+            actor_id: currentUser.id,
+            user_id: payload.task.assignee_id || currentUser.id,
+          };
+          break;
+        case 'TASK_OVERDUE':
+          notification = {
+            type: eventType,
+            title: 'Task Overdue',
+            message: `Task "${payload.task.title}" is overdue.`,
+            entity_type: 'task',
+            entity_id: payload.task.id,
+            actor_id: currentUser.id,
+            user_id: payload.task.assignee_id || currentUser.id,
+          };
+          break;
+        case 'TASK_DELETED':
+          notification = {
+            type: eventType,
+            title: 'Task Deleted',
+            message: `Task "${payload.task.title}" was deleted.`,
+            entity_type: 'task',
+            entity_id: payload.task.id,
+            actor_id: currentUser.id,
+            user_id: payload.task.assignee_id || currentUser.id,
+          };
+          break;
+        case 'USER_ROLE_UPDATED':
+          notification = {
+            type: eventType,
+            title: 'Role Updated',
+            message: `Your role has been updated to ${payload.newRole}.`,
+            entity_type: 'user',
+            entity_id: payload.userId,
+            actor_id: currentUser.id,
+            user_id: payload.userId,
+          };
+          break;
+        case 'USER_REMOVED_FROM_ORG':
+          notification = {
+            type: eventType,
+            title: 'Removed from Organization',
+            message: `You have been removed from the organization.`,
+            entity_type: 'user',
+            entity_id: payload.userId,
+            actor_id: currentUser.id,
+            user_id: payload.userId,
+          };
+          break;
+        default:
+          break;
+      }
+
+      if (notification) {
+        selfActions.addNotification(notification);
+      }
+    },
+    addNotification: (notification: Partial<Notification> & Omit<Notification, 'id' | 'created_at' | 'read'>) => {
       const newNotification: Notification = {
         ...notification,
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        read: false,
+        id: notification.id || crypto.randomUUID(),
+        created_at: notification.created_at || new Date().toISOString(),
+        read: notification.read || false,
       };
-      updateState(s => {
-        const newNotifications = [newNotification, ...s.notifications];
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('notifications', JSON.stringify(newNotifications));
-        }
-        return { ...s, notifications: newNotifications };
-      });
+      
+      // Try to insert into Supabase if it doesn't have an ID yet (meaning it's local)
+      if (!notification.id) {
+        supabaseService.insertNotification(newNotification).catch(e => console.error(e));
+      }
+
+      // Only add to local state if it belongs to the current user
+      const { currentUser } = get();
+      if (currentUser && newNotification.user_id === currentUser.id) {
+        updateState(s => {
+          // Check if it already exists
+          if (s.notifications.some(n => n.id === newNotification.id)) {
+            return s;
+          }
+          const newNotifications = [newNotification, ...s.notifications];
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('notifications', JSON.stringify(newNotifications));
+          }
+          return { ...s, notifications: newNotifications };
+        });
+      }
     },
     markNotificationAsRead: (id: string) => {
       updateState(s => {
@@ -273,6 +417,63 @@ const appActionsCreator = (
           const message = parseErrorMessage(error, `Failed to fetch tasks for project ${projectId}.`);
           updateState(s => ({ ...s, isLoadingTasks: false, tasksError: message }));
         }
+    },
+    fetchMyTasks: async () => {
+      const { currentUser, notifications } = get();
+      if (!currentUser) return;
+      updateState(s => ({ ...s, isLoadingTasks: true, tasksError: null }));
+      try {
+        const myTasks = await supabaseService.getMyTasks();
+        
+        // Check for due tasks
+        const today = startOfDay(new Date());
+        myTasks.forEach(task => {
+          if (task.status === TaskStatus.DONE || !task.dueDate) return;
+          const dueDate = startOfDay(parseISO(task.dueDate));
+          
+          if (isBefore(dueDate, today)) {
+            // Check if we already notified about this task being overdue
+            const alreadyNotified = notifications.some(n => n.entity_id === task.id && n.type === 'TASK_OVERDUE');
+            if (!alreadyNotified) {
+              selfActions.emitEvent('TASK_OVERDUE', { task });
+            }
+          } else if (isToday(dueDate)) {
+            // Check if we already notified about this task being due today
+            const alreadyNotified = notifications.some(n => n.entity_id === task.id && n.type === 'TASK_DUE_SOON');
+            if (!alreadyNotified) {
+              selfActions.emitEvent('TASK_DUE_SOON', { task });
+            }
+          }
+        });
+
+        updateState(s => ({ ...s, myTasks, isLoadingTasks: false }));
+      } catch (error: any) {
+        console.error("Failed to fetch my tasks:", error);
+        updateState(s => ({ ...s, isLoadingTasks: false, tasksError: parseErrorMessage(error, "Failed to fetch my tasks.") }));
+      }
+    },
+    fetchNotifications: async () => {
+      try {
+        const dbNotifications = await supabaseService.getNotifications();
+        updateState(s => {
+          // Merge dbNotifications with local notifications
+          const merged = [...dbNotifications];
+          s.notifications.forEach(ln => {
+            if (!merged.some(dn => dn.id === ln.id)) {
+              merged.push(ln);
+            }
+          });
+          // Sort by created_at desc
+          merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('notifications', JSON.stringify(merged));
+          }
+          return { ...s, notifications: merged };
+        });
+      } catch (error: any) {
+        console.error("Failed to fetch notifications:", error);
+      }
     },
     setActiveProject: (projectId: string | null) => {
       if (projectId) {
@@ -343,7 +544,7 @@ const appActionsCreator = (
     }
   };
 
-  return {
+  Object.assign(selfActions, {
     toggleDarkMode: () => updateState(s => ({ ...s, darkMode: !s.darkMode })),
     setActiveView: (view: ActiveView) => {
         updateState(s => ({ ...s, activeView: view }));
@@ -466,14 +667,9 @@ const appActionsCreator = (
       }
       updateState(s => ({ ...s, isLoading: true, error: null }));
       try {
-        await supabaseService.createTask(taskData);
+        const createdTask = await supabaseService.createTask(taskData);
         await selfActions.fetchTasksForProject(activeProject.id); 
-        selfActions.addNotification({
-          title: 'Task Created',
-          message: `Task "${taskData.title}" was created in project "${activeProject.name}"`,
-          type: 'task_added',
-          related_entity_id: activeProject.id
-        });
+        selfActions.emitEvent('TASK_CREATED', { task: createdTask });
         updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [] }));
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to create task.');
@@ -497,12 +693,15 @@ const appActionsCreator = (
             await supabaseService.updateTask(taskId, updates);
             await selfActions.fetchTasksForProject(activeProject.id); 
             if (originalTask) {
-              selfActions.addNotification({
-                title: 'Task Updated',
-                message: `Task "${updates.title || originalTask.title}" was updated in project "${activeProject.name}"`,
-                type: 'task_updated',
-                related_entity_id: taskId
-              });
+              const updatedTask = { ...originalTask, ...updates };
+              selfActions.emitEvent('TASK_UPDATED', { task: updatedTask });
+              
+              if (updates.assignee_id && updates.assignee_id !== originalTask.assignee_id) {
+                selfActions.emitEvent('TASK_ASSIGNED', { task: updatedTask });
+              }
+              if (updates.status && updates.status !== originalTask.status) {
+                selfActions.emitEvent('TASK_STATUS_UPDATED', { task: updatedTask });
+              }
             }
              updateState(s => ({ ...s, isLoadingTasks: false }));
         } catch (error: any) {
@@ -517,10 +716,14 @@ const appActionsCreator = (
         return;
       }
       const tasksAfterDelete = currentTasks.filter(t => t.id !== taskId);
+      const taskToDelete = currentTasks.find(t => t.id === taskId);
       updateState(s => ({ ...s, tasks: tasksAfterDelete, isLoadingTasks: true, tasksError: null }));
       try {
         await supabaseService.deleteTask(taskId);
         await selfActions.fetchTasksForProject(activeProject.id); 
+        if (taskToDelete) {
+          selfActions.emitEvent('TASK_DELETED', { task: taskToDelete });
+        }
         updateState(s => ({ ...s, isLoadingTasks: false }));
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to delete task ${taskId}. Reverting.`);
@@ -606,6 +809,11 @@ const appActionsCreator = (
           supabaseService.updateTask(taskUpdate.id, { status: taskUpdate.status, position: taskUpdate.position })
         );
         await Promise.all(updatePromises);
+        
+        if (originalStatus !== newStatus) {
+          selfActions.emitEvent('TASK_STATUS_UPDATED', { task: draggedTask });
+        }
+        
         updateState(s => ({ ...s, isLoadingTasks: false }));
 
       } catch (error: any) {
@@ -679,12 +887,7 @@ const appActionsCreator = (
         }));
         
         if (newProjectFromService) {
-          selfActions.addNotification({
-            title: 'Project Created',
-            message: `Project "${newProjectFromService.name}" was successfully created.`,
-            type: 'project_added',
-            related_entity_id: newProjectFromService.id
-          });
+          selfActions.emitEvent('PROJECT_CREATED', { project: newProjectFromService });
         }
 
         if (projectToActivate) {
@@ -768,6 +971,9 @@ const appActionsCreator = (
         await selfActions.fetchUsersForAssignmentList(); // This will log internal details
         updateState(s => ({ ...s, isUpdatingUserRole: false }));
         console.log(`[useAppStore] updateUserRoleInOrganization: User list refreshed. Update complete for user ${userId}. Current users in store:`, get().users);
+        
+        // Emit event for notification
+        get().emitEvent('USER_ROLE_UPDATED', { userId, newRole });
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update role for user ${userId}.`);
         console.error(`[useAppStore] updateUserRoleInOrganization: Error for user ${userId} - ${message}`, error);
@@ -798,6 +1004,9 @@ const appActionsCreator = (
         await selfActions.fetchUsersForAssignmentList(); // This will log internal details
         updateState(s => ({ ...s, isDeletingUser: null }));
         console.log(`[useAppStore] deleteUserFromOrganization: User list refreshed. Deletion complete for user ${userId}. Current users in store:`, get().users);
+        
+        // Emit event for notification
+        get().emitEvent('USER_REMOVED_FROM_ORG', { userId });
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to remove user ${userId} from organization.`);
         console.error(`[useAppStore] deleteUserFromOrganization: Error for user ${userId} - ${message}`, error);
@@ -819,9 +1028,10 @@ const appActionsCreator = (
         throw error;
       }
     },
-  };
-};
+  });
 
+  return selfActions;
+};
 
 type AppStoreHookType = StoreState & ReturnType<typeof appActionsCreator>;
 

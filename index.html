@@ -129,25 +129,25 @@
     <style type="text/tailwindcss">
       @layer base {
         :root {
-          /* Light Mode - Omni Flow App - Cool Blues & Warm Accent */
-          --page-background-base-light: 210 60% 97%;
-          --page-foreground-light: 215 40% 25%;
-          --panel-bg-light: hsla(220, 50%, 95%, 0.7);
-          --panel-border-light: hsla(220, 30%, 80%, 0.4);
-          --card-bg-light: hsla(220, 50%, 98%, 0.65);
-          --card-border-light: hsla(220, 30%, 85%, 0.35);
+          /* Light Mode - Jira Aesthetic */
+          --page-background-base-light: 210 33% 98%; /* #FAFBFC */
+          --page-foreground-light: 218 54% 20%; /* #172B4D */
+          --panel-bg-light: 0 0% 100%; /* #FFFFFF */
+          --panel-border-light: 223 16% 89%; /* #DFE1E6 */
+          --card-bg-light: 0 0% 100%;
+          --card-border-light: 223 16% 89%;
 
           /* Shared Values */
-          --primary: 262.1 83.3% 57.8%; 
-          --primary-rgb: 139, 92, 246; 
-          --primary-light: 262.1 93.3% 67.8%;
-          --primary-dark: 262.1 73.3% 47.8%;
+          --primary: 216 100% 40%; /* #0052CC */
+          --primary-rgb: 0, 82, 204; 
+          --primary-light: 216 100% 50%;
+          --primary-dark: 216 100% 30%;
           --primary-foreground: 0 0% 100%;
           --accent: var(--primary);
           --accent-rgb: var(--primary-rgb);
           --accent-light: var(--primary-light);
           --accent-dark: var(--primary-dark);
-          --shadow-color-rgb: 200, 210, 230;
+          --shadow-color-rgb: 9, 30, 66; /* Jira shadow color */
           
           /* Status Colors */
           --status-success: 145 63% 49%;
@@ -157,24 +157,27 @@
           --status-info: 200 80% 55%; 
 
           /* Landing Page Specific Colors - NEW THEME */
-          --neon-accent: 210 100% 56%; 
-          --neon-accent-rgb: 20, 144, 255;
-          --neon-accent-secondary: 262.1 93.3% 67.8%;
-          --neon-accent-secondary-rgb: 173, 129, 255;
+          --neon-accent: 216 100% 40%; 
+          --neon-accent-rgb: 0, 82, 204;
+          --neon-accent-secondary: 216 100% 60%;
+          --neon-accent-secondary-rgb: 51, 133, 255;
           --landing-bg: 235 21% 11%;
           --landing-bg-darker: 236 25% 8%;
           --landing-border: 233 14% 21%;
         }
 
         html.dark { 
-          /* Dark Mode - Omni Flow App */
-          --page-background-base-dark: 220 25% 10%;
-          --page-foreground-dark: 210 30% 88%;
-          --panel-bg-dark: hsla(225, 20%, 18%, 0.65);
-          --panel-border-dark: hsla(225, 15%, 35%, 0.4);
-          --card-bg-dark: hsla(225, 20%, 15%, 0.6);
-          --card-border-dark: hsla(225, 15%, 30%, 0.35);
+          /* Dark Mode - Jira Aesthetic */
+          --page-background-base-dark: 210 12% 13%; /* #1D2125 */
+          --page-foreground-dark: 211 20% 76%; /* #B6C2CF */
+          --panel-bg-dark: 207 12% 15%; /* #22272B */
+          --panel-border-dark: 210 38% 15%; /* Darker border */
+          --card-bg-dark: 207 12% 15%;
+          --card-border-dark: 210 38% 15%;
           --shadow-color-rgb: 0, 0, 0;
+          --primary: 215 100% 67%; /* #579DFF */
+          --primary-rgb: 87, 157, 255;
+          --primary-foreground: 210 12% 13%;
         }
         
         /* Unified variables that switch with dark mode */
@@ -197,12 +200,10 @@
 
         body { 
           @apply text-[hsl(var(--page-foreground))];
-          background-image: linear-gradient(135deg, hsl(var(--page-background)) 0%, hsl(var(--page-background) / 0.95) 50%, hsl(var(--page-background) / 0.9) 100%);
+          background-color: hsl(var(--page-background));
           font-family: theme('fontFamily.sans');
           line-height: 1.6;
-          background-size: 200% 200%;
-          @apply animate-slowGradientShift;
-          transition: background 1.5s ease-in-out, color 1s ease-in-out;
+          transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
         }
         
         body.landing-page-active {
@@ -221,18 +222,22 @@
         }
 
         .glass-panel { 
-            @apply backdrop-blur-lg shadow-glass transition-all duration-500 ease-out rounded-squircle-lg; 
-            background-color: var(--panel-background);
-            border: 1px solid var(--panel-border);
+            @apply shadow-sm transition-all duration-300 ease-out rounded-xl; 
+            background-color: hsl(var(--panel-bg-light));
+            border: 1px solid hsl(var(--panel-border-light));
+        }
+        html.dark .glass-panel {
+            background-color: hsl(var(--panel-bg-dark));
+            border: 1px solid hsl(var(--panel-border-dark));
         }
         .auth-panel {
-            background-color: hsla(var(--page-background-base-dark), 0.75);
-            @apply backdrop-blur-lg shadow-glass-lg rounded-squircle-lg;
-            border: 1px solid var(--panel-border);
+            background-color: hsl(var(--panel-bg-light));
+            @apply shadow-md rounded-xl;
+            border: 1px solid hsl(var(--panel-border-light));
         }
         html.dark .auth-panel {
-             background-color: hsla(var(--page-background-base-dark), 0.75);
-             border: 1px solid var(--panel-border-dark);
+             background-color: hsl(var(--panel-bg-dark));
+             border: 1px solid hsl(var(--panel-border-dark));
         }
 
         input[type="text"], input[type="email"], input[type="password"], input[type="date"], textarea, select {

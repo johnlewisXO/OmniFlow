@@ -8,7 +8,7 @@ import { EditTaskModal } from './components/tasks/EditTaskModal';
 import { CreateProjectModal } from './components/projects/CreateProjectModal';
 // Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from './hooks/useAppStore';
-import supabaseService from './services/supabaseService';
+import supabaseService, { supabase } from './services/supabaseService';
 import { AuthPage } from './components/auth/AuthPage';
 import { User as AppUserType, Project, UserRole, ActiveView } from './types';
 
@@ -30,6 +30,53 @@ import { MyTasksPage } from './components/tasks/MyTasksPage';
 import { InboxPage } from './components/inbox/InboxPage';
 import { ReportsPage } from './components/reports/ReportsPage';
 import { TeamManagementPage } from './components/team/TeamManagementPage'; 
+
+const ToastContainer: React.FC = () => {
+  const { notifications, markNotificationAsRead, darkMode } = useAppStore();
+  const [visibleToasts, setVisibleToasts] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Find new unread notifications that we haven't shown yet
+    const newUnread = notifications.filter(n => !n.read && (new Date().getTime() - new Date(n.created_at).getTime()) < 5000);
+    
+    if (newUnread.length > 0) {
+      const newIds = newUnread.map(n => n.id).filter(id => !visibleToasts.includes(id));
+      if (newIds.length > 0) {
+        setVisibleToasts(prev => [...prev, ...newIds]);
+        
+        // Auto-dismiss after 5 seconds
+        newIds.forEach(id => {
+          setTimeout(() => {
+            setVisibleToasts(prev => prev.filter(tId => tId !== id));
+          }, 5000);
+        });
+      }
+    }
+  }, [notifications, visibleToasts]);
+
+  if (visibleToasts.length === 0) return null;
+
+  const toastsToShow = notifications.filter(n => visibleToasts.includes(n.id));
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      {toastsToShow.map(n => (
+        <div key={n.id} className={`p-4 rounded-lg shadow-lg border flex items-start gap-3 w-80 animate-in slide-in-from-bottom-5 ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+          <div className="flex-1">
+            <h4 className="font-medium text-sm">{n.title}</h4>
+            <p className="text-xs mt-1 opacity-80">{n.message}</p>
+          </div>
+          <button onClick={() => {
+            markNotificationAsRead(n.id);
+            setVisibleToasts(prev => prev.filter(id => id !== n.id));
+          }} className="text-slate-400 hover:text-slate-600">
+            <ICON_MAP.CheckIcon className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const MainAppLayout: React.FC = () => {
   const {
@@ -151,6 +198,7 @@ const MainAppLayout: React.FC = () => {
           {renderContentByView()}
         </div>
       </div>
+      <ToastContainer />
       <CreateTaskModal />
       <EditTaskModal /> 
       <CreateProjectModal
@@ -164,11 +212,46 @@ const MainAppLayout: React.FC = () => {
   );
 };
 
-const GlobalSpinner: React.FC = () => (
-  <div className="global-spinner-overlay">
-    <div className="global-spinner"></div>
-  </div>
-);
+const GlobalSpinner: React.FC = () => {
+  const isDarkMode = document.documentElement.classList.contains('dark');
+  return (
+    <div className={`h-screen w-screen flex gap-3 md:gap-4 p-3 md:p-4 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+      {/* Sidebar Skeleton */}
+      <div className={`w-64 flex-shrink-0 rounded-xl border shadow-sm animate-pulse ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
+        <div className="p-6 space-y-6">
+          <div className={`h-8 w-3/4 rounded ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className={`h-6 w-full rounded ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Main Content Skeleton */}
+      <div className="flex-1 flex flex-col gap-3 md:gap-4 min-w-0">
+        {/* Header Skeleton */}
+        <div className={`h-16 rounded-xl border shadow-sm animate-pulse flex items-center justify-between px-6 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
+          <div className={`h-6 w-48 rounded ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+          <div className="flex gap-4">
+            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+          </div>
+        </div>
+        
+        {/* Content Area Skeleton */}
+        <div className={`flex-1 rounded-xl border shadow-sm animate-pulse p-6 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
+          <div className={`h-8 w-64 rounded mb-8 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className={`h-48 rounded-xl ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const localParseErrorMessage = (error: any, defaultMessage: string = "An unexpected error occurred in the application."): string => {
   if (!error) return defaultMessage;
@@ -195,6 +278,9 @@ function App() {
     appLoading, setAppLoading,
     authError, setAuthError,
     fetchProjects,
+    fetchMyTasks,
+    fetchNotifications,
+    addNotification,
     fetchUsersForAssignmentList,
     activeProject, setActiveProject,
     projects, setProjects, 
@@ -337,9 +423,32 @@ function App() {
       return;
     }
 
+    let channel: any = null;
+
     if (currentUser?.id) {
       console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} (Org: ${currentUser.organization_id || 'N/A'}) exists. Triggering fetchProjects.`);
+      
+      // Fetch notifications first so fetchMyTasks can use them to avoid duplicate due date notifications
+      fetchNotifications()
+        .then(() => fetchMyTasks())
+        .catch(e => console.error("[App.tsx DataFetchEffect] Error during fetchNotifications or fetchMyTasks:", e));
+        
       fetchProjects().catch(e => console.error("[App.tsx DataFetchEffect] Error during fetchProjects:", e));
+
+      // Set up realtime subscription for notifications
+      channel = supabase.channel(`notifications:user_id=eq.${currentUser.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${currentUser.id}`
+        }, (payload) => {
+          console.log('New notification received:', payload.new);
+          // Only add if it's not already in the store (to avoid duplicates if we also emitted locally)
+          // We can just add it, but let's make sure it's mapped correctly
+          addNotification(payload.new as any);
+        })
+        .subscribe();
 
       if (currentUser.organization_id) {
         console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} belongs to Org ${currentUser.organization_id}. Triggering fetchUsersForAssignmentList.`);
@@ -372,12 +481,18 @@ function App() {
            setActiveView('overview');
       }
     }
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [
     currentUser?.id, currentUser?.organization_id, appLoading, 
-    fetchProjects, fetchUsersForAssignmentList,
+    fetchProjects, fetchMyTasks, fetchNotifications, fetchUsersForAssignmentList,
     setProjects, setUsers, setTasks, setActiveProject,
     setProjectsError, setUsersForAssignmentError, setTasksError,
-    activeView, setActiveView, authError, setAuthError, projectsError, currentRoute
+    activeView, setActiveView, authError, setAuthError, projectsError, currentRoute, addNotification
   ]);
 
    useEffect(() => {

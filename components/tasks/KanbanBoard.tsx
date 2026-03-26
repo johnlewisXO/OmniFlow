@@ -46,11 +46,25 @@ export const KanbanBoard: React.FC = () => {
   // Display loading spinner for tasks only if activeProject is loaded but tasks are still fetching.
   if (activeProject && isLoadingTasks) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6 bg-transparent">
-        <div className="text-center">
-          <SpinnerIcon className={`w-12 h-12 mx-auto mb-6 ${darkMode ? 'text-slate-400' : 'text-slate-500'} animate-spin`} />
-          <h2 className={`text-xl font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>Loading Tasks for {activeProject.name}...</h2>
-        </div>
+      <div className="flex-1 flex space-x-3 md:space-x-4 p-4 md:p-6 overflow-x-auto bg-transparent">
+        {[1, 2, 3, 4].map((col) => (
+          <div key={col} className={`flex-shrink-0 w-72 md:w-80 rounded-xl flex flex-col ${darkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-slate-100/50 border-slate-200/50'} border shadow-sm`}>
+            <div className="p-3 border-b border-slate-200/50 dark:border-slate-700/50">
+              <div className={`h-5 w-24 rounded animate-pulse ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+            </div>
+            <div className="flex-1 p-2 space-y-3 overflow-y-auto">
+              {[1, 2, 3].map((task) => (
+                <div key={task} className={`p-4 rounded-lg border shadow-sm animate-pulse ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                  <div className={`h-4 w-3/4 rounded mb-3 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                  <div className="flex justify-between items-center mt-4">
+                    <div className={`h-3 w-16 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                    <div className={`h-6 w-6 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
