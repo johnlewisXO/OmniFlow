@@ -127,7 +127,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             </p>
         )}
 
-        <div className="flex justify-end space-x-3 pt-3 border-t border-[var(--panel-border)]">
+        <div className="flex justify-end space-x-3 pt-3 border-t border-[hsl(var(--panel-border))]">
           <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>Cancel</Button>
           <Button type="submit" variant="primary" disabled={createButtonDisabled || !name.trim()}>
             {isLoading && <SpinnerIcon className="w-5 h-5 animate-spin mr-2" />}

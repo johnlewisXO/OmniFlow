@@ -31,7 +31,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, color
 
   const tasksInColumn = getTasksByProjectIdAndStatus(activeProject.id, status);
 
-  const columnBackgroundStyle = { backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' };
+  const columnBackgroundStyle = { backgroundColor: 'hsl(var(--panel-background))', borderColor: 'hsl(var(--panel-border))' };
   const textColor = darkMode ? 'text-slate-200' : 'text-slate-700';
   const countBg = darkMode ? 'bg-slate-700/70' : 'bg-slate-300/70';
   const countText = darkMode ? 'text-slate-300' : 'text-slate-600';

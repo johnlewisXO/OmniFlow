@@ -9,7 +9,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
 }
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md' }) => {
@@ -32,12 +32,17 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+    full: 'max-w-[95vw] h-[95vh] flex flex-col',
   };
   
   // Use CSS variables for panel background and border for consistency
-  const modalContentBg = 'var(--panel-background)'; 
+  const modalContentBg = 'hsl(var(--panel-background))'; 
   const modalTextColor = darkMode ? 'text-slate-100' : 'text-slate-800'; // Or use --page-foreground
-  const modalBorderColor = 'var(--panel-border)';
+  const modalBorderColor = 'hsl(var(--panel-border))';
 
   return (
     <div 
@@ -64,7 +69,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             </svg>
           </button>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto scrollbar-thin pr-1.5">
+        <div className={`${size === 'full' ? 'flex-1 overflow-y-auto' : 'max-h-[70vh] overflow-y-auto'} scrollbar-thin pr-1.5`}>
           {children}
         </div>
       </div>

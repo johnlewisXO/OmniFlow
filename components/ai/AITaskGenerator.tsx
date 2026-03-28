@@ -54,7 +54,7 @@ export const AITaskGenerator: React.FC<AITaskGeneratorProps> = ({
   return (
     <div 
       className={`my-4 p-4 border rounded-squircle-md shadow-inner-glass`}
-      style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)', borderColor: 'var(--panel-border)'}}
+      style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)', borderColor: 'hsl(var(--panel-border))'}}
     >
       <label htmlFor="task-description-ai" className={labelClass}>
         AI Task Helper <span className="text-xs opacity-70">(Optional)</span>

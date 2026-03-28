@@ -46,6 +46,46 @@ export interface Organization {
   updated_at?: string;
 }
 
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user?: User; // Joined user data
+}
+
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  file_name: string;
+  file_url: string;
+  file_type?: string;
+  file_size?: number;
+  created_at: string;
+  user?: User; // Joined user data
+}
+
+export interface TaskCollaborator {
+  task_id: string;
+  user_id: string;
+  role: 'editor' | 'viewer';
+  created_at: string;
+  user?: User; // Joined user data
+}
+
+export interface TaskActivityLog {
+  id: string;
+  task_id: string;
+  user_id: string;
+  action: string;
+  details?: Record<string, any>;
+  created_at: string;
+  user?: User; // Joined user data
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -60,6 +100,13 @@ export interface Task {
   parent_task_id?: string;
   created_at?: string;
   updated_at?: string;
+  
+  // New fields for advanced task view
+  comments?: TaskComment[];
+  attachments?: TaskAttachment[];
+  collaborators?: TaskCollaborator[];
+  subtasks?: Task[];
+  activity_logs?: TaskActivityLog[];
 }
 
 export interface Project {
@@ -168,7 +215,8 @@ export interface AppStore {
   usersForAssignmentError: string | null;
 
   isModalOpen: boolean; // Create Task Modal
-  openModal: () => void;
+  parentTaskIdForNewTask: string | null;
+  openModal: (parentTaskId?: string) => void;
   closeModal: () => void;
 
   isViewTaskModalOpen: boolean; 

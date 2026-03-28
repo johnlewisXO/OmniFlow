@@ -220,7 +220,7 @@ export const EditTaskModal: React.FC = () => {
 
         {displayError && <p className={`text-sm text-status-error text-center p-3 rounded-squircle-sm border border-status-error/40 bg-status-error/15`}>{displayError}</p>}
 
-        <div className="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 border-t border-[var(--panel-border)]"> {/* Reduced pt */}
+        <div className="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 border-t border-[hsl(var(--panel-border))]"> {/* Reduced pt */}
           <Button type="button" variant="outline" onClick={closeEditTaskModal} disabled={isSubmitting || globalIsLoading} className="w-full sm:w-auto text-sm">Cancel</Button>
           <Button type="submit" variant="primary" disabled={isSubmitting || globalIsLoading || !title.trim() || !hasChanges} className="w-full sm:w-auto text-sm">
             {(isSubmitting || globalIsLoading) && <SpinnerIcon className="w-4 h-4 animate-spin mr-2" />}

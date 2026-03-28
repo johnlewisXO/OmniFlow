@@ -5,6 +5,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { CreateTaskModal } from './components/tasks/CreateTaskModal';
 import { EditTaskModal } from './components/tasks/EditTaskModal'; 
+import { TaskDetailsModal } from './components/tasks/TaskDetailsModal';
 import { CreateProjectModal } from './components/projects/CreateProjectModal';
 // Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from './hooks/useAppStore';
@@ -124,7 +125,7 @@ const MainAppLayout: React.FC = () => {
       return (
         <div className="flex-1 flex items-center justify-center p-6 bg-transparent">
           <div className={`text-center p-6 rounded-squircle-lg border shadow-glass-lg ${darkMode ? 'bg-status-error/20 border-status-error/40' : 'bg-status-error/10 border-status-error/30'}`}
-               style={{backgroundColor: 'var(--panel-background)'}} /* Ensure glass panel style */
+               style={{backgroundColor: 'hsl(var(--panel-background))'}} /* Ensure glass panel style */
           >
             <ExclamationIcon className={`w-16 h-16 mx-auto mb-4 text-status-error`} />
             <h2 className={`text-xl font-semibold text-status-error`}>Backend Data Error</h2>
@@ -204,6 +205,7 @@ const MainAppLayout: React.FC = () => {
       <ToastContainer />
       <CreateTaskModal />
       <EditTaskModal /> 
+      <TaskDetailsModal />
       <CreateProjectModal
         isOpen={isCreateProjectModalOpen}
         onClose={closeCreateProjectModal}

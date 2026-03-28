@@ -22,6 +22,7 @@ interface StoreState {
   activeView: ActiveView;
 
   isModalOpen: boolean; // Create Task Modal
+  parentTaskIdForNewTask: string | null;
 
   isViewTaskModalOpen: boolean; 
   taskToView: Task | null;      
@@ -75,6 +76,7 @@ const initialStoreStateValues: StoreState = {
   activeProject: null, // We'll set this after projects fetch
   activeView: _activeView,
   isModalOpen: false, 
+  parentTaskIdForNewTask: null,
   isViewTaskModalOpen: false, 
   taskToView: null,          
   isEditTaskModalOpen: false, 
@@ -785,7 +787,7 @@ const appActionsCreator = (
     },
     getTasksByProjectIdAndStatus: (projectId: string, status: TaskStatus): Task[] => {
       return get().tasks
-        .filter(task => task.projectId === projectId && task.status === status)
+        .filter(task => task.projectId === projectId && task.status === status && !task.parent_task_id)
         .sort((a, b) => a.position - b.position);
     },
     moveTask: async (
@@ -875,8 +877,8 @@ const appActionsCreator = (
       }
     },
 
-    openModal: () => updateState(s => ({ ...s, isModalOpen: true })),
-    closeModal: () => updateState(s => ({ ...s, isModalOpen: false, suggestedTaskTitles: [], error: null })),
+    openModal: (parentTaskId?: string) => updateState(s => ({ ...s, isModalOpen: true, parentTaskIdForNewTask: parentTaskId || null })),
+    closeModal: () => updateState(s => ({ ...s, isModalOpen: false, suggestedTaskTitles: [], error: null, parentTaskIdForNewTask: null })),
 
     openViewTaskModal: (taskId: string) => {
         const task = get().tasks.find(t => t.id === taskId);

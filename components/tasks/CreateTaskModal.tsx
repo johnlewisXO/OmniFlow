@@ -28,7 +28,8 @@ export const CreateTaskModal: React.FC = () => {
     error: globalError,
     setError: setGlobalError,
     isLoadingUsersForAssignment,
-    usersForAssignmentError
+    usersForAssignmentError,
+    parentTaskIdForNewTask
   } = useAppStore();
 
   const [title, setTitle] = useState('');
@@ -94,6 +95,7 @@ export const CreateTaskModal: React.FC = () => {
       assignee_id: assignee_id,
       projectId: activeProject.id,
       dueDate: dueDate || undefined,
+      parent_task_id: parentTaskIdForNewTask || undefined,
     };
 
     try {
@@ -221,7 +223,7 @@ export const CreateTaskModal: React.FC = () => {
 
         {displayError && <p className={`text-sm text-status-error text-center p-3 rounded-squircle-sm border border-status-error/40 bg-status-error/15`}>{displayError}</p>}
 
-        <div className="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 border-t border-[var(--panel-border)]"> {/* Reduced pt */}
+        <div className="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 border-t border-[hsl(var(--panel-border))]"> {/* Reduced pt */}
           <Button type="button" variant="ghost" onClick={handleResetForm} disabled={isLoading} className="w-full sm:w-auto text-sm" title="Reset Form">
             <ResetIcon className="w-4 h-4 mr-1.5" />
             Reset

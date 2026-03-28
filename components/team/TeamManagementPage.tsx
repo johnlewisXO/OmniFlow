@@ -168,8 +168,8 @@ export const TeamManagementPage: React.FC = () => {
       )}
 
       {!isLoadingUsersForAssignment && !usersForAssignmentError && users.length > 0 && (
-        <div className={`shadow-glass rounded-squircle-md overflow-x-auto border border-[var(--panel-border)]`} style={{backgroundColor: 'var(--panel-background)'}}>
-          <table className={`min-w-full divide-y divide-[var(--panel-border)]`}>
+        <div className={`shadow-glass rounded-squircle-md overflow-x-auto border border-[hsl(var(--panel-border))]`} style={{backgroundColor: 'hsl(var(--panel-background))'}}>
+          <table className={`min-w-full divide-y divide-[hsl(var(--panel-border))]`}>
             <thead style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)'}}>
               <tr>
                 <th scope="col" className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">User</th>
@@ -179,7 +179,7 @@ export const TeamManagementPage: React.FC = () => {
                 <th scope="col" className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className={`divide-y divide-[var(--panel-border)]`}>
+            <tbody className={`divide-y divide-[hsl(var(--panel-border))]`}>
               {users.map((user) => {
                 const isCurrentUserRow = user.id === currentUser?.id;
                 const userCanBeManaged = canManageRole(user.role);
@@ -248,7 +248,7 @@ export const TeamManagementPage: React.FC = () => {
           </table>
         </div>
       )}
-      <div className="mt-8 p-6 rounded-squircle-md border text-center shadow-inner-glass" style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)', borderColor: 'var(--panel-border)'}}>
+      <div className="mt-8 p-6 rounded-squircle-md border text-center shadow-inner-glass" style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)', borderColor: 'hsl(var(--panel-border))'}}>
         <h3 className="text-lg font-semibold mb-2">Additional Management Tools</h3>
         <p className="text-sm opacity-70 mb-4">
           Features like revoking access, viewing detailed activity logs per user, and group management are planned for future updates.
@@ -261,7 +261,7 @@ export const TeamManagementPage: React.FC = () => {
 
       {showConfirmDeleteModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
-          <div className="p-6 rounded-squircle-lg shadow-glass-lg w-full max-w-md" style={{backgroundColor: 'var(--panel-background)', border: `1px solid var(--panel-border)`}}>
+          <div className="p-6 rounded-squircle-lg shadow-glass-lg w-full max-w-md" style={{backgroundColor: 'hsl(var(--panel-background))', border: `1px solid hsl(var(--panel-border))`}}>
             <h3 className="text-lg font-semibold text-status-error mb-3">Confirm Removal</h3>
             <p className="text-sm mb-5">
               Are you sure you want to remove <strong className="font-medium">{users.find(u=>u.id === showConfirmDeleteModal)?.full_name || 'this user'}</strong> from the organization? They will lose access to all organization projects and data.

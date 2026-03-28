@@ -15,7 +15,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     users, 
     darkMode, 
     deleteTask: deleteTaskAction, 
-    openEditTaskModal,
+    openViewTaskModal,
     highlightedTaskId 
   } = useAppStore();
   
@@ -38,7 +38,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
   };
 
   const handleCardClick = () => {
-    openEditTaskModal(task.id);
+    openViewTaskModal(task.id);
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
