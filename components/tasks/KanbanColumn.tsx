@@ -110,7 +110,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, color
           </span>
         </div>
         <button 
-          onClick={openModal} 
+          onClick={() => openModal()} 
           className={`${darkMode ? 'text-slate-400 hover:text-accent-light' : 'text-slate-500 hover:text-accent'} p-1.5 rounded-squircle-sm ${buttonHoverBg} transition-colors`}
           title={`Add task to ${title}`}
           disabled={!activeProject}

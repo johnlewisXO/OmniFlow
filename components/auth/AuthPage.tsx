@@ -47,48 +47,7 @@ export const AuthPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [organizationName, setOrganizationName] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.MEMBER);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const CheckmarkIconSvg = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="checkmark-icon">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-    </svg>
-  )
-
-  const performOrgCheck = useCallback(
-    async (name: string) => {
-      if (!name.trim()) {
-        setOrganizationCheck({ loading: false, exists: null, orgId: undefined, orgSlug: undefined, error: null });
-        return;
-      }
-      setOrganizationCheck({ loading: true, exists: null, error: null });
-      try {
-        const result = await supabaseService.checkOrganizationExists(name);
-        if (result.error) {
-          setOrganizationCheck({ loading: false, exists: false, error: result.error });
-        } else {
-          setOrganizationCheck({ loading: false, exists: result.exists, orgId: result.id, orgSlug: result.slug, error: null });
-        }
-      } catch (error: any) {
-        console.error("Org check service call failed:", error);
-        setOrganizationCheck({ loading: false, exists: false, error: error.message || "Failed to check organization status." });
-      }
-    },
-    [setOrganizationCheck]
-  );
-
-  const debouncedOrgCheck = useCallback(debounce(performOrgCheck, 700), [performOrgCheck]);
-
-  useEffect(() => {
-    if (!isLoginView && organizationName.trim()) {
-      debouncedOrgCheck(organizationName);
-    } else if (!isLoginView && !organizationName.trim()) {
-      setOrganizationCheck({ loading: false, exists: null, orgId: undefined, orgSlug: undefined, error: null });
-    }
-  }, [organizationName, isLoginView, debouncedOrgCheck, setOrganizationCheck]);
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +74,8 @@ export const AuthPage: React.FC = () => {
             setFormError(msg);
             return;
         }
-        console.log(`[AuthPage] Calling signUp with: Email: ${email}, Name: ${fullName}, Org: "${organizationName.trim() || 'N/A'}", Role: ${selectedRole}`);
-        await signUp(email, password, fullName, organizationName.trim() || undefined, selectedRole);
+        console.log(`[AuthPage] Calling signUp with: Email: ${email}, Name: ${fullName}`);
+        await signUp(email, password, fullName);
         console.log('[AuthPage] Sign Up action completed (further handling in store/App.tsx).');
       }
     } catch (error: any) {
@@ -126,10 +85,6 @@ export const AuthPage: React.FC = () => {
   
   // inputCombinedClass and labelClass will pick up global styles from index.html
   const labelClass = `block text-sm font-medium mb-1.5`;
-
-  const userRolesForSelection = Object.values(UserRole).filter(
-    role => role !== UserRole.OWNER && role !== UserRole.ADMIN
-  );
 
   return (
     <div className="min-h-screen flex w-full animate-fadeIn">
@@ -150,38 +105,6 @@ export const AuthPage: React.FC = () => {
                 <div>
                   <label htmlFor="full-name" className={labelClass}>Full Name</label>
                   <input type="text" id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLoginView} placeholder="Your Name" disabled={authLoading}/>
-                </div>
-                <div className="relative">
-                  <label htmlFor="organization-name" className={labelClass}>
-                    Organization Name <span className="text-xs"> (Optional, to create or join)</span>
-                  </label>
-                  <input type="text" id="organization-name" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} className="pr-10" placeholder="Your Company Inc." disabled={authLoading}/>
-                  <div className="checkmark-icon-container">
-                    {organizationCheck.loading && <ICON_MAP.SpinnerIcon className="w-5 h-5 text-accent animate-spin" />}
-                    {!organizationCheck.loading && organizationCheck.exists === true && !organizationCheck.error && (
-                      <CheckmarkIconSvg />
-                    )}
-                  </div>
-                  {organizationCheck.error && (
-                      <p className="mt-1 text-xs text-status-error">{organizationCheck.error}</p>
-                  )}
-                   {!organizationCheck.loading && organizationCheck.exists === true && !organizationCheck.error && organizationName.trim() &&(
-                       <p className="mt-1 text-xs text-status-success">Joining existing organization: {organizationName}</p>
-                   )}
-                   {!organizationCheck.loading && organizationCheck.exists === false && organizationName.trim() && !organizationCheck.error && (
-                      <p className="mt-1 text-xs text-status-info">New organization will be created: {organizationName}</p>
-                  )}
-                </div>
-                 <div className="mb-4">
-                  <label htmlFor="role" className={labelClass}>Your Role</label>
-                  <select id="role" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as UserRole)} disabled={authLoading}>
-                    {userRolesForSelection.map(role => (
-                      <option key={role} value={role}>{role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-                    ))}
-                  </select>
-                  <p className={`mt-1 text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    If creating a new organization, you'll be assigned as Owner.
-                  </p>
                 </div>
               </>
             )}
@@ -213,12 +136,9 @@ export const AuthPage: React.FC = () => {
                   setIsLoginView(!isLoginView);
                   setFormError(null);
                   setAuthError(null);
-                  setOrganizationCheck({loading: false, exists: null, orgId: undefined, orgSlug: undefined, error: null});
                   setEmail('');
                   setPassword('');
                   setFullName('');
-                  setOrganizationName('');
-                  setSelectedRole(UserRole.MEMBER);
               }}
               className="font-medium text-accent hover:text-accent-dark dark:hover:text-accent-light transition-colors"
               disabled={authLoading}

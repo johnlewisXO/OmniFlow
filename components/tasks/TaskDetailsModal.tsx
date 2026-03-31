@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
@@ -23,7 +24,11 @@ export const TaskDetailsModal: React.FC = () => {
     currentUser,
     darkMode,
     activeProject,
-    openEditTaskModal
+    openEditTaskModal,
+    tasks,
+    error,
+    openModal,
+    openViewTaskModal
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<'general' | 'qa' | 'admin'>('general');
@@ -31,21 +36,42 @@ export const TaskDetailsModal: React.FC = () => {
   
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
-  const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [activityLogs, setActivityLogs] = useState<TaskActivityLog[]>([]);
   const [collaborators, setCollaborators] = useState<TaskCollaborator[]>([]);
   const [isAddingCollaborator, setIsAddingCollaborator] = useState(false);
   const [selectedCollaboratorId, setSelectedCollaboratorId] = useState('');
+  const [selectedAttachment, setSelectedAttachment] = useState<TaskAttachment | null>(null);
   
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState('');
+
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
+
+  const handleDeleteTask = async () => {
+    if (!taskToView || !window.confirm('Are you sure you want to delete this task?')) return;
+    try {
+      await useAppStore.getState().deleteTask(taskToView.id);
+      closeViewTaskModal();
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
+  };
+
+  const subtasks = tasks.filter(t => t.parent_task_id === taskToView?.id).sort((a, b) => a.position - b.position);
 
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
 
   useEffect(() => {
     if (isViewTaskModalOpen && taskToView) {
       fetchTaskDetails();
+      setEditedTitle(taskToView.title);
+      setEditedDescription(taskToView.description || '');
     }
   }, [isViewTaskModalOpen, taskToView]);
 
@@ -66,15 +92,32 @@ export const TaskDetailsModal: React.FC = () => {
         .select('*, user:user_profiles(*)')
         .eq('task_id', taskToView.id)
         .order('created_at', { ascending: false });
-      if (attachmentsData) setAttachments(attachmentsData as any);
-
-      // Fetch subtasks
-      const { data: subtasksData } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('parent_task_id', taskToView.id)
-        .order('position', { ascending: true });
-      if (subtasksData) setSubtasks(subtasksData as any);
+      
+      if (attachmentsData) {
+        const attachmentsWithSignedUrls = await Promise.all(attachmentsData.map(async (att: any) => {
+          let signedUrl = '';
+          try {
+            const filePath = att.file_path;
+            
+            // Generate a signed URL valid for 1 hour
+            const { data, error } = await supabase.storage
+              .from('task-attachments')
+              .createSignedUrl(filePath, 3600);
+              
+            if (error || !data?.signedUrl) {
+              console.warn("Could not generate signed URL, falling back to public URL:", error);
+              const { data: publicData } = supabase.storage.from('task-attachments').getPublicUrl(filePath);
+              signedUrl = publicData.publicUrl;
+            } else {
+              signedUrl = data.signedUrl;
+            }
+          } catch (e) {
+            console.error("Error generating signed URL for attachment:", e);
+          }
+          return { ...att, signedUrl };
+        }));
+        setAttachments(attachmentsWithSignedUrls as any);
+      }
 
       // Fetch collaborators
       const { data: collaboratorsData } = await supabase
@@ -135,10 +178,17 @@ export const TaskDetailsModal: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file || !taskToView || !currentUser) return;
 
+    // Check file size (e.g., max 25MB)
+    if (file.size > 25 * 1024 * 1024) {
+      alert("File size exceeds 25MB limit.");
+      event.target.value = '';
+      return;
+    }
+
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${taskToView.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -147,9 +197,16 @@ export const TaskDetailsModal: React.FC = () => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('task-attachments')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 3600);
+        
+      let signedUrl = signedUrlData?.signedUrl;
+      if (signedUrlError || !signedUrl) {
+        console.warn("Could not generate signed URL on upload, falling back to public URL:", signedUrlError);
+        const { data: publicData } = supabase.storage.from('task-attachments').getPublicUrl(filePath);
+        signedUrl = publicData.publicUrl;
+      }
 
       const { data, error: dbError } = await supabase
         .from('task_attachments')
@@ -157,16 +214,18 @@ export const TaskDetailsModal: React.FC = () => {
           task_id: taskToView.id,
           user_id: currentUser.id,
           file_name: file.name,
-          file_url: publicUrl,
-          file_type: file.type,
-          file_size: file.size
+          file_path: filePath, // Store the path in DB
+          file_type: file.type || 'application/octet-stream',
+          file_size: file.size || 0
         })
         .select('*, user:user_profiles(*)')
         .single();
 
       if (dbError) throw dbError;
       if (data) {
-        setAttachments([data as any, ...attachments]);
+        // Use the signed URL for the local state so it renders immediately
+        const newAttachment = { ...data, signedUrl };
+        setAttachments([newAttachment as any, ...attachments]);
         
         // Log activity
         await supabase.from('task_activity_logs').insert({
@@ -178,9 +237,51 @@ export const TaskDetailsModal: React.FC = () => {
       }
     } catch (error) {
       console.error("Error uploading file:", error);
+      alert("Failed to upload file. Please try again.");
     } finally {
       setIsUploading(false);
+      // Reset input value so the same file can be uploaded again if needed
+      if (event.target) {
+        event.target.value = '';
+      }
     }
+  };
+
+  const handleUpdateTask = async (updates: Partial<Task>) => {
+    if (!taskToView) return;
+    try {
+      await updateTask(taskToView.id, updates);
+      // Update local state to reflect change immediately
+      Object.assign(taskToView, updates);
+      
+      // Log activity
+      if (currentUser) {
+        await supabase.from('task_activity_logs').insert({
+          task_id: taskToView.id,
+          user_id: currentUser.id,
+          action: 'task_updated',
+          details: { updates }
+        });
+      }
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
+  };
+
+  const handleTitleSave = () => {
+    if (editedTitle.trim() && editedTitle !== taskToView?.title) {
+      handleUpdateTask({ title: editedTitle.trim() });
+    } else {
+      setEditedTitle(taskToView?.title || '');
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleDescriptionSave = () => {
+    if (editedDescription !== taskToView?.description) {
+      handleUpdateTask({ description: editedDescription });
+    }
+    setIsEditingDescription(false);
   };
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
@@ -237,46 +338,85 @@ export const TaskDetailsModal: React.FC = () => {
 
   if (!isViewTaskModalOpen || !taskToView) return null;
 
+  const parentTask = taskToView.parent_task_id ? tasks.find(t => t.id === taskToView.parent_task_id) : null;
+
   const modalTitle = (
     <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 font-normal">
+      {parentTask && (
+        <button 
+          onClick={() => openViewTaskModal(parentTask.id)}
+          className="mr-3 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          title="Back to parent task"
+        >
+          <ICON_MAP.ArrowLeftIcon className="w-4 h-4" />
+        </button>
+      )}
       <span>Projects</span>
       <span className="mx-2">/</span>
       <span>{activeProject?.name || 'Project'}</span>
       <span className="mx-2">/</span>
+      {parentTask && (
+        <>
+          <span 
+            className="cursor-pointer hover:underline hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            onClick={() => openViewTaskModal(parentTask.id)}
+          >
+            {parentTask.title}
+          </span>
+          <span className="mx-2">/</span>
+        </>
+      )}
       <span className="text-slate-800 dark:text-slate-200 font-medium">{taskToView.title}</span>
     </div>
   );
 
   return (
     <Modal isOpen={isViewTaskModalOpen} onClose={closeViewTaskModal} title={modalTitle as any} size="full">
+      {error && (
+        <div className={`p-4 mb-4 rounded-md text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
+            <strong>Error:</strong> {error}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row h-full gap-6">
         
         {/* Left Column: Main Content */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pr-2">
           
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">{taskToView.title}</h1>
-            <button 
-              onClick={() => openEditTaskModal(taskToView.id)}
-              className={`p-2 rounded-md border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'}`}
-              title="Edit Task"
-            >
-              <ICON_MAP.PencilIcon className="w-4 h-4" />
-            </button>
+            {isEditingTitle ? (
+              <input
+                type="text"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onBlur={handleTitleSave}
+                onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
+                autoFocus
+                className={`text-2xl font-semibold w-full bg-transparent border-b-2 border-accent focus:outline-none ${darkMode ? 'text-white' : 'text-slate-900'}`}
+              />
+            ) : (
+              <h1 
+                className="text-2xl font-semibold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-2 -ml-2 py-1 transition-colors"
+                onClick={() => setIsEditingTitle(true)}
+              >
+                {taskToView.title}
+              </h1>
+            )}
           </div>
 
           <div className="flex items-center gap-2 mb-6">
-            <label className="cursor-pointer">
-              <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors`}>
+            <label className="cursor-pointer relative group">
+              <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/jpeg,image/png,image/gif,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {isUploading ? <SpinnerIcon className="w-4 h-4 animate-spin" /> : <ICON_MAP.PaperClipIcon className="w-4 h-4" />}
                 Attach
+              </div>
+              <div className="absolute top-full left-0 mt-2 w-64 p-2 bg-slate-800 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                Supported formats: Images (JPEG, PNG, GIF), PDFs, Documents (DOCX, TXT). Max size: 10MB.
               </div>
             </label>
             <button 
               onClick={() => {
-                closeViewTaskModal();
-                useAppStore.getState().openModal(taskToView.id);
+                openModal(taskToView.id);
               }}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors`}
             >
@@ -291,61 +431,75 @@ export const TaskDetailsModal: React.FC = () => {
 
           {/* Tabs */}
           <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6">
-            {['General', 'QA Testing', 'Admin'].map((tab) => (
+            {[
+              { id: 'general', label: 'General' },
+              { id: 'qa', label: 'QA/Testing' },
+              { id: 'admin', label: 'Admin' }
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab.toLowerCase() as any)}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.toLowerCase()
+                  activeTab === tab.id
                     ? 'border-accent text-accent'
                     : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
 
           <div className="space-y-8">
+            {activeTab === 'general' && (
+              <>
             {/* Description */}
             <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Description</h3>
-              <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                {taskToView.description || 'No description provided.'}
-              </div>
-            </div>
-
-            {/* Attachments */}
-            {attachments.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Attachments ({attachments.length})</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {attachments.map(att => (
-                    <div key={att.id} className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 aspect-video bg-slate-100 dark:bg-slate-800">
-                      {att.file_type?.startsWith('image/') ? (
-                        <img src={att.file_url} alt={att.file_name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-2">
-                          <ICON_MAP.DocumentTextIcon className="w-8 h-8 text-slate-400 mb-2" />
-                          <span className="text-xs text-center truncate w-full px-2">{att.file_name}</span>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm">
-                          <ICON_MAP.EyeIcon className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                  ))}
+              {isEditingDescription ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-accent focus:border-transparent min-h-[100px] ${
+                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                    placeholder="Add a more detailed description..."
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={handleDescriptionSave} size="sm">Save</Button>
+                    <Button variant="secondary" onClick={() => {
+                      setEditedDescription(taskToView.description || '');
+                      setIsEditingDescription(false);
+                    }} size="sm">Cancel</Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div 
+                  className={`text-sm whitespace-pre-wrap cursor-pointer p-3 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors ${
+                    taskToView.description ? 'text-slate-700 dark:text-slate-300' : 'text-slate-500 italic'
+                  }`}
+                  onClick={() => setIsEditingDescription(true)}
+                >
+                  {taskToView.description || 'Add a more detailed description...'}
+                </div>
+              )}
+            </div>
 
             {/* Subtasks */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Subtasks</h3>
-                <button className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"><ICON_MAP.PlusIcon className="w-4 h-4" /></button>
+                <button 
+                  onClick={() => {
+                    openModal(taskToView.id);
+                  }}
+                  className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  title="Create subtask"
+                >
+                  <ICON_MAP.PlusIcon className="w-4 h-4" />
+                </button>
               </div>
               {subtasks.length > 0 ? (
                 <div className="space-y-2">
@@ -361,7 +515,11 @@ export const TaskDetailsModal: React.FC = () => {
                   </div>
                   {/* Subtask list */}
                   {subtasks.map(subtask => (
-                    <div key={subtask.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
+                    <div 
+                      key={subtask.id} 
+                      onClick={() => openViewTaskModal(subtask.id)}
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
                       <div className="flex items-center gap-3">
                         <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-accent" />
                         <span className="text-sm text-slate-700 dark:text-slate-300">{subtask.title}</span>
@@ -380,6 +538,52 @@ export const TaskDetailsModal: React.FC = () => {
                 </div>
               ) : (
                 <p className="text-sm text-slate-500 italic">No subtasks yet.</p>
+              )}
+            </div>
+
+            {/* Attachments */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Attachments ({attachments.length})</h3>
+                <label className="cursor-pointer text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1" title="Upload attachment">
+                  <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/*,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/zip,application/x-rar-compressed,video/mp4,video/quicktime,video/webm" />
+                  {isUploading ? <SpinnerIcon className="w-4 h-4 animate-spin" /> : <ICON_MAP.PlusIcon className="w-4 h-4" />}
+                </label>
+              </div>
+              {attachments.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {attachments.map(att => (
+                    <div key={att.id} className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 aspect-video bg-slate-100 dark:bg-slate-800">
+                      {att.file_type?.startsWith('image/') ? (
+                        <img src={att.signedUrl} alt={att.file_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                          <ICON_MAP.DocumentTextIcon className="w-8 h-8 text-slate-400 mb-2" />
+                          <span className="text-xs text-center truncate w-full px-2">{att.file_name}</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button onClick={() => setSelectedAttachment(att)} className="p-1.5 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm" title="View">
+                          <ICON_MAP.EyeIcon className="w-4 h-4" />
+                        </button>
+                        <a href={att.signedUrl} download={att.file_name} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm" title="Download">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                  <ICON_MAP.PaperClipIcon className="w-8 h-8 text-slate-400 mb-2" />
+                  <p className="text-sm text-slate-500 mb-1">No attachments yet</p>
+                  <label className="cursor-pointer text-sm text-accent hover:underline">
+                    <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/*,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/zip,application/x-rar-compressed,video/mp4,video/quicktime,video/webm" />
+                    Click to upload
+                  </label>
+                </div>
               )}
             </div>
 
@@ -496,6 +700,69 @@ export const TaskDetailsModal: React.FC = () => {
                 </div>
               )}
             </div>
+            </>
+            )}
+
+            {activeTab === 'qa' && (
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Test Cases</h3>
+                    <button className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                      <ICON_MAP.PlusIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 text-center">
+                    <p className="text-sm text-slate-500 italic">No test cases linked to this task.</p>
+                    <Button variant="secondary" size="sm" className="mt-2">Create Test Case</Button>
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Linked Bugs</h3>
+                    <button className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                      <ICON_MAP.PlusIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 text-center">
+                    <p className="text-sm text-slate-500 italic">No bugs linked to this task.</p>
+                    <Button variant="secondary" size="sm" className="mt-2">Report Bug</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'admin' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Task Administration</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">Change Issue Type</p>
+                        <p className="text-xs text-slate-500">Convert this task to a bug, epic, or story.</p>
+                      </div>
+                      <Button variant="secondary" size="sm">Change</Button>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">Move to Project</p>
+                        <p className="text-xs text-slate-500">Transfer this task to another project.</p>
+                      </div>
+                      <Button variant="secondary" size="sm">Move</Button>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10">
+                      <div>
+                        <p className="text-sm font-medium text-red-700 dark:text-red-400">Delete Task</p>
+                        <p className="text-xs text-red-600 dark:text-red-300">Permanently remove this task and all its data.</p>
+                      </div>
+                      <Button variant="danger" size="sm" onClick={handleDeleteTask}>Delete</Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -515,9 +782,28 @@ export const TaskDetailsModal: React.FC = () => {
             >
               {Object.values(TaskStatus).map(s => <option key={s} value={s}>{formatEnumForDisplay(s)}</option>)}
             </select>
-            <button className={`px-3 py-2 rounded-md border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'}`}>
-              Actions <ICON_MAP.ChevronDownIcon className="w-4 h-4 inline ml-1" />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setIsActionsOpen(!isActionsOpen)}
+                className={`px-3 py-2 rounded-md border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'}`}
+              >
+                Actions <ICON_MAP.ChevronDownIcon className="w-4 h-4 inline ml-1" />
+              </button>
+              {isActionsOpen && (
+                <div className={`absolute right-0 mt-1 w-48 rounded-md shadow-lg z-50 border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                  <div className="py-1">
+                    <button onClick={() => { handleUpdateTask({ assignee_id: currentUser?.id }); setIsActionsOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Assign to me</button>
+                    <button onClick={() => { 
+                      navigator.clipboard.writeText(window.location.href); 
+                      alert('Link copied to clipboard');
+                      setIsActionsOpen(false); 
+                    }} className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Copy link</button>
+                    <div className={`my-1 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}></div>
+                    <button onClick={() => { handleDeleteTask(); setIsActionsOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20`}>Delete</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Pinned Fields */}
@@ -529,13 +815,16 @@ export const TaskDetailsModal: React.FC = () => {
             <div className="p-4 space-y-4">
               <div className="flex items-center">
                 <span className="w-1/3 text-sm text-slate-500">Priority</span>
-                <div className="w-2/3 flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
-                  <ICON_MAP.ExclamationIcon className={`w-4 h-4 ${
-                    taskToView.priority === TaskPriority.CRITICAL ? 'text-red-500' :
-                    taskToView.priority === TaskPriority.HIGH ? 'text-orange-500' :
-                    taskToView.priority === TaskPriority.MEDIUM ? 'text-yellow-500' : 'text-blue-500'
-                  }`} />
-                  {formatEnumForDisplay(taskToView.priority)}
+                <div className="w-2/3">
+                  <select
+                    value={taskToView.priority}
+                    onChange={(e) => handleUpdateTask({ priority: e.target.value as TaskPriority })}
+                    className={`w-full appearance-none px-2 py-1 rounded-md text-sm font-medium border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  >
+                    {Object.values(TaskPriority).map(p => (
+                      <option key={p} value={p}>{formatEnumForDisplay(p)}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -550,15 +839,17 @@ export const TaskDetailsModal: React.FC = () => {
             <div className="p-4 space-y-4">
               <div className="flex items-center">
                 <span className="w-1/3 text-sm text-slate-500">Assignee</span>
-                <div className="w-2/3 flex items-center gap-2 text-sm text-slate-900 dark:text-white">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden">
-                    {users.find(u => u.id === taskToView.assignee_id)?.avatar_url ? (
-                      <img src={users.find(u => u.id === taskToView.assignee_id)?.avatar_url} alt="Assignee" className="w-full h-full object-cover" />
-                    ) : (
-                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-slate-500" />
-                    )}
-                  </div>
-                  {users.find(u => u.id === taskToView.assignee_id)?.full_name || 'Unassigned'}
+                <div className="w-2/3">
+                  <select
+                    value={taskToView.assignee_id || ''}
+                    onChange={(e) => handleUpdateTask({ assignee_id: e.target.value || undefined })}
+                    className={`w-full appearance-none px-2 py-1 rounded-md text-sm border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               
@@ -578,8 +869,13 @@ export const TaskDetailsModal: React.FC = () => {
 
               <div className="flex items-center">
                 <span className="w-1/3 text-sm text-slate-500">Due Date</span>
-                <div className="w-2/3 text-sm text-slate-900 dark:text-white">
-                  {taskToView.dueDate ? new Date(taskToView.dueDate).toLocaleDateString() : 'None'}
+                <div className="w-2/3">
+                  <input
+                    type="date"
+                    value={taskToView.dueDate ? new Date(taskToView.dueDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleUpdateTask({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
+                    className={`w-full px-2 py-1 rounded-md text-sm border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  />
                 </div>
               </div>
 
@@ -648,6 +944,58 @@ export const TaskDetailsModal: React.FC = () => {
 
         </div>
       </div>
+
+      {/* Attachment Viewer Overlay */}
+      {selectedAttachment && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setSelectedAttachment(null)}>
+          <div className="relative w-full max-w-5xl max-h-[90vh] flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-0 right-0 p-4 flex gap-4 z-10">
+              <a 
+                href={selectedAttachment.signedUrl} 
+                download={selectedAttachment.file_name}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+                title="Download"
+              >
+                <ICON_MAP.DocumentTextIcon className="w-6 h-6" />
+              </a>
+              <button 
+                onClick={() => setSelectedAttachment(null)}
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+                title="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="w-full h-full flex items-center justify-center overflow-hidden rounded-lg">
+              {selectedAttachment.file_type?.startsWith('image/') ? (
+                <img src={selectedAttachment.signedUrl} alt={selectedAttachment.file_name} className="max-w-full max-h-[80vh] object-contain" />
+              ) : selectedAttachment.file_type === 'application/pdf' ? (
+                <iframe src={selectedAttachment.signedUrl} className="w-full h-[80vh] bg-white rounded-lg" title={selectedAttachment.file_name} />
+              ) : (
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-xl flex flex-col items-center max-w-md text-center">
+                  <ICON_MAP.DocumentTextIcon className="w-16 h-16 text-slate-400 mb-4" />
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2 break-all">{selectedAttachment.file_name}</h3>
+                  <p className="text-sm text-slate-500 mb-6">Preview not available for this file type.</p>
+                  <a 
+                    href={selectedAttachment.signedUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors"
+                  >
+                    Download File
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </Modal>
   );
 };

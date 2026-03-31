@@ -30,6 +30,7 @@ const createIcon = (path: React.ReactNode): React.FC<{ className?: string }> => 
 );
 
 export const ICON_MAP = {
+  ArrowLeftIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />),
   HomeIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955a1.5 1.5 0 012.122 0l8.954 8.955M2.25 12v10.5a.75.75 0 00.75.75H21a.75.75 0 00.75-.75V12M12 21.75V16.5" />),
   FolderIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M2.25 9V7.5a2.25 2.25 0 012.25-2.25h5.379a2.25 2.25 0 011.697.708l.969 1.026a2.25 2.25 0 001.697.708h4.51a2.25 2.25 0 012.25 2.25V9m-16.5 4.5v1.5a2.25 2.25 0 002.25 2.25h12a2.25 2.25 0 002.25-2.25v-1.5" />),
   UserCircleIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />),

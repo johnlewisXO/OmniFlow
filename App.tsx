@@ -3,10 +3,10 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
-import { CreateTaskModal } from './components/tasks/CreateTaskModal';
 import { EditTaskModal } from './components/tasks/EditTaskModal'; 
 import { TaskDetailsModal } from './components/tasks/TaskDetailsModal';
 import { CreateProjectModal } from './components/projects/CreateProjectModal';
+import { CreateOrJoinOrganizationModal } from './components/auth/CreateOrJoinOrganizationModal';
 // Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from './hooks/useAppStore';
 import supabaseService, { supabase } from './services/supabaseService';
@@ -95,7 +95,8 @@ const MainAppLayout: React.FC = () => {
     darkMode,
     fetchUsersForAssignmentList, 
     users, 
-    isLoadingUsersForAssignment
+    isLoadingUsersForAssignment,
+    error
   } = useAppStore();
 
   const ExclamationIcon = ICON_MAP.ExclamationIcon;
@@ -199,11 +200,15 @@ const MainAppLayout: React.FC = () => {
                 <strong>Authentication Issue:</strong> {authError}
             </div>
           )}
+          {error && (
+            <div className={`p-4 m-4 rounded-squircle-md text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
+                <strong>Error:</strong> {error}
+            </div>
+          )}
           {renderContentByView()}
         </div>
       </div>
       <ToastContainer />
-      <CreateTaskModal />
       <EditTaskModal /> 
       <TaskDetailsModal />
       <CreateProjectModal
@@ -213,6 +218,7 @@ const MainAppLayout: React.FC = () => {
         isLoading={isLoadingCreateProject}
         error={createProjectError}
       />
+      <CreateOrJoinOrganizationModal />
     </div>
   );
 };

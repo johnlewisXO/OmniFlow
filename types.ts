@@ -61,7 +61,8 @@ export interface TaskAttachment {
   task_id: string;
   user_id: string;
   file_name: string;
-  file_url: string;
+  file_path: string;
+  signedUrl?: string;
   file_type?: string;
   file_size?: number;
   created_at: string;
@@ -176,6 +177,7 @@ export interface AppStore {
   setActiveView: (view: ActiveView) => void;
 
   signUp: (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => Promise<void>;
+  joinOrCreateOrganization: (organizationName: string, role?: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   setCurrentUser: (user: User | null) => void;
@@ -186,7 +188,7 @@ export interface AppStore {
   activeProject: Project | null;
   setActiveProject: (projectId: string | null) => void;
 
-  createTask: (taskData: Omit<Task, 'id' | 'position' | 'created_at' | 'updated_at' | 'creator_id'>) => Promise<void>;
+  createTask: (taskData: Omit<Task, 'id' | 'position' | 'created_at' | 'updated_at' | 'creator_id'>) => Promise<Task | null | void>;
   updateTask: (taskId: string, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at' | 'creator_id' | 'projectId'>>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   getTasksByProjectIdAndStatus: (projectId: string, status: TaskStatus) => Task[];
@@ -216,7 +218,7 @@ export interface AppStore {
 
   isModalOpen: boolean; // Create Task Modal
   parentTaskIdForNewTask: string | null;
-  openModal: (parentTaskId?: string) => void;
+  openModal: (parentTaskId?: string) => Promise<void>;
   closeModal: () => void;
 
   isViewTaskModalOpen: boolean; 

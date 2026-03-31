@@ -93,7 +93,7 @@ export const Header: React.FC = () => {
           <Button 
             variant="primary" 
             size="md" 
-            onClick={openModal}
+            onClick={() => openModal()}
             disabled={!activeProject || !currentUser}
             title={!activeProject ? "Select a project to add tasks" : (!currentUser ? "Login to add tasks" : "Add new task")}
           >

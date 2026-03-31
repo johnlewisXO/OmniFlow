@@ -79,7 +79,11 @@ export const MyTasksPage: React.FC = () => {
   }, [myTasks]);
 
   const renderTaskCard = (task: Task) => (
-    <div key={task.id} className={`p-4 rounded-xl shadow-sm border ${darkMode ? 'bg-slate-800/60 border-slate-700/50 hover:bg-slate-700/80' : 'bg-white/70 border-slate-200/70 hover:bg-slate-50/90'} transition-colors`}>
+    <div 
+      key={task.id} 
+      onClick={() => useAppStore.getState().openViewTaskModal(task.id)}
+      className={`p-4 rounded-xl shadow-sm border ${darkMode ? 'bg-slate-800/60 border-slate-700/50 hover:bg-slate-700/80' : 'bg-white/70 border-slate-200/70 hover:bg-slate-50/90'} transition-colors cursor-pointer`}
+    >
       <div className="flex justify-between items-start mb-2">
         <h3 className={`text-lg font-medium ${darkMode ? 'text-slate-50' : 'text-slate-900'} line-clamp-1`}>{task.title}</h3>
         <div className="flex gap-2">
@@ -111,7 +115,13 @@ export const MyTasksPage: React.FC = () => {
         
         {/* Quick Actions Placeholder */}
         <div className="flex items-center gap-2">
-          <button className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              useAppStore.getState().openViewTaskModal(task.id);
+            }}
+            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+          >
             Update
           </button>
         </div>

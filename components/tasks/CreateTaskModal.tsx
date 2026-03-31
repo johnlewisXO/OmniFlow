@@ -76,7 +76,10 @@ export const CreateTaskModal: React.FC = () => {
         setLocalFormError(msg);
         return;
     }
-    if (!activeProject) {
+    const parentTask = parentTaskIdForNewTask ? useAppStore.getState().tasks.find(t => t.id === parentTaskIdForNewTask) : null;
+    const targetProjectId = activeProject?.id || parentTask?.projectId;
+
+    if (!targetProjectId) {
         const msg = "No active project selected to add the task to.";
         setLocalFormError(msg);
         return;
@@ -93,14 +96,16 @@ export const CreateTaskModal: React.FC = () => {
       priority,
       status,
       assignee_id: assignee_id,
-      projectId: activeProject.id,
+      projectId: targetProjectId,
       dueDate: dueDate || undefined,
       parent_task_id: parentTaskIdForNewTask || undefined,
     };
 
     try {
-      await createTask(taskData);
-      // closeModal will be called from store if successful
+      const createdTask = await createTask(taskData);
+      if (createdTask) {
+        useAppStore.getState().openViewTaskModal(createdTask.id);
+      }
     } catch (err: any) {
       // Error is set in the store
     }
@@ -122,18 +127,21 @@ export const CreateTaskModal: React.FC = () => {
   let createButtonText = 'Create Task';
   let createButtonDisabled = isLoading;
 
+  const parentTask = parentTaskIdForNewTask ? useAppStore.getState().tasks.find(t => t.id === parentTaskIdForNewTask) : null;
+  const targetProjectId = activeProject?.id || parentTask?.projectId;
+
   if (isLoading) {
     createButtonText = 'Creating...';
   } else if (!currentUser) {
     createButtonText = 'Login to Create';
     createButtonDisabled = true;
-  } else if (!activeProject) {
+  } else if (!targetProjectId) {
     createButtonText = 'Select Project to Create';
     createButtonDisabled = true;
   }
 
   const displayError = localFormError || globalError;
-  const modalTitleText = activeProject ? <span className="text-gradient-accent">{`New Task in ${activeProject.name}`}</span> : <span className="text-gradient-accent">New Task</span>;
+  const modalTitleText = activeProject ? <span className="text-gradient-accent">{`New Task in ${activeProject.name}`}</span> : parentTask ? <span className="text-gradient-accent">{`New Subtask in ${parentTask.title}`}</span> : <span className="text-gradient-accent">New Task</span>;
 
 
   if (!isOpen) return null;

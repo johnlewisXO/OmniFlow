@@ -264,6 +264,52 @@ const supabaseService = {
     return { user: authUserToProcess, session: authSessionToProcess, profile: finalAppUser };
   },
 
+  joinOrCreateOrganizationForUser: async (userId: string, organizationName: string, roleFromForm?: UserRole): Promise<AppUserType> => {
+    const trimmedOrgName = organizationName.trim();
+    if (!trimmedOrgName) throw new Error("Organization name is required.");
+
+    let organizationIdForProfile: string;
+    let finalAssignedRole: UserRole;
+    const selfSelectableRoles: UserRole[] = [UserRole.MEMBER, UserRole.PROJECT_MANAGER, UserRole.CLIENT_VIEWER];
+
+    const orgCheck = await supabaseService.checkOrganizationExists(trimmedOrgName);
+    if (orgCheck.error) {
+        throw new Error(`Failed to check organization status: ${orgCheck.error}.`);
+    }
+
+    if (orgCheck.exists && orgCheck.id) { 
+        organizationIdForProfile = orgCheck.id; 
+        finalAssignedRole = (roleFromForm && selfSelectableRoles.includes(roleFromForm)) ? roleFromForm : UserRole.MEMBER;
+    } else { 
+        const newOrg = await supabaseService.findOrCreateOrganization(trimmedOrgName); 
+        if (!newOrg || !newOrg.id) {
+            throw new Error(`Failed to create or find organization: ${trimmedOrgName}.`);
+        }
+        organizationIdForProfile = newOrg.id;
+        finalAssignedRole = UserRole.OWNER; 
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('user_profiles')
+      .update({ organization_id: organizationIdForProfile, role: finalAssignedRole })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (profileError) throw profileError;
+    if (!profileData) throw new Error("Failed to update user profile.");
+
+    return {
+      id: profileData.id,
+      supabase_auth_id: userId, // Assuming userId is the supabase auth id here, or we might need to fetch it. Actually, user_profiles.id is the auth.uid() usually.
+      email: profileData.email || '',
+      full_name: profileData.full_name,
+      avatar_url: profileData.avatar_url,
+      organization_id: profileData.organization_id,
+      role: profileData.role,
+    };
+  },
+
   signInUser: async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;

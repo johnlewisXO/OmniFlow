@@ -222,7 +222,7 @@ const appActionsCreator = (
             message: `Task "${payload.task.title}" was created in project.`,
             entity_type: 'task',
             entity_id: payload.task.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.task.assignee_id || currentUser.id, // Notify assignee or self
           };
           break;
@@ -233,7 +233,7 @@ const appActionsCreator = (
             message: `You were assigned to task "${payload.task.title}".`,
             entity_type: 'task',
             entity_id: payload.task.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.task.assignee_id,
           };
           break;
@@ -244,7 +244,7 @@ const appActionsCreator = (
             message: `Task "${payload.task.title}" was updated.`,
             entity_type: 'task',
             entity_id: payload.task.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.task.assignee_id || currentUser.id,
           };
           break;
@@ -255,7 +255,7 @@ const appActionsCreator = (
             message: `Task "${payload.task.title}" status changed to ${payload.task.status}.`,
             entity_type: 'task',
             entity_id: payload.task.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.task.assignee_id || currentUser.id,
           };
           break;
@@ -266,7 +266,7 @@ const appActionsCreator = (
             message: `Project "${payload.project.name}" was created.`,
             entity_type: 'project',
             entity_id: payload.project.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: currentUser.id,
           };
           break;
@@ -277,7 +277,7 @@ const appActionsCreator = (
             message: `Task "${payload.task.title}" is due today.`,
             entity_type: 'task',
             entity_id: payload.task.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.task.assignee_id || currentUser.id,
           };
           break;
@@ -288,7 +288,7 @@ const appActionsCreator = (
             message: `Task "${payload.task.title}" is overdue.`,
             entity_type: 'task',
             entity_id: payload.task.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.task.assignee_id || currentUser.id,
           };
           break;
@@ -299,7 +299,7 @@ const appActionsCreator = (
             message: `Task "${payload.task.title}" was deleted.`,
             entity_type: 'task',
             entity_id: payload.task.id,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.task.assignee_id || currentUser.id,
           };
           break;
@@ -310,7 +310,7 @@ const appActionsCreator = (
             message: `Your role has been updated to ${payload.newRole}.`,
             entity_type: 'user',
             entity_id: payload.userId,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.userId,
           };
           break;
@@ -321,7 +321,7 @@ const appActionsCreator = (
             message: `You have been removed from the organization.`,
             entity_type: 'user',
             entity_id: payload.userId,
-            actor_id: currentUser.id,
+            metadata: { actor_id: currentUser.id },
             user_id: payload.userId,
           };
           break;
@@ -616,6 +616,20 @@ const appActionsCreator = (
         throw error;
       }
     },
+    joinOrCreateOrganization: async (organizationName: string, role?: UserRole) => {
+      const { currentUser } = get();
+      if (!currentUser) return;
+      
+      updateState(s => ({ ...s, authLoading: true, authError: null }));
+      try {
+        const updatedProfile = await supabaseService.joinOrCreateOrganizationForUser(currentUser.id, organizationName, role);
+        updateState(s => ({ ...s, currentUser: updatedProfile, authLoading: false }));
+      } catch (error: any) {
+        const message = parseErrorMessage(error, 'Failed to join or create organization.');
+        updateState(s => ({ ...s, authLoading: false, authError: message }));
+        throw error;
+      }
+    },
     signIn: async (email: string, password: string) => {
       updateState(s => ({ ...s, authLoading: true, authError: null }));
       try {
@@ -718,17 +732,19 @@ const appActionsCreator = (
       if (!currentUser || !activeProject) {
         const message = "Cannot create task: No active user or project selected.";
         updateState(s => ({...s, error: message, isLoading: false}));
-        return;
+        return null;
       }
       updateState(s => ({ ...s, isLoading: true, error: null }));
       try {
         const createdTask = await supabaseService.createTask(taskData);
         await selfActions.fetchTasksForProject(activeProject.id); 
         selfActions.emitEvent('TASK_CREATED', { task: createdTask });
-        updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [] }));
+        updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [], parentTaskIdForNewTask: null }));
+        return createdTask;
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to create task.');
         updateState(s => ({ ...s, isLoading: false, error: message }));
+        throw error;
       }
     },
     updateTask: async (taskId: string, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at' | 'creator_id' | 'projectId'>>) => {
@@ -742,7 +758,18 @@ const appActionsCreator = (
         const updatedTasksOptimistic = originalTasks.map(t => 
             t.id === taskId ? { ...t, ...updates } : t
         );
-        updateState(s => ({ ...s, tasks: updatedTasksOptimistic, isLoadingTasks: true, tasksError: null, isEditTaskModalOpen: false, taskToEdit: null }));
+        const currentTaskToView = get().taskToView;
+        const updatedTaskToView = currentTaskToView?.id === taskId ? { ...currentTaskToView, ...updates } : currentTaskToView;
+        
+        updateState(s => ({ 
+            ...s, 
+            tasks: updatedTasksOptimistic, 
+            taskToView: updatedTaskToView,
+            isLoadingTasks: true, 
+            tasksError: null, 
+            isEditTaskModalOpen: false, 
+            taskToEdit: null 
+        }));
 
         try {
             await supabaseService.updateTask(taskId, updates);
@@ -877,7 +904,28 @@ const appActionsCreator = (
       }
     },
 
-    openModal: (parentTaskId?: string) => updateState(s => ({ ...s, isModalOpen: true, parentTaskIdForNewTask: parentTaskId || null })),
+    openModal: async (parentTaskId?: string) => {
+        const { activeProject, currentUser } = get();
+        if (!activeProject || !currentUser) return;
+        updateState(s => ({ ...s, isLoading: true }));
+        try {
+            const draftTask = await selfActions.createTask({
+                title: "New Task",
+                projectId: activeProject.id,
+                status: TaskStatus.TODO,
+                priority: TaskPriority.MEDIUM,
+                assignee_id: currentUser.id,
+                parent_task_id: parentTaskId || undefined,
+            });
+            if (draftTask) {
+                updateState(s => ({ ...s, isLoading: false, taskToView: draftTask, isViewTaskModalOpen: true }));
+            } else {
+                updateState(s => ({ ...s, isLoading: false }));
+            }
+        } catch (error: any) {
+            updateState(s => ({ ...s, isLoading: false, error: parseErrorMessage(error, "Failed to create draft task.") }));
+        }
+    },
     closeModal: () => updateState(s => ({ ...s, isModalOpen: false, suggestedTaskTitles: [], error: null, parentTaskIdForNewTask: null })),
 
     openViewTaskModal: (taskId: string) => {

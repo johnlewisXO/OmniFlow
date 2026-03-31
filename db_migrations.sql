@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS public.task_attachments (
     task_id UUID REFERENCES public.tasks(id) ON DELETE CASCADE NOT NULL,
     user_id UUID REFERENCES public.user_profiles(id) ON DELETE CASCADE NOT NULL,
     file_name TEXT NOT NULL,
-    file_url TEXT NOT NULL,
+    file_path TEXT NOT NULL,
     file_type TEXT,
     file_size INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
