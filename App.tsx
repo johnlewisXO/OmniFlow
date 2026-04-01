@@ -341,7 +341,7 @@ function App() {
     console.log('[App.tsx AuthEffect] Initializing auth listener.');
     let mounted = true;
 
-    const handleSession = async (session: any) => {
+    const handleSession = async (session: any, isInitial: boolean = false) => {
       if (!mounted) return;
       setAuthError(null);
 
@@ -349,6 +349,7 @@ function App() {
         console.log(`[App.tsx AuthEffect] Session and user exist. User ID: ${session.user.id}. Fetching profile.`);
         try {
           const userProfile = await supabaseService.getUserProfile(session.user.id);
+          
           if (userProfile && mounted) {
             console.log(`[App.tsx AuthEffect] Profile fetched: ID ${userProfile.id}`);
             let finalRole: UserRole | undefined = undefined;
@@ -373,26 +374,50 @@ function App() {
               window.location.hash = '#/app';
             }
           } else if (mounted) {
-             setCurrentUser(null);
-             setAuthError("Profile not found after authentication. Please sign up or contact support.");
-             await supabaseService.signOutUser().catch(e => console.error(e));
+             console.warn("[App.tsx AuthEffect] Profile not found. Using fallback user payload from session.");
+             const fallbackUser: AppUserType = {
+               id: session.user.id,
+               supabase_auth_id: session.user.id,
+               email: session.user.email || '',
+               full_name: session.user.user_metadata?.full_name || 'User',
+               avatar_url: session.user.user_metadata?.avatar_url,
+               role: UserRole.MEMBER,
+             };
+             setCurrentUser(fallbackUser);
+             if (!window.location.hash.startsWith('#/app')) {
+               window.location.hash = '#/app';
+             }
           }
         } catch (error: any) {
           if (mounted) {
             console.error("[App.tsx AuthEffect] Error fetching/setting user profile:", error);
-            setCurrentUser(null);
-            setAuthError(localParseErrorMessage(error, "Failed to load your profile information."));
-            await supabaseService.signOutUser().catch(e => console.error(e));
+            const existingUser = useAppStore.getState().currentUser;
+            if (!existingUser) {
+               console.warn("[App.tsx AuthEffect] Using fallback user payload due to profile fetch error.");
+               const fallbackUser: AppUserType = {
+                 id: session.user.id,
+                 supabase_auth_id: session.user.id,
+                 email: session.user.email || '',
+                 full_name: session.user.user_metadata?.full_name || 'User',
+                 avatar_url: session.user.user_metadata?.avatar_url,
+                 role: UserRole.MEMBER,
+               };
+               setCurrentUser(fallbackUser);
+               if (!window.location.hash.startsWith('#/app')) {
+                 window.location.hash = '#/app';
+               }
+            }
+            setAuthError(localParseErrorMessage(error, "Failed to load your profile information. Some features may be unavailable."));
           }
         } finally {
-          if (mounted) setAppLoading(false);
+          if (mounted && isInitial) setAppLoading(false);
         }
       } else {
         if (mounted) {
           console.log("[App.tsx AuthEffect] No session or user. Setting current user to null.");
           setCurrentUser(null);
           setAuthError(null);
-          setAppLoading(false);
+          if (isInitial) setAppLoading(false);
         }
       }
     };
@@ -400,11 +425,19 @@ function App() {
     const initializeAuth = async () => {
       setAppLoading(true);
       try {
-        const { data: { session } } = await supabaseService.getSession();
-        await handleSession(session);
+        const sessionPromise = supabaseService.getSession();
+        const timeoutPromise = new Promise<{data: {session: null}}>((_, reject) => 
+          setTimeout(() => reject(new Error("Session fetch timeout")), 8000)
+        );
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        await handleSession(session, true);
       } catch (e) {
-        console.error("Failed to get initial session", e);
-        if (mounted) setAppLoading(false);
+        console.error("Failed to get initial session or timed out:", e);
+        if (mounted) {
+          setCurrentUser(null);
+          setAppLoading(false);
+        }
       }
     };
 
@@ -414,7 +447,24 @@ function App() {
       async (_event, session) => {
         if (_event === 'INITIAL_SESSION') return;
         console.log(`[App.tsx AuthEffect] onAuthStateChange triggered. Event: ${_event}`);
-        await handleSession(session);
+        
+        const currentStoreUser = useAppStore.getState().currentUser;
+        
+        if (_event === 'SIGNED_OUT') {
+          console.log(`[App.tsx AuthEffect] User signed out.`);
+          await handleSession(null);
+          return;
+        }
+
+        const newUserId = session?.user?.id;
+        const currentUserId = currentStoreUser?.supabase_auth_id;
+
+        if (newUserId && newUserId !== currentUserId) {
+          console.log(`[App.tsx AuthEffect] User changed from ${currentUserId} to ${newUserId}. Handling session.`);
+          await handleSession(session);
+        } else {
+          console.log(`[App.tsx AuthEffect] Ignoring ${_event} event as user hasn't changed or session is null without SIGNED_OUT.`);
+        }
       }
     );
 
@@ -465,18 +515,18 @@ function App() {
       if (currentUser.organization_id) {
         console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} belongs to Org ${currentUser.organization_id}. Triggering fetchUsersForAssignmentList.`);
         fetchUsersForAssignmentList().catch(e => console.error("[App.tsx DataFetchEffect] Error during fetchUsersForAssignmentList:", e));
-        if (projectsError === "You can create personal projects or join an organization to see shared projects.") {
+        if (useAppStore.getState().projectsError === "You can create personal projects or join an organization to see shared projects.") {
              setProjectsError(null);
          }
       } else {
         console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} has NO Org ID. Clearing org-specific user list.`);
         setUsers([]);
         setUsersForAssignmentError("Join an organization to collaborate with team members.");
-         if (projectsError === "You are not part of an organization. Join or create one to see projects.") {
+         if (useAppStore.getState().projectsError === "You are not part of an organization. Join or create one to see projects.") {
              setProjectsError("You can create personal projects or join an organization to see shared projects.");
          }
       }
-      if (authError === "You are not part of an organization. Join or create one to see projects.") {
+      if (useAppStore.getState().authError === "You are not part of an organization. Join or create one to see projects.") {
             setAuthError(null);
        }
     } else {
@@ -488,7 +538,7 @@ function App() {
       setProjectsError(null);
       setUsersForAssignmentError(null);
       setTasksError(null);
-      if (currentRoute.startsWith('#/app') && activeView !== 'overview') {
+      if (currentRoute.startsWith('#/app') && useAppStore.getState().activeView !== 'overview') {
            console.log(`[App.tsx DataFetchEffect] No user, on app route, not on overview. Setting activeView to 'overview'.`);
            setActiveView('overview');
       }
@@ -504,7 +554,7 @@ function App() {
     fetchProjects, fetchMyTasks, fetchNotifications, fetchUsersForAssignmentList,
     setProjects, setUsers, setTasks, setActiveProject,
     setProjectsError, setUsersForAssignmentError, setTasksError,
-    activeView, setActiveView, authError, setAuthError, projectsError, currentRoute, addNotification
+    setActiveView, setAuthError, addNotification, currentRoute
   ]);
 
    useEffect(() => {

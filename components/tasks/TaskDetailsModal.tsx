@@ -554,7 +554,7 @@ export const TaskDetailsModal: React.FC = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {attachments.map(att => (
                     <div key={att.id} className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 aspect-video bg-slate-100 dark:bg-slate-800">
-                      {att.file_type?.startsWith('image/') ? (
+                      {att.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(att.file_name) ? (
                         <img src={att.signedUrl} alt={att.file_name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center p-2">
@@ -972,9 +972,9 @@ export const TaskDetailsModal: React.FC = () => {
             </div>
             
             <div className="w-full h-full flex items-center justify-center overflow-hidden rounded-lg">
-              {selectedAttachment.file_type?.startsWith('image/') ? (
+              {selectedAttachment.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(selectedAttachment.file_name) ? (
                 <img src={selectedAttachment.signedUrl} alt={selectedAttachment.file_name} className="max-w-full max-h-[80vh] object-contain" />
-              ) : selectedAttachment.file_type === 'application/pdf' ? (
+              ) : selectedAttachment.file_type === 'application/pdf' || /\.pdf$/i.test(selectedAttachment.file_name) ? (
                 <iframe src={selectedAttachment.signedUrl} className="w-full h-[80vh] bg-white rounded-lg" title={selectedAttachment.file_name} />
               ) : (
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-xl flex flex-col items-center max-w-md text-center">

@@ -396,7 +396,11 @@ const appActionsCreator = (
       }
       updateState(s => ({ ...s, isLoadingProjects: true, projectsError: null }));
       try {
-        const projects = await supabaseService.getProjects();
+        const projectsPromise = supabaseService.getProjects();
+        const timeoutPromise = new Promise<Project[]>((_, reject) => 
+          setTimeout(() => reject(new Error("Projects fetch timeout")), 10000)
+        );
+        const projects = await Promise.race([projectsPromise, timeoutPromise]);
         
         // Restore active project if it exists in the fetched projects
         const savedProjectId = typeof window !== 'undefined' ? localStorage.getItem('activeProjectId') : null;
@@ -437,7 +441,11 @@ const appActionsCreator = (
         }
         updateState(s => ({ ...s, isLoadingTasks: true, tasksError: null }));
         try {
-          const newTasksForProject = await supabaseService.getTasksByProjectId(projectId);
+          const tasksPromise = supabaseService.getTasksByProjectId(projectId);
+          const timeoutPromise = new Promise<Task[]>((_, reject) => 
+            setTimeout(() => reject(new Error("Tasks fetch timeout")), 10000)
+          );
+          const newTasksForProject = await Promise.race([tasksPromise, timeoutPromise]);
           const otherTasks = get().tasks.filter(t => t.projectId !== projectId);
           updateState(s => ({ ...s, tasks: [...otherTasks, ...newTasksForProject], isLoadingTasks: false }));
         } catch (error: any) {
@@ -450,7 +458,11 @@ const appActionsCreator = (
       if (!currentUser) return;
       updateState(s => ({ ...s, isLoadingTasks: true, tasksError: null }));
       try {
-        const myTasks = await supabaseService.getMyTasks();
+        const tasksPromise = supabaseService.getMyTasks();
+        const timeoutPromise = new Promise<Task[]>((_, reject) => 
+          setTimeout(() => reject(new Error("My tasks fetch timeout")), 10000)
+        );
+        const myTasks = await Promise.race([tasksPromise, timeoutPromise]);
         
         // Check for due tasks
         const today = startOfDay(new Date());
@@ -554,7 +566,11 @@ const appActionsCreator = (
         console.log(`[useAppStore] fetchUsersForAssignmentList: Fetching users for org ${currentUser.organization_id}`);
         updateState(s => ({ ...s, isLoadingUsersForAssignment: true, usersForAssignmentError: null }));
         try {
-          const fetchedUsers = await supabaseService.getUsersByOrganizationId(currentUser.organization_id);
+          const usersPromise = supabaseService.getUsersByOrganizationId(currentUser.organization_id);
+          const timeoutPromise = new Promise<AppUserType[]>((_, reject) => 
+            setTimeout(() => reject(new Error("Users fetch timeout")), 10000)
+          );
+          const fetchedUsers = await Promise.race([usersPromise, timeoutPromise]);
           console.log(`[useAppStore] fetchUsersForAssignmentList: Fetched ${fetchedUsers.length} users. First user (if any):`, fetchedUsers[0]);
           updateState(s => ({ ...s, users: fetchedUsers, isLoadingUsersForAssignment: false }));
         } catch (error: any) {
