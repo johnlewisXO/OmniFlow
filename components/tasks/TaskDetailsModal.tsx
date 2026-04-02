@@ -40,6 +40,9 @@ export const TaskDetailsModal: React.FC = () => {
   const [collaborators, setCollaborators] = useState<TaskCollaborator[]>([]);
   const [isAddingCollaborator, setIsAddingCollaborator] = useState(false);
   const [selectedCollaboratorId, setSelectedCollaboratorId] = useState('');
+  
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState('');
   const [selectedAttachment, setSelectedAttachment] = useState<TaskAttachment | null>(null);
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -52,6 +55,132 @@ export const TaskDetailsModal: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+
+  const [mentionState, setMentionState] = useState<{
+    isOpen: boolean;
+    search: string;
+    startIndex: number;
+    cursorIndex: number;
+    selectedIndex: number;
+  }>({
+    isOpen: false,
+    search: '',
+    startIndex: -1,
+    cursorIndex: -1,
+    selectedIndex: 0,
+  });
+
+  const filteredMentionUsers = users.filter(u => 
+    (u.full_name?.toLowerCase().includes(mentionState.search.toLowerCase()) || 
+     u.email?.toLowerCase().includes(mentionState.search.toLowerCase()))
+  );
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    setNewComment(value);
+
+    // Check if we are in a mention
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_ ]*)$/);
+
+    if (match) {
+      setMentionState(prev => ({
+        ...prev,
+        isOpen: true,
+        search: match[1],
+        startIndex: match.index!,
+        cursorIndex: cursorPosition,
+      }));
+    } else {
+      setMentionState(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  const commentTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const insertMention = (user: User) => {
+    const beforeMention = newComment.slice(0, mentionState.startIndex);
+    const afterMention = newComment.slice(mentionState.cursorIndex);
+    const mentionText = `@${user.full_name || user.email} `;
+    
+    const newText = beforeMention + mentionText + afterMention;
+    setNewComment(newText);
+    setMentionState(prev => ({ ...prev, isOpen: false }));
+    
+    // Focus and set cursor position
+    setTimeout(() => {
+      if (commentTextareaRef.current) {
+        commentTextareaRef.current.focus();
+        const newCursorPos = mentionState.startIndex + mentionText.length;
+        commentTextareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
+
+  const renderCommentContent = (content: string) => {
+    let elements: (string | JSX.Element)[] = [content];
+    
+    // Sort users by name length descending to match longer names first (e.g. "John Doe" before "John")
+    const sortedUsers = [...users].sort((a, b) => {
+      const aName = a.full_name || a.email || '';
+      const bName = b.full_name || b.email || '';
+      return bName.length - aName.length;
+    });
+
+    sortedUsers.forEach(user => {
+      const name = user.full_name || user.email;
+      if (!name) return;
+      
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(@${escapedName})(?![a-zA-Z0-9_])`, 'gi');
+      
+      elements = elements.flatMap((el, index) => {
+        if (typeof el === 'string') {
+          const parts = el.split(regex);
+          if (parts.length === 1) return [el];
+          
+          const newElements: (string | JSX.Element)[] = [];
+          parts.forEach((part, i) => {
+            if (part.toLowerCase() === `@${name.toLowerCase()}`) {
+              newElements.push(<span key={`${user.id}-${index}-${i}`} className="text-accent font-medium bg-accent/10 px-1 rounded">{part}</span>);
+            } else if (part) {
+              newElements.push(part);
+            }
+          });
+          return newElements;
+        }
+        return [el];
+      });
+    });
+    
+    return elements;
+  };
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionState.isOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionState(prev => ({
+          ...prev,
+          selectedIndex: Math.min(prev.selectedIndex + 1, filteredMentionUsers.length - 1)
+        }));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionState(prev => ({
+          ...prev,
+          selectedIndex: Math.max(prev.selectedIndex - 1, 0)
+        }));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filteredMentionUsers[mentionState.selectedIndex]) {
+          insertMention(filteredMentionUsers[mentionState.selectedIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        setMentionState(prev => ({ ...prev, isOpen: false }));
+      }
+    }
+  };
 
   const handleDeleteTask = async () => {
     if (!taskToView || !window.confirm('Are you sure you want to delete this task?')) return;
@@ -158,6 +287,44 @@ export const TaskDetailsModal: React.FC = () => {
       if (error) throw error;
       if (data) {
         setComments([...comments, data as any]);
+        
+        // Find mentioned users
+        const mentionedUsers = users.filter(u => {
+            const name = u.full_name || u.email;
+            if (!name) return false;
+            // Escape special characters in name for regex
+            const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`@${escapedName}(?![a-zA-Z0-9_])`, 'i');
+            return regex.test(newComment);
+        });
+
+        // Send notifications to mentioned users
+        for (const u of mentionedUsers) {
+            if (u.id !== currentUser.id) {
+                try {
+                    await supabaseService.insertNotification({
+                        id: crypto.randomUUID(),
+                        user_id: u.id,
+                        actor_id: currentUser.id,
+                        sender_id: currentUser.id,
+                        type: 'MENTION',
+                        content: `${currentUser.full_name || currentUser.email} mentioned you in a comment on task "${taskToView.title}"`,
+                        reference_id: taskToView.id,
+                        is_read: false,
+                        entity_type: 'task',
+                        entity_id: taskToView.id,
+                        title: 'You were mentioned in a comment',
+                        message: `${currentUser.full_name || currentUser.email} mentioned you in a comment on task "${taskToView.title}"`,
+                        read: false,
+                        created_at: new Date().toISOString()
+                    });
+                    console.log("Successfully inserted mention notification for user", u.id);
+                } catch (notifError) {
+                    console.error("Failed to insert mention notification for user", u.id, notifError);
+                }
+            }
+        }
+
         setNewComment('');
         
         // Log activity
@@ -171,6 +338,37 @@ export const TaskDetailsModal: React.FC = () => {
       console.error("Error adding comment:", error);
     } finally {
       setIsSubmittingComment(false);
+    }
+  };
+
+  const handleSaveEditComment = async (commentId: string) => {
+    if (!editCommentContent.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .update({ content: editCommentContent.trim() })
+        .eq('id', commentId);
+      if (error) throw error;
+      
+      setComments(comments.map(c => c.id === commentId ? { ...c, content: editCommentContent.trim() } : c));
+      setEditingCommentId(null);
+    } catch (error) {
+      console.error("Error editing comment:", error);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .delete()
+        .eq('id', commentId);
+      if (error) throw error;
+      
+      setComments(comments.filter(c => c.id !== commentId));
+    } catch (error) {
+      console.error("Error deleting comment:", error);
     }
   };
 
@@ -624,16 +822,42 @@ export const TaskDetailsModal: React.FC = () => {
                         <span className="text-accent font-medium text-sm">{currentUser?.full_name?.charAt(0) || currentUser?.email?.charAt(0)}</span>
                       )}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
                       <textarea
+                        ref={commentTextareaRef}
                         value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment..."
+                        onChange={handleCommentChange}
+                        onKeyDown={handleCommentKeyDown}
+                        placeholder="Add a comment... (Type @ to mention)"
                         className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-accent focus:border-transparent resize-none ${
                           darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                         }`}
                         rows={3}
                       />
+                      {mentionState.isOpen && filteredMentionUsers.length > 0 && (
+                        <div className={`absolute z-10 w-64 max-h-48 overflow-y-auto rounded-md shadow-lg border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} bottom-full mb-1 left-0`}>
+                          {filteredMentionUsers.map((user, index) => (
+                            <button
+                              key={user.id}
+                              onClick={() => insertMention(user)}
+                              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${
+                                index === mentionState.selectedIndex
+                                  ? (darkMode ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-900')
+                                  : (darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100')
+                              }`}
+                            >
+                              <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                {user.avatar_url ? (
+                                  <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-accent font-medium text-xs">{user.full_name?.charAt(0) || user.email?.charAt(0)}</span>
+                                )}
+                              </div>
+                              <span className="truncate">{user.full_name || user.email}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-slate-500">Pro tip: press <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">M</kbd> to comment</span>
                         <Button onClick={handleAddComment} disabled={!newComment.trim() || isSubmittingComment} size="sm">
@@ -645,7 +869,7 @@ export const TaskDetailsModal: React.FC = () => {
 
                   {/* Comments List */}
                   {comments.map(comment => (
-                    <div key={comment.id} className="flex gap-3">
+                    <div key={comment.id} className="flex gap-3 group">
                       <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
                         {comment.user?.avatar_url ? (
                           <img src={comment.user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
@@ -656,17 +880,55 @@ export const TaskDetailsModal: React.FC = () => {
                         )}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-baseline gap-2 mb-1">
-                          <span className="font-medium text-sm text-slate-900 dark:text-white">
-                            {comment.user?.full_name || comment.user?.email || 'Unknown User'}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {new Date(comment.created_at).toLocaleString()}
-                          </span>
+                        <div className="flex items-baseline justify-between mb-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-medium text-sm text-slate-900 dark:text-white">
+                              {comment.user?.full_name || comment.user?.email || 'Unknown User'}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {new Date(comment.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          {currentUser?.id === comment.user_id && editingCommentId !== comment.id && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                              <button 
+                                onClick={() => {
+                                  setEditingCommentId(comment.id);
+                                  setEditCommentContent(comment.content);
+                                }}
+                                className="text-xs text-slate-500 hover:text-accent"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="text-xs text-slate-500 hover:text-red-500"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                          {comment.content}
-                        </div>
+                        {editingCommentId === comment.id ? (
+                          <div className="mt-2">
+                            <textarea
+                              value={editCommentContent}
+                              onChange={(e) => setEditCommentContent(e.target.value)}
+                              className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-accent focus:border-transparent resize-none ${
+                                darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                              }`}
+                              rows={3}
+                            />
+                            <div className="flex justify-end gap-2 mt-2">
+                              <Button variant="outline" size="sm" onClick={() => setEditingCommentId(null)}>Cancel</Button>
+                              <Button size="sm" onClick={() => handleSaveEditComment(comment.id)} disabled={!editCommentContent.trim()}>Save</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                            {renderCommentContent(comment.content)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

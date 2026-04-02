@@ -148,14 +148,19 @@ export interface OrganizationCheckState {
 export interface Notification {
   id: string;
   user_id?: string;
+  sender_id?: string;
   actor_id?: string;
   type: string;
+  content: string;
+  reference_id: string;
+  reference_parent_id?: string;
+  is_read: boolean;
   entity_type?: 'task' | 'project' | 'user' | 'system';
   entity_id?: string;
-  title: string;
-  message: string;
+  title?: string;
+  message?: string;
   metadata?: Record<string, any>;
-  read: boolean;
+  read?: boolean;
   created_at: string;
 }
 
@@ -223,7 +228,7 @@ export interface AppStore {
 
   isViewTaskModalOpen: boolean; 
   taskToView: Task | null;      
-  openViewTaskModal: (taskId: string) => void; 
+  openViewTaskModal: (taskId: string, navigateToProject?: boolean) => void; 
   closeViewTaskModal: () => void;    
 
   isEditTaskModalOpen: boolean; 

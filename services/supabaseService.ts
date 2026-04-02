@@ -370,14 +370,41 @@ const supabaseService = {
       console.warn("Notifications table might not exist:", error);
       throw error;
     }
-    return data || [];
+    
+    // Map database fields to frontend expected fields
+    return (data || []).map(n => ({
+      ...n,
+      read: n.is_read !== undefined ? n.is_read : n.read,
+      message: n.content || n.message,
+      entity_id: n.reference_id || n.entity_id
+    }));
   },
 
   insertNotification: async (notification: any): Promise<void> => {
-    const { error } = await supabase.from('notifications').insert([notification]);
+    // Map frontend fields to database required fields
+    const dbNotification = {
+      ...notification,
+      is_read: notification.read || false,
+      content: notification.message || notification.content || '',
+      reference_id: notification.entity_id || notification.reference_id || '00000000-0000-0000-0000-000000000000',
+      sender_id: notification.actor_id || notification.sender_id || notification.user_id // Fallback
+    };
+    
+    const { error } = await supabase.from('notifications').insert([dbNotification]);
     if (error) {
       console.warn("Failed to insert notification, table might not exist:", error);
+      throw error;
     }
+  },
+
+  markNotificationAsRead: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('notifications').update({ is_read: true, read: true }).eq('id', id);
+    if (error) console.error("Failed to mark notification as read:", error);
+  },
+
+  markAllNotificationsAsRead: async (userId: string): Promise<void> => {
+    const { error } = await supabase.from('notifications').update({ is_read: true, read: true }).eq('user_id', userId);
+    if (error) console.error("Failed to mark all notifications as read:", error);
   },
 
   getUsersByOrganizationId: async (organizationId: string): Promise<AppUserType[]> => {

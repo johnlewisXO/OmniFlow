@@ -60,7 +60,18 @@ export const InboxPage: React.FC = () => {
           {notifications.map((notification) => (
             <div 
               key={notification.id} 
-              className={`p-4 rounded-xl border transition-all ${
+              onClick={() => {
+                const entityType = notification.entity_type || notification.metadata?.entity_type;
+                const entityId = notification.entity_id || notification.metadata?.entity_id;
+                
+                if (entityType === 'task' && entityId) {
+                  useAppStore.getState().openViewTaskModal(entityId, true);
+                  if (!notification.read) {
+                    markNotificationAsRead(notification.id);
+                  }
+                }
+              }}
+              className={`p-4 rounded-xl border transition-all ${(notification.entity_type === 'task' || notification.metadata?.entity_type === 'task') ? 'cursor-pointer hover:shadow-md' : ''} ${
                 !notification.read 
                   ? (darkMode ? 'bg-slate-800 border-primary/30 shadow-sm' : 'bg-white border-primary/20 shadow-sm') 
                   : (darkMode ? 'bg-slate-800/40 border-slate-700/50 opacity-70' : 'bg-slate-50/50 border-slate-200 opacity-70')
@@ -86,7 +97,10 @@ export const InboxPage: React.FC = () => {
                 
                 {!notification.read && (
                   <button 
-                    onClick={() => markNotificationAsRead(notification.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markNotificationAsRead(notification.id);
+                    }}
                     className={`ml-4 p-1.5 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-700 text-slate-400 hover:text-white' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-800'}`}
                     title="Mark as read"
                   >

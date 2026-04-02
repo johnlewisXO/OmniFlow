@@ -422,31 +422,14 @@ function App() {
       }
     };
 
-    const initializeAuth = async () => {
-      setAppLoading(true);
-      try {
-        const sessionPromise = supabaseService.getSession();
-        const timeoutPromise = new Promise<{data: {session: null}}>((_, reject) => 
-          setTimeout(() => reject(new Error("Session fetch timeout")), 8000)
-        );
-        
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-        await handleSession(session, true);
-      } catch (e) {
-        console.error("Failed to get initial session or timed out:", e);
-        if (mounted) {
-          setCurrentUser(null);
-          setAppLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
-
     const { data: authListener } = supabaseService.onAuthStateChange(
       async (_event, session) => {
-        if (_event === 'INITIAL_SESSION') return;
         console.log(`[App.tsx AuthEffect] onAuthStateChange triggered. Event: ${_event}`);
+        
+        if (_event === 'INITIAL_SESSION') {
+          await handleSession(session, true);
+          return;
+        }
         
         const currentStoreUser = useAppStore.getState().currentUser;
         
@@ -462,11 +445,17 @@ function App() {
         if (newUserId && newUserId !== currentUserId) {
           console.log(`[App.tsx AuthEffect] User changed from ${currentUserId} to ${newUserId}. Handling session.`);
           await handleSession(session);
+        } else if (!newUserId && currentUserId) {
+          console.log(`[App.tsx AuthEffect] User logged out. Handling session.`);
+          await handleSession(null);
         } else {
           console.log(`[App.tsx AuthEffect] Ignoring ${_event} event as user hasn't changed or session is null without SIGNED_OUT.`);
         }
       }
     );
+
+    // We no longer call initializeAuth() manually, we rely on INITIAL_SESSION
+    // But we need to set appLoading to true initially, which is already the default state.
 
     return () => {
       mounted = false;
