@@ -1,12 +1,11 @@
 
 import React from 'react';
-// Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Project } from '../../types';
 
 export const ProjectStatusWidget: React.FC = () => {
-  const { projects, darkMode, isLoadingProjects } = useAppStore();
+  const { projects, darkMode, isLoadingProjects, setActiveProject, setActiveView } = useAppStore();
   const FolderIcon = ICON_MAP.FolderIcon;
 
   // Example: Show first 5 projects or projects with progress
@@ -15,14 +14,14 @@ export const ProjectStatusWidget: React.FC = () => {
     .slice(0, 5);
 
   return (
-    <div className={`p-4 md:p-6 rounded-xl ${darkMode ? 'bg-slate-800/50' : 'bg-slate-100/70'} border ${darkMode ? 'border-slate-700/50' : 'border-white/30'} shadow-lg`}>
+    <div className={`p-4 md:p-6 rounded-lg ${darkMode ? 'bg-slate-800/50' : 'bg-slate-100/70'} border ${darkMode ? 'border-slate-700/50' : 'border-white/30'} shadow-sm`}>
       <div className="flex items-center mb-4">
         <FolderIcon className={`w-6 h-6 mr-3 ${darkMode ? 'text-primary-light' : 'text-primary'}`} />
         <h2 className="text-xl font-semibold">Active Projects Overview</h2>
       </div>
       
       {isLoadingProjects ? (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {[1, 2, 3].map(i => (
             <li key={i} className={`p-3 rounded-md animate-pulse ${darkMode ? 'bg-slate-700/40 border-slate-600/30' : 'bg-white/50 border-slate-200/50'} border`}>
               <div className="flex justify-between items-center mb-2">
@@ -36,11 +35,15 @@ export const ProjectStatusWidget: React.FC = () => {
       ) : recentProjects.length === 0 ? (
         <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>No active projects to display.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {recentProjects.map(project => (
             <li 
               key={project.id}
-              className={`p-3 rounded-md ${darkMode ? 'bg-slate-700/70' : 'bg-white/80'} border ${darkMode ? 'border-slate-600/50' : 'border-slate-200/60'}`}
+              onClick={() => {
+                setActiveProject(project.id);
+                setActiveView('kanban');
+              }}
+              className={`p-3 rounded-md cursor-pointer transition-all ${darkMode ? 'bg-slate-700/70 hover:bg-slate-700' : 'bg-white/80 hover:bg-slate-50 hover:shadow-sm'} border ${darkMode ? 'border-slate-600/50' : 'border-slate-200/60'}`}
             >
               <div className="flex justify-between items-center mb-1">
                 <span className={`font-medium text-sm ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{project.name}</span>

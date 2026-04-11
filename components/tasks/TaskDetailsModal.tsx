@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
-import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog } from '../../types';
+import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog, TaskCollaborator } from '../../types';
 import { ICON_MAP } from '../../constants';
 import supabaseService, { supabase } from '../../services/supabaseService';
 
@@ -20,6 +20,7 @@ export const TaskDetailsModal: React.FC = () => {
     closeViewTaskModal,
     taskToView,
     updateTask,
+    deleteTask,
     users,
     currentUser,
     darkMode,
@@ -43,6 +44,8 @@ export const TaskDetailsModal: React.FC = () => {
   
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentContent, setEditCommentContent] = useState('');
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const [subtaskToDelete, setSubtaskToDelete] = useState<string | null>(null);
   const [selectedAttachment, setSelectedAttachment] = useState<TaskAttachment | null>(null);
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -119,7 +122,7 @@ export const TaskDetailsModal: React.FC = () => {
   };
 
   const renderCommentContent = (content: string) => {
-    let elements: (string | JSX.Element)[] = [content];
+    let elements: React.ReactNode[] = [content];
     
     // Sort users by name length descending to match longer names first (e.g. "John Doe" before "John")
     const sortedUsers = [...users].sort((a, b) => {
@@ -140,7 +143,7 @@ export const TaskDetailsModal: React.FC = () => {
           const parts = el.split(regex);
           if (parts.length === 1) return [el];
           
-          const newElements: (string | JSX.Element)[] = [];
+          const newElements: React.ReactNode[] = [];
           parts.forEach((part, i) => {
             if (part.toLowerCase() === `@${name.toLowerCase()}`) {
               newElements.push(<span key={`${user.id}-${index}-${i}`} className="text-accent font-medium bg-accent/10 px-1 rounded">{part}</span>);
@@ -185,7 +188,7 @@ export const TaskDetailsModal: React.FC = () => {
   const handleDeleteTask = async () => {
     if (!taskToView || !window.confirm('Are you sure you want to delete this task?')) return;
     try {
-      await useAppStore.getState().deleteTask(taskToView.id);
+      await deleteTask(taskToView.id);
       closeViewTaskModal();
     } catch (error) {
       console.error("Error deleting task:", error);
@@ -357,16 +360,17 @@ export const TaskDetailsModal: React.FC = () => {
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm("Are you sure you want to delete this comment?")) return;
+  const handleDeleteComment = async () => {
+    if (!commentToDelete) return;
     try {
       const { error } = await supabase
         .from('task_comments')
         .delete()
-        .eq('id', commentId);
+        .eq('id', commentToDelete);
       if (error) throw error;
       
-      setComments(comments.filter(c => c.id !== commentId));
+      setComments(comments.filter(c => c.id !== commentToDelete));
+      setCommentToDelete(null);
     } catch (error) {
       console.error("Error deleting comment:", error);
     }
@@ -539,32 +543,32 @@ export const TaskDetailsModal: React.FC = () => {
   const parentTask = taskToView.parent_task_id ? tasks.find(t => t.id === taskToView.parent_task_id) : null;
 
   const modalTitle = (
-    <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 font-normal">
+    <div className="flex flex-wrap items-center text-xs md:text-sm text-slate-500 dark:text-slate-400 font-normal">
       {parentTask && (
         <button 
           onClick={() => openViewTaskModal(parentTask.id)}
-          className="mr-3 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          className="mr-2 md:mr-3 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           title="Back to parent task"
         >
-          <ICON_MAP.ArrowLeftIcon className="w-4 h-4" />
+          <ICON_MAP.ArrowLeftIcon className="w-3 h-3 md:w-4 md:h-4" />
         </button>
       )}
-      <span>Projects</span>
-      <span className="mx-2">/</span>
-      <span>{activeProject?.name || 'Project'}</span>
-      <span className="mx-2">/</span>
+      <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">Projects</span>
+      <span className="mx-1 md:mx-2">/</span>
+      <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">{activeProject?.name || 'Project'}</span>
+      <span className="mx-1 md:mx-2">/</span>
       {parentTask && (
         <>
           <span 
-            className="cursor-pointer hover:underline hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            className="cursor-pointer hover:underline hover:text-slate-700 dark:hover:text-slate-200 transition-colors truncate max-w-[80px] sm:max-w-[120px] md:max-w-none"
             onClick={() => openViewTaskModal(parentTask.id)}
           >
             {parentTask.title}
           </span>
-          <span className="mx-2">/</span>
+          <span className="mx-1 md:mx-2">/</span>
         </>
       )}
-      <span className="text-slate-800 dark:text-slate-200 font-medium">{taskToView.title}</span>
+      <span className="text-slate-800 dark:text-slate-200 font-medium truncate max-w-[100px] sm:max-w-[150px] md:max-w-none">{taskToView.title}</span>
     </div>
   );
 
@@ -575,12 +579,12 @@ export const TaskDetailsModal: React.FC = () => {
             <strong>Error:</strong> {error}
         </div>
       )}
-      <div className="flex flex-col md:flex-row h-full gap-6">
+      <div className="flex flex-col md:flex-row md:h-full gap-6">
         
         {/* Left Column: Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pr-2">
+        <div className="w-full md:flex-1 flex flex-col min-w-0 md:overflow-y-auto pr-0 md:pr-2">
           
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
             {isEditingTitle ? (
               <input
                 type="text"
@@ -589,11 +593,11 @@ export const TaskDetailsModal: React.FC = () => {
                 onBlur={handleTitleSave}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
                 autoFocus
-                className={`text-2xl font-semibold w-full bg-transparent border-b-2 border-accent focus:outline-none ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                className={`text-xl md:text-2xl font-semibold w-full bg-transparent border-b-2 border-accent focus:outline-none ${darkMode ? 'text-white' : 'text-slate-900'}`}
               />
             ) : (
               <h1 
-                className="text-2xl font-semibold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-2 -ml-2 py-1 transition-colors"
+                className="text-xl md:text-2xl font-semibold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-2 -ml-2 py-1 transition-colors"
                 onClick={() => setIsEditingTitle(true)}
               >
                 {taskToView.title}
@@ -601,7 +605,7 @@ export const TaskDetailsModal: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex flex-wrap items-center gap-2 mb-6">
             <label className="cursor-pointer relative group">
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/jpeg,image/png,image/gif,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
               <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -628,7 +632,7 @@ export const TaskDetailsModal: React.FC = () => {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6">
+          <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-700 mb-6 scrollbar-none">
             {[
               { id: 'general', label: 'General' },
               { id: 'qa', label: 'QA/Testing' },
@@ -715,14 +719,23 @@ export const TaskDetailsModal: React.FC = () => {
                   {subtasks.map(subtask => (
                     <div 
                       key={subtask.id} 
-                      onClick={() => openViewTaskModal(subtask.id)}
-                      className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => openViewTaskModal(subtask.id)}>
                         <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-accent" />
                         <span className="text-sm text-slate-700 dark:text-slate-300">{subtask.title}</span>
                       </div>
                       <div className="flex items-center gap-3">
+                        <select
+                          value={subtask.assignee_id || ''}
+                          onChange={(e) => updateTask(subtask.id, { assignee_id: e.target.value || undefined })}
+                          className={`appearance-none px-2 py-1 rounded-md text-xs border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}
+                        >
+                          <option value="">Unassigned</option>
+                          {users.map(u => (
+                            <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                          ))}
+                        </select>
                         <span className={`text-xs font-medium px-2 py-1 rounded-full ${
                           subtask.status === TaskStatus.DONE ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                           subtask.status === TaskStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
@@ -730,6 +743,16 @@ export const TaskDetailsModal: React.FC = () => {
                         }`}>
                           {formatEnumForDisplay(subtask.status)}
                         </span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSubtaskToDelete(subtask.id);
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Delete Subtask"
+                        >
+                          <ICON_MAP.TrashIcon className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -880,17 +903,15 @@ export const TaskDetailsModal: React.FC = () => {
                         )}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-baseline justify-between mb-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-medium text-sm text-slate-900 dark:text-white">
-                              {comment.user?.full_name || comment.user?.email || 'Unknown User'}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {new Date(comment.created_at).toLocaleString()}
-                            </span>
-                          </div>
+                        <div className="flex items-baseline gap-2 mb-1">
+                          <span className="font-medium text-sm text-slate-900 dark:text-white">
+                            {comment.user?.full_name || comment.user?.email || 'Unknown User'}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {new Date(comment.created_at).toLocaleString()}
+                          </span>
                           {currentUser?.id === comment.user_id && editingCommentId !== comment.id && (
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 ml-2">
                               <button 
                                 onClick={() => {
                                   setEditingCommentId(comment.id);
@@ -901,7 +922,7 @@ export const TaskDetailsModal: React.FC = () => {
                                 Edit
                               </button>
                               <button 
-                                onClick={() => handleDeleteComment(comment.id)}
+                                onClick={() => setCommentToDelete(comment.id)}
                                 className="text-xs text-slate-500 hover:text-red-500"
                               >
                                 Delete
@@ -1253,6 +1274,37 @@ export const TaskDetailsModal: React.FC = () => {
                   </a>
                 </div>
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {commentToDelete && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in" onClick={() => setCommentToDelete(null)}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Delete Comment</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">Are you sure you want to delete this comment? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setCommentToDelete(null)}>Cancel</Button>
+              <Button variant="danger" onClick={handleDeleteComment}>Delete</Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {subtaskToDelete && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in" onClick={() => setSubtaskToDelete(null)}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Delete Subtask</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">Are you sure you want to delete this subtask? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setSubtaskToDelete(null)}>Cancel</Button>
+              <Button variant="danger" onClick={() => {
+                deleteTask(subtaskToDelete);
+                setSubtaskToDelete(null);
+              }}>Delete</Button>
             </div>
           </div>
         </div>,

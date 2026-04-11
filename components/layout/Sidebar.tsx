@@ -21,6 +21,8 @@ export const Sidebar: React.FC = () => {
     activeView, 
     setActiveView, 
     signOut,
+    isSidebarOpen,
+    setSidebarOpen
   } = useAppStore();
 
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -37,6 +39,7 @@ export const Sidebar: React.FC = () => {
   const LogoutIcon = ICON_MAP.LogoutIcon;
   const FolderIcon = ICON_MAP.FolderIcon; 
   const UserGroupIcon = ICON_MAP.UserGroupIcon;
+  const XIcon = ICON_MAP.XIcon;
 
   const handleSidenavItemClick = (id: ActiveView | string , _path: string) => { // path parameter is not used here
     setActiveProject(null); 
@@ -48,6 +51,7 @@ export const Sidebar: React.FC = () => {
     if (itemConfig && itemConfig.roles && currentUser?.role && !itemConfig.roles.includes(currentUser.role as UserRole)) {
         console.warn(`Attempted to navigate to "${id}" without sufficient permissions.`);
         setActiveView('overview'); // Fallback to a safe view
+        setSidebarOpen(false);
         return;
     }
     
@@ -57,6 +61,7 @@ export const Sidebar: React.FC = () => {
         console.warn(`Navigation to "${id}" might need role-specific handling or is unmapped. Falling back to overview.`);
         setActiveView('overview');
     }
+    setSidebarOpen(false);
   };
 
   const isAdminOrOwner = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER;
@@ -100,11 +105,33 @@ export const Sidebar: React.FC = () => {
 
 
   return (
-    <aside className="w-72 glass-panel rounded-squircle-lg flex flex-col h-full p-4 space-y-6">
-      <div className="flex items-center space-x-3 px-2 pt-2">
-        <ICON_MAP.SparklesIcon className="w-8 h-8 text-accent" />
-        <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'} text-shadow-subtle text-gradient-accent`}>{APP_TITLE}</h1>
-      </div>
+    <>
+      {/* Mobile overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50
+        w-64 md:w-72 glass-panel rounded-r-2xl md:rounded-squircle-lg flex flex-col h-full p-4 space-y-6
+        transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <div className="flex items-center justify-between px-2 pt-2">
+          <div className="flex items-center space-x-3">
+            <ICON_MAP.SparklesIcon className="w-8 h-8 text-accent" />
+            <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'} text-shadow-subtle text-gradient-accent`}>{APP_TITLE}</h1>
+          </div>
+          <button 
+            className="md:hidden p-2 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <XIcon className="w-5 h-5" />
+          </button>
+        </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pr-1 scrollbar-thin">
         <nav className="space-y-1.5">
@@ -257,5 +284,6 @@ export const Sidebar: React.FC = () => {
         )}
       </div>
     </aside>
+    </>
   );
 };

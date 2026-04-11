@@ -391,8 +391,7 @@ function App() {
         } catch (error: any) {
           if (mounted) {
             console.error("[App.tsx AuthEffect] Error fetching/setting user profile:", error);
-            const existingUser = useAppStore.getState().currentUser;
-            if (!existingUser) {
+            if (!currentUser) {
                console.warn("[App.tsx AuthEffect] Using fallback user payload due to profile fetch error.");
                const fallbackUser: AppUserType = {
                  id: session.user.id,
@@ -431,8 +430,6 @@ function App() {
           return;
         }
         
-        const currentStoreUser = useAppStore.getState().currentUser;
-        
         if (_event === 'SIGNED_OUT') {
           console.log(`[App.tsx AuthEffect] User signed out.`);
           await handleSession(null);
@@ -440,7 +437,7 @@ function App() {
         }
 
         const newUserId = session?.user?.id;
-        const currentUserId = currentStoreUser?.supabase_auth_id;
+        const currentUserId = currentUser?.supabase_auth_id;
 
         if (newUserId && newUserId !== currentUserId) {
           console.log(`[App.tsx AuthEffect] User changed from ${currentUserId} to ${newUserId}. Handling session.`);
@@ -504,18 +501,18 @@ function App() {
       if (currentUser.organization_id) {
         console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} belongs to Org ${currentUser.organization_id}. Triggering fetchUsersForAssignmentList.`);
         fetchUsersForAssignmentList().catch(e => console.error("[App.tsx DataFetchEffect] Error during fetchUsersForAssignmentList:", e));
-        if (useAppStore.getState().projectsError === "You can create personal projects or join an organization to see shared projects.") {
+        if (projectsError === "You can create personal projects or join an organization to see shared projects.") {
              setProjectsError(null);
          }
       } else {
         console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} has NO Org ID. Clearing org-specific user list.`);
         setUsers([]);
         setUsersForAssignmentError("Join an organization to collaborate with team members.");
-         if (useAppStore.getState().projectsError === "You are not part of an organization. Join or create one to see projects.") {
+         if (projectsError === "You are not part of an organization. Join or create one to see projects.") {
              setProjectsError("You can create personal projects or join an organization to see shared projects.");
          }
       }
-      if (useAppStore.getState().authError === "You are not part of an organization. Join or create one to see projects.") {
+      if (authError === "You are not part of an organization. Join or create one to see projects.") {
             setAuthError(null);
        }
     } else {
@@ -527,7 +524,7 @@ function App() {
       setProjectsError(null);
       setUsersForAssignmentError(null);
       setTasksError(null);
-      if (currentRoute.startsWith('#/app') && useAppStore.getState().activeView !== 'overview') {
+      if (currentRoute.startsWith('#/app') && activeView !== 'overview') {
            console.log(`[App.tsx DataFetchEffect] No user, on app route, not on overview. Setting activeView to 'overview'.`);
            setActiveView('overview');
       }

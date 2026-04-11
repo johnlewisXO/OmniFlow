@@ -29,7 +29,9 @@ export const CreateTaskModal: React.FC = () => {
     setError: setGlobalError,
     isLoadingUsersForAssignment,
     usersForAssignmentError,
-    parentTaskIdForNewTask
+    parentTaskIdForNewTask,
+    openViewTaskModal,
+    tasks
   } = useAppStore();
 
   const [title, setTitle] = useState('');
@@ -76,7 +78,7 @@ export const CreateTaskModal: React.FC = () => {
         setLocalFormError(msg);
         return;
     }
-    const parentTask = parentTaskIdForNewTask ? useAppStore.getState().tasks.find(t => t.id === parentTaskIdForNewTask) : null;
+    const parentTask = parentTaskIdForNewTask ? tasks.find(t => t.id === parentTaskIdForNewTask) : null;
     const targetProjectId = activeProject?.id || parentTask?.projectId;
 
     if (!targetProjectId) {
@@ -104,7 +106,7 @@ export const CreateTaskModal: React.FC = () => {
     try {
       const createdTask = await createTask(taskData);
       if (createdTask) {
-        useAppStore.getState().openViewTaskModal(createdTask.id);
+        openViewTaskModal(createdTask.id);
       }
     } catch (err: any) {
       // Error is set in the store
@@ -127,7 +129,7 @@ export const CreateTaskModal: React.FC = () => {
   let createButtonText = 'Create Task';
   let createButtonDisabled = isLoading;
 
-  const parentTask = parentTaskIdForNewTask ? useAppStore.getState().tasks.find(t => t.id === parentTaskIdForNewTask) : null;
+  const parentTask = parentTaskIdForNewTask ? tasks.find(t => t.id === parentTaskIdForNewTask) : null;
   const targetProjectId = activeProject?.id || parentTask?.projectId;
 
   if (isLoading) {

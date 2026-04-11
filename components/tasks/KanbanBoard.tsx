@@ -83,14 +83,15 @@ export const KanbanBoard: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex space-x-3 md:space-x-4 p-4 md:p-6 overflow-x-auto bg-transparent">
+    <div className="flex-1 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 p-4 md:p-6 overflow-x-auto overflow-y-auto bg-transparent">
       {TASK_STATUS_COLUMNS.map(column => (
-        <KanbanColumn
-          key={column.id}
-          status={column.id as TaskStatusEnum} 
-          title={column.title}
-          colorClass={column.color}
-        />
+        <div key={column.id} className="w-full md:w-auto md:shrink">
+          <KanbanColumn
+            status={column.id as TaskStatusEnum} 
+            title={column.title}
+            colorClass={column.color}
+          />
+        </div>
       ))}
     </div>
   );
