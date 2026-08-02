@@ -78,7 +78,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     <div
       data-task-id={task.id} 
       style={cardBackgroundStyle}
-      className={`p-4 rounded-squircle-md shadow-glass border mb-3 cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-300 ease-out transform hover:scale-[1.03] hover:-translate-y-0.5
+      className={`p-4 rounded-squircle-md shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-0.5
                   ${isHighlighted ? (darkMode ? 'ring-2 ring-accent-light shadow-accent-light/20' : 'ring-2 ring-accent shadow-accent/20') : ''}`}
       onClick={handleCardClick}
       draggable={true} 

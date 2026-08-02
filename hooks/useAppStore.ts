@@ -14,7 +14,9 @@ interface StoreState {
   users: User[];
   projects: Project[];
   tasks: Task[];
+  myTasks: Task[];
   currentUser: User | null;
+  currentOrganization: Organization | null;
   authLoading: boolean;
   authError: string | null;
   appLoading: boolean;
@@ -212,7 +214,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage: string): 
 
 const appActionsCreator = (
   updateState: (updater: (s: StoreState) => StoreState) => void,
-  get: () => StoreState
+  get: () => AppStore
 ) => {
   const selfActions = {
     emitEvent: (eventType: string, payload: any) => {
@@ -1305,4 +1307,4 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
   return useHook as (() => TState & ReturnType<TActionsCreator>) & { getState: () => TState & ReturnType<TActionsCreator> };
 };
 
-export const useAppStore = createAppStoreHook(initialStoreStateValues, appActionsCreator);
+export const useAppStore: (() => AppStore) & { getState: () => AppStore } = createAppStoreHook(initialStoreStateValues, appActionsCreator) as any;

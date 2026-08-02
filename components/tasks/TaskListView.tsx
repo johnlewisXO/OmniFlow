@@ -21,7 +21,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 }) => {
   const { 
     updateTask,
-    openCreateTaskModal,
+    openModal,
     deleteTask,
     addToast
   } = useAppStore();

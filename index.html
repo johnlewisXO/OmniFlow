@@ -11,8 +11,8 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
-              display: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'], 
+              sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"SF Pro"', '"Inter"', '"Plus Jakarta Sans"', 'Helvetica', 'Arial', 'sans-serif'],
+              display: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"SF Pro"', '"Inter"', 'sans-serif'], 
             },
             colors: {
               primary: {
@@ -218,49 +218,59 @@
 
         body { 
           color: #1F2937;
-          background-color: #F5F7FB;
+          background-color: #F8FAFC;
           background-image: 
-            radial-gradient(at 0% 0%, rgba(216, 204, 255, 0.35) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(120, 183, 255, 0.30) 0px, transparent 50%),
-            radial-gradient(at 50% 100%, rgba(200, 245, 227, 0.25) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(255, 216, 204, 0.25) 0px, transparent 50%),
-            linear-gradient(135deg, #F8FAFC 0%, #F5F7FB 50%, #EEF3F7 100%);
+            radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.14) 0px, transparent 50%),
+            radial-gradient(at 85% 20%, rgba(120, 183, 255, 0.16) 0px, transparent 50%),
+            radial-gradient(at 50% 80%, rgba(167, 139, 250, 0.12) 0px, transparent 50%),
+            radial-gradient(at 80% 85%, rgba(255, 255, 255, 0.85) 0px, transparent 60%),
+            linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 50%, #E2E8F0 100%);
+          background-size: 160% 160%;
           background-attachment: fixed;
-          font-family: theme('fontFamily.sans');
+          animation: animateBackgroundMesh 30s ease-in-out infinite;
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter", "Plus Jakarta Sans", sans-serif;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
+          letter-spacing: -0.011em;
           line-height: 1.6;
           transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
         }
 
         html.dark body {
           color: #F8FAFC;
-          background-color: #0F172A;
+          background-color: #070A12;
           background-image: 
-            radial-gradient(at 0% 0%, rgba(105, 87, 255, 0.15) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(120, 183, 255, 0.12) 0px, transparent 50%),
-            radial-gradient(at 50% 100%, rgba(200, 245, 227, 0.08) 0px, transparent 50%),
-            linear-gradient(135deg, #0B0F19 0%, #0F172A 50%, #1E1B4B 100%);
+            radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.28) 0px, transparent 50%),
+            radial-gradient(at 85% 20%, rgba(59, 130, 246, 0.22) 0px, transparent 50%),
+            radial-gradient(at 50% 80%, rgba(139, 92, 246, 0.20) 0px, transparent 50%),
+            linear-gradient(135deg, #070A12 0%, #0F172A 50%, #131728 100%);
+          background-size: 160% 160%;
           background-attachment: fixed;
+          animation: animateBackgroundMesh 30s ease-in-out infinite;
         }
 
         .glass-panel, .auth-panel, aside, header { 
-          background: rgba(255, 255, 255, 0.65) !important;
-          backdrop-filter: blur(26px) saturate(180%) !important;
-          -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.50) !important;
+          background: rgba(255, 255, 255, 0.72) !important;
+          backdrop-filter: blur(32px) saturate(210%) !important;
+          -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
+          border: 1px solid rgba(255, 255, 255, 0.70) !important;
           box-shadow: 
-            0 10px 30px rgba(15, 23, 42, 0.05),
-            0 2px 6px rgba(255, 255, 255, 0.30) inset !important;
+            0 14px 40px rgba(15, 23, 42, 0.05),
+            0 1px 0.5px rgba(255, 255, 255, 0.90) inset,
+            0 -1px 0.5px rgba(255, 255, 255, 0.30) inset !important;
           border-radius: 30px !important;
           transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
         html.dark .glass-panel, html.dark .auth-panel, html.dark aside, html.dark header {
-          background: rgba(15, 23, 42, 0.65) !important;
-          backdrop-filter: blur(26px) saturate(180%) !important;
-          -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+          background: rgba(13, 18, 30, 0.72) !important;
+          backdrop-filter: blur(32px) saturate(210%) !important;
+          -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
+          border: 1px solid rgba(255, 255, 255, 0.14) !important;
           box-shadow: 
-            0 10px 30px rgba(0, 0, 0, 0.35),
-            0 2px 6px rgba(255, 255, 255, 0.10) inset !important;
+            0 16px 44px rgba(0, 0, 0, 0.45),
+            0 1px 0.5px rgba(255, 255, 255, 0.18) inset,
+            0 -1px 0.5px rgba(255, 255, 255, 0.05) inset !important;
         }
 
         input[type="text"], input[type="email"], input[type="password"], input[type="date"], textarea, select {

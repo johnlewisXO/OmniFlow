@@ -35,7 +35,7 @@ export const TeamManagementPage: React.FC = () => {
     deleteUserFromOrganization,
     isDeletingUser,
     deleteUserError,
-    setCurrentView,
+    setActiveView,
     addToast
   } = useAppStore();
 

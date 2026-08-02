@@ -123,7 +123,9 @@ export interface Task {
   status: TaskStatus;
   assignee_id?: string; 
   dueDate?: string;
+  due_date?: string;
   projectId: string;
+  organization_id?: string;
   position: number;
   creator_id?: string; // Ensured creator_id is present
   parent_task_id?: string;
@@ -224,17 +226,17 @@ export interface Notification {
   actor_id?: string;
   type: string;
   toastType?: 'success' | 'error' | 'warning' | 'info';
-  content: string;
-  reference_id: string;
+  content?: string;
+  reference_id?: string;
   reference_parent_id?: string;
-  is_read: boolean;
+  is_read?: boolean;
   entity_type?: 'task' | 'project' | 'user' | 'system';
   entity_id?: string;
   title?: string;
   message?: string;
   metadata?: Record<string, any>;
   read?: boolean;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface AppStore {

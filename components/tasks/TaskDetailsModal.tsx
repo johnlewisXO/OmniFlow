@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
-import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog } from '../../types';
+import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog, TaskCollaborator } from '../../types';
 import { ICON_MAP } from '../../constants';
 import supabaseService, { supabase } from '../../services/supabaseService';
 import geminiService from '../../services/geminiService';
@@ -167,7 +167,7 @@ export const TaskDetailsModal: React.FC = () => {
   };
 
   const renderCommentContent = (content: string) => {
-    let elements: (string | JSX.Element)[] = [content];
+    let elements: (string | React.ReactNode)[] = [content];
     
     // Sort users by name length descending to match longer names first (e.g. "John Doe" before "John")
     const sortedUsers = [...users].sort((a, b) => {
@@ -188,7 +188,7 @@ export const TaskDetailsModal: React.FC = () => {
           const parts = el.split(regex);
           if (parts.length === 1) return [el];
           
-          const newElements: (string | JSX.Element)[] = [];
+          const newElements: (string | React.ReactNode)[] = [];
           parts.forEach((part, i) => {
             if (part.toLowerCase() === `@${name.toLowerCase()}`) {
               newElements.push(<span key={`${user.id}-${index}-${i}`} className="text-accent font-medium bg-accent/10 px-1 rounded">{part}</span>);

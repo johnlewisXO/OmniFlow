@@ -2,7 +2,7 @@
 
 
 import { createClient, Session, User as SupabaseAuthUser, PostgrestError, SupabaseClient, AuthError } from '@supabase/supabase-js';
-import { User as AppUserType, Project, Task, TaskStatus, UserRole, Organization as AppOrganizationType, TaskPriority } from '../types'; 
+import { User as AppUserType, Project, Task, TaskStatus, UserRole, Organization as AppOrganizationType, TaskPriority, AuditLog, OrganizationInvitation } from '../types'; 
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://sqzjlxayhghoxjloaddo.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NDQ4MDksImV4cCI6MjA2NjAyMDgwOX0.80rrMJ7AC-XrcUNozIlMa1kh8SFnKagakG_4XOwVbTY';
