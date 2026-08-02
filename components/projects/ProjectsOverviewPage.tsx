@@ -6,7 +6,7 @@ import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 
 export const ProjectsOverviewPage: React.FC = () => {
-  const { projects, isLoadingProjects, projectsError, setActiveProject, openCreateProjectModal, darkMode, setActiveView } = useAppStore();
+  const { projects, isLoadingProjects, projectsError, setActiveProject, openCreateProjectModal, darkMode } = useAppStore();
   const FolderIcon = ICON_MAP.FolderIcon;
   const PlusIcon = ICON_MAP.PlusIcon;
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
@@ -66,10 +66,7 @@ export const ProjectsOverviewPage: React.FC = () => {
                          ${darkMode ? 'bg-slate-800/60 hover:bg-slate-700/80 border-slate-700/50' 
                                    : 'bg-white/70 hover:bg-slate-50/90 border-slate-200/70'} 
                          border shadow-lg hover:shadow-xl`}
-              onClick={() => {
-                setActiveProject(project.id);
-                setActiveView('kanban');
-              }}
+              onClick={() => setActiveProject(project.id)}
             >
               <div className="flex items-center mb-3">
                 <FolderIcon className={`w-7 h-7 mr-3 ${darkMode ? 'text-primary-light' : 'text-primary'}`} />

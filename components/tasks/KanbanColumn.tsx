@@ -96,7 +96,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, color
   return (
     <div 
       style={columnBackgroundStyle}
-      className={`w-full md:flex-1 md:min-w-[300px] md:max-w-[340px] rounded-squircle-lg p-3 md:p-4 shadow-glass ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
+      className={`flex-1 min-w-[300px] max-w-[340px] rounded-squircle-lg p-3 md:p-4 shadow-glass ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}
@@ -118,7 +118,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, color
           <PlusIcon className="w-5 h-5" />
         </button>
       </div>
-      <div className="flex-1 min-h-[150px] md:h-[calc(100vh-12rem-90px)] overflow-y-auto space-y-0 px-1 pb-2 scrollbar-thin column-content-area"> {/* Adjusted height */}
+      <div className="flex-1 h-[calc(100vh-12rem-90px)] overflow-y-auto space-y-3.5 px-1 pb-2 scrollbar-thin column-content-area">
         {isLoadingTasks && tasksInColumn.length === 0 && (
           <div className="text-center py-12">
              <ICON_MAP.SpinnerIcon className={`w-10 h-10 mx-auto ${darkMode ? 'text-accent-light/70' : 'text-accent/70'} animate-spin`} />

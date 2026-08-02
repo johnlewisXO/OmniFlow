@@ -16,7 +16,8 @@ export const ALL_ACTIVE_VIEWS: ActiveView[] = [
   'inbox_view',
   'reports_view',
   'team_management',
-  'user_logs_view'
+  'user_logs_view',
+  'task_automations'
 ];
 
 export const APP_TITLE = "Omni Flow";
@@ -63,7 +64,17 @@ export const ICON_MAP = {
   PencilIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />),
   FilterIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />),
   XIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />),
-  MenuIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />),
+  MailIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />),
+  ShieldCheckIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751A11.959 11.959 0 0112 2.714z" />),
+  ArrowPathIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />),
+  MagnifyingGlassIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />),
+  PrinterIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m11.32-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231a1.125 1.125 0 01-1.12-1.227L6.34 18m11.32 0h-11.32m13.78-7.5l-1.09-3.268A2.25 2.25 0 0016.903 5.75H7.097a2.25 2.25 0 00-2.137 1.482L3.87 10.5M20.25 10.5H3.75" />),
+  BuildingOfficeIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5s0 0 0 0M9 9.75h1.5s0 0 0 0M9 12.75h1.5s0 0 0 0M9 15.75h1.5s0 0 0 0M13.5 6.75h1.5s0 0 0 0M13.5 9.75h1.5s0 0 0 0M13.5 12.75h1.5s0 0 0 0M13.5 15.75h1.5s0 0 0 0" />),
+  CheckBadgeIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />),
+  XMarkIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />),
+  BoltIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />),
+  Bars3Icon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />),
+  GripVerticalIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5zM8.25 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM8.25 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM8.25 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />),
 };
 
 export const SIDENAV_ITEMS: {
@@ -76,11 +87,11 @@ export const SIDENAV_ITEMS: {
   { id: 'overview', label: 'Overview', icon: 'HomeIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'projects_overview', label: 'Projects', icon: 'FolderIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'my_tasks_view', label: 'My Tasks', icon: 'ClipboardListIcon', path: '#', roles: Object.values(UserRole) },
+  { id: 'task_automations', label: 'Triggers & Rules', icon: 'BoltIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'inbox_view', label: 'Inbox', icon: 'InboxIcon', path: '#', roles: Object.values(UserRole), },
   { id: 'reports_view', label: 'Reports', icon: 'ChartBarIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER] },
-  { id: 'team_management', label: 'Team Management', icon: 'UserGroupIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER] },
-  { id: 'user_logs_view', label: 'User Logs', icon: 'UserLogsIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN] }, // Changed icon to UserLogsIcon
-  // admin_settings is handled separately in Sidebar.tsx for now
+  { id: 'team_management', label: 'Team Management', icon: 'UserGroupIcon', path: '#', roles: Object.values(UserRole) },
+  { id: 'user_logs_view', label: 'User Logs', icon: 'UserLogsIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN] },
 ];
 
 

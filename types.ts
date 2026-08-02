@@ -38,6 +38,34 @@ export interface User {
   role?: UserRole;
 }
 
+export interface AuditLog {
+  id: string;
+  organization_id?: string;
+  actor_id: string;
+  actor_name?: string;
+  actor_email?: string;
+  action: string; // e.g., 'role_changed', 'project_created', 'task_created', 'user_invited', 'user_removed'
+  target_type: 'user' | 'project' | 'task' | 'organization' | 'invitation';
+  target_id?: string;
+  target_name?: string;
+  details?: string | Record<string, any>;
+  created_at: string;
+}
+
+export interface OrganizationInvitation {
+  id: string;
+  organization_id: string;
+  organization_name?: string;
+  invited_by: string;
+  inviter_name?: string;
+  email?: string;
+  role: UserRole;
+  token: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  expires_at?: string;
+  created_at: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -135,7 +163,51 @@ export type ActiveView =
   'reports_view' |
   'team_management' |
   'user_logs_view' |
-  'profile_settings';      
+  'profile_settings' |
+  'task_automations';
+
+export type AutomationTriggerType =
+  | 'status_change'
+  | 'priority_change'
+  | 'assignee_change'
+  | 'task_created'
+  | 'due_date_approaching'
+  | 'subtasks_completed';
+
+export type AutomationActionType =
+  | 'assign_user'
+  | 'set_status'
+  | 'set_priority'
+  | 'add_comment'
+  | 'send_notification'
+  | 'add_tag';
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  description?: string;
+  triggerEvent: AutomationTriggerType;
+  triggerConditionValue: string; // e.g. TaskStatus.REVIEW or TaskPriority.CRITICAL
+  actionType: AutomationActionType;
+  actionTargetValue: string; // User ID, Priority, Status, Comment text, etc.
+  enabled: boolean;
+  createdAt: string;
+  executionCount?: number;
+  lastRunAt?: string;
+}
+
+export interface AutomationLog {
+  id: string;
+  ruleId: string;
+  ruleName: string;
+  taskId: string;
+  taskTitle: string;
+  triggerEvent: string;
+  actionTaken: string;
+  status: 'success' | 'failed';
+  timestamp: string;
+  details?: string;
+}      
 
 export interface OrganizationCheckState {
   loading: boolean;
@@ -151,6 +223,7 @@ export interface Notification {
   sender_id?: string;
   actor_id?: string;
   type: string;
+  toastType?: 'success' | 'error' | 'warning' | 'info';
   content: string;
   reference_id: string;
   reference_parent_id?: string;
@@ -174,6 +247,9 @@ export interface AppStore {
   myTasks: Task[];
 
   currentUser: User | null;
+  currentOrganization: Organization | null;
+  setCurrentOrganization: (org: Organization | null) => void;
+  fetchCurrentOrganization: () => Promise<void>;
   authLoading: boolean;
   authError: string | null;
   appLoading: boolean;
@@ -277,6 +353,7 @@ export interface AppStore {
   deleteUserError: string | null;
 
   notifications: Notification[];
+  addToast: (title: string, message: string, toastType?: 'success' | 'error' | 'warning' | 'info') => void;
   addNotification: (notification: Partial<Notification> & Omit<Notification, 'id' | 'created_at' | 'read'>) => void;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;

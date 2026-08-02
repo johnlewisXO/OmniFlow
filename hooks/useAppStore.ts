@@ -14,7 +14,6 @@ interface StoreState {
   users: User[];
   projects: Project[];
   tasks: Task[];
-  myTasks: Task[];
   currentUser: User | null;
   authLoading: boolean;
   authError: string | null;
@@ -60,7 +59,6 @@ interface StoreState {
   isPasswordUpdateModalOpen: boolean;
 
   notifications: Notification[];
-  isSidebarOpen: boolean; // Mobile sidebar state
 }
 
 const _darkMode = typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false;
@@ -72,6 +70,7 @@ const initialStoreStateValues: StoreState = {
   darkMode: _darkMode,
   users: [],
   currentUser: null,
+  currentOrganization: null,
   projects: [],
   tasks: [],
   myTasks: [],
@@ -113,7 +112,6 @@ const initialStoreStateValues: StoreState = {
   isPasswordUpdateModalOpen: false,
 
   notifications: _notifications,
-  isSidebarOpen: false,
 };
 
 const parseErrorMessage = (error: any, defaultMessage: string = "An unexpected error occurred."): string => {
@@ -224,7 +222,7 @@ const appActionsCreator = (
       const { currentUser } = get();
       if (!currentUser) return;
 
-      let notification: Partial<Notification> | null = null;
+      let notification: Omit<Notification, 'id' | 'created_at' | 'read'> | null = null;
 
       switch (eventType) {
         case 'TASK_CREATED':
@@ -345,16 +343,55 @@ const appActionsCreator = (
         selfActions.addNotification(notification);
       }
     },
-    addNotification: (notification: Partial<Notification>) => {
+    addToast: (title: string, message: string, toastType: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+      const { currentUser } = get();
+      const id = crypto.randomUUID();
+      const toastNotification: Notification = {
+        id,
+        title,
+        message,
+        content: message,
+        type: 'SYSTEM_TOAST',
+        toastType,
+        user_id: currentUser?.id || 'system',
+        reference_id: id,
+        is_read: false,
+        read: false,
+        created_at: new Date().toISOString()
+      };
+      
+      updateState(s => {
+        const newNotifications = [toastNotification, ...s.notifications];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('notifications', JSON.stringify(newNotifications.slice(0, 50)));
+        }
+        return { ...s, notifications: newNotifications };
+      });
+    },
+    setCurrentOrganization: (org: Organization | null) => {
+      updateState(s => ({ ...s, currentOrganization: org }));
+    },
+    fetchCurrentOrganization: async () => {
+      const { currentUser } = get();
+      if (!currentUser?.organization_id) {
+        updateState(s => ({ ...s, currentOrganization: null }));
+        return;
+      }
+      try {
+        const org = await supabaseService.getOrganizationById(currentUser.organization_id);
+        if (org) {
+          updateState(s => ({ ...s, currentOrganization: org }));
+        }
+      } catch (err) {
+        console.warn('[useAppStore] fetchCurrentOrganization failed:', err);
+      }
+    },
+    addNotification: (notification: Partial<Notification> & Omit<Notification, 'id' | 'created_at' | 'read'>) => {
       const newNotification: Notification = {
+        ...notification,
         id: notification.id || crypto.randomUUID(),
         created_at: notification.created_at || new Date().toISOString(),
         read: notification.read || false,
-        is_read: notification.is_read || false,
-        type: notification.type || 'system',
-        content: notification.content || notification.message || '',
-        reference_id: notification.reference_id || notification.entity_id || '',
-        ...notification,
       };
       
       // Try to insert into Supabase if it doesn't have an ID yet (meaning it's local)
@@ -600,27 +637,30 @@ const appActionsCreator = (
           updateState(s => ({ ...s, isLoadingUsersForAssignment: false, usersForAssignmentError: message, users: [] }));
         }
       },
+  };
 
+  const _updateTaskAction = async (taskId: string, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at' | 'creator_id' | 'projectId'>>) => {
+    const activeProjectId = get().activeProject?.id;
+    if (!activeProjectId) {
+        updateState(s => ({ ...s, tasksError: "Cannot update task: No active project.", isLoadingTasks: false }));
+        return;
+    }
+    
+    try {
+        await supabaseService.updateTask(taskId, updates);
+        
+        if (!(updates.hasOwnProperty('position') && updates.hasOwnProperty('status'))) { 
+             await selfActions.fetchTasksForProject(activeProjectId);
+        }
+    } catch (error: any) {
+        const message = parseErrorMessage(error, `Failed to update task ${taskId}.`);
+        updateState(s => ({ ...s, tasksError: message }));
+        if (activeProjectId) await selfActions.fetchTasksForProject(activeProjectId);
+    }
+  };
+
+  Object.assign(selfActions, {
     toggleDarkMode: () => updateState(s => ({ ...s, darkMode: !s.darkMode })),
-    _updateTaskAction: async (taskId: string, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at' | 'creator_id' | 'projectId'>>) => {
-      const activeProjectId = get().activeProject?.id;
-      if (!activeProjectId) {
-          updateState(s => ({ ...s, tasksError: "Cannot update task: No active project.", isLoadingTasks: false }));
-          return;
-      }
-      
-      try {
-          await supabaseService.updateTask(taskId, updates);
-          
-          if (!(updates.hasOwnProperty('position') && updates.hasOwnProperty('status'))) { 
-               await selfActions.fetchTasksForProject(activeProjectId);
-          }
-      } catch (error: any) {
-          const message = parseErrorMessage(error, `Failed to update task ${taskId}.`);
-          updateState(s => ({ ...s, tasksError: message }));
-          if (activeProjectId) await selfActions.fetchTasksForProject(activeProjectId);
-      }
-    },
     setActiveView: (view: ActiveView) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('activeView', view);
@@ -719,9 +759,18 @@ const appActionsCreator = (
         }
       }
 
+      if (user?.organization_id) {
+        setTimeout(() => {
+          selfActions.fetchCurrentOrganization();
+        }, 0);
+      } else {
+        updateState(s => ({ ...s, currentOrganization: null }));
+      }
+
       updateState(s => ({
         ...s,
         currentUser: user,
+        authLoading: false,
         activeProject: nextActiveProject,
         activeView: nextActiveView,
         projects: (!user || (nextActiveProject && nextActiveProject.organization_id && nextActiveProject.organization_id !== user.organization_id)) ? [] : s.projects,
@@ -733,6 +782,8 @@ const appActionsCreator = (
     setAuthError: (error: string | null) => updateState(s => ({ ...s, authError: error })),
     setAppLoading: (loading: boolean) => updateState(s => ({...s, appLoading: loading})),
 
+    fetchProjects: selfActions.fetchProjects,
+    fetchTasksForProject: selfActions.fetchTasksForProject,
     fetchAllTasksForAllProjects: async () => {
       const { currentUser, projects: currentProjects, isLoadingTasks } = get();
       if (!currentUser) return;
@@ -757,7 +808,9 @@ const appActionsCreator = (
         updateState(s => ({ ...s, isLoadingTasks: false, tasksError: parseErrorMessage(error, 'Failed to fetch all tasks.') }));
       }
     },
+    fetchUsersForAssignmentList: selfActions.fetchUsersForAssignmentList,
 
+    setActiveProject: selfActions.setActiveProject,
     createTask: async (taskData: Omit<Task, 'id' | 'position' | 'created_at' | 'updated_at' | 'creator_id'>) => {
       const { currentUser, activeProject } = get();
       if (!currentUser || !activeProject) {
@@ -1107,7 +1160,7 @@ const appActionsCreator = (
         console.log(`[useAppStore] updateUserRoleInOrganization: User list refreshed. Update complete for user ${userId}. Current users in store:`, get().users);
         
         // Emit event for notification
-        selfActions.emitEvent('USER_ROLE_UPDATED', { userId, newRole });
+        get().emitEvent('USER_ROLE_UPDATED', { userId, newRole });
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update role for user ${userId}.`);
         console.error(`[useAppStore] updateUserRoleInOrganization: Error for user ${userId} - ${message}`, error);
@@ -1140,7 +1193,7 @@ const appActionsCreator = (
         console.log(`[useAppStore] deleteUserFromOrganization: User list refreshed. Deletion complete for user ${userId}. Current users in store:`, get().users);
         
         // Emit event for notification
-        selfActions.emitEvent('USER_REMOVED_FROM_ORG', { userId });
+        get().emitEvent('USER_REMOVED_FROM_ORG', { userId });
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to remove user ${userId} from organization.`);
         console.error(`[useAppStore] deleteUserFromOrganization: Error for user ${userId} - ${message}`, error);
@@ -1162,9 +1215,7 @@ const appActionsCreator = (
         throw error;
       }
     },
-    toggleSidebar: () => updateState(s => ({ ...s, isSidebarOpen: !s.isSidebarOpen })),
-    setSidebarOpen: (isOpen: boolean) => updateState(s => ({ ...s, isSidebarOpen: isOpen })),
-  };
+  });
 
   return selfActions;
 };
@@ -1176,10 +1227,10 @@ interface UseAppStoreHook extends Function {
 }
 
 
-const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (updateState: (updater: (s: TState) => TState) => void, get: () => TState) => any>(
+const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (updateState: (updater: (s: TState) => TState) => void, get: () => TState & ReturnType<TActionsCreator>) => any>(
   initialStateValues: TState,
   actionsCreatorFunc: TActionsCreator
-): (() => TState & ReturnType<TActionsCreator>) & { getState: () => TState } => {
+): (() => TState & ReturnType<TActionsCreator>) & { getState: () => TState & ReturnType<TActionsCreator> } => {
   let state = initialStateValues;
   const listeners = new Set<() => void>();
 
@@ -1194,25 +1245,26 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
     listeners.forEach(listener => listener());
   };
 
-  const getState = () => state;
-  const actions = actionsCreatorFunc(setState, getState);
+  const getPureState = () => state;
+  const getCombinedState = () => ({ ...state, ...actions });
+  const actions = actionsCreatorFunc(setState, getCombinedState as any);
 
   if (typeof window !== 'undefined' && initialStateValues.darkMode) {
     document.documentElement.classList.add('dark');
   }
 
   const useHook = (): TState & ReturnType<TActionsCreator> => {
-    const [localState, setLocalState] = useState(getState());
+    const [localState, setLocalState] = useState(getPureState());
 
     useEffect(() => {
-      const listener = () => setLocalState(getState());
+      const listener = () => setLocalState(getPureState());
       listeners.add(listener);
       
       if (typeof window !== 'undefined') {
-        document.documentElement.classList.toggle('dark', getState().darkMode);
+        document.documentElement.classList.toggle('dark', getPureState().darkMode);
       }
       
-      setLocalState(getState()); 
+      setLocalState(getPureState()); 
       return () => {
         listeners.delete(listener);
       };
@@ -1248,9 +1300,9 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
     return { ...localState, ...actions };
   };
 
-  (useHook as any).getState = getState;
+  (useHook as any).getState = getCombinedState;
 
-  return useHook as (() => TState & ReturnType<TActionsCreator>) & { getState: () => TState };
+  return useHook as (() => TState & ReturnType<TActionsCreator>) & { getState: () => TState & ReturnType<TActionsCreator> };
 };
 
 export const useAppStore = createAppStoreHook(initialStoreStateValues, appActionsCreator);

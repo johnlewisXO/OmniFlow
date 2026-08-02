@@ -20,10 +20,13 @@ const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) =
 };
 
 export const CreateOrJoinOrganizationModal: React.FC = () => {
-  const { currentUser, joinOrCreateOrganization, authLoading, darkMode } = useAppStore();
+  const { currentUser, setCurrentUser, joinOrCreateOrganization, authLoading, appLoading, darkMode, addNotification, addToast } = useAppStore();
   const [organizationName, setOrganizationName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.MEMBER);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isProcessingInvite, setIsProcessingInvite] = useState<boolean>(false);
+  const [inviteStatusMsg, setInviteStatusMsg] = useState<string | null>(null);
+
   const [organizationCheck, setOrganizationCheck] = useState<{
     loading: boolean;
     exists: boolean | null;
@@ -31,6 +34,94 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     orgSlug?: string;
     error: string | null;
   }>({ loading: false, exists: null, error: null });
+
+  // Check for pending invitation token when user has no organization
+  useEffect(() => {
+    const checkAndApplyInviteToken = async () => {
+      if (!currentUser || currentUser.organization_id) return;
+
+      const hash = window.location.hash;
+      const search = window.location.search;
+      let token: string | null = localStorage.getItem('pending_invite_token');
+
+      if (!token) {
+        if (hash.includes('join-token=')) {
+          token = hash.split('join-token=')[1]?.split('&')[0];
+        } else if (search.includes('invite=')) {
+          token = new URLSearchParams(search).get('invite');
+        }
+      }
+
+      if (token) {
+        setIsProcessingInvite(true);
+        setInviteStatusMsg('Found invitation link! Joining organization...');
+        try {
+          const invite = await supabaseService.getInvitationByToken(token);
+          if (invite && invite.status === 'pending') {
+            const isExpired = invite.expires_at ? new Date(invite.expires_at) < new Date() : false;
+            if (isExpired) {
+              setFormError('This organization invitation link has expired.');
+              localStorage.removeItem('pending_invite_token');
+              setIsProcessingInvite(false);
+              return;
+            }
+
+            // Accept invitation: update user profile
+            await supabaseService.client
+              .from('user_profiles')
+              .update({ organization_id: invite.organization_id, role: invite.role })
+              .eq('id', currentUser.id);
+
+            // Update local state
+            setCurrentUser({
+              ...currentUser,
+              organization_id: invite.organization_id,
+              role: invite.role
+            });
+
+            // Revoke / mark accepted
+            await supabaseService.revokeInvitation(invite.id);
+            localStorage.removeItem('pending_invite_token');
+
+            // Log Audit Event
+            await supabaseService.logAuditEvent({
+              organization_id: invite.organization_id,
+              actor_id: currentUser.id,
+              actor_name: currentUser.full_name || currentUser.email,
+              actor_email: currentUser.email,
+              action: 'invite_accepted',
+              target_type: 'user',
+              target_id: currentUser.id,
+              target_name: currentUser.full_name || currentUser.email,
+              details: { role: invite.role, invitation_id: invite.id }
+            });
+
+            addNotification({
+              id: crypto.randomUUID(),
+              user_id: currentUser.id,
+              title: 'Welcome to the Organization!',
+              message: `You successfully joined the organization as ${invite.role}.`,
+              read: false,
+              created_at: new Date().toISOString()
+            });
+
+            window.history.replaceState(null, '', window.location.pathname + '#/app');
+          } else {
+            setFormError('Invalid or already accepted invitation link.');
+            localStorage.removeItem('pending_invite_token');
+          }
+        } catch (err: any) {
+          console.error('Failed processing invite token in modal:', err);
+          setFormError('Failed to process invitation: ' + (err.message || 'Unknown error'));
+          localStorage.removeItem('pending_invite_token');
+        } finally {
+          setIsProcessingInvite(false);
+        }
+      }
+    };
+
+    checkAndApplyInviteToken();
+  }, [currentUser, setCurrentUser, addNotification]);
 
   const CheckmarkIconSvg = () => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="checkmark-icon">
@@ -92,8 +183,27 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     role => role !== UserRole.OWNER && role !== UserRole.ADMIN
   );
 
-  // Only show if user is logged in but has no organization
-  if (!currentUser || currentUser.organization_id) {
+  const [shouldShowModal, setShouldShowModal] = useState(false);
+
+  useEffect(() => {
+    // If auth or app is loading, or user is not logged in, or user already has an organization_id, hide modal
+    if (authLoading || appLoading || !currentUser || currentUser.organization_id) {
+      setShouldShowModal(false);
+      return;
+    }
+
+    // Add a 500ms grace period so initial profile sync finishes before showing modal
+    const timer = setTimeout(() => {
+      if (!currentUser.organization_id) {
+        setShouldShowModal(true);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [authLoading, appLoading, currentUser?.id, currentUser?.organization_id]);
+
+  // Only show if app and auth are finished loading, user is logged in, and genuinely has no organization
+  if (!shouldShowModal || authLoading || appLoading || !currentUser || currentUser.organization_id) {
     return null;
   }
 
@@ -104,11 +214,23 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
       title="Welcome! Let's get you set up."
     >
       <div className="p-6 space-y-6">
-        <p className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-          To start using the app, please create a new organization or join an existing one.
-        </p>
+        {isProcessingInvite ? (
+          <div className="text-center py-8 space-y-4">
+            <ICON_MAP.SpinnerIcon className="w-10 h-10 mx-auto text-accent animate-spin" />
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+              {inviteStatusMsg || 'Accepting Organization Invitation...'}
+            </h3>
+            <p className="text-xs text-slate-500">
+              Please wait while we connect your account to the organization.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              To start using the app, please create a new organization or join an existing one.
+            </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
           <div className="relative">
             <label htmlFor="organization-name" className={labelClass}>
               Organization Name
@@ -174,6 +296,8 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
             {authLoading && <ICON_MAP.SpinnerIcon className="w-5 h-5 animate-spin ml-2" />}
           </Button>
         </form>
+        </>
+        )}
       </div>
     </Modal>
   );

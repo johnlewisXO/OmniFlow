@@ -32,25 +32,29 @@ import { MyTasksPage } from './components/tasks/MyTasksPage';
 import { InboxPage } from './components/inbox/InboxPage';
 import { ReportsPage } from './components/reports/ReportsPage';
 import { TeamManagementPage } from './components/team/TeamManagementPage'; 
+import { AuditLogsPage } from './components/logs/AuditLogsPage'; 
+import { TaskAutomationsDashboard } from './components/automations/TaskAutomationsDashboard'; 
 
 const ToastContainer: React.FC = () => {
   const { notifications, markNotificationAsRead, darkMode } = useAppStore();
   const [visibleToasts, setVisibleToasts] = useState<string[]>([]);
 
   useEffect(() => {
-    // Find new unread notifications that we haven't shown yet
-    const newUnread = notifications.filter(n => !n.read && (new Date().getTime() - new Date(n.created_at).getTime()) < 5000);
+    const now = Date.now();
+    const newUnread = notifications.filter(n => {
+      const createdTime = new Date(n.created_at).getTime();
+      return !n.read && (now - createdTime < 7000);
+    });
     
     if (newUnread.length > 0) {
       const newIds = newUnread.map(n => n.id).filter(id => !visibleToasts.includes(id));
       if (newIds.length > 0) {
         setVisibleToasts(prev => [...prev, ...newIds]);
         
-        // Auto-dismiss after 5 seconds
         newIds.forEach(id => {
           setTimeout(() => {
             setVisibleToasts(prev => prev.filter(tId => tId !== id));
-          }, 5000);
+          }, 4500);
         });
       }
     }
@@ -61,21 +65,59 @@ const ToastContainer: React.FC = () => {
   const toastsToShow = notifications.filter(n => visibleToasts.includes(n.id));
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-      {toastsToShow.map(n => (
-        <div key={n.id} className={`p-4 rounded-lg shadow-lg border flex items-start gap-3 w-80 animate-in slide-in-from-bottom-5 ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
-          <div className="flex-1">
-            <h4 className="font-medium text-sm">{n.title}</h4>
-            <p className="text-xs mt-1 opacity-80">{n.message}</p>
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+      {toastsToShow.map(n => {
+        const type = n.toastType || (n.type === 'TASK_DELETED' || n.type === 'USER_REMOVED_FROM_ORG' ? 'error' : 'success');
+        
+        let iconEl = <ICON_MAP.CheckIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />;
+        let borderClass = 'border-emerald-500/30 dark:border-emerald-500/40';
+        let bgAccent = 'bg-emerald-500/10';
+
+        if (type === 'error') {
+          iconEl = <ICON_MAP.ExclamationIcon className="w-5 h-5 text-red-500 flex-shrink-0" />;
+          borderClass = 'border-red-500/30 dark:border-red-500/40';
+          bgAccent = 'bg-red-500/10';
+        } else if (type === 'warning') {
+          iconEl = <ICON_MAP.ExclamationIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />;
+          borderClass = 'border-amber-500/30 dark:border-amber-500/40';
+          bgAccent = 'bg-amber-500/10';
+        } else if (type === 'info') {
+          iconEl = <ICON_MAP.SparklesIcon className="w-5 h-5 text-accent flex-shrink-0" />;
+          borderClass = 'border-accent/30 dark:border-accent/40';
+          bgAccent = 'bg-accent/10';
+        }
+
+        return (
+          <div
+            key={n.id}
+            className={`pointer-events-auto p-3.5 rounded-xl shadow-xl border backdrop-blur-md flex items-start gap-3 transition-all duration-300 transform translate-y-0 animate-in slide-in-from-bottom-4 ${borderClass} ${
+              darkMode ? 'bg-slate-900/95 text-slate-100' : 'bg-white/95 text-slate-900'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg ${bgAccent}`}>
+              {iconEl}
+            </div>
+            <div className="flex-1 min-w-0 pr-1">
+              <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 leading-snug truncate">
+                {n.title || n.type.replace(/_/g, ' ')}
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 break-words">
+                {n.message || n.content}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                markNotificationAsRead(n.id);
+                setVisibleToasts(prev => prev.filter(id => id !== n.id));
+              }}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+              aria-label="Dismiss notification"
+            >
+              <ICON_MAP.XMarkIcon className="w-4 h-4" />
+            </button>
           </div>
-          <button onClick={() => {
-            markNotificationAsRead(n.id);
-            setVisibleToasts(prev => prev.filter(id => id !== n.id));
-          }} className="text-slate-400 hover:text-slate-600">
-            <ICON_MAP.CheckIcon className="w-4 h-4" />
-          </button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
@@ -167,14 +209,13 @@ const MainAppLayout: React.FC = () => {
         return <ReportsPage />;
       case 'user_logs_view':
         if (currentUser.role === UserRole.OWNER || currentUser.role === UserRole.ADMIN) {
-          return <div className="p-6">User Logs (Coming Soon)</div>;
+          return <AuditLogsPage />;
         }
         return <MemberDashboard />; // Fallback if not authorized
       case 'team_management':
-        if (currentUser.role === UserRole.OWNER || currentUser.role === UserRole.PROJECT_MANAGER || currentUser.role === UserRole.ADMIN) {
-          return <TeamManagementPage />;
-        }
-        return <MemberDashboard />; 
+        return <TeamManagementPage />; 
+      case 'task_automations':
+        return <TaskAutomationsDashboard />;
       case 'admin_settings':
         if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.OWNER) {
           return <AdminDashboard />;
@@ -325,6 +366,88 @@ function App() {
   }, [currentRoute]); 
 
   useEffect(() => {
+    // 1. Immediately extract and save any invitation token present in URL
+    const hash = window.location.hash;
+    const search = window.location.search;
+    let urlToken: string | null = null;
+
+    if (hash.includes('join-token=')) {
+      urlToken = hash.split('join-token=')[1]?.split('&')[0];
+    } else if (search.includes('invite=')) {
+      urlToken = new URLSearchParams(search).get('invite');
+    }
+
+    if (urlToken) {
+      localStorage.setItem('pending_invite_token', urlToken);
+    }
+
+    // 2. Process Invitation Tokens in Hash, Query String, or LocalStorage
+    const processInvitationToken = async () => {
+      if (!currentUser) return;
+      const token = localStorage.getItem('pending_invite_token') || urlToken;
+
+      if (token) {
+        try {
+          const invite = await supabaseService.getInvitationByToken(token);
+          if (invite && invite.status === 'pending') {
+            const isExpired = invite.expires_at ? new Date(invite.expires_at) < new Date() : false;
+            if (isExpired) {
+              alert('This organization invitation link has expired.');
+              localStorage.removeItem('pending_invite_token');
+              return;
+            }
+
+            // Accept invitation: assign user to org & role
+            await supabaseService.client
+              .from('user_profiles')
+              .update({ organization_id: invite.organization_id, role: invite.role })
+              .eq('id', currentUser.id);
+
+            setCurrentUser({
+              ...currentUser,
+              organization_id: invite.organization_id,
+              role: invite.role
+            });
+
+            // Mark invitation accepted & clear pending storage
+            await supabaseService.revokeInvitation(invite.id);
+            localStorage.removeItem('pending_invite_token');
+
+            // Log Audit Event
+            await supabaseService.logAuditEvent({
+              organization_id: invite.organization_id,
+              actor_id: currentUser.id,
+              actor_name: currentUser.full_name || currentUser.email,
+              actor_email: currentUser.email,
+              action: 'invite_accepted',
+              target_type: 'user',
+              target_id: currentUser.id,
+              target_name: currentUser.full_name || currentUser.email,
+              details: { role: invite.role, invitation_id: invite.id }
+            });
+
+            addNotification({
+              id: crypto.randomUUID(),
+              user_id: currentUser.id,
+              title: 'Invitation Accepted!',
+              message: `You successfully joined the organization with role "${invite.role}".`,
+              read: false,
+              created_at: new Date().toISOString()
+            });
+
+            // Clean token from URL
+            window.history.replaceState(null, '', window.location.pathname + '#/app');
+          }
+        } catch (err) {
+          console.error('Error processing invitation token:', err);
+        }
+      }
+    };
+
+    processInvitationToken();
+  }, [currentUser, currentRoute]);
+
+  useEffect(() => {
     if (currentRoute.startsWith('#/app')) {
       document.body.classList.remove('landing-page-active');
       document.title = currentUser ? "Omni Flow - App" : "Omni Flow - Login";
@@ -338,17 +461,34 @@ function App() {
 
 
   useEffect(() => {
-    console.log('[App.tsx AuthEffect] Initializing auth listener.');
+    console.log('[App.tsx AuthEffect] Initializing auth handling.');
     let mounted = true;
 
-    const handleSession = async (session: any, isInitial: boolean = false) => {
+    const finishInitialLoad = () => {
+      if (mounted && useAppStore.getState().appLoading) {
+        setAppLoading(false);
+      }
+    };
+
+    // Safety fallback timer to prevent infinite loading screen under any condition
+    const safetyTimer = setTimeout(() => {
+      if (mounted && useAppStore.getState().appLoading) {
+        console.warn('[App.tsx AuthEffect] Initial loading timeout reached, forcing appLoading to false.');
+        setAppLoading(false);
+      }
+    }, 4000);
+
+    const handleSession = async (session: any) => {
       if (!mounted) return;
       setAuthError(null);
 
       if (session && session.user) {
-        console.log(`[App.tsx AuthEffect] Session and user exist. User ID: ${session.user.id}. Fetching profile.`);
+        console.log(`[App.tsx AuthEffect] Session active. User ID: ${session.user.id}. Fetching profile.`);
         try {
-          const userProfile = await supabaseService.getUserProfile(session.user.id);
+          // Timeout profile fetch after 4 seconds to guarantee the app loads without getting stuck
+          const profilePromise = supabaseService.getUserProfile(session.user.id);
+          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+          const userProfile = await Promise.race([profilePromise, timeoutPromise]);
           
           if (userProfile && mounted) {
             console.log(`[App.tsx AuthEffect] Profile fetched: ID ${userProfile.id}`);
@@ -369,21 +509,23 @@ function App() {
               role: finalRole,
             };
             setCurrentUser(appUserPayload);
+            useAppStore.getState().setAuthLoading(false);
 
             if (!window.location.hash.startsWith('#/app')) {
               window.location.hash = '#/app';
             }
           } else if (mounted) {
-             console.warn("[App.tsx AuthEffect] Profile not found. Using fallback user payload from session.");
+             console.warn("[App.tsx AuthEffect] Profile not found or timed out. Using fallback user payload from session.");
              const fallbackUser: AppUserType = {
                id: session.user.id,
                supabase_auth_id: session.user.id,
                email: session.user.email || '',
-               full_name: session.user.user_metadata?.full_name || 'User',
+               full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
                avatar_url: session.user.user_metadata?.avatar_url,
                role: UserRole.MEMBER,
              };
              setCurrentUser(fallbackUser);
+             useAppStore.getState().setAuthLoading(false);
              if (!window.location.hash.startsWith('#/app')) {
                window.location.hash = '#/app';
              }
@@ -391,71 +533,75 @@ function App() {
         } catch (error: any) {
           if (mounted) {
             console.error("[App.tsx AuthEffect] Error fetching/setting user profile:", error);
-            if (!currentUser) {
-               console.warn("[App.tsx AuthEffect] Using fallback user payload due to profile fetch error.");
-               const fallbackUser: AppUserType = {
-                 id: session.user.id,
-                 supabase_auth_id: session.user.id,
-                 email: session.user.email || '',
-                 full_name: session.user.user_metadata?.full_name || 'User',
-                 avatar_url: session.user.user_metadata?.avatar_url,
-                 role: UserRole.MEMBER,
-               };
-               setCurrentUser(fallbackUser);
-               if (!window.location.hash.startsWith('#/app')) {
-                 window.location.hash = '#/app';
-               }
+            const fallbackUser: AppUserType = {
+              id: session.user.id,
+              supabase_auth_id: session.user.id,
+              email: session.user.email || '',
+              full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+              avatar_url: session.user.user_metadata?.avatar_url,
+              role: UserRole.MEMBER,
+            };
+            setCurrentUser(fallbackUser);
+            useAppStore.getState().setAuthLoading(false);
+            if (!window.location.hash.startsWith('#/app')) {
+              window.location.hash = '#/app';
             }
-            setAuthError(localParseErrorMessage(error, "Failed to load your profile information. Some features may be unavailable."));
           }
         } finally {
-          if (mounted && isInitial) setAppLoading(false);
+          if (mounted) {
+            useAppStore.getState().setAuthLoading(false);
+            finishInitialLoad();
+          }
         }
       } else {
         if (mounted) {
-          console.log("[App.tsx AuthEffect] No session or user. Setting current user to null.");
+          console.log("[App.tsx AuthEffect] No active session. Setting current user to null.");
           setCurrentUser(null);
           setAuthError(null);
-          if (isInitial) setAppLoading(false);
+          useAppStore.getState().setAuthLoading(false);
+          finishInitialLoad();
         }
       }
     };
 
+    // 1. Proactively check stored session
+    supabaseService.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      console.log("[App.tsx AuthEffect] getSession resolved:", session ? session.user.id : "no session");
+      handleSession(session);
+    }).catch(err => {
+      console.error("[App.tsx AuthEffect] getSession error:", err);
+      if (mounted) finishInitialLoad();
+    });
+
+    // 2. Listen for future auth state changes
     const { data: authListener } = supabaseService.onAuthStateChange(
       async (_event, session) => {
-        console.log(`[App.tsx AuthEffect] onAuthStateChange triggered. Event: ${_event}`);
+        console.log(`[App.tsx AuthEffect] onAuthStateChange event: ${_event}`);
         
-        if (_event === 'INITIAL_SESSION') {
-          await handleSession(session, true);
-          return;
-        }
-        
+        if (!mounted) return;
+
         if (_event === 'SIGNED_OUT') {
           console.log(`[App.tsx AuthEffect] User signed out.`);
           await handleSession(null);
           return;
         }
 
+        const currentStoreUser = useAppStore.getState().currentUser;
         const newUserId = session?.user?.id;
-        const currentUserId = currentUser?.supabase_auth_id;
+        const currentUserId = currentStoreUser?.supabase_auth_id;
 
-        if (newUserId && newUserId !== currentUserId) {
-          console.log(`[App.tsx AuthEffect] User changed from ${currentUserId} to ${newUserId}. Handling session.`);
+        if ((newUserId && newUserId !== currentUserId) || (!newUserId && currentUserId) || !currentStoreUser) {
           await handleSession(session);
-        } else if (!newUserId && currentUserId) {
-          console.log(`[App.tsx AuthEffect] User logged out. Handling session.`);
-          await handleSession(null);
         } else {
-          console.log(`[App.tsx AuthEffect] Ignoring ${_event} event as user hasn't changed or session is null without SIGNED_OUT.`);
+          finishInitialLoad();
         }
       }
     );
 
-    // We no longer call initializeAuth() manually, we rely on INITIAL_SESSION
-    // But we need to set appLoading to true initially, which is already the default state.
-
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       if (authListener && authListener.subscription) {
         authListener.subscription.unsubscribe();
       }
@@ -501,18 +647,18 @@ function App() {
       if (currentUser.organization_id) {
         console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} belongs to Org ${currentUser.organization_id}. Triggering fetchUsersForAssignmentList.`);
         fetchUsersForAssignmentList().catch(e => console.error("[App.tsx DataFetchEffect] Error during fetchUsersForAssignmentList:", e));
-        if (projectsError === "You can create personal projects or join an organization to see shared projects.") {
+        if (useAppStore.getState().projectsError === "You can create personal projects or join an organization to see shared projects.") {
              setProjectsError(null);
          }
       } else {
         console.log(`[App.tsx DataFetchEffect] User ${currentUser.id} has NO Org ID. Clearing org-specific user list.`);
         setUsers([]);
         setUsersForAssignmentError("Join an organization to collaborate with team members.");
-         if (projectsError === "You are not part of an organization. Join or create one to see projects.") {
+         if (useAppStore.getState().projectsError === "You are not part of an organization. Join or create one to see projects.") {
              setProjectsError("You can create personal projects or join an organization to see shared projects.");
          }
       }
-      if (authError === "You are not part of an organization. Join or create one to see projects.") {
+      if (useAppStore.getState().authError === "You are not part of an organization. Join or create one to see projects.") {
             setAuthError(null);
        }
     } else {
@@ -524,7 +670,7 @@ function App() {
       setProjectsError(null);
       setUsersForAssignmentError(null);
       setTasksError(null);
-      if (currentRoute.startsWith('#/app') && activeView !== 'overview') {
+      if (currentRoute.startsWith('#/app') && useAppStore.getState().activeView !== 'overview') {
            console.log(`[App.tsx DataFetchEffect] No user, on app route, not on overview. Setting activeView to 'overview'.`);
            setActiveView('overview');
       }

@@ -30,8 +30,7 @@ export const CreateTaskModal: React.FC = () => {
     isLoadingUsersForAssignment,
     usersForAssignmentError,
     parentTaskIdForNewTask,
-    openViewTaskModal,
-    tasks
+    addToast
   } = useAppStore();
 
   const [title, setTitle] = useState('');
@@ -76,19 +75,22 @@ export const CreateTaskModal: React.FC = () => {
     if (!title.trim()) {
         const msg = "Task title is required.";
         setLocalFormError(msg);
+        addToast('Validation Error', msg, 'error');
         return;
     }
-    const parentTask = parentTaskIdForNewTask ? tasks.find(t => t.id === parentTaskIdForNewTask) : null;
+    const parentTask = parentTaskIdForNewTask ? useAppStore.getState().tasks.find(t => t.id === parentTaskIdForNewTask) : null;
     const targetProjectId = activeProject?.id || parentTask?.projectId;
 
     if (!targetProjectId) {
         const msg = "No active project selected to add the task to.";
         setLocalFormError(msg);
+        addToast('No Project Selected', msg, 'warning');
         return;
     }
     if (!currentUser) {
         const msg = "You must be logged in to create a task.";
         setLocalFormError(msg);
+        addToast('Authentication Required', msg, 'error');
         return;
     }
 
@@ -105,11 +107,12 @@ export const CreateTaskModal: React.FC = () => {
 
     try {
       const createdTask = await createTask(taskData);
+      addToast('Task Created', `Task "${title.trim()}" created successfully.`, 'success');
       if (createdTask) {
-        openViewTaskModal(createdTask.id);
+        useAppStore.getState().openViewTaskModal(createdTask.id);
       }
     } catch (err: any) {
-      // Error is set in the store
+      addToast('Creation Failed', err.message || 'Failed to create task.', 'error');
     }
   };
 
@@ -129,7 +132,7 @@ export const CreateTaskModal: React.FC = () => {
   let createButtonText = 'Create Task';
   let createButtonDisabled = isLoading;
 
-  const parentTask = parentTaskIdForNewTask ? tasks.find(t => t.id === parentTaskIdForNewTask) : null;
+  const parentTask = parentTaskIdForNewTask ? useAppStore.getState().tasks.find(t => t.id === parentTaskIdForNewTask) : null;
   const targetProjectId = activeProject?.id || parentTask?.projectId;
 
   if (isLoading) {

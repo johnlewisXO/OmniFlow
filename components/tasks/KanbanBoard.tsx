@@ -1,11 +1,12 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { KanbanColumn } from './KanbanColumn';
-import { TaskStatus as TaskStatusEnum } from '../../types'; // Renamed import
-// Fix: Corrected typo in useAppStore import path.
+import { TaskStatus as TaskStatusEnum, UserRole } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
 import { TASK_STATUS_COLUMNS, ICON_MAP } from '../../constants';
-
+import { GanttTimelineView } from './GanttTimelineView';
+import { TaskListView } from './TaskListView';
+import { AutomatedTriggersModal } from './AutomatedTriggersModal';
+import { Button } from '../shared/Button';
 
 export const KanbanBoard: React.FC = () => {
   const { 
@@ -13,8 +14,15 @@ export const KanbanBoard: React.FC = () => {
     darkMode, 
     isLoadingTasks, 
     tasksError,
-    isLoadingProjects // To know if project itself is still loading
+    isLoadingProjects,
+    tasks,
+    users,
+    currentUser,
+    openViewTaskModal
   } = useAppStore();
+
+  const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'gantt'>('kanban');
+  const [isAutomationsOpen, setIsAutomationsOpen] = useState(false);
   
   const FolderIcon = ICON_MAP.FolderIcon;
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
@@ -82,17 +90,101 @@ export const KanbanBoard: React.FC = () => {
     );
   }
 
+  const projectTasks = tasks.filter(t => t.projectId === activeProject.id);
+
   return (
-    <div className="flex-1 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 p-4 md:p-6 overflow-x-auto overflow-y-auto bg-transparent">
-      {TASK_STATUS_COLUMNS.map(column => (
-        <div key={column.id} className="w-full md:w-auto md:shrink">
-          <KanbanColumn
-            status={column.id as TaskStatusEnum} 
-            title={column.title}
-            colorClass={column.color}
-          />
+    <div className="flex-1 flex flex-col h-full p-4 md:p-6 bg-transparent overflow-hidden">
+      {/* View Switcher and Project Control Subheader */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className={`flex p-1 rounded-xl border ${darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'kanban'
+                  ? 'bg-accent text-white shadow-sm'
+                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ICON_MAP.ClipboardListIcon className="w-4 h-4" />
+              Board View
+            </button>
+
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'list'
+                  ? 'bg-accent text-white shadow-sm'
+                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ICON_MAP.DocumentTextIcon className="w-4 h-4" />
+              List View
+            </button>
+
+            <button
+              onClick={() => setViewMode('gantt')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'gantt'
+                  ? 'bg-accent text-white shadow-sm'
+                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ICON_MAP.ClockIcon className="w-4 h-4" />
+              Gantt / Timeline
+            </button>
+          </div>
         </div>
-      ))}
+
+        {/* Automations Button */}
+        {(currentUser?.role === UserRole.OWNER || currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.PROJECT_MANAGER) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAutomationsOpen(true)}
+            className="gap-1.5 text-xs font-semibold"
+          >
+            <ICON_MAP.CogIcon className="w-4 h-4 text-accent" />
+            Task Triggers & Rules
+          </Button>
+        )}
+      </div>
+
+      {/* Main View Render */}
+      {viewMode === 'kanban' ? (
+        <div className="flex-1 flex space-x-3 md:space-x-4 overflow-x-auto scrollbar-thin">
+          {TASK_STATUS_COLUMNS.map(column => (
+            <KanbanColumn
+              key={column.id}
+              status={column.id as TaskStatusEnum} 
+              title={column.title}
+              colorClass={column.color}
+            />
+          ))}
+        </div>
+      ) : viewMode === 'list' ? (
+        <TaskListView
+          tasks={projectTasks}
+          users={users}
+          darkMode={darkMode}
+          onTaskClick={openViewTaskModal}
+        />
+      ) : (
+        <GanttTimelineView
+          tasks={projectTasks}
+          users={users}
+          darkMode={darkMode}
+          onTaskClick={openViewTaskModal}
+        />
+      )}
+
+      {/* Automated Triggers Modal */}
+      <AutomatedTriggersModal
+        isOpen={isAutomationsOpen}
+        onClose={() => setIsAutomationsOpen(false)}
+        users={users}
+        darkMode={darkMode}
+      />
     </div>
   );
 };

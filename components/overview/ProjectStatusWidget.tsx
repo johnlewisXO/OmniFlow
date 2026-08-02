@@ -40,7 +40,7 @@ export const ProjectStatusWidget: React.FC = () => {
             <li 
               key={project.id}
               onClick={() => {
-                setActiveProject(project.id);
+                setActiveProject(project);
                 setActiveView('kanban');
               }}
               className={`p-3 rounded-md cursor-pointer transition-all ${darkMode ? 'bg-slate-700/70 hover:bg-slate-700' : 'bg-white/80 hover:bg-slate-50 hover:shadow-sm'} border ${darkMode ? 'border-slate-600/50' : 'border-slate-200/60'}`}

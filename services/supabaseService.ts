@@ -11,7 +11,13 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('Supabase URL or Anon Key is missing. Please check your environment variables.');
 }
 
-const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 export { supabase };
 
 interface UserProfileDb { 
@@ -327,13 +333,19 @@ const supabaseService = {
   },
 
   getUserProfile: async (userId: string): Promise<AppUserType | null> => {
-    const { data, error } = await supabase.from('user_profiles').select('*').eq('id', userId).single();
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found, valid case
-      throw error;
+    try {
+      const { data, error } = await supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle();
+      if (error) {
+        console.warn(`[SupabaseService getUserProfile] Query warning for user ${userId}:`, error.message || error);
+        return null;
+      }
+      if (!data) return null;
+      const { id, supabase_auth_id, ...profileData } = data;
+      return { id, supabase_auth_id: userId, ...profileData };
+    } catch (err: any) {
+      console.warn(`[SupabaseService getUserProfile] Exception for user ${userId}:`, err?.message || err);
+      return null;
     }
-    const { id, supabase_auth_id, ...profileData } = data;
-    return { id, supabase_auth_id: userId, ...profileData };
   },
 
   getProjects: async (): Promise<Project[]> => {
@@ -473,6 +485,247 @@ const supabaseService = {
   updateUserPassword: async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
+  },
+
+  // Audit Logs Service
+  logAuditEvent: async (event: Omit<AuditLog, 'id' | 'created_at'>): Promise<AuditLog> => {
+    const newLog: AuditLog = {
+      id: crypto.randomUUID(),
+      ...event,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      // Try pushing to Supabase DB audit_logs table
+      const { data, error } = await supabase.from('audit_logs').insert({
+        id: newLog.id,
+        organization_id: newLog.organization_id,
+        actor_id: newLog.actor_id,
+        actor_name: newLog.actor_name,
+        actor_email: newLog.actor_email,
+        action: newLog.action,
+        target_type: newLog.target_type,
+        target_id: newLog.target_id,
+        target_name: newLog.target_name,
+        details: typeof newLog.details === 'object' ? JSON.stringify(newLog.details) : newLog.details,
+        created_at: newLog.created_at
+      }).select().single();
+
+      if (!error && data) {
+        return {
+          ...data,
+          details: data.details ? (typeof data.details === 'string' ? JSON.parse(data.details) : data.details) : undefined
+        };
+      }
+    } catch (err) {
+      console.warn('Supabase audit_logs table query failed, saving to local store fallback:', err);
+    }
+
+    // Local Storage Fallback
+    try {
+      const existingStr = localStorage.getItem('app_audit_logs');
+      const existing: AuditLog[] = existingStr ? JSON.parse(existingStr) : [];
+      const updated = [newLog, ...existing].slice(0, 500);
+      localStorage.setItem('app_audit_logs', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to write to local audit log cache:', e);
+    }
+
+    return newLog;
+  },
+
+  getAuditLogs: async (organizationId?: string): Promise<AuditLog[]> => {
+    let logs: AuditLog[] = [];
+    try {
+      let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId);
+      }
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        logs = data.map(item => ({
+          ...item,
+          details: item.details && typeof item.details === 'string' ? JSON.parse(item.details) : item.details
+        }));
+        return logs;
+      }
+    } catch (err) {
+      console.warn('Audit logs DB fetch fallback to local storage:', err);
+    }
+
+    // Local storage fallback
+    try {
+      const existingStr = localStorage.getItem('app_audit_logs');
+      if (existingStr) {
+        const localLogs: AuditLog[] = JSON.parse(existingStr);
+        return organizationId ? localLogs.filter(l => !l.organization_id || l.organization_id === organizationId) : localLogs;
+      }
+    } catch (e) {
+      console.error('Failed reading local audit logs cache:', e);
+    }
+    return logs;
+  },
+
+  // Organization Invitation System
+  createInvitation: async (invitationData: Omit<OrganizationInvitation, 'id' | 'token' | 'status' | 'created_at'>): Promise<OrganizationInvitation> => {
+    const token = 'inv_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
+    const newInvitation: OrganizationInvitation = {
+      id: crypto.randomUUID(),
+      ...invitationData,
+      token,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const { data, error } = await supabase.from('organization_invitations').insert(newInvitation).select().single();
+      if (!error && data) {
+        return data as OrganizationInvitation;
+      }
+    } catch (err) {
+      console.warn('organization_invitations DB insert failed, using local storage fallback:', err);
+    }
+
+    // Local storage fallback
+    try {
+      const existingStr = localStorage.getItem('app_org_invitations');
+      const existing: OrganizationInvitation[] = existingStr ? JSON.parse(existingStr) : [];
+      localStorage.setItem('app_org_invitations', JSON.stringify([newInvitation, ...existing]));
+    } catch (e) {
+      console.error('Failed to store local invitation:', e);
+    }
+
+    return newInvitation;
+  },
+
+  getInvitations: async (organizationId: string): Promise<OrganizationInvitation[]> => {
+    try {
+      const { data, error } = await supabase.from('organization_invitations')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        return data as OrganizationInvitation[];
+      }
+    } catch (err) {
+      console.warn('organization_invitations DB fetch fallback:', err);
+    }
+
+    // Local storage fallback
+    try {
+      const existingStr = localStorage.getItem('app_org_invitations');
+      if (existingStr) {
+        const all: OrganizationInvitation[] = JSON.parse(existingStr);
+        return all.filter(inv => inv.organization_id === organizationId);
+      }
+    } catch (e) {
+      console.error('Error reading local invitations:', e);
+    }
+    return [];
+  },
+
+  getInvitationByToken: async (token: string): Promise<OrganizationInvitation | null> => {
+    try {
+      const { data, error } = await supabase.from('organization_invitations')
+        .select('*')
+        .eq('token', token)
+        .single();
+      if (!error && data) {
+        return data as OrganizationInvitation;
+      }
+    } catch (err) {
+      console.warn('Error fetching token from DB, checking local storage:', err);
+    }
+
+    try {
+      const existingStr = localStorage.getItem('app_org_invitations');
+      if (existingStr) {
+        const all: OrganizationInvitation[] = JSON.parse(existingStr);
+        const match = all.find(inv => inv.token === token);
+        if (match) return match;
+      }
+    } catch (e) {
+      console.error('Error checking local storage for token:', e);
+    }
+    return null;
+  },
+
+  getOrganizationById: async (orgId: string): Promise<AppOrganizationType | null> => {
+    if (!orgId) return null;
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.warn('Error fetching organization by ID:', error);
+      }
+      if (data) {
+        return data as AppOrganizationType;
+      }
+    } catch (err) {
+      console.warn('Network error fetching organization by ID:', err);
+    }
+    return null;
+  },
+
+  revokeInvitation: async (invitationId: string): Promise<void> => {
+    try {
+      await supabase.from('organization_invitations').update({ status: 'revoked' }).eq('id', invitationId);
+    } catch (err) {
+      console.warn('Failed DB revoke, updating local storage:', err);
+    }
+
+    try {
+      const existingStr = localStorage.getItem('app_org_invitations');
+      if (existingStr) {
+        const all: OrganizationInvitation[] = JSON.parse(existingStr);
+        const updated = all.map(inv => inv.id === invitationId ? { ...inv, status: 'revoked' as const } : inv);
+        localStorage.setItem('app_org_invitations', JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.error('Failed local invitation revoke:', e);
+    }
+  },
+
+  // Avatar Upload Helper
+  uploadAvatar: async (userId: string, file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}_${Date.now()}.${fileExt}`;
+
+    try {
+      // Attempt bucket upload
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, {
+        upsert: true
+      });
+
+      if (!uploadError) {
+        const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        if (data?.publicUrl) {
+          return data.publicUrl;
+        }
+      } else {
+        console.warn('Supabase storage avatar bucket upload warning:', uploadError);
+      }
+    } catch (err) {
+      console.warn('Supabase storage avatar upload failed, falling back to base64 encoding:', err);
+    }
+
+    // Fallback: Convert file to Base64 Data URL
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to convert image to data URL'));
+        }
+      };
+      reader.onerror = () => reject(new Error('File reading failed'));
+      reader.readAsDataURL(file);
+    });
   }
 };
 

@@ -3,7 +3,19 @@ import { Task } from "../types";
 
 export const generateTaskSummary = async (tasks: Task[]): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!apiKey) {
+      return "Gemini API key is not configured in environment.";
+    }
+
+    const ai = new GoogleGenAI({ 
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
     
     const taskData = tasks.map(t => ({
       title: t.title,
@@ -15,7 +27,7 @@ export const generateTaskSummary = async (tasks: Task[]): Promise<string> => {
     const prompt = `Here are my current tasks: ${JSON.stringify(taskData)}. Please provide a brief, encouraging summary of my workload, highlighting any critical or overdue tasks. Keep it under 3 sentences.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.6-flash",
       contents: prompt,
     });
 

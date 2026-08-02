@@ -2,7 +2,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
-import { Task, TaskStatus, TaskPriority, Project } from '../../types';
+import { Task, TaskStatus, TaskPriority, Project, AppUserType } from '../../types';
+import geminiService from '../../services/geminiService';
+import { Button } from '../shared/Button';
+import { TeamWorkloadWidget } from '../overview/TeamWorkloadWidget';
+import { KeyMilestonesWidget } from '../overview/KeyMilestonesWidget';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line
@@ -19,9 +23,85 @@ export const ReportsPage: React.FC = () => {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all');
   const [dateRange, setDateRange] = useState<'all' | '7days' | '30days'>('30days');
 
+  // AI Executive Summary state
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [executiveSummaryText, setExecutiveSummaryText] = useState<string | null>(null);
+  const [copiedSummary, setCopiedSummary] = useState(false);
+
   useEffect(() => {
     fetchAllTasksForAllProjects();
   }, [fetchAllTasksForAllProjects]);
+
+  const handleGenerateAISummary = async () => {
+    setIsGeneratingSummary(true);
+    setShowSummaryModal(true);
+    setExecutiveSummaryText(null);
+
+    try {
+      const activeProj = selectedProjectId !== 'all' 
+        ? projects.find(p => p.id === selectedProjectId)
+        : { id: 'org', name: 'Organization Wide', description: 'All projects across organization' } as Project;
+
+      const targetProject = activeProj || { id: 'default', name: 'Project Overview' } as Project;
+      const targetTasks = selectedProjectId !== 'all' ? tasks.filter(t => t.projectId === selectedProjectId) : tasks;
+
+      const summary = await geminiService.generateProjectExecutiveSummary(targetProject, targetTasks, users.length);
+      setExecutiveSummaryText(summary);
+    } catch (err: any) {
+      console.error('Failed generating AI summary:', err);
+      setExecutiveSummaryText(`⚠️ Failed to generate AI Executive Summary: ${err.message || 'Check API key or network connection.'}`);
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  const handleCopySummary = () => {
+    if (!executiveSummaryText) return;
+    navigator.clipboard.writeText(executiveSummaryText);
+    setCopiedSummary(true);
+    setTimeout(() => setCopiedSummary(false), 2000);
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredTasks.length) {
+      alert("No tasks to export.");
+      return;
+    }
+
+    const headers = ["Task Title", "Project", "Status", "Priority", "Assignee", "Created Date", "Due Date", "Description"];
+    const rows = filteredTasks.map(t => {
+      const proj = projects.find(p => p.id === t.projectId)?.name || "Unknown";
+      const assignee = users.find(u => u.id === t.assignee_id)?.full_name || t.assignee_id || "Unassigned";
+      const created = t.created_at ? format(new Date(t.created_at), 'yyyy-MM-dd') : '';
+      const due = t.due_date ? format(new Date(t.due_date), 'yyyy-MM-dd') : '';
+      const desc = (t.description || '').replace(/"/g, '""').replace(/\n/g, ' ');
+      
+      return [
+        `"${t.title.replace(/"/g, '""')}"`,
+        `"${proj.replace(/"/g, '""')}"`,
+        `"${t.status}"`,
+        `"${t.priority}"`,
+        `"${assignee.replace(/"/g, '""')}"`,
+        `"${created}"`,
+        `"${due}"`,
+        `"${desc}"`
+      ].join(',');
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `omni_flow_report_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+  };
 
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
@@ -140,9 +220,40 @@ export const ReportsPage: React.FC = () => {
 
   return (
     <div className={`flex-1 p-4 md:p-6 overflow-y-auto scrollbar-thin ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      <div className="flex items-center mb-6">
-        <ChartBarIcon className={`w-8 h-8 mr-3 ${darkMode ? 'text-primary-light' : 'text-primary'}`} />
-        <h1 className="text-2xl md:text-3xl font-semibold">Reports & Analytics</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="flex items-center">
+          <ChartBarIcon className={`w-8 h-8 mr-3 ${darkMode ? 'text-primary-light' : 'text-primary'}`} />
+          <h1 className="text-2xl md:text-3xl font-semibold">Reports & Analytics</h1>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
+            <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-emerald-500" />
+            Export CSV
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-1.5">
+            <ICON_MAP.PrinterIcon className="w-4 h-4 text-blue-500" />
+            Export / Print PDF
+          </Button>
+
+          <button
+            onClick={handleGenerateAISummary}
+            disabled={isGeneratingSummary}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all ${
+              darkMode 
+                ? 'bg-purple-900/40 hover:bg-purple-900/60 text-purple-200 border border-purple-700/60' 
+                : 'bg-purple-600 hover:bg-purple-700 text-white'
+            } ${isGeneratingSummary ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isGeneratingSummary ? (
+              <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <ICON_MAP.SparklesIcon className="w-4 h-4 text-purple-300" />
+            )}
+            {isGeneratingSummary ? 'Synthesizing Status...' : '✨ AI Executive Summary'}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -280,8 +391,74 @@ export const ReportsPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Team Workload & Key Project Milestones Widgets */}
+          <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+            <TeamWorkloadWidget />
+            <KeyMilestonesWidget />
+          </div>
+
         </div>
       )}
+
+      {/* AI Executive Summary Modal */}
+      {showSummaryModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
+          <div className={`p-6 rounded-squircle-lg shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+            <div className="flex justify-between items-center mb-4 border-b pb-3 border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <ICON_MAP.SparklesIcon className="w-5 h-5 text-purple-500" />
+                <h3 className="text-lg font-bold">AI Executive Project Summary</h3>
+              </div>
+              <button onClick={() => setShowSummaryModal(false)} className="text-sm opacity-60 hover:opacity-100">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 my-2 scrollbar-thin">
+              {isGeneratingSummary || !executiveSummaryText ? (
+                <div className="py-16 text-center space-y-3">
+                  <ICON_MAP.SpinnerIcon className="w-10 h-10 mx-auto text-purple-500 animate-spin" />
+                  <h4 className="font-semibold text-base">Synthesizing Executive Insights...</h4>
+                  <p className="text-xs opacity-60 max-w-md mx-auto">
+                    Gemini AI is analyzing project metrics, velocity, risk factors, and completed highlights across tasks.
+                  </p>
+                </div>
+              ) : (
+                <div className={`p-5 rounded-lg text-sm leading-relaxed whitespace-pre-wrap font-sans border ${darkMode ? 'bg-slate-900/60 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
+                  {executiveSummaryText}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleGenerateAISummary}
+                disabled={isGeneratingSummary}
+              >
+                Regenerate Report
+              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  onClick={handleCopySummary}
+                  disabled={!executiveSummaryText || isGeneratingSummary}
+                >
+                  {copiedSummary ? 'Copied to Clipboard!' : 'Copy Summary'}
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={() => setShowSummaryModal(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

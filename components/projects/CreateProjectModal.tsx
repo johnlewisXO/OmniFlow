@@ -22,7 +22,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   isLoading,
   error: storeError, 
 }) => {
-  const { darkMode, currentUser } = useAppStore();
+  const { darkMode, currentUser, addToast } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -46,22 +46,26 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       const msg = "Project name is required.";
       console.error('[CreateProjectModal] Validation Error:', msg);
       setLocalError(msg);
+      addToast('Validation Error', msg, 'error');
       return;
     }
     if (!currentUser) {
       const msg = "User not logged in. Cannot create project.";
       console.error('[CreateProjectModal] Auth Error:', msg);
       setLocalError(msg); 
+      addToast('Authentication Required', msg, 'error');
       return;
     }
 
     try {
       console.log('[CreateProjectModal] Calling onCreateProject with:', projectData);
       await onCreateProject(projectData);
-      console.log('[CreateProjectModal] onCreateProject call completed (further success/error handling in store action).');
+      addToast('Project Created', `Project "${projectData.name}" created successfully.`, 'success');
+      console.log('[CreateProjectModal] onCreateProject call completed.');
     } catch (err: any) {
       const errorMessage = err.message || "An unexpected error occurred during project creation.";
       console.error("[CreateProjectModal] Error caught after calling onCreateProject:", errorMessage, err);
+      addToast('Creation Failed', errorMessage, 'error');
     }
   };
   

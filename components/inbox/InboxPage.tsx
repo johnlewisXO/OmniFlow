@@ -5,7 +5,7 @@ import { ICON_MAP } from '../../constants';
 import { formatDistanceToNow } from 'date-fns';
 
 export const InboxPage: React.FC = () => {
-  const { darkMode, notifications, markNotificationAsRead, markAllNotificationsAsRead, clearNotifications, openViewTaskModal } = useAppStore();
+  const { darkMode, notifications, markNotificationAsRead, markAllNotificationsAsRead, clearNotifications } = useAppStore();
   const InboxIcon = ICON_MAP.InboxIcon;
   const CheckIcon = ICON_MAP.CheckIcon;
   const TrashIcon = ICON_MAP.TrashIcon;
@@ -117,7 +117,7 @@ export const InboxPage: React.FC = () => {
                 const entityId = notification.entity_id || notification.metadata?.entity_id;
                 
                 if (entityType === 'task' && entityId) {
-                  openViewTaskModal(entityId);
+                  useAppStore.getState().openViewTaskModal(entityId, true);
                   if (!notification.read) {
                     markNotificationAsRead(notification.id);
                   }

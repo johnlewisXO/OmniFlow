@@ -44,7 +44,7 @@ export const MyTasksWidget: React.FC = () => {
           {upcomingTasks.map(task => (
             <li
               key={task.id}
-              onClick={() => openViewTaskModal(task.id)}
+              onClick={() => openViewTaskModal(task.id, true)}
               className={`p-3 rounded-md transition-all cursor-pointer ${darkMode ? 'bg-slate-700/70 hover:bg-slate-700' : 'bg-white/80 hover:bg-slate-50 hover:shadow-sm'} border ${darkMode ? 'border-slate-600/50' : 'border-slate-200/60'}`}
             >
               <div className="flex justify-between items-center">

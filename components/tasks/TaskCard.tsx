@@ -86,7 +86,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       onDragEnd={handleDragEnd}
     >
       <div className="flex justify-between items-start mb-2.5">
-        <h3 className={`text-sm md:text-md font-semibold ${textColor} leading-tight mr-2`}>{task.title}</h3>
+        <h3 className={`text-md font-semibold ${textColor} leading-tight mr-2`}>{task.title}</h3>
         <div className="flex items-center space-x-1 flex-shrink-0">
             <button
                 onClick={handleDelete}
