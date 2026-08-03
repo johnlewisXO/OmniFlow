@@ -104,17 +104,17 @@ export const AuthPage: React.FC = () => {
               <>
                 <div>
                   <label htmlFor="full-name" className={labelClass}>Full Name</label>
-                  <input type="text" id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLoginView} placeholder="Your Name" disabled={authLoading}/>
+                  <input type="text" id="full-name" className="w-full px-4 py-2.5 text-sm" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLoginView} placeholder="Your Name" disabled={authLoading}/>
                 </div>
               </>
             )}
             <div>
               <label htmlFor="email" className={labelClass}>Email Address</label>
-              <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" disabled={authLoading}/>
+              <input type="email" id="email" className="w-full px-4 py-2.5 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" disabled={authLoading}/>
             </div>
             <div>
               <label htmlFor="password" className={labelClass}>Password</label>
-              <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" disabled={authLoading}/>
+              <input type="password" id="password" className="w-full px-4 py-2.5 text-sm" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" disabled={authLoading}/>
             </div>
 
             {(formError || globalAuthError) && (

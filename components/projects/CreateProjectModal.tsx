@@ -105,6 +105,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           <input
             type="text"
             id="project-name"
+            className="w-full px-4 py-2.5 text-sm"
             value={name}
             onChange={(e) => { setName(e.target.value); if(localError) setLocalError(null); }}
             required
@@ -117,6 +118,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           <label htmlFor="project-description" className={labelClass}>Description (Optional)</label>
           <textarea
             id="project-description"
+            className="w-full px-4 py-2.5 text-sm"
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}

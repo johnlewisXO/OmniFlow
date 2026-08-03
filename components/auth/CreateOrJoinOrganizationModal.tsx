@@ -240,7 +240,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
               id="organization-name"
               value={organizationName}
               onChange={(e) => setOrganizationName(e.target.value)}
-              className="w-full pr-10 border rounded-md p-2"
+              className="w-full pl-4 pr-10 py-2.5 text-sm"
               placeholder="Your Company Inc."
               disabled={authLoading}
               required

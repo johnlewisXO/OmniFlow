@@ -273,8 +273,13 @@
             0 -1px 0.5px rgba(255, 255, 255, 0.05) inset !important;
         }
 
-        input[type="text"], input[type="email"], input[type="password"], input[type="date"], textarea, select {
-          border-radius: 18px !important;
+        input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="number"], input[type="search"], input[type="tel"], input[type="url"], textarea, select {
+          width: 100%;
+          padding: 0.65rem 1.1rem;
+          box-sizing: border-box;
+          font-size: 0.875rem;
+          line-height: 1.5;
+          border-radius: 14px !important;
           background: rgba(255, 255, 255, 0.55) !important;
           backdrop-filter: blur(16px) saturate(180%) !important;
           -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
@@ -284,7 +289,12 @@
           transition: all 0.25s ease-out;
         }
 
-        html.dark input[type="text"], html.dark input[type="email"], html.dark input[type="password"], html.dark input[type="date"], html.dark textarea, html.dark select {
+        textarea {
+          padding: 0.75rem 1.1rem;
+          min-height: 80px;
+        }
+
+        html.dark input[type="text"], html.dark input[type="email"], html.dark input[type="password"], html.dark input[type="date"], html.dark input[type="number"], html.dark input[type="search"], html.dark input[type="tel"], html.dark input[type="url"], html.dark textarea, html.dark select {
           background: rgba(15, 23, 42, 0.50) !important;
           border: 1px solid rgba(255, 255, 255, 0.15) !important;
           color: #F8FAFC !important;
