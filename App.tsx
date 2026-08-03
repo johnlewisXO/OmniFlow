@@ -32,7 +32,6 @@ import { MyTasksPage } from './components/tasks/MyTasksPage';
 import { InboxPage } from './components/inbox/InboxPage';
 import { ReportsPage } from './components/reports/ReportsPage';
 import { TeamManagementPage } from './components/team/TeamManagementPage'; 
-import { AuditLogsPage } from './components/logs/AuditLogsPage'; 
 import { TaskAutomationsDashboard } from './components/automations/TaskAutomationsDashboard'; 
 
 const ToastContainer: React.FC = () => {
@@ -208,10 +207,7 @@ const MainAppLayout: React.FC = () => {
       case 'reports_view':
         return <ReportsPage />;
       case 'user_logs_view':
-        if (currentUser.role === UserRole.OWNER || currentUser.role === UserRole.ADMIN) {
-          return <AuditLogsPage />;
-        }
-        return <MemberDashboard />; // Fallback if not authorized
+        return <TeamManagementPage />;
       case 'team_management':
         return <TeamManagementPage />; 
       case 'task_automations':

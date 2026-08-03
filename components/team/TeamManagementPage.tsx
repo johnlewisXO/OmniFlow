@@ -439,20 +439,6 @@ export const TeamManagementPage: React.FC = () => {
         )}
       </div>
 
-      {/* Additional Management Tools */}
-      <div className="mt-8 p-6 rounded-squircle-md border text-center shadow-inner-glass" style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)', borderColor: 'hsl(var(--panel-border))'}}>
-        <h3 className="text-lg font-semibold mb-2">Additional Management Tools</h3>
-        <p className="text-sm opacity-70 mb-4">
-          View full organizational audit trails, security activity, and member activity history.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button variant="primary" onClick={() => setCurrentView('user_logs_view')}>
-            <ICON_MAP.ShieldCheckIcon className="w-4 h-4 mr-2" />
-            View Audit Logs
-          </Button>
-        </div>
-      </div>
-
       {/* Invite Member Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
