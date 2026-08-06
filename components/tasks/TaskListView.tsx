@@ -256,7 +256,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             {/* Done Checkbox Toggle */}
             <button
               onClick={(e) => handleStatusToggle(task, e)}
-              className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center transition-all flex-shrink-0 ${
+              className={`w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full border flex items-center justify-center transition-all flex-shrink-0 ${
                 isDone
                   ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
                   : darkMode
@@ -460,24 +460,24 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   };
 
   return (
-    <div className={`flex-1 flex flex-col h-full rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm overflow-hidden`}>
+    <div className={`flex-1 flex flex-col min-h-0 h-full rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm overflow-y-auto md:overflow-hidden`}>
       {/* Overview Progress Header */}
-      <div className={`p-4 border-b space-y-3 ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-slate-50/80'}`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className={`p-3 sm:p-4 border-b space-y-2.5 sm:space-y-3 flex-shrink-0 ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-slate-50/80'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
-            <ICON_MAP.ClipboardListIcon className="w-5 h-5 text-accent" />
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Task List Overview</h2>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-accent/10 text-accent">
+            <ICON_MAP.ClipboardListIcon className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Task List Overview</h2>
+            <span className="text-[11px] sm:text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full bg-accent/10 text-accent">
               {stats.total} Tasks ({stats.pctDone}% Complete)
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs">
             <span className="text-slate-500 font-medium">Sections:</span>
-            <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">To Do: {stats.todo}</span>
-            <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold">In Progress: {stats.inProgress}</span>
-            <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-semibold">Review: {stats.review}</span>
-            <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-semibold">Done: {stats.done}</span>
+            <span className="px-1.5 sm:px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">To Do: {stats.todo}</span>
+            <span className="px-1.5 sm:px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold">In Progress: {stats.inProgress}</span>
+            <span className="px-1.5 sm:px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-semibold">Review: {stats.review}</span>
+            <span className="px-1.5 sm:px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-semibold">Done: {stats.done}</span>
           </div>
         </div>
 
@@ -490,11 +490,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       </div>
 
       {/* Controls & Filter Bar */}
-      <div className={`mx-4 mt-4 mb-2 p-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 transition-all ${
+      <div className={`mx-2 sm:mx-4 mt-3 sm:mt-4 mb-2 p-2.5 sm:p-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-2.5 flex-shrink-0 transition-all ${
         darkMode ? 'border-slate-800/80 bg-slate-900/60 shadow-inner' : 'border-slate-200/90 bg-slate-100/70 shadow-sm'
       }`}>
         {/* Search Bar - Non-overlapping Icon & Padding Fix */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-[180px] max-w-sm">
           <ICON_MAP.MagnifyingGlassIcon className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
           <input
             type="text"
@@ -502,7 +502,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ paddingLeft: '2.5rem', paddingRight: '2rem' }}
-            className={`w-full py-2 rounded-lg border text-xs font-medium outline-hidden transition-all ${
+            className={`w-full py-1.5 sm:py-2 rounded-lg border text-xs font-medium outline-hidden transition-all ${
               darkMode 
                 ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-accent' 
                 : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-accent'
@@ -520,11 +520,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
 
         {/* Filters & Layout */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className={`text-xs rounded-lg px-3 py-1.5 border font-semibold ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-700'}`}
+            className={`text-xs rounded-lg px-2.5 py-1.5 border font-semibold ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-700'}`}
           >
             <option value="all">All Statuses</option>
             <option value={TaskStatus.TODO}>To Do</option>
@@ -536,7 +536,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value)}
-            className={`text-xs rounded-lg px-3 py-1.5 border font-semibold ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-700'}`}
+            className={`text-xs rounded-lg px-2.5 py-1.5 border font-semibold ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-700'}`}
           >
             <option value="all">All Priorities</option>
             <option value={TaskPriority.LOW}>Low Priority</option>
@@ -545,14 +545,14 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             <option value={TaskPriority.CRITICAL}>Critical Priority</option>
           </select>
 
-          <div className="flex items-center gap-1 text-xs text-slate-500 font-medium ml-1">
-            <span>View:</span>
+          <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
+            <span className="hidden sm:inline">View:</span>
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as any)}
-              className={`text-xs rounded-lg px-2.5 py-1.5 border font-semibold ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-700'}`}
+              className={`text-xs rounded-lg px-2 py-1.5 border font-semibold ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-700'}`}
             >
-              <option value="status">Grouped by Section</option>
+              <option value="status">Grouped</option>
               <option value="none">Flat Table</option>
             </select>
           </div>
@@ -560,7 +560,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       </div>
 
       {/* Main List Body */}
-      <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+      <div className="flex-1 min-h-[300px] overflow-y-auto p-2 sm:p-4 scrollbar-thin">
         {groupBy === 'status' ? (
           <>
             {renderGroupedTasks(TaskStatus.TODO, 'To Do', 'bg-slate-400')}

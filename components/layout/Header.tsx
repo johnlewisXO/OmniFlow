@@ -17,7 +17,8 @@ export const Header: React.FC = () => {
     signOut,
     notifications,
     setActiveView,
-    addToast
+    addToast,
+    toggleMobileSidebar
   } = useAppStore();
 
   const handleAddTaskClick = () => {
@@ -37,8 +38,9 @@ export const Header: React.FC = () => {
   const PlusIcon = ICON_MAP.PlusIcon;
   const LogoutIcon = ICON_MAP.LogoutIcon;
   const BellIcon = ICON_MAP.BellIcon;
+  const Bars3Icon = ICON_MAP.Bars3Icon;
 
-  const headerTextColor = darkMode ? 'text-slate-100' : 'text-slate-800'; // Or use --page-foreground
+  const headerTextColor = darkMode ? 'text-slate-100' : 'text-slate-800'; 
   const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -72,43 +74,64 @@ export const Header: React.FC = () => {
   }, [isProfileMenuOpen]);
 
   return (
-    <header className="glass-panel rounded-squircle-lg px-6 py-4 relative z-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className={`text-2xl font-semibold text-gradient-accent text-shadow-subtle`}>
-            {activeProject ? activeProject.name : 'Dashboard'}
-          </h1>
-          {activeProject && <p className={`text-sm ${subTextColor}`}>Manage tasks and progress for {activeProject.name}.</p>}
+    <header className="glass-panel rounded-2xl px-3.5 sm:px-5 py-3 relative z-20">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* Mobile Hamburger Button */}
+          <button
+            onClick={toggleMobileSidebar}
+            className={`md:hidden p-2 rounded-xl transition-all ${
+              darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+            aria-label="Open sidebar navigation"
+          >
+            <Bars3Icon className="w-5 h-5" />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gradient-accent tracking-tight truncate">
+              {activeProject ? activeProject.name : 'Dashboard'}
+            </h1>
+            {activeProject && (
+              <p className={`text-xs ${subTextColor} truncate hidden sm:block`}>
+                Manage tasks and progress for {activeProject.name}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="flex items-center space-x-3 md:space-x-4">
+
+        <div className="flex items-center space-x-1.5 sm:space-x-3 flex-shrink-0">
           <button
             onClick={() => setActiveView('inbox_view')}
             className={`relative p-2 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'}`}
             aria-label="Notifications"
           >
-            <BellIcon className="w-5 h-5" />
+            <BellIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
             )}
           </button>
+
           <Button
             variant="secondary" 
             size="icon"
             onClick={toggleDarkMode}
             aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            className="text-lg" // Ensure icon size is good
+            className="w-8 h-8 sm:w-9 sm:h-9"
           >
-            {darkMode ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
+            {darkMode ? <SunIcon className="w-4 h-4 sm:w-5 sm:h-5" /> : <MoonIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
           </Button>
+
           <Button 
             variant="primary" 
-            size="md" 
+            size="sm" 
             onClick={handleAddTaskClick}
             disabled={!currentUser}
             title={!activeProject ? "Select a project to add tasks" : (!currentUser ? "Login to add tasks" : "Add new task")}
+            className="px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium"
           >
-            <PlusIcon className="w-5 h-5 mr-1.5" /> 
-            Add Task
+            <PlusIcon className="w-4 h-4 sm:mr-1" /> 
+            <span className="hidden sm:inline">Add Task</span>
           </Button>
           
           <div className="relative" ref={profileMenuRef}>
@@ -120,29 +143,29 @@ export const Header: React.FC = () => {
                 aria-haspopup="true"
                 className="rounded-full focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ring-offset-background"
               >
-                <Avatar user={currentUser} size="lg" />
+                <Avatar user={currentUser} size="md" />
               </button>
             ) : (
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${darkMode ? 'bg-slate-700/70 text-slate-400' : 'bg-slate-300/70 text-slate-500'} border ${darkMode ? 'border-slate-600' : 'border-slate-400'}`} title="Not logged in">
-                <ICON_MAP.UserCircleIcon className="w-6 h-6" />
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center ${darkMode ? 'bg-slate-700/70 text-slate-400' : 'bg-slate-300/70 text-slate-500'} border ${darkMode ? 'border-slate-600' : 'border-slate-400'}`} title="Not logged in">
+                <ICON_MAP.UserCircleIcon className="w-5 h-5" />
               </div>
             )}
             {isProfileMenuOpen && currentUser && (
               <div 
-                className={`absolute right-0 mt-2 w-52 rounded-squircle-md shadow-glass-lg py-1 z-30
-                           border ${darkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-white/90 border-slate-300'} backdrop-blur-md`}
+                className={`absolute right-0 mt-2 w-52 rounded-xl shadow-glass-lg py-1 z-30
+                           border ${darkMode ? 'bg-slate-800/95 border-slate-700' : 'bg-white/95 border-slate-300'} backdrop-blur-md`}
               >
-                <div className={`px-4 py-3 border-b ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
-                    <p className={`text-sm font-medium truncate ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>{currentUser.full_name || currentUser.email}</p>
-                    <p className={`text-xs truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{currentUser.email}</p>
+                <div className={`px-4 py-2.5 border-b ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
+                    <p className={`text-xs font-semibold truncate ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>{currentUser.full_name || currentUser.email}</p>
+                    <p className={`text-[11px] truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{currentUser.email}</p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className={`w-full flex items-center space-x-2 px-4 py-2.5 text-sm 
+                  className={`w-full flex items-center space-x-2 px-4 py-2 text-xs font-medium 
                              ${darkMode ? 'text-status-error hover:bg-status-error/20' : 'text-status-error hover:bg-status-error/10'} 
                              transition-colors`}
                 >
-                  <LogoutIcon className="w-4 h-4" />
+                  <LogoutIcon className="w-3.5 h-3.5" />
                   <span>Logout</span>
                 </button>
               </div>

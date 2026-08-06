@@ -259,6 +259,10 @@ export interface AppStore {
   activeView: ActiveView;
   setActiveView: (view: ActiveView) => void;
 
+  isMobileSidebarOpen: boolean;
+  setIsMobileSidebarOpen: (isOpen: boolean) => void;
+  toggleMobileSidebar: () => void;
+
   signUp: (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => Promise<void>;
   joinOrCreateOrganization: (organizationName: string, role?: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;

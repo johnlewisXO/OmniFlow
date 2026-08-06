@@ -93,7 +93,7 @@ export const KanbanBoard: React.FC = () => {
   const projectTasks = tasks.filter(t => t.projectId === activeProject.id);
 
   return (
-    <div className="flex-1 flex flex-col h-full p-4 md:p-6 bg-transparent overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 h-full p-2 sm:p-4 md:p-6 bg-transparent overflow-y-auto md:overflow-hidden">
       {/* View Switcher and Project Control Subheader */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 flex-shrink-0">
         <div className="flex items-center gap-2">

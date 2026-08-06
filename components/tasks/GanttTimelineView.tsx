@@ -247,7 +247,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
         >
           {/* Left Task Metadata Column (Sticky Left) */}
           {showLeftSidebar && (
-            <div className={`w-[300px] min-w-[300px] p-2.5 flex items-center justify-between gap-2 border-r border-slate-200 dark:border-slate-800 flex-shrink-0 sticky left-0 z-30 shadow-xs ${
+            <div className={`w-[200px] sm:w-[240px] md:w-[280px] min-w-[200px] sm:min-w-[240px] md:min-w-[280px] p-2 sm:p-2.5 flex items-center justify-between gap-1.5 border-r border-slate-200 dark:border-slate-800 flex-shrink-0 sticky left-0 z-30 shadow-xs ${
               darkMode ? 'bg-slate-900' : 'bg-white'
             }`}>
               <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
@@ -378,19 +378,19 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
   };
 
   return (
-    <div className={`flex-1 flex flex-col h-full rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm overflow-hidden`}>
+    <div className={`flex-1 flex flex-col min-h-0 h-full rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm overflow-y-auto md:overflow-hidden`}>
       {/* Top Header Bar */}
-      <div className={`p-4 md:p-5 border-b flex flex-wrap items-center justify-between gap-4 ${darkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-slate-50/60'}`}>
+      <div className={`p-3.5 sm:p-4 md:p-5 border-b flex flex-wrap items-center justify-between gap-3 flex-shrink-0 ${darkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-slate-50/60'}`}>
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <div className="flex items-center gap-2">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
               Project Schedule & Gantt Timeline
             </h1>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-accent/15 text-accent font-bold">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-accent/15 text-accent font-bold">
               {allFlatFiltered.length} Scheduled
             </span>
           </div>
-          <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`text-xs mt-0.5 hidden sm:block ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             Track project milestones, task durations, status progression, and team dependencies.
           </p>
         </div>
@@ -398,7 +398,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowStatsOverview((prev) => !prev)}
-            className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
               showStatsOverview
                 ? 'bg-accent/10 border-accent/30 text-accent'
                 : darkMode
@@ -406,40 +406,40 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                 : 'bg-white border-slate-300 text-slate-700'
             }`}
           >
-            {showStatsOverview ? 'Hide Analytics Dashboard' : 'Show Analytics Dashboard'}
+            {showStatsOverview ? 'Hide Dashboard' : 'Analytics Dashboard'}
           </button>
           <button
             onClick={() => openCreateTaskModal()}
-            className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-accent hover:bg-accent-hover text-white shadow-xs transition-all flex items-center gap-1.5"
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white shadow-xs transition-all flex items-center gap-1"
           >
             <ICON_MAP.PlusIcon className="w-4 h-4" />
-            New Task
+            <span>New Task</span>
           </button>
         </div>
       </div>
 
-      {/* Analytics & Breakdown Cards (Matching Image 2 Dashboard Layout) */}
+      {/* Analytics & Breakdown Cards */}
       {showStatsOverview && (
-        <div className={`p-4 md:p-5 border-b grid grid-cols-1 md:grid-cols-3 gap-4 ${darkMode ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-slate-50/30'}`}>
+        <div className={`p-3 sm:p-4 border-b grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-slate-50/30'}`}>
           {/* Donut Category / Status Progress Chart */}
-          <div className={`p-4 rounded-2xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+          <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
                 Category Breakdown
               </h3>
-              <span className="text-xs font-bold text-accent">{stats.completionRate}% Overall Complete</span>
+              <span className="text-xs font-bold text-accent">{stats.completionRate}% Done</span>
             </div>
 
-            <div className="flex items-center gap-4 h-36">
-              <div className="w-28 h-28 relative">
+            <div className="flex items-center gap-3 h-32">
+              <div className="w-24 h-24 relative flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={stats.donutData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={26}
-                      outerRadius={42}
+                      innerRadius={22}
+                      outerRadius={36}
                       paddingAngle={3}
                       dataKey="value"
                     >
@@ -450,41 +450,41 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-sm font-black text-slate-900 dark:text-white">{stats.total}</span>
-                  <span className="text-[9px] font-semibold text-slate-400 uppercase">Tasks</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">{stats.total}</span>
+                  <span className="text-[8px] font-semibold text-slate-400 uppercase">Tasks</span>
                 </div>
               </div>
 
-              <div className="flex-1 space-y-1.5 text-xs">
+              <div className="flex-1 space-y-1 text-xs">
                 {stats.donutData.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between font-semibold">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                      <span className="text-slate-600 dark:text-slate-300">{d.name}</span>
+                  <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="text-slate-600 dark:text-slate-300 truncate">{d.name}</span>
                     </div>
-                    <span className="font-bold text-slate-900 dark:text-white">{d.value}</span>
+                    <span className="font-bold text-slate-900 dark:text-white ml-1">{d.value}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Status Column Bar Chart (Matching Image 2 Top Right Card) */}
-          <div className={`p-4 rounded-2xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+          {/* Status Column Bar Chart */}
+          <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
                 Status Distribution
               </h3>
-              <span className="text-[11px] text-slate-400">Live Status Metrics</span>
+              <span className="text-[10px] text-slate-400">Live Metrics</span>
             </div>
 
-            <div className="h-36">
+            <div className="h-32">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.barData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: darkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: darkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '11px', fontWeight: 'bold' }} />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                     {stats.barData.map((entry, index) => (
                       <Cell key={`bar-${index}`} fill={entry.fill} />
                     ))}
@@ -494,28 +494,28 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             </div>
           </div>
 
-          {/* Schedule Health & Today Banner Card */}
-          <div className={`p-4 rounded-2xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+          {/* Schedule Health Card */}
+          <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  Timeline Status Summary
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  Timeline Bounds
                 </h3>
-                <span className="text-xs font-bold text-emerald-500">Active Timeline</span>
+                <span className="text-xs font-bold text-emerald-500">Active</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Currently tracking task execution bounds from <strong className="text-slate-800 dark:text-slate-200">{format(startDate, 'MMM d, yyyy')}</strong> to <strong className="text-slate-800 dark:text-slate-200">{format(addDays(startDate, totalDays), 'MMM d, yyyy')}</strong>.
+                Execution range: <strong className="text-slate-800 dark:text-slate-200">{format(startDate, 'MMM d, yyyy')}</strong> to <strong className="text-slate-800 dark:text-slate-200">{format(addDays(startDate, totalDays), 'MMM d, yyyy')}</strong>.
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3">
-              <ICON_MAP.CheckCircleIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 mt-2">
+              <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
               <div>
-                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 block">
-                  Project Schedule Healthy
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block leading-tight">
+                  Schedule Healthy
                 </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
-                  {stats.done} of {stats.total} total milestones completed on schedule.
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+                  {stats.done} of {stats.total} tasks completed on schedule.
                 </span>
               </div>
             </div>
@@ -648,7 +648,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
       {/* Timeline Chart Grid Container with Explicit Horizontal Scrollbar */}
       <div 
         ref={scrollContainerRef}
-        className="flex-1 overflow-x-auto overflow-y-auto scrollbar-thin relative border-t border-slate-200 dark:border-slate-800"
+        className="flex-1 min-h-[350px] sm:min-h-[400px] overflow-x-auto overflow-y-auto scrollbar-thin relative border-t border-slate-200 dark:border-slate-800"
       >
         {allFlatFiltered.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
@@ -657,14 +657,14 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             <p className="text-xs text-slate-500 max-w-sm mt-1">Try clearing your search query or status filters to view timeline tasks.</p>
           </div>
         ) : (
-          <div style={{ minWidth: `${(showLeftSidebar ? 300 : 0) + daysHeader.length * dayColWidth}px` }}>
+          <div style={{ minWidth: `${(showLeftSidebar ? 280 : 0) + daysHeader.length * dayColWidth}px` }}>
             {/* Header Row (Sticky Top & Left Corner) */}
             <div className={`flex border-b sticky top-0 z-40 shadow-xs ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
               {showLeftSidebar && (
-                <div className={`w-[300px] min-w-[300px] p-3 text-xs font-extrabold uppercase tracking-wider border-r border-slate-200 dark:border-slate-800 flex-shrink-0 sticky left-0 z-50 ${
+                <div className={`w-[200px] sm:w-[240px] md:w-[280px] min-w-[200px] sm:min-w-[240px] md:min-w-[280px] p-2.5 text-xs font-bold uppercase tracking-wider border-r border-slate-200 dark:border-slate-800 flex-shrink-0 sticky left-0 z-50 ${
                   darkMode ? 'bg-slate-950' : 'bg-slate-100'
                 }`}>
-                  Task Title & Section Move
+                  Task Title
                 </div>
               )}
               <div className="flex flex-shrink-0" style={{ width: `${daysHeader.length * dayColWidth}px` }}>

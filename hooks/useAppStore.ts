@@ -113,6 +113,8 @@ const initialStoreStateValues: StoreState = {
   // Password Update
   isPasswordUpdateModalOpen: false,
 
+  isMobileSidebarOpen: false,
+
   notifications: _notifications,
 };
 
@@ -591,7 +593,8 @@ const appActionsCreator = (
           tasks: [], 
           suggestedTaskTitles: [],
           tasksError: null,
-          activeView: 'kanban'
+          activeView: 'kanban',
+          isMobileSidebarOpen: false
         }));
         if (typeof window !== 'undefined') {
           localStorage.setItem('activeView', 'kanban');
@@ -663,17 +666,16 @@ const appActionsCreator = (
 
   Object.assign(selfActions, {
     toggleDarkMode: () => updateState(s => ({ ...s, darkMode: !s.darkMode })),
+    setIsMobileSidebarOpen: (isOpen: boolean) => updateState(s => ({ ...s, isMobileSidebarOpen: isOpen })),
+    toggleMobileSidebar: () => updateState(s => ({ ...s, isMobileSidebarOpen: !s.isMobileSidebarOpen })),
     setActiveView: (view: ActiveView) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('activeView', view);
         }
-        updateState(s => ({ ...s, activeView: view }));
+        updateState(s => ({ ...s, activeView: view, isMobileSidebarOpen: false }));
         const currentStore = get();
         if (view === 'team_management' && currentStore.currentUser?.organization_id && currentStore.users.length === 0 && !currentStore.isLoadingUsersForAssignment) {
             selfActions.fetchUsersForAssignmentList();
-        }
-        if (view === 'user_logs_view' && currentStore.currentUser?.organization_id && (currentStore.currentUser.role === UserRole.ADMIN || currentStore.currentUser.role === UserRole.OWNER)) {
-            // Future: Fetch initial logs if needed, for now it's a placeholder page.
         }
     },
     signUp: async (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => {

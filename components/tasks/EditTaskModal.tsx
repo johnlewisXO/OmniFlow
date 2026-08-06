@@ -149,7 +149,7 @@ export const EditTaskModal: React.FC = () => {
             required
             placeholder="e.g., Finalize Q3 report"
             disabled={isSubmitting || globalIsLoading}
-            className="text-base"
+            className="w-full font-medium"
           />
         </div>
 
@@ -168,21 +168,21 @@ export const EditTaskModal: React.FC = () => {
             onChange={(e) => setMainDescription(e.target.value)}
             placeholder="Add more details: user stories, acceptance criteria, links..."
             disabled={isSubmitting || globalIsLoading}
-            className="text-base"
+            className="w-full font-medium"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> {/* Reduced y-gap */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
             <div className={selectWrapperClass}>
                 <label htmlFor="edit-task-priority" className={labelClass}>Priority</label>
-                <select id="edit-task-priority" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} disabled={isSubmitting || globalIsLoading} className="text-base appearance-none">
+                <select id="edit-task-priority" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} disabled={isSubmitting || globalIsLoading} className="font-medium appearance-none">
                     {Object.values(TaskPriority).map(p => <option key={p} value={p}>{formatEnumForDisplay(p)}</option>)}
                 </select>
                 <ICON_MAP.ChevronDownIcon className={selectArrowClass} />
             </div>
             <div className={selectWrapperClass}>
                 <label htmlFor="edit-task-status" className={labelClass}>Status</label>
-                <select id="edit-task-status" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} disabled={isSubmitting || globalIsLoading} className="text-base appearance-none">
+                <select id="edit-task-status" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} disabled={isSubmitting || globalIsLoading} className="font-medium appearance-none">
                     {Object.values(TaskStatus).map(s => <option key={s} value={s}>{formatEnumForDisplay(s)}</option>)}
                 </select>
                  <ICON_MAP.ChevronDownIcon className={selectArrowClass} />
@@ -200,7 +200,7 @@ export const EditTaskModal: React.FC = () => {
                 )}
                 {!isLoadingUsersForAssignment && !usersForAssignmentError && (
                 <>
-                    <select id="edit-task-assignee" value={assignee_id || ''} onChange={(e) => setAssignee_id(e.target.value || undefined)} disabled={isSubmitting || globalIsLoading || users.length === 0} className="text-base appearance-none">
+                    <select id="edit-task-assignee" value={assignee_id || ''} onChange={(e) => setAssignee_id(e.target.value || undefined)} disabled={isSubmitting || globalIsLoading || users.length === 0} className="font-medium appearance-none">
                         <option value="">Unassigned</option>
                         {users.map((user: User) => ( <option key={user.id} value={user.id}>{user.full_name || user.email}</option> ))}
                     </select>
@@ -214,7 +214,7 @@ export const EditTaskModal: React.FC = () => {
 
             <div>
                 <label htmlFor="edit-task-due-date" className={labelClass}>Due Date</label>
-                <input type="date" id="edit-task-due-date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={isSubmitting || globalIsLoading} className="text-base"/>
+                <input type="date" id="edit-task-due-date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={isSubmitting || globalIsLoading} className="font-medium"/>
             </div>
         </div>
 

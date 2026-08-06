@@ -36,7 +36,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     '3xl': 'max-w-3xl',
     '4xl': 'max-w-4xl',
     '5xl': 'max-w-5xl',
-    full: 'max-w-[95vw] h-[95vh] flex flex-col',
+    full: 'max-w-[96vw] h-[92vh] flex flex-col',
   };
   
   // Use CSS variables for panel background and border for consistency
@@ -46,30 +46,30 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-lg p-4 animate-fadeIn" // Increased overlay blur
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-lg p-2 sm:p-4 overflow-y-auto animate-fadeIn" // Increased overlay blur
       onClick={onClose}
     >
       <div
-        className={`shadow-glass-lg w-full ${sizeClasses[size]} p-6 transform transition-all duration-300 ease-out 
-                   ${modalTextColor} rounded-squircle-lg border 
+        className={`shadow-glass-lg w-full ${sizeClasses[size]} p-4 sm:p-6 my-auto transform transition-all duration-300 ease-out 
+                   ${modalTextColor} rounded-squircle-lg border max-h-[95vh] flex flex-col
                    opacity-0 scale-95 animate-modal-appear`}
         style={{ backgroundColor: modalContentBg, borderColor: modalBorderColor }}
         onClick={(e) => e.stopPropagation()} 
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className={`text-xl font-semibold text-gradient-accent`}>{title}</h2>
+        <div className="flex items-center justify-between mb-3 sm:mb-4 flex-shrink-0">
+          <h2 className={`text-lg sm:text-xl font-semibold text-gradient-accent`}>{title}</h2>
           <button
             onClick={onClose}
             className={`${darkMode ? 'text-slate-400 hover:text-slate-100' : 'text-slate-500 hover:text-slate-900'} 
                        transition-colors p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10`}
             aria-label="Close modal"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className={`${size === 'full' ? 'flex-1 overflow-y-auto' : 'max-h-[70vh] overflow-y-auto'} scrollbar-thin pr-1.5`}>
+        <div className={`${size === 'full' ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y' : 'max-h-[75vh] overflow-y-auto overscroll-contain touch-pan-y'} scrollbar-thin pr-1 sm:pr-1.5`}>
           {children}
         </div>
       </div>

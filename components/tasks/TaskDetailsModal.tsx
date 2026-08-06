@@ -624,10 +624,10 @@ export const TaskDetailsModal: React.FC = () => {
             <strong>Error:</strong> {error}
         </div>
       )}
-      <div className="flex flex-col md:flex-row h-full gap-6">
+      <div className="flex flex-col md:flex-row md:h-full gap-6 min-w-0 min-h-0">
         
         {/* Left Column: Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pr-2">
+        <div className="w-full md:flex-1 flex flex-col min-w-0 md:overflow-y-auto pr-0 md:pr-2">
           
           <div className="flex items-center justify-between mb-6">
             {isEditingTitle ? (
@@ -1112,7 +1112,7 @@ export const TaskDetailsModal: React.FC = () => {
         </div>
 
         {/* Right Column: Sidebar Details */}
-        <div className="w-full md:w-80 flex-shrink-0 flex flex-col gap-6">
+        <div className="w-full md:w-80 flex-shrink-0 flex flex-col gap-6 md:overflow-y-auto">
           
           {/* Status & Actions */}
           <div className="flex items-center gap-2">

@@ -116,8 +116,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    letter-spacing: -0.011em;
-    line-height: 1.6;
+    letter-spacing: -0.01em;
+    line-height: 1.45;
+    font-size: 0.875rem;
     transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
   }
 
@@ -134,90 +135,90 @@
     animation: animateBackgroundMesh 30s ease-in-out infinite;
   }
 
-  /* Glass Panels, Sidebar, Header (30px radius) */
+  /* Glass Panels, Sidebar, Header (16px / 20px radius) */
   .glass-panel, .auth-panel, aside, header { 
-    background: rgba(255, 255, 255, 0.72) !important;
-    backdrop-filter: blur(32px) saturate(210%) !important;
-    -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
     border: 1px solid rgba(255, 255, 255, 0.70) !important;
     box-shadow: 
-      0 14px 40px rgba(15, 23, 42, 0.05),
+      0 8px 30px rgba(15, 23, 42, 0.04),
       0 1px 0.5px rgba(255, 255, 255, 0.90) inset,
       0 -1px 0.5px rgba(255, 255, 255, 0.30) inset !important;
-    border-radius: 30px !important;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 18px !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   html.dark .glass-panel, html.dark .auth-panel, html.dark aside, html.dark header {
-    background: rgba(13, 18, 30, 0.72) !important;
-    backdrop-filter: blur(32px) saturate(210%) !important;
-    -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: rgba(13, 18, 30, 0.82) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
     box-shadow: 
-      0 16px 44px rgba(0, 0, 0, 0.45),
-      0 1px 0.5px rgba(255, 255, 255, 0.18) inset,
-      0 -1px 0.5px rgba(255, 255, 255, 0.05) inset !important;
+      0 10px 32px rgba(0, 0, 0, 0.40),
+      0 1px 0.5px rgba(255, 255, 255, 0.15) inset,
+      0 -1px 0.5px rgba(255, 255, 255, 0.04) inset !important;
   }
 
-  /* Form Inputs (14px radius, clean padding) */
+  /* Form Inputs (clean padding, consistent 12px radius) */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), textarea, select {
     width: 100%;
-    padding: 0.75rem 1.1rem !important;
+    padding: 0.55rem 0.85rem !important;
     box-sizing: border-box !important;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    border-radius: 14px !important;
-    background: rgba(255, 255, 255, 0.55) !important;
-    backdrop-filter: blur(16px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.60) !important;
-    color: #1F2937 !important;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.5) !important;
-    transition: all 0.25s ease-out;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.70) !important;
+    backdrop-filter: blur(12px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+    color: #0F172A !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.6) !important;
+    transition: all 0.2s ease-out;
   }
 
   textarea {
-    padding: 0.85rem 1.1rem !important;
-    min-height: 80px;
+    padding: 0.65rem 0.85rem !important;
+    min-height: 72px;
   }
 
   html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), html.dark textarea, html.dark select {
-    background: rgba(15, 23, 42, 0.50) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
     color: #F8FAFC !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
   }
 
   input:focus, textarea:focus, select:focus {
     border-color: #6957FF !important;
-    background: rgba(255, 255, 255, 0.75) !important;
-    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.20), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+    background: rgba(255, 255, 255, 0.90) !important;
+    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
   }
 
   html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
-    background: rgba(15, 23, 42, 0.70) !important;
+    background: rgba(15, 23, 42, 0.85) !important;
     box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.30), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
   }
 
-  /* Modals (32px radius) */
+  /* Modals (20px radius) */
   .animate-modal-appear, [role="dialog"] {
-    border-radius: 32px !important;
-    background: rgba(255, 255, 255, 0.72) !important;
+    border-radius: 20px !important;
+    background: rgba(255, 255, 255, 0.85) !important;
     backdrop-filter: blur(28px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.55) !important;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(255, 255, 255, 0.4) inset !important;
+    border: 1px solid rgba(255, 255, 255, 0.65) !important;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(255, 255, 255, 0.4) inset !important;
   }
 
   html.dark .animate-modal-appear, html.dark [role="dialog"] {
-    background: rgba(15, 23, 42, 0.75) !important;
+    background: rgba(15, 23, 42, 0.88) !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(255, 255, 255, 0.1) inset !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(255, 255, 255, 0.1) inset !important;
   }
 
-  /* Cards (28px radius) */
+  /* Cards (16px radius) */
   .bg-slate-100\/70, .bg-slate-800\/50, .bg-white\/80, .bg-slate-700\/70, .bg-slate-900\/40, .bg-white\/90 {
-    border-radius: 28px !important;
+    border-radius: 16px !important;
     backdrop-filter: blur(20px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   }

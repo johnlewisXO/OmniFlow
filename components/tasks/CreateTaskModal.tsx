@@ -164,7 +164,7 @@ export const CreateTaskModal: React.FC = () => {
             required
             placeholder="e.g., Design homepage mockups"
             disabled={isLoading}
-            className="text-base" // Ensure inputs pick up global styles
+            className="w-full font-medium"
           />
         </div>
 
@@ -183,21 +183,21 @@ export const CreateTaskModal: React.FC = () => {
             onChange={(e) => setMainDescription(e.target.value)}
             placeholder="Add more details: user stories, acceptance criteria, links..."
             disabled={isLoading}
-            className="text-base" // Ensure inputs pick up global styles
+            className="w-full font-medium"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> {/* Reduced y-gap */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
             <div className={selectWrapperClass}>
                 <label htmlFor="task-priority" className={labelClass}>Priority</label>
-                <select id="task-priority" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} disabled={isLoading} className="text-base appearance-none">
+                <select id="task-priority" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} disabled={isLoading} className="font-medium appearance-none">
                     {Object.values(TaskPriority).map(p => <option key={p} value={p}>{formatEnumForDisplay(p)}</option>)}
                 </select>
                 <ICON_MAP.ChevronDownIcon className={selectArrowClass} />
             </div>
             <div className={selectWrapperClass}>
                 <label htmlFor="task-status" className={labelClass}>Status</label>
-                <select id="task-status" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} disabled={isLoading} className="text-base appearance-none">
+                <select id="task-status" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} disabled={isLoading} className="font-medium appearance-none">
                     {Object.values(TaskStatus).map(s => <option key={s} value={s}>{formatEnumForDisplay(s)}</option>)}
                 </select>
                  <ICON_MAP.ChevronDownIcon className={selectArrowClass} />
@@ -215,7 +215,7 @@ export const CreateTaskModal: React.FC = () => {
                 )}
                 {!isLoadingUsersForAssignment && !usersForAssignmentError && (
                 <>
-                    <select id="task-assignee" value={assignee_id || ''}  onChange={(e) => setAssignee_id(e.target.value || undefined)} disabled={isLoading || users.length === 0} className="text-base appearance-none">
+                    <select id="task-assignee" value={assignee_id || ''}  onChange={(e) => setAssignee_id(e.target.value || undefined)} disabled={isLoading || users.length === 0} className="font-medium appearance-none">
                         <option value="">Unassigned</option>
                         {users.map((user: User) => ( <option key={user.id} value={user.id}>{user.full_name || user.email}</option> ))}
                     </select>
@@ -229,7 +229,7 @@ export const CreateTaskModal: React.FC = () => {
 
             <div>
                 <label htmlFor="task-due-date" className={labelClass}>Due Date</label>
-                <input type="date" id="task-due-date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={isLoading} className="text-base"/>
+                <input type="date" id="task-due-date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={isLoading} className="font-medium"/>
             </div>
         </div>
 
