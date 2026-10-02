@@ -51,7 +51,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     sender_name: 'Omni Flow Bot',
     sender_role: 'ADMIN',
     channel_id: 'general',
-    content: '🚀 Welcome to the new organization workspace! Real-time messaging, sprint planning, and task synchronization are now live.',
+    content: '🚀 Welcome to the organization chat hub! Real-time messaging, cross-channel communication, and emoji reactions are now connected via Supabase Realtime.',
     reactions: { '🎉': ['seed-1'], '🚀': ['seed-2'] },
     created_at: new Date(Date.now() - 3600000 * 4).toISOString()
   },
@@ -71,7 +71,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     sender_name: 'Sarah Chen',
     sender_role: 'MEMBER',
     channel_id: 'engineering',
-    content: 'Just deployed the real-time presence beacon! You can see live collaborator viewer bubbles and editing activity on cards.',
+    content: 'Supabase Realtime WebSockets are active! Check your Supabase Realtime Logs under channel "omni_flow_chat_hub" to monitor live message events.',
     reactions: { '🔥': ['seed-1', 'seed-2'], '❤️': ['seed-alex'] },
     created_at: new Date(Date.now() - 1800000).toISOString()
   }
@@ -82,27 +82,104 @@ const STORAGE_KEY_CHANNELS = 'omni_chat_channels';
 
 class ChatService {
   private broadcastChannel: BroadcastChannel | null = null;
+  private supabaseChannel: any = null;
   private typingListeners = new Set<(channelOrUserId: string, user: User, isTyping: boolean) => void>();
   private messageListeners = new Set<(message: ChatMessage) => void>();
 
   constructor() {
+    this.initBroadcastChannel();
+    this.initSupabaseRealtime();
+  }
+
+  private initBroadcastChannel() {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         this.broadcastChannel = new BroadcastChannel('omni_chat_sync');
         this.broadcastChannel.onmessage = (event) => {
           const { type, payload } = event.data || {};
           if (type === 'NEW_MESSAGE' && payload) {
-            this.messageListeners.forEach(listener => listener(payload));
+            this.handleIncomingRemoteMessage(payload);
           } else if (type === 'TYPING_STATUS' && payload) {
             this.typingListeners.forEach(listener => 
               listener(payload.targetId, payload.user, payload.isTyping)
             );
+          } else if (type === 'REACTION_UPDATE' && payload) {
+            this.handleIncomingRemoteReaction(payload.messageId, payload.emoji, payload.userId);
           }
         };
       } catch (e) {
         console.warn('BroadcastChannel not supported for chat:', e);
       }
     }
+  }
+
+  private initSupabaseRealtime() {
+    if (typeof window === 'undefined') return;
+    try {
+      this.supabaseChannel = supabase.channel('omni_flow_chat_hub', {
+        config: {
+          broadcast: { ack: true }
+        }
+      });
+
+      this.supabaseChannel
+        .on('broadcast', { event: 'new_message' }, ({ payload }: { payload: ChatMessage }) => {
+          if (!payload || !payload.id) return;
+          this.handleIncomingRemoteMessage(payload);
+        })
+        .on('broadcast', { event: 'typing_status' }, ({ payload }: any) => {
+          if (!payload) return;
+          this.typingListeners.forEach(listener => 
+            listener(payload.targetId, payload.user, payload.isTyping)
+          );
+        })
+        .on('broadcast', { event: 'reaction_toggle' }, ({ payload }: any) => {
+          if (!payload) return;
+          this.handleIncomingRemoteReaction(payload.messageId, payload.emoji, payload.userId);
+        })
+        .subscribe((status: string) => {
+          console.log('[Supabase Realtime Chat] Connected to channel "omni_flow_chat_hub". Status:', status);
+        });
+    } catch (err) {
+      console.warn('Failed to initialize Supabase Realtime chat:', err);
+    }
+  }
+
+  private handleIncomingRemoteMessage(message: ChatMessage) {
+    const all = this.getAllMessages();
+    if (all.some(m => m.id === message.id)) return;
+    const updated = [...all, message];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(updated));
+      } catch (e) {}
+    }
+    this.messageListeners.forEach(listener => listener(message));
+  }
+
+  private handleIncomingRemoteReaction(messageId: string, emoji: string, userId: string) {
+    const all = this.getAllMessages();
+    const message = all.find(m => m.id === messageId);
+    if (!message) return;
+
+    if (!message.reactions) message.reactions = {};
+    const existingUsers = message.reactions[emoji] || [];
+
+    if (existingUsers.includes(userId)) {
+      message.reactions[emoji] = existingUsers.filter(id => id !== userId);
+      if (message.reactions[emoji].length === 0) {
+        delete message.reactions[emoji];
+      }
+    } else {
+      message.reactions[emoji] = [...existingUsers, userId];
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(all));
+      } catch (e) {}
+    }
+    this.messageListeners.forEach(listener => listener(message));
   }
 
   // Load channels
@@ -181,32 +258,51 @@ class ChatService {
     const all = this.getAllMessages();
     const updated = [...all, message];
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(updated));
+      try {
+        localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(updated));
+      } catch (e) {}
     }
 
-    // Try optional sync to Supabase if messages table exists
+    // 1. Broadcast via Supabase Realtime channel (Cross-browser, Incognito, and Cross-device)
+    if (this.supabaseChannel) {
+      try {
+        this.supabaseChannel.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: message
+        }).catch((e: any) => console.warn('Supabase chat broadcast send warning:', e));
+      } catch (e) {}
+    }
+
+    // 2. Broadcast via local BroadcastChannel
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', payload: message });
+      } catch (e) {}
+    }
+
+    // 3. Try to log into audit_logs or chat_messages in Supabase for log inspection
     try {
-      if (params.channelId) {
+      if (params.sender.organization_id) {
         Promise.resolve(
-          supabase.from('chat_messages').insert({
-            id: message.id,
-            sender_id: message.sender_id,
-            channel_id: message.channel_id,
-            content: message.content,
+          supabase.from('audit_logs').insert({
+            id: crypto.randomUUID(),
+            organization_id: params.sender.organization_id,
+            actor_id: params.sender.id,
+            actor_name: params.sender.full_name || params.sender.email,
+            actor_email: params.sender.email,
+            action: params.channelId ? 'chat_channel_message' : 'chat_direct_message',
+            target_type: 'organization',
+            target_id: params.channelId || params.recipientId,
+            target_name: params.channelId ? `#${params.channelId}` : 'Direct Message',
+            details: { content_length: message.content.length, channel_id: params.channelId },
             created_at: message.created_at
           })
         ).catch(() => {});
       }
     } catch (e) {}
 
-    // Broadcast in real-time across tabs & notify listeners
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', payload: message });
-      } catch (e) {}
-    }
     this.messageListeners.forEach(listener => listener(message));
-
     return message;
   }
 
@@ -229,19 +325,49 @@ class ChatService {
     }
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(all));
-    }
-
-    if (this.broadcastChannel) {
       try {
-        this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', payload: message });
+        localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(all));
       } catch (e) {}
     }
+
+    // Broadcast via Supabase Realtime
+    if (this.supabaseChannel) {
+      try {
+        this.supabaseChannel.send({
+          type: 'broadcast',
+          event: 'reaction_toggle',
+          payload: { messageId, emoji, userId }
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // Broadcast via local BroadcastChannel
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'REACTION_UPDATE',
+          payload: { messageId, emoji, userId }
+        });
+      } catch (e) {}
+    }
+
     this.messageListeners.forEach(listener => listener(message));
   }
 
   // Broadcast typing indicator
   broadcastTyping(targetId: string, user: User, isTyping: boolean): void {
+    // 1. Send via Supabase Realtime
+    if (this.supabaseChannel) {
+      try {
+        this.supabaseChannel.send({
+          type: 'broadcast',
+          event: 'typing_status',
+          payload: { targetId, user, isTyping }
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // 2. Send via local BroadcastChannel
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({
