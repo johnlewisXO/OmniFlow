@@ -477,8 +477,7 @@ export interface AppStore {
     view?: string,
     flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string }
   ) => void;
-  addSimulatedPresence: (presence: UserPresence) => void;
-  clearSimulatedPresences: () => void;
+  removeUserPresence: (userId: string) => void;
 
   // Shortcuts Modal
   isShortcutsModalOpen: boolean;

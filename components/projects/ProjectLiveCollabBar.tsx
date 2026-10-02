@@ -1,19 +1,28 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
-import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
-import { UserPresence } from '../../types';
 
 export const ProjectLiveCollabBar: React.FC = () => {
-  const { activeProject, presences, currentUser, users, tasks, notifications, addToast } = useAppStore();
+  const { 
+    activeProject, 
+    presences, 
+    currentUser, 
+    tasks, 
+    notifications, 
+    addToast
+  } = useAppStore();
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
 
-  // Active collaborators currently in this project or general view
+  // Active collaborators currently in this project: ONLY genuine online users active in last 15 seconds
   const activeCollabs = useMemo(() => {
-    return presences.filter(p => p.userId !== currentUser?.id);
+    const now = Date.now();
+    return presences.filter(p => {
+      if (p.userId === currentUser?.id) return false;
+      const age = now - new Date(p.lastActive).getTime();
+      return age >= 0 && age < 15000;
+    });
   }, [presences, currentUser]);
 
   // Recent interaction events on this project from notifications/activity
@@ -27,59 +36,9 @@ export const ProjectLiveCollabBar: React.FC = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(window.location.href);
       setCopiedUrl(true);
-      addToast('URL Copied', 'App link copied to clipboard! Paste into a second tab or incognito window.', 'success');
+      addToast('URL Copied', 'App link copied to clipboard! Open in a second tab or private window to see real-time interaction.', 'success');
       setTimeout(() => setCopiedUrl(false), 2500);
     }
-  };
-
-  const handleSimulateTeammate = () => {
-    const { updateUserPresence } = useAppStore.getState();
-    const targetTask = tasks[0];
-    setIsSimulating(true);
-
-    // Simulate another collaborator joining and viewing
-    const simCollab: UserPresence = {
-      userId: 'sim_alex_carter_99',
-      userName: 'Alex Carter (Lead Arch)',
-      userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      currentTaskId: targetTask?.id,
-      currentView: 'kanban',
-      isEditing: false,
-      editingField: undefined,
-      isTypingComment: true,
-      lastActive: new Date().toISOString(),
-      color: '#ec4899',
-    };
-
-    useAppStore.setState(s => ({
-      presences: [...s.presences.filter(p => p.userId !== simCollab.userId), simCollab]
-    }));
-
-    addToast(
-      'Teammate Joined',
-      `Alex Carter is now live on ${activeProject?.name || 'project'} viewing "${targetTask?.title || 'task'}"!`,
-      'info'
-    );
-
-    // Broadcast across any open tabs
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      try {
-        const bc = new BroadcastChannel('omni_collab_sync');
-        bc.postMessage({ type: 'PRESENCE_BROADCAST', presence: simCollab });
-        bc.close();
-      } catch (e) {}
-    }
-
-    setTimeout(() => {
-      setIsSimulating(false);
-    }, 1200);
-  };
-
-  const handleResetSimulation = () => {
-    useAppStore.setState(s => ({
-      presences: s.presences.filter(p => !p.userId.startsWith('sim_'))
-    }));
-    addToast('Simulation Cleared', 'Simulated collaborators removed.', 'info');
   };
 
   if (!activeProject) return null;
@@ -89,7 +48,6 @@ export const ProjectLiveCollabBar: React.FC = () => {
   return (
     <>
       <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900/95 via-indigo-950/90 to-slate-900/95 text-white border border-indigo-500/30 shadow-lg shadow-indigo-950/40 backdrop-blur-md px-3.5 sm:px-4 py-2 sm:py-2.5 transition-all">
-        
         {/* Subtle decorative glowing corner accent */}
         <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl pointer-events-none" />
 
@@ -116,14 +74,8 @@ export const ProjectLiveCollabBar: React.FC = () => {
             {/* Active Collaborator Avatars & Live Status Badges */}
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5">
               {activeCollabs.length === 0 ? (
-                <span className="text-[11px] text-slate-400 italic flex items-center gap-1">
-                  <span>Only you currently active on {activeProject.name}.</span>
-                  <button
-                    onClick={handleSimulateTeammate}
-                    className="text-indigo-400 hover:text-indigo-200 underline font-medium text-[11px] cursor-pointer ml-1"
-                  >
-                    Simulate a teammate
-                  </button>
+                <span className="text-[11px] text-slate-400 italic">
+                  Only you currently active on {activeProject.name}. Open another window to test live collaboration.
                 </span>
               ) : (
                 <div className="flex items-center gap-2">
@@ -145,7 +97,7 @@ export const ProjectLiveCollabBar: React.FC = () => {
                   </div>
 
                   {/* Status Badges for Active Collaborators */}
-                  {activeCollabs.slice(0, 2).map(c => {
+                  {activeCollabs.slice(0, 3).map(c => {
                     const viewingTask = c.currentTaskId ? tasks.find(t => t.id === c.currentTaskId) : null;
                     return (
                       <span
@@ -169,15 +121,15 @@ export const ProjectLiveCollabBar: React.FC = () => {
                             viewing {viewingTask.title}
                           </span>
                         ) : (
-                          <span className="opacity-80">viewing board</span>
+                          <span className="opacity-80">active</span>
                         )}
                       </span>
                     );
                   })}
 
-                  {activeCollabs.length > 2 && (
+                  {activeCollabs.length > 3 && (
                     <span className="text-[10px] font-bold text-slate-400">
-                      +{activeCollabs.length - 2} more
+                      +{activeCollabs.length - 3} more
                     </span>
                   )}
                 </div>
@@ -199,7 +151,7 @@ export const ProjectLiveCollabBar: React.FC = () => {
             <button
               onClick={() => setShowGuideModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600/70 to-purple-600/70 hover:from-indigo-600 hover:to-purple-600 border border-indigo-400/40 text-white text-[11px] font-bold shadow-xs hover:shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer"
-              title="How to test real-time collaboration with two tabs or simulations"
+              title="How to test real-time collaboration with two tabs"
             >
               <span>🧪 How to Test Real-Time</span>
             </button>
@@ -217,7 +169,7 @@ export const ProjectLiveCollabBar: React.FC = () => {
                   <ICON_MAP.BoltIcon className="w-5 h-5" />
                 </span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Real-Time Collaboration Verification Hub
+                  Real-Time Collaboration Testing Guide
                 </h3>
               </div>
               <button
@@ -232,7 +184,7 @@ export const ProjectLiveCollabBar: React.FC = () => {
               <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="font-bold text-indigo-900 dark:text-indigo-200">
-                    ⚡ Quick Testing Options:
+                    ⚡ Live 2-Tab Testing Instructions:
                   </p>
                   <button
                     onClick={handleCopyUrl}
@@ -242,24 +194,8 @@ export const ProjectLiveCollabBar: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
-                  You can verify realtime in <strong>two browser tabs/windows side-by-side</strong> or trigger an instant <strong>1-Click simulation</strong> right now:
+                  Follow these simple steps to verify fast real-time synchronization between two windows:
                 </p>
-
-                <div className="pt-1 flex items-center gap-2">
-                  <button
-                    onClick={handleSimulateTeammate}
-                    disabled={isSimulating}
-                    className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
-                  >
-                    <span>⚡ Simulate Colleague Activity</span>
-                  </button>
-                  <button
-                    onClick={handleResetSimulation}
-                    className="py-1.5 px-2.5 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-[11px] cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                </div>
               </div>
 
               <div className="space-y-2.5">
@@ -270,17 +206,17 @@ export const ProjectLiveCollabBar: React.FC = () => {
 
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                  <p><strong>Blinking Eye Live Viewer Badge:</strong> Click on any Task Card in Window A to open its modal. In Window B, look at the task card on the board — it immediately displays the glowing <strong>pulsating blinking eye circle</strong> with viewer avatars & count.</p>
+                  <p><strong>Blinking Eye Live Viewer Badge:</strong> Click on any Task Card in Window A to open its modal. In Window B, look at the task card on the board — it immediately displays the glowing <strong>pulsating blinking eye circle</strong> showing that a teammate is viewing it.</p>
                 </div>
 
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p><strong>Live Typing & Comments:</strong> In Window A, type into the comments box. Window B immediately shows the <em>"typing comment..."</em> status in the Live Collab Radar and on the task card.</p>
+                  <p><strong>Live Typing & Comments:</strong> In Window A, type into the comments box. Window B immediately displays the <em>"typing comment..."</em> status in the Live Collab Radar and on the task card.</p>
                 </div>
 
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                  <p><strong>Sprint Planning & Drag-and-Drop:</strong> Move a backlog item to Active Sprint or change task status column. Window B instantly reflects the movement without refreshing.</p>
+                  <p><strong>Sprint Planning & Drag-and-Drop:</strong> Move a backlog item or change task status columns in Window A. Window B instantly reflects the movement without refreshing.</p>
                 </div>
 
                 <div className="flex items-start gap-2.5">

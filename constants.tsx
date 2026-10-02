@@ -12,12 +12,19 @@ export const ALL_ACTIVE_VIEWS: ActiveView[] = [
   'user_management', 
   'project_list',    
   'projects_overview',
+  'projects_overview_view',
+  'project_detail_view',
   'my_tasks_view',
+  'sprints_view',
+  'team_chat_view',
   'inbox_view',
   'reports_view',
   'team_management',
+  'team_management_view',
   'user_logs_view',
-  'task_automations'
+  'profile_settings',
+  'task_automations',
+  'task_automations_view'
 ];
 
 export const APP_TITLE = "Omni Flow";

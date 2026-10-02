@@ -773,6 +773,15 @@ const appActionsCreator = (
 
           // Trigger webhook for automations
           get().triggerWebhook('task.updated', { taskId, updates, previousTask });
+
+          // Broadcast task update across tabs
+          if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+            try {
+              const bc = new BroadcastChannel('omni_collab_sync');
+              bc.postMessage({ type: 'TASK_UPDATED', taskId, updates });
+              bc.close();
+            } catch (e) {}
+          }
         }
     } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update task ${taskId}.`);
@@ -1189,7 +1198,10 @@ const appActionsCreator = (
             updateState(s => ({ ...s, isLoadingTasks: false, tasksError: `Task details for ID ${taskId} could not be loaded.`}));
         }
     },
-    closeViewTaskModal: () => updateState(s => ({ ...s, taskToView: null, isViewTaskModalOpen: false })),
+    closeViewTaskModal: () => {
+      updateState(s => ({ ...s, taskToView: null, isViewTaskModalOpen: false }));
+      get().updateUserPresence(undefined);
+    },
 
     openEditTaskModal: async (taskId: string) => {
       let task = get().tasks.find(t => t.id === taskId);
@@ -1570,6 +1582,7 @@ const appActionsCreator = (
       const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#14b8a6', '#f97316'];
       const userColor = colors[Math.abs(currentUser.id.charCodeAt(0) + (currentUser.id.charCodeAt(1) || 0)) % colors.length];
 
+      const now = Date.now();
       const myPresence: UserPresence = {
         userId: currentUser.id,
         userName: currentUser.full_name || currentUser.email || 'You',
@@ -1580,36 +1593,22 @@ const appActionsCreator = (
         editingField: flags?.editingField,
         isTypingComment: flags?.isTypingComment || false,
         statusAction: flags?.statusAction,
-        lastActive: new Date().toISOString(),
+        lastActive: new Date(now).toISOString(),
         color: userColor,
       };
 
       updateState(s => {
-        const existing = s.presences.filter(p => p.userId !== currentUser.id);
-        let dynamicPresences = [...existing, myPresence];
+        // Only keep actively communicating remote users (checked in within 15 seconds)
+        const validActiveRemote = s.presences.filter(p => {
+          if (p.userId === currentUser.id) return false;
+          const age = now - new Date(p.lastActive).getTime();
+          return age >= 0 && age < 15000;
+        });
 
-        // Ensure realistic multi-user presence for visual collaboration demo
-        if (s.users.length > 1 && dynamicPresences.length < 3) {
-          s.users.filter(u => u.id !== currentUser.id).slice(0, 2).forEach((u, i) => {
-            if (!dynamicPresences.some(dp => dp.userId === u.id)) {
-              dynamicPresences.push({
-                userId: u.id,
-                userName: u.full_name || u.email || 'Team Member',
-                userAvatar: u.avatar_url,
-                currentTaskId: i === 0 && s.tasks[0] ? s.tasks[0]?.id : undefined,
-                currentView: 'kanban',
-                isEditing: false,
-                lastActive: new Date().toISOString(),
-                color: colors[(i + 3) % colors.length],
-              });
-            }
-          });
-        }
-
-        return { ...s, presences: dynamicPresences };
+        return { ...s, presences: [...validActiveRemote, myPresence] };
       });
 
-      // Broadcast to other tabs and clients
+      // Broadcast immediately across all browser tabs
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
         try {
           const bc = new BroadcastChannel('omni_collab_sync');
@@ -1619,18 +1618,19 @@ const appActionsCreator = (
       }
     },
 
-    addSimulatedPresence: (presence: UserPresence) => {
+    removeUserPresence: (userId: string) => {
       updateState(s => ({
         ...s,
-        presences: [...s.presences.filter(p => p.userId !== presence.userId), presence]
+        presences: s.presences.filter(p => p.userId !== userId)
       }));
-    },
 
-    clearSimulatedPresences: () => {
-      updateState(s => ({
-        ...s,
-        presences: s.presences.filter(p => !p.userId.startsWith('sim_'))
-      }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('omni_collab_sync');
+          bc.postMessage({ type: 'PRESENCE_LEAVE', userId });
+          bc.close();
+        } catch (e) {}
+      }
     },
 
     // Keyboard Shortcuts Modal
@@ -1743,6 +1743,17 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
 
       // Cross-tab real-time collaboration listener
       let bc: BroadcastChannel | null = null;
+      let heartbeatInterval: any = null;
+
+      const handleBeforeUnload = () => {
+        const cur = getPureState().currentUser;
+        if (cur && bc) {
+          try {
+            bc.postMessage({ type: 'PRESENCE_LEAVE', userId: cur.id });
+          } catch (e) {}
+        }
+      };
+
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
         try {
           bc = new BroadcastChannel('omni_collab_sync');
@@ -1751,14 +1762,37 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
             if (!data) return;
             if (data.type === 'PRESENCE_BROADCAST' && data.presence) {
               const remotePresence: UserPresence = data.presence;
+              const currentUserId = getPureState().currentUser?.id;
+              // Ignore our own echoes
+              if (currentUserId && remotePresence.userId === currentUserId) return;
               setState(s => {
-                const others = s.presences.filter(p => p.userId !== remotePresence.userId);
+                const now = Date.now();
+                const others = s.presences.filter(p => p.userId !== remotePresence.userId && (now - new Date(p.lastActive).getTime() < 15000));
                 return { ...s, presences: [...others, remotePresence] };
               });
+            } else if (data.type === 'PRESENCE_LEAVE') {
+              setState(s => ({
+                ...s,
+                presences: s.presences.filter(p => p.userId !== data.userId)
+              }));
+            } else if (data.type === 'PRESENCE_REQUEST') {
+              const cur = getPureState().currentUser;
+              if (cur && bc) {
+                const myPres = getPureState().presences.find(p => p.userId === cur.id);
+                if (myPres) {
+                  bc.postMessage({ type: 'PRESENCE_BROADCAST', presence: myPres });
+                }
+              }
             } else if (data.type === 'TASK_SPRINT_ASSIGNED') {
               setState(s => {
                 const updated = s.tasks.map(t => t.id === data.taskId ? { ...t, sprintId: data.sprintId } : t);
                 const updatedToView = s.taskToView?.id === data.taskId ? { ...s.taskToView, sprintId: data.sprintId } : s.taskToView;
+                return { ...s, tasks: updated, taskToView: updatedToView };
+              });
+            } else if (data.type === 'TASK_UPDATED') {
+              setState(s => {
+                const updated = s.tasks.map(t => t.id === data.taskId ? { ...t, ...data.updates } : t);
+                const updatedToView = s.taskToView?.id === data.taskId ? { ...s.taskToView, ...data.updates } : s.taskToView;
                 return { ...s, tasks: updated, taskToView: updatedToView };
               });
             } else if (data.type === 'TASK_EXTENSION_SYNC') {
@@ -1769,11 +1803,41 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
               });
             }
           };
+
+          // Announce arrival and request presence from any already open tab
+          bc.postMessage({ type: 'PRESENCE_REQUEST' });
+          window.addEventListener('beforeunload', handleBeforeUnload);
         } catch (e) {}
       }
 
+      // Heartbeat every 5 seconds to announce presence and purge stale presences
+      heartbeatInterval = setInterval(() => {
+        const cur = getPureState().currentUser;
+        if (!cur) return;
+        const now = Date.now();
+        // Prune stale presences older than 15s
+        setState(s => {
+          const fresh = s.presences.filter(p => {
+            if (p.userId === cur.id) return true;
+            const age = now - new Date(p.lastActive).getTime();
+            return age >= 0 && age < 15000;
+          });
+          if (fresh.length !== s.presences.length) {
+            return { ...s, presences: fresh };
+          }
+          return s;
+        });
+
+        // Keep local user active
+        actions.updateUserPresence(getPureState().taskToView?.id);
+      }, 5000);
+
       return () => {
         listeners.delete(listener);
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('beforeunload', handleBeforeUnload);
+        }
         if (bc) bc.close();
       };
     }, []); 

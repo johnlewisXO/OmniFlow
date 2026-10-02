@@ -49,9 +49,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     return { completed, total, percent: Math.round((completed / total) * 100) };
   }, [task.checklist]);
 
-  // Users currently viewing this card
+  // Users currently viewing this card (strictly active within 15 seconds)
   const viewers = useMemo(() => {
-    return presences.filter(p => p.currentTaskId === task.id && p.userId !== currentUser?.id);
+    const now = Date.now();
+    return presences.filter(p => 
+      p.currentTaskId === task.id && 
+      p.userId !== currentUser?.id &&
+      (now - new Date(p.lastActive).getTime() < 15000)
+    );
   }, [presences, task.id, currentUser]);
 
   const activeEditors = useMemo(() => {
