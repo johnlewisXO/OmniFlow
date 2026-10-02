@@ -115,6 +115,50 @@ export interface TaskActivityLog {
   user?: User; // Joined user data
 }
 
+export type AppUserType = User;
+
+export interface Sprint {
+  id: string;
+  projectId: string;
+  name: string;
+  goal?: string;
+  status: 'planned' | 'active' | 'completed';
+  startDate?: string;
+  endDate?: string;
+  created_at?: string;
+}
+
+export interface UserPresence {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  currentTaskId?: string;
+  currentView?: string;
+  isEditing?: boolean;
+  editingField?: string;
+  isTypingComment?: boolean;
+  statusAction?: string;
+  lastActive: string;
+  color: string;
+}
+
+export interface WebhookConfig {
+  id: string;
+  name: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface TaskChecklistItem {
+  id: string;
+  text?: string;
+  title?: string;
+  completed: boolean;
+  created_at?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -129,6 +173,12 @@ export interface Task {
   position: number;
   creator_id?: string; // Ensured creator_id is present
   parent_task_id?: string;
+  tags?: string[];
+  story_points?: number;
+  sprintId?: string | null;
+  blockedBy?: string[];
+  blocks?: string[];
+  checklist?: TaskChecklistItem[];
   created_at?: string;
   updated_at?: string;
   
@@ -153,20 +203,50 @@ export interface Project {
 }
 
 export type ActiveView =
-  'kanban' |
-  'overview' |
-  'admin_settings' |
-  'my_tasks' | 
-  'user_management' | 
-  'project_list' | 
-  'projects_overview' | 
-  'my_tasks_view' |     
-  'inbox_view' |        
-  'reports_view' |
-  'team_management' |
-  'user_logs_view' |
-  'profile_settings' |
-  'task_automations';
+  | 'kanban'
+  | 'overview'
+  | 'admin_settings'
+  | 'my_tasks'
+  | 'user_management'
+  | 'project_list'
+  | 'projects_overview'
+  | 'projects_overview_view'
+  | 'project_detail_view'
+  | 'my_tasks_view'
+  | 'sprints_view'
+  | 'team_chat_view'
+  | 'inbox_view'
+  | 'reports_view'
+  | 'team_management'
+  | 'team_management_view'
+  | 'user_logs_view'
+  | 'profile_settings'
+  | 'task_automations'
+  | 'task_automations_view';
+
+export interface ChatMessage {
+  id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_avatar?: string;
+  sender_role?: string;
+  channel_id?: string;
+  recipient_id?: string;
+  content: string;
+  reactions?: Record<string, string[]>; // emoji -> array of userIds
+  attachments?: { name: string; url: string; type: string }[];
+  created_at: string;
+}
+
+export interface ChatChannel {
+  id: string;
+  name: string;
+  description?: string;
+  isPrivate?: boolean;
+  department?: string;
+  projectId?: string;
+  membersCount?: number;
+}
 
 export type AutomationTriggerType =
   | 'status_change'
@@ -224,7 +304,7 @@ export interface Notification {
   user_id?: string;
   sender_id?: string;
   actor_id?: string;
-  type: string;
+  type?: string;
   toastType?: 'success' | 'error' | 'warning' | 'info';
   content?: string;
   reference_id?: string;
@@ -273,7 +353,7 @@ export interface AppStore {
   setAppLoading: (loading: boolean) => void;
 
   activeProject: Project | null;
-  setActiveProject: (projectId: string | null) => void;
+  setActiveProject: (projectOrId: string | Project | null) => void;
 
   createTask: (taskData: Omit<Task, 'id' | 'position' | 'created_at' | 'updated_at' | 'creator_id'>) => Promise<Task | null | void>;
   updateTask: (taskId: string, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at' | 'creator_id' | 'projectId'>>) => Promise<void>;
@@ -306,6 +386,7 @@ export interface AppStore {
   isModalOpen: boolean; // Create Task Modal
   parentTaskIdForNewTask: string | null;
   openModal: (parentTaskId?: string) => Promise<void>;
+  openCreateTaskModal: (parentTaskId?: string) => Promise<void>;
   closeModal: () => void;
 
   isViewTaskModalOpen: boolean; 
@@ -325,6 +406,11 @@ export interface AppStore {
   createProject: (projectData: Pick<Project, 'name' | 'description'>) => Promise<Project | void>;
   isLoadingCreateProject: boolean;
   createProjectError: string | null;
+
+  isCommandPaletteOpen: boolean;
+  openCommandPalette: () => void;
+  closeCommandPalette: () => void;
+  toggleCommandPalette: () => void;
 
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
@@ -372,4 +458,37 @@ export interface AppStore {
   openPasswordUpdateModal: () => void;
   closePasswordUpdateModal: () => void;
   updatePassword: (password: string) => Promise<void>;
+
+  // Agile Sprints
+  sprints: Sprint[];
+  activeSprintId: string | null;
+  setActiveSprintId: (sprintId: string | null) => void;
+  createSprint: (sprintData: Omit<Sprint, 'id' | 'created_at'>) => Promise<Sprint>;
+  updateSprint: (sprintId: string, updates: Partial<Sprint>) => Promise<void>;
+  deleteSprint: (sprintId: string) => Promise<void>;
+  startSprint: (sprintId: string) => Promise<void>;
+  completeSprint: (sprintId: string) => Promise<void>;
+  assignTaskToSprint: (taskId: string, sprintId: string | null) => Promise<void>;
+
+  // Presence
+  presences: UserPresence[];
+  updateUserPresence: (
+    taskId?: string,
+    view?: string,
+    flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string }
+  ) => void;
+  addSimulatedPresence: (presence: UserPresence) => void;
+  clearSimulatedPresences: () => void;
+
+  // Shortcuts Modal
+  isShortcutsModalOpen: boolean;
+  openShortcutsModal: () => void;
+  closeShortcutsModal: () => void;
+  toggleShortcutsModal: () => void;
+
+  // Webhooks & Integrations
+  webhooks: WebhookConfig[];
+  saveWebhook: (webhook: WebhookConfig) => void;
+  deleteWebhook: (id: string) => void;
+  triggerWebhook: (event: string, payload: any) => Promise<void>;
 }

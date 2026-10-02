@@ -10,9 +10,17 @@ interface KanbanColumnProps {
   status: TaskStatus; 
   title: string;
   colorClass: string;
+  tasksOverride?: Task[];
+  wipLimit?: number;
 }
 
-export const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, colorClass }) => {
+export const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
+  status, 
+  title, 
+  colorClass,
+  tasksOverride,
+  wipLimit
+}) => {
   const { 
     activeProject, 
     getTasksByProjectIdAndStatus, 
@@ -26,10 +34,13 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, color
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
 
-
   if (!activeProject) return null;
 
-  const tasksInColumn = getTasksByProjectIdAndStatus(activeProject.id, status);
+  const tasksInColumn = tasksOverride !== undefined 
+    ? tasksOverride.filter(t => t.status === status) 
+    : getTasksByProjectIdAndStatus(activeProject.id, status);
+
+  const isWipExceeded = wipLimit !== undefined && wipLimit > 0 && tasksInColumn.length > wipLimit;
 
   const columnBackgroundStyle = { backgroundColor: 'hsl(var(--panel-background))', borderColor: 'hsl(var(--panel-border))' };
   const textColor = darkMode ? 'text-slate-200' : 'text-slate-700';
@@ -102,16 +113,25 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, title, color
       onDragLeave={handleDragLeave}
     >
       <div className={`flex items-center justify-between px-1 py-2 mb-3.5 rounded-md`}>
-        <div className="flex items-center space-x-2.5">
-          <span className={`w-3 h-3 rounded-full ${colorClass} shadow-sm`}></span>
-          <h2 className={`font-semibold text-md ${textColor}`}>{title}</h2>
-          <span className={`text-xs font-medium ${countText} ${countBg} px-2.5 py-1 rounded-full shadow-sm`}>
-            {tasksInColumn.length}
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <span className={`w-3 h-3 rounded-full ${colorClass} shadow-sm flex-shrink-0`}></span>
+          <h2 className={`font-semibold text-sm sm:text-md truncate ${textColor}`}>{title}</h2>
+          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full shadow-sm flex-shrink-0 ${
+            isWipExceeded
+              ? 'bg-red-500/20 text-red-600 dark:text-red-400 font-bold border border-red-500/40 animate-pulse'
+              : `${countText} ${countBg}`
+          }`}>
+            {wipLimit && wipLimit > 0 ? `${tasksInColumn.length}/${wipLimit}` : tasksInColumn.length}
           </span>
+          {isWipExceeded && (
+            <span className="text-[10px] font-bold text-red-500 hidden sm:inline" title="WIP Limit Exceeded">
+              WIP EXCEEDED
+            </span>
+          )}
         </div>
         <button 
           onClick={() => openModal()} 
-          className={`${darkMode ? 'text-slate-400 hover:text-accent-light' : 'text-slate-500 hover:text-accent'} p-1.5 rounded-squircle-sm ${buttonHoverBg} transition-colors`}
+          className={`${darkMode ? 'text-slate-400 hover:text-accent-light' : 'text-slate-500 hover:text-accent'} p-1.5 rounded-squircle-sm ${buttonHoverBg} transition-colors flex-shrink-0`}
           title={`Add task to ${title}`}
           disabled={!activeProject}
         >

@@ -99,6 +99,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
             addNotification({
               id: crypto.randomUUID(),
               user_id: currentUser.id,
+              type: 'ORGANIZATION_INVITE_ACCEPTED',
               title: 'Welcome to the Organization!',
               message: `You successfully joined the organization as ${invite.role}.`,
               read: false,

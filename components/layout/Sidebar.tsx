@@ -155,7 +155,9 @@ export const Sidebar: React.FC = () => {
                     {currentOrganization?.name || (currentUser.organization_id ? 'Organization' : 'Personal Workspace')}
                   </span>
                   {currentUser.organization_id && (
-                    <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" title="Verified Organization Member" />
+                    <span title="Verified Organization Member" className="flex items-center">
+                      <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                    </span>
                   )}
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate uppercase tracking-wider">

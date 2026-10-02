@@ -2,5 +2,5 @@
   "name": "Omni Flow",
   "description": "Omni Flow: AI-powered project management. Beautifully efficient. Streamline workflows, foster collaboration, and achieve goals with intelligent precision.",
   "requestFramePermissions": [],
-  "prompt": ""
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

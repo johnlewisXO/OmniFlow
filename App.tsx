@@ -33,6 +33,10 @@ import { InboxPage } from './components/inbox/InboxPage';
 import { ReportsPage } from './components/reports/ReportsPage';
 import { TeamManagementPage } from './components/team/TeamManagementPage'; 
 import { TaskAutomationsDashboard } from './components/automations/TaskAutomationsDashboard'; 
+import { SprintPlanningView } from './components/sprints/SprintPlanningView';
+import { TeamsChatPage } from './components/chat/TeamsChatPage';
+import { CommandPalette } from './components/layout/CommandPalette'; 
+import { KeyboardShortcutsModal } from './components/layout/KeyboardShortcutsModal'; 
 
 const ToastContainer: React.FC = () => {
   const { notifications, markNotificationAsRead, darkMode } = useAppStore();
@@ -127,10 +131,15 @@ const MainAppLayout: React.FC = () => {
     authError,
     activeView,
     activeProject,
+    setActiveView,
+    openModal,
     isCreateProjectModalOpen, closeCreateProjectModal,
     createProject: createProjectActionFromStore,
     isLoadingCreateProject,
     createProjectError,
+    isCommandPaletteOpen, closeCommandPalette, toggleCommandPalette,
+    openShortcutsModal,
+    toggleMobileSidebar,
     projectsError, 
     tasksError,    
     darkMode,
@@ -148,6 +157,51 @@ const MainAppLayout: React.FC = () => {
     }
   }, [activeView, currentUser, users, isLoadingUsersForAssignment, fetchUsersForAssignmentList]);
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Check if user is typing in an input, textarea, or contentEditable element
+      const target = e.target as HTMLElement;
+      const isInput = target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      );
+
+      // Cmd+K / Ctrl+K Command Palette
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        toggleCommandPalette();
+        return;
+      }
+
+      if (isInput) return;
+
+      // ? for Keyboard Shortcuts
+      if (e.key === '?') {
+        e.preventDefault();
+        openShortcutsModal();
+        return;
+      }
+
+      // C for Create Task
+      if (e.key.toLowerCase() === 'c' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        openModal();
+        return;
+      }
+
+      // B to toggle sidebar on mobile/desktop
+      if (e.key.toLowerCase() === 'b' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        toggleMobileSidebar();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [toggleCommandPalette, openShortcutsModal, openModal, toggleMobileSidebar]);
 
   const handleCreateProjectSubmit = async (projectData: Pick<Project, 'name' | 'description'>) => {
     try {
@@ -200,8 +254,12 @@ const MainAppLayout: React.FC = () => {
         return <KanbanBoard />;
       case 'projects_overview':
         return <ProjectsOverviewPage />;
+      case 'sprints_view':
+        return <SprintPlanningView />;
       case 'my_tasks_view':
         return <MyTasksPage />;
+      case 'team_chat_view':
+        return <TeamsChatPage />;
       case 'inbox_view':
         return <InboxPage />;
       case 'reports_view':
@@ -256,6 +314,11 @@ const MainAppLayout: React.FC = () => {
         error={createProjectError}
       />
       <CreateOrJoinOrganizationModal />
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={closeCommandPalette}
+      />
+      <KeyboardShortcutsModal />
     </div>
   );
 };
@@ -425,6 +488,7 @@ function App() {
             addNotification({
               id: crypto.randomUUID(),
               user_id: currentUser.id,
+              type: 'ORGANIZATION_INVITE_ACCEPTED',
               title: 'Invitation Accepted!',
               message: `You successfully joined the organization with role "${invite.role}".`,
               read: false,

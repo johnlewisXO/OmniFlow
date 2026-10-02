@@ -430,7 +430,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
 
           <button
-            onClick={() => openCreateTaskModal(status)}
+            onClick={() => openModal()}
             className="text-xs font-semibold text-accent hover:text-accent-dark flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-accent/10 transition-colors"
           >
             <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />

@@ -49,9 +49,71 @@ const mapDbPriorityToAppPriority = (dbPriority?: string): TaskPriority => {
   return TaskPriority.MEDIUM;
 };
 
+const ALLOWED_TASK_DB_COLUMNS = new Set([
+  'id',
+  'title',
+  'description',
+  'status',
+  'priority',
+  'due_date',
+  'project_id',
+  'position',
+  'creator_id',
+  'assignee_id',
+  'parent_task_id',
+  'tags',
+  'story_points',
+  'created_at',
+  'updated_at'
+]);
+
+export const getTaskExtensions = (taskId?: string): Record<string, any> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem('omni_task_extensions');
+    const parsed = raw ? JSON.parse(raw) : {};
+    return taskId ? (parsed[taskId] || {}) : parsed;
+  } catch {
+    return {};
+  }
+};
+
+export const saveTaskExtension = (taskId: string, extensionData: Record<string, any>) => {
+  if (typeof window === 'undefined' || !taskId) return;
+  try {
+    const all = getTaskExtensions();
+    const existing = all[taskId] || {};
+    const relevantKeys = ['sprintId', 'checklist', 'blockedBy', 'blocks', 'story_points'];
+    const toSave: Record<string, any> = { ...existing };
+    let hasChanges = false;
+    for (const key of relevantKeys) {
+      if (key in extensionData) {
+        toSave[key] = extensionData[key];
+        hasChanges = true;
+      }
+    }
+    if (hasChanges) {
+      all[taskId] = toSave;
+      localStorage.setItem('omni_task_extensions', JSON.stringify(all));
+      try {
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('omni_collab_sync');
+          bc.postMessage({ type: 'TASK_EXTENSION_SYNC', taskId, extension: toSave });
+          bc.close();
+        }
+      } catch (e) {
+        // ignore broadcast error
+      }
+    }
+  } catch (e) {
+    console.error('Error saving task extensions:', e);
+  }
+};
+
 const mapDbTaskToAppTask = (dbTask: any): Task => {
   if (!dbTask) return dbTask;
   const { project_id, priority: dbPriority, due_date, assignee_id, creator_id, parent_task_id, created_at, updated_at, ...rest } = dbTask; 
+  const ext = getTaskExtensions(dbTask.id);
   const appTask: Task = {
     ...rest, 
     projectId: project_id,
@@ -62,6 +124,11 @@ const mapDbTaskToAppTask = (dbTask: any): Task => {
     parent_task_id: parent_task_id,
     created_at: created_at,
     updated_at: updated_at,
+    story_points: dbTask.story_points ?? ext.story_points ?? 1,
+    sprintId: ext.sprintId !== undefined ? ext.sprintId : (dbTask.sprint_id ?? null),
+    checklist: ext.checklist || [],
+    blockedBy: ext.blockedBy || [],
+    blocks: ext.blocks || [],
   };
   return appTask;
 };
@@ -70,8 +137,18 @@ const transformTaskToDbFormat = (taskData: Partial<Task>): any => {
   const dbData: { [key: string]: any } = {};
   for (const key in taskData) {
     if (Object.prototype.hasOwnProperty.call(taskData, key)) {
-      const dbKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-      if (key === 'dueDate') {
+      let dbKey = key;
+      if (key === 'projectId') dbKey = 'project_id';
+      else if (key === 'dueDate') dbKey = 'due_date';
+      else if (key === 'storyPoints') dbKey = 'story_points';
+      else dbKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+
+      // Crucial: Only send columns that actually exist in the Supabase tasks schema
+      if (!ALLOWED_TASK_DB_COLUMNS.has(dbKey)) {
+        continue;
+      }
+
+      if (key === 'dueDate' || dbKey === 'due_date') {
         const value = (taskData as any)[key];
         // Ensure undefined, null, or empty string for dueDate becomes null for the database
         dbData['due_date'] = (value === undefined || value === null || value === '') ? null : value;
@@ -360,6 +437,15 @@ const supabaseService = {
     return data.map(mapDbTaskToAppTask);
   },
 
+  getTaskById: async (taskId: string): Promise<Task | null> => {
+    const { data, error } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
+    if (error) {
+      console.error("Error in getTaskById:", error);
+      return null;
+    }
+    return data ? mapDbTaskToAppTask(data) : null;
+  },
+
   getMyTasks: async (): Promise<Task[]> => {
     const { data: authUser } = await supabase.auth.getUser();
     if (!authUser.user) throw new Error("User not authenticated");
@@ -447,13 +533,19 @@ const supabaseService = {
 
     const { data, error } = await supabase.from('tasks').insert(dbTaskData).select().single();
     if (error) throw error;
+    if (data?.id) {
+      saveTaskExtension(data.id, taskData);
+    }
     return mapDbTaskToAppTask(data);
   },
 
   updateTask: async (taskId: string, updates: Partial<Omit<Task, 'id'>>) => {
+    saveTaskExtension(taskId, updates);
     const dbUpdates = transformTaskToDbFormat(updates);
-    const { error } = await supabase.from('tasks').update(dbUpdates).eq('id', taskId);
-    if (error) throw error;
+    if (Object.keys(dbUpdates).length > 0) {
+      const { error } = await supabase.from('tasks').update(dbUpdates).eq('id', taskId);
+      if (error) throw error;
+    }
   },
 
   deleteTask: async (taskId: string) => {
@@ -484,6 +576,14 @@ const supabaseService = {
   
   updateUserPassword: async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  },
+
+  sendPasswordResetEmail: async (email: string) => {
+    const redirectTo = typeof window !== 'undefined' 
+      ? `${window.location.origin}${window.location.pathname}#type=recovery` 
+      : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
   },
 

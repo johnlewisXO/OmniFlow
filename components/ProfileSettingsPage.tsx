@@ -4,13 +4,20 @@ import supabaseService from '../services/supabaseService';
 import { ICON_MAP } from '../constants';
 
 export const ProfileSettingsPage: React.FC = () => {
-  const { currentUser, darkMode, setCurrentUser } = useAppStore();
+  const { currentUser, darkMode, setCurrentUser, addToast } = useAppStore();
   
   const [fullName, setFullName] = useState(currentUser?.full_name || '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatar_url || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  // Security / Password update states
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -86,6 +93,49 @@ export const ProfileSettingsPage: React.FC = () => {
       setMessage({ type: 'error', text: error.message || 'Failed to update profile.' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMessage(null);
+
+    if (newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'New password must be at least 6 characters long.' });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'Passwords do not match. Please verify.' });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      await supabaseService.updateUserPassword(newPassword);
+      setPasswordMessage({ type: 'success', text: 'Password successfully updated! Use your new password on next login.' });
+      addToast('Password Updated', 'Your security password has been changed successfully.', 'success');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPasswordMessage({ type: 'error', text: err.message || 'Failed to update password.' });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!currentUser?.email) return;
+    setIsSendingResetEmail(true);
+    setPasswordMessage(null);
+    try {
+      await supabaseService.sendPasswordResetEmail(currentUser.email);
+      setPasswordMessage({ type: 'success', text: `A secure password reset link has been dispatched to ${currentUser.email}.` });
+      addToast('Reset Link Dispatched', `Password reset link sent to ${currentUser.email}`, 'success');
+    } catch (err: any) {
+      setPasswordMessage({ type: 'error', text: err.message || 'Failed to send reset link.' });
+    } finally {
+      setIsSendingResetEmail(false);
     }
   };
 
@@ -191,6 +241,80 @@ export const ProfileSettingsPage: React.FC = () => {
                 </>
               ) : (
                 'Save Changes'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Security & Password Reset Card */}
+      <div className={`mt-8 p-6 rounded-squircle-lg border shadow-glass-sm ${darkMode ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white/50 border-slate-200/50'}`}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-xl bg-accent/10 text-accent">
+            <ICON_MAP.ShieldCheckIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Security & Password Reset</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Update your account password or trigger an email recovery link</p>
+          </div>
+        </div>
+
+        {passwordMessage && (
+          <div className={`p-3 mb-4 rounded-xl text-xs font-medium ${passwordMessage.type === 'success' ? (darkMode ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-800/60' : 'bg-emerald-50 text-emerald-800 border border-emerald-200') : (darkMode ? 'bg-red-950/40 text-red-300 border border-red-800/60' : 'bg-red-50 text-red-800 border border-red-200')}`}>
+            {passwordMessage.type === 'success' ? '✨ ' : '⚠️ '}{passwordMessage.text}
+          </div>
+        )}
+
+        <form onSubmit={handlePasswordUpdate} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 opacity-80">New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                minLength={6}
+                required
+                className={`w-full px-3 py-2 text-sm rounded-md border focus:ring-2 focus:ring-accent/50 outline-none transition-all ${darkMode ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 opacity-80">Confirm New Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-type password"
+                minLength={6}
+                required
+                className={`w-full px-3 py-2 text-sm rounded-md border focus:ring-2 focus:ring-accent/50 outline-none transition-all ${darkMode ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/60 dark:border-slate-700/60">
+            <button
+              type="button"
+              onClick={handleSendResetEmail}
+              disabled={isSendingResetEmail}
+              className={`text-xs font-semibold px-3 py-2 rounded-lg border transition-all cursor-pointer ${darkMode ? 'border-slate-700 hover:bg-slate-700/50 text-slate-300' : 'border-slate-200 hover:bg-slate-100 text-slate-700'}`}
+            >
+              {isSendingResetEmail ? 'Sending Reset Email...' : 'Send Recovery Email to ' + currentUser.email}
+            </button>
+
+            <button
+              type="submit"
+              disabled={isUpdatingPassword || !newPassword}
+              className="btn-primary text-xs flex items-center gap-2"
+            >
+              {isUpdatingPassword ? (
+                <>
+                  <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
+                  Updating Password...
+                </>
+              ) : (
+                'Update Password'
               )}
             </button>
           </div>

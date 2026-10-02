@@ -218,41 +218,109 @@ export const ReportsPage: React.FC = () => {
   const bgColor = darkMode ? 'bg-slate-800' : 'bg-white';
   const borderColor = darkMode ? 'border-slate-700' : 'border-slate-200';
 
+  const completedTasksCount = filteredTasks.filter(t => t.status === TaskStatus.DONE).length;
+  const inProgressTasksCount = filteredTasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length;
+  const completionPercentage = filteredTasks.length > 0 ? Math.round((completedTasksCount / filteredTasks.length) * 100) : 0;
+  const totalStoryPoints = filteredTasks.reduce((acc, t) => acc + (t.story_points || 1), 0);
+
   return (
-    <div className={`flex-1 p-4 md:p-6 overflow-y-auto scrollbar-thin ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div className="flex items-center">
-          <ChartBarIcon className={`w-8 h-8 mr-3 ${darkMode ? 'text-primary-light' : 'text-primary'}`} />
-          <h1 className="text-2xl md:text-3xl font-semibold">Reports & Analytics</h1>
+    <div className={`flex-1 p-4 md:p-6 overflow-y-auto scrollbar-thin ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
+      {/* 1. Analytics Hero Section */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
+                <ChartBarIcon className="w-5 h-5" />
+              </span>
+              <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
+                Executive Intelligence & Delivery Metrics
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              Reports & Performance Analytics
+            </h1>
+            <p className="text-sm text-indigo-200/80 max-w-xl leading-relaxed">
+              Real-time cross-project throughput, burnup velocity, milestone progress, and team workload analytics.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20">
+              <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-emerald-400" />
+              <span>Export CSV</span>
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20">
+              <ICON_MAP.PrinterIcon className="w-4 h-4 text-blue-400" />
+              <span>Print PDF</span>
+            </Button>
+
+            <button
+              onClick={handleGenerateAISummary}
+              disabled={isGeneratingSummary}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/25 bg-indigo-500 hover:bg-indigo-400 text-white transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              {isGeneratingSummary ? (
+                <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
+              )}
+              <span>{isGeneratingSummary ? 'Synthesizing...' : 'AI Executive Summary'}</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
-            <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-emerald-500" />
-            Export CSV
-          </Button>
+        {/* Analytics KPI Metric Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
+          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Filtered Workload</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-black text-white">{filteredTasks.length}</span>
+              <span className="text-xs text-indigo-300 font-medium">tasks</span>
+            </div>
+            <p className="text-[11px] text-indigo-200/70 mt-1">
+              {totalStoryPoints} total story points committed
+            </p>
+          </div>
 
-          <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-1.5">
-            <ICON_MAP.PrinterIcon className="w-4 h-4 text-blue-500" />
-            Export / Print PDF
-          </Button>
+          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Delivered</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-black text-emerald-400">{completedTasksCount}</span>
+              <span className="text-xs text-slate-400">completed</span>
+            </div>
+            <p className="text-[11px] text-indigo-200/70 mt-1">
+              {inProgressTasksCount} actively in progress
+            </p>
+          </div>
 
-          <button
-            onClick={handleGenerateAISummary}
-            disabled={isGeneratingSummary}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all ${
-              darkMode 
-                ? 'bg-purple-900/40 hover:bg-purple-900/60 text-purple-200 border border-purple-700/60' 
-                : 'bg-purple-600 hover:bg-purple-700 text-white'
-            } ${isGeneratingSummary ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isGeneratingSummary ? (
-              <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin text-white" />
-            ) : (
-              <ICON_MAP.SparklesIcon className="w-4 h-4 text-purple-300" />
-            )}
-            {isGeneratingSummary ? 'Synthesizing Status...' : '✨ AI Executive Summary'}
-          </button>
+          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Completion Velocity</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-black text-white">{completionPercentage}%</span>
+              <span className="text-xs text-indigo-300">ratio</span>
+            </div>
+            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div 
+                className="bg-indigo-400 h-full rounded-full transition-all duration-500" 
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider">Active Contributors</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-black text-amber-300">{users.length}</span>
+              <span className="text-xs text-slate-400">members</span>
+            </div>
+            <p className="text-[11px] text-indigo-200/70 mt-1">
+              Across {projects.length} connected portfolios
+            </p>
+          </div>
         </div>
       </div>
 
@@ -300,36 +368,36 @@ export const ReportsPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Workload Chart */}
-          <div className={`p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
-            <h3 className={`text-lg font-medium mb-4 ${textColor}`}>Incomplete Tasks by Assignee</h3>
-            <div className="h-72">
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Incomplete Tasks by Assignee</h3>
+            <div className="h-56 sm:h-64 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={workloadData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={workloadData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} vertical={false} />
-                  <XAxis dataKey="name" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <XAxis dataKey="name" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: darkMode ? '#1e293b' : '#fff', borderColor: darkMode ? '#334155' : '#e2e8f0', borderRadius: '8px' }}
                     itemStyle={{ color: darkMode ? '#f8fafc' : '#0f172a' }}
                   />
-                  <Bar dataKey="tasks" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="tasks" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Status Breakdown */}
-          <div className={`p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
-            <h3 className={`text-lg font-medium mb-4 ${textColor}`}>Task Status Distribution</h3>
-            <div className="h-72">
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Task Status Distribution</h3>
+            <div className="h-56 sm:h-64 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={statusData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
+                    innerRadius={50}
+                    outerRadius={80}
                     paddingAngle={2}
                     dataKey="value"
                   >
@@ -341,26 +409,26 @@ export const ReportsPage: React.FC = () => {
                     contentStyle={{ backgroundColor: darkMode ? '#1e293b' : '#fff', borderColor: darkMode ? '#334155' : '#e2e8f0', borderRadius: '8px' }}
                     itemStyle={{ color: darkMode ? '#f8fafc' : '#0f172a' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} />
+                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Priority Chart */}
-          <div className={`p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
-            <h3 className={`text-lg font-medium mb-4 ${textColor}`}>Tasks by Priority</h3>
-            <div className="h-72">
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Tasks by Priority</h3>
+            <div className="h-56 sm:h-64 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={priorityData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <BarChart data={priorityData} layout="vertical" margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} horizontal={false} />
-                  <XAxis type="number" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <YAxis dataKey="name" type="category" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis type="number" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis dataKey="name" type="category" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} width={65} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: darkMode ? '#1e293b' : '#fff', borderColor: darkMode ? '#334155' : '#e2e8f0', borderRadius: '8px' }}
                     itemStyle={{ color: darkMode ? '#f8fafc' : '#0f172a' }}
                   />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={28}>
                     {priorityData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
@@ -371,21 +439,21 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           {/* Trend Chart */}
-          <div className={`p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
-            <h3 className={`text-lg font-medium mb-4 ${textColor}`}>Task Activity Trend</h3>
-            <div className="h-72">
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Task Activity Trend</h3>
+            <div className="h-56 sm:h-64 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <LineChart data={trendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} vertical={false} />
-                  <XAxis dataKey="date" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <XAxis dataKey="date" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: darkMode ? '#1e293b' : '#fff', borderColor: darkMode ? '#334155' : '#e2e8f0', borderRadius: '8px' }}
                     itemStyle={{ color: darkMode ? '#f8fafc' : '#0f172a' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} />
-                  <Line type="monotone" dataKey="created" name="Created" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                  <Line type="monotone" dataKey="completed" name="Completed" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '11px' }} />
+                  <Line type="monotone" dataKey="created" name="Created" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="completed" name="Completed" stroke="#10b981" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

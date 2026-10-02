@@ -1,7 +1,6 @@
 
-import React from 'react';
-import { Task, User, TaskPriority } from '../../types';
-// Fix: Corrected typo in useAppStore import path.
+import React, { useMemo } from 'react';
+import { Task, User, TaskPriority, TaskStatus } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Avatar } from '../shared/Avatar';
 import { PRIORITY_STYLES, ICON_MAP } from '../../constants';
@@ -13,10 +12,13 @@ interface TaskCardProps {
 export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
   const { 
     users, 
+    tasks,
     darkMode, 
     deleteTask: deleteTaskAction, 
     openViewTaskModal,
-    highlightedTaskId 
+    highlightedTaskId,
+    presences,
+    currentUser
   } = useAppStore();
   
   const assignee = users.find(user => user.id === task.assignee_id); 
@@ -29,6 +31,36 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
   const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
 
   const isHighlighted = highlightedTaskId === task.id;
+
+  // Check if blocked by any unresolved task
+  const isBlocked = useMemo(() => {
+    if (!task.blockedBy || task.blockedBy.length === 0) return false;
+    return task.blockedBy.some(blockerId => {
+      const blocker = tasks.find(t => t.id === blockerId);
+      return blocker && blocker.status !== TaskStatus.DONE;
+    });
+  }, [task.blockedBy, tasks]);
+
+  // Checklist stats
+  const checklistStats = useMemo(() => {
+    if (!task.checklist || task.checklist.length === 0) return null;
+    const completed = task.checklist.filter(i => i.completed).length;
+    const total = task.checklist.length;
+    return { completed, total, percent: Math.round((completed / total) * 100) };
+  }, [task.checklist]);
+
+  // Users currently viewing this card
+  const viewers = useMemo(() => {
+    return presences.filter(p => p.currentTaskId === task.id && p.userId !== currentUser?.id);
+  }, [presences, task.id, currentUser]);
+
+  const activeEditors = useMemo(() => {
+    return viewers.filter(v => v.isEditing);
+  }, [viewers]);
+
+  const activeTypers = useMemo(() => {
+    return viewers.filter(v => v.isTypingComment);
+  }, [viewers]);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation(); 
@@ -48,20 +80,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     e.dataTransfer.effectAllowed = 'move';
     
     const targetElement = e.target as HTMLDivElement;
-    targetElement.classList.add('opacity-50', 'shadow-glass-lg', 'scale-105', 'rotate-1'); // Add a slight rotation
+    targetElement.classList.add('opacity-50', 'shadow-glass-lg', 'scale-105', 'rotate-1');
 
-    // Custom drag image for better visual feedback (optional but nice)
     const dragImage = targetElement.cloneNode(true) as HTMLElement;
     dragImage.style.position = "absolute";
     dragImage.style.top = "-1000px"; 
     dragImage.style.width = targetElement.offsetWidth + "px";
     dragImage.style.height = targetElement.offsetHeight + "px";
-    dragImage.style.transform = 'rotate(3deg) scale(1.03)'; // Consistent with hover/active effect
-    dragImage.style.boxShadow = '0 12px 40px 0 hsla(var(--shadow-color-rgb), 0.15)'; // Emphasize floating
+    dragImage.style.transform = 'rotate(3deg) scale(1.03)';
+    dragImage.style.boxShadow = '0 12px 40px 0 hsla(var(--shadow-color-rgb), 0.15)';
     document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, targetElement.offsetWidth / 2, 20); // Center horizontally, slight offset vertically
+    e.dataTransfer.setDragImage(dragImage, targetElement.offsetWidth / 2, 20);
     
-    // Cleanup the cloned drag image element after a short delay
     setTimeout(() => {
         if (document.body.contains(dragImage)) {
             document.body.removeChild(dragImage);
@@ -73,41 +103,136 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     (e.target as HTMLDivElement).classList.remove('opacity-50', 'shadow-glass-lg', 'scale-105', 'rotate-1');
   };
 
-
   return (
     <div
       data-task-id={task.id} 
       style={cardBackgroundStyle}
-      className={`p-4 rounded-squircle-md shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:-translate-y-0.5
-                  ${isHighlighted ? (darkMode ? 'ring-2 ring-accent-light shadow-accent-light/20' : 'ring-2 ring-accent shadow-accent/20') : ''}`}
+      className={`p-3.5 sm:p-4 rounded-xl shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group
+                  ${isHighlighted ? (darkMode ? 'ring-2 ring-accent-light shadow-accent-light/20' : 'ring-2 ring-accent shadow-accent/20') : ''}
+                  ${isBlocked ? 'border-amber-400/60 dark:border-amber-500/50 bg-amber-50/20 dark:bg-amber-950/10' : ''}`}
       onClick={handleCardClick}
       draggable={true} 
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex justify-between items-start mb-2.5">
-        <h3 className={`text-md font-semibold ${textColor} leading-tight mr-2`}>{task.title}</h3>
-        <div className="flex items-center space-x-1 flex-shrink-0">
+      {/* Top Badges: Blocked, Story Points, & Blinking Eye Viewer Circle */}
+      <div className="flex items-center justify-between gap-1.5 mb-2.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {isBlocked && (
+            <span
+              title="This task is blocked by unfinished prerequisite tasks."
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 animate-pulse"
+            >
+              <ICON_MAP.ExclamationTriangleIcon className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+              Blocked
+            </span>
+          )}
+
+          {task.story_points !== undefined && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+              {task.story_points} pts
+            </span>
+          )}
+        </div>
+
+        {/* Live Collaborator Presence with Blinking Eye Circle */}
+        <div className="flex items-center gap-1.5">
+          {activeEditors.length > 0 && (
+            <span
+              title={`${activeEditors.map(e => e.userName).join(', ')} is currently editing this task`}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 text-[10px] font-semibold animate-pulse"
+            >
+              <ICON_MAP.PencilIcon className="w-3 h-3" />
+              <span>Editing</span>
+            </span>
+          )}
+
+          {activeTypers.length > 0 && (
+            <span
+              title={`${activeTypers.map(e => e.userName).join(', ')} is commenting on this task`}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-400 text-[10px] font-semibold animate-pulse"
+            >
+              <ICON_MAP.ChatBubbleLeftIcon className="w-3 h-3" />
+              <span>Typing</span>
+            </span>
+          )}
+
+          {viewers.length > 0 && (
+            <div
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold shadow-xs transition-all"
+              title={`${viewers.map(v => v.userName).join(', ')} currently viewing this task`}
+            >
+              {/* Blinking Eye Circle */}
+              <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              <ICON_MAP.EyeIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse flex-shrink-0" />
+              <span>{viewers.length}</span>
+              {/* Stacked Avatars */}
+              <div className="flex -space-x-1 items-center ml-0.5">
+                {viewers.slice(0, 3).map(v => (
+                  <span
+                    key={v.userId}
+                    style={{ backgroundColor: v.color }}
+                    className="w-4 h-4 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center ring-1 ring-white dark:ring-slate-900 overflow-hidden shadow-xs"
+                    title={v.userName}
+                  >
+                    {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : v.userName.charAt(0).toUpperCase()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-between items-start mb-2">
+        <h3 className={`text-sm font-bold ${textColor} leading-snug mr-2`}>{task.title}</h3>
+        <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
                 onClick={handleDelete}
                 title="Delete task"
-                className={`p-1.5 rounded-squircle-sm ${darkMode ? 'text-slate-400 hover:bg-status-error/30 hover:text-red-300' : 'text-slate-500 hover:bg-status-error/20 hover:text-red-600'} transition-colors`}
+                className={`p-1 rounded-squircle-sm ${darkMode ? 'text-slate-400 hover:bg-status-error/30 hover:text-red-300' : 'text-slate-500 hover:bg-status-error/20 hover:text-red-600'} transition-colors cursor-pointer`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12.56 0c.342.052.682.107 1.022.166m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09.991-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+              <ICON_MAP.TrashIcon className="w-3.5 h-3.5" />
             </button>
         </div>
       </div>
+
       {task.description && (
-        <p className={`text-xs ${subTextColor} mb-3 leading-relaxed truncate-2-lines`}>
+        <p className={`text-xs ${subTextColor} mb-2.5 leading-relaxed line-clamp-2`}>
           {task.description}
         </p>
       )}
-      <div className={`flex items-center justify-between text-xs ${subTextColor}`}>
-        <div className="flex items-center space-x-1.5">
-          <PriorityIconComponent className={`w-4 h-4 ${priorityColor}`} />
-          <span className={`${priorityColor} font-medium`}>{task.priority}</span>
+
+      {/* Checklist Progress Bar */}
+      {checklistStats && (
+        <div className="mb-3 space-y-1 bg-slate-100/60 dark:bg-slate-800/60 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
+          <div className="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1">
+              <ICON_MAP.CheckIcon className="w-3 h-3 text-primary" />
+              Checklist
+            </span>
+            <span>{checklistStats.completed}/{checklistStats.total}</span>
+          </div>
+          <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                checklistStats.percent === 100 ? 'bg-emerald-500' : 'bg-primary'
+              }`}
+              style={{ width: `${checklistStats.percent}%` }}
+            />
+          </div>
         </div>
-        <div className="flex">
+      )}
+
+      <div className={`flex items-center justify-between text-xs ${subTextColor} pt-1 border-t border-slate-100 dark:border-slate-800/80`}>
+        <div className="flex items-center space-x-1.5">
+          <PriorityIconComponent className={`w-3.5 h-3.5 ${priorityColor}`} />
+          <span className={`${priorityColor} text-[11px] font-semibold`}>{task.priority}</span>
+        </div>
+        <div className="flex items-center space-x-1">
           {assignee && (
             <Avatar user={assignee} size="sm" className={`border-2 ${darkMode ? 'border-slate-700/30' : 'border-white/30'}`} />
           )}

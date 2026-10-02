@@ -39,51 +39,91 @@ export const AuthPage: React.FC = () => {
     authError: globalAuthError,
     darkMode,
     setAuthError,
-    organizationCheck,
-    setOrganizationCheck
+    addToast
   } = useAppStore();
-  const [isLoginView, setIsLoginView] = useState(true);
+
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot_password' | 'reset_password'>('login');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Check URL hash for password recovery token
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery') || hash.includes('reset-password')) {
+        setAuthMode('reset_password');
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setAuthError(null);
-    console.log(`[AuthPage] handleSubmit: View is ${isLoginView ? 'Login' : 'Signup'}. Email: ${email}`);
+    setResetSuccessMessage(null);
 
     try {
-      if (isLoginView) {
-        console.log('[AuthPage] Attempting Sign In...');
+      if (authMode === 'login') {
         await signIn(email, password);
-        console.log('[AuthPage] Sign In action completed (further handling in store/App.tsx).');
-      } else {
-        console.log('[AuthPage] Attempting Sign Up...');
+      } else if (authMode === 'signup') {
         if (!fullName.trim()) {
-            const msg = "Full name is required.";
-            console.warn('[AuthPage] Signup Validation Error:', msg);
-            setFormError(msg);
-            return;
+          setFormError("Full name is required.");
+          return;
         }
         if (password.length < 6) {
-            const msg = "Password must be at least 6 characters long.";
-            console.warn('[AuthPage] Signup Validation Error:', msg);
-            setFormError(msg);
-            return;
+          setFormError("Password must be at least 6 characters long.");
+          return;
         }
-        console.log(`[AuthPage] Calling signUp with: Email: ${email}, Name: ${fullName}`);
         await signUp(email, password, fullName);
-        console.log('[AuthPage] Sign Up action completed (further handling in store/App.tsx).');
+      } else if (authMode === 'forgot_password') {
+        if (!email.trim()) {
+          setFormError("Please enter your registered email address.");
+          return;
+        }
+        setIsResetting(true);
+        try {
+          await supabaseService.sendPasswordResetEmail(email);
+          setResetSuccessMessage(`Password reset link sent to ${email}! Check your inbox to set a new password.`);
+          addToast('Reset Link Dispatched', `Password recovery link sent to ${email}`, 'success');
+        } catch (err: any) {
+          setFormError(err.message || "Failed to send reset link. Please check your email.");
+        } finally {
+          setIsResetting(false);
+        }
+      } else if (authMode === 'reset_password') {
+        if (password.length < 6) {
+          setFormError("New password must be at least 6 characters long.");
+          return;
+        }
+        if (password !== confirmPassword) {
+          setFormError("Passwords do not match. Please re-enter.");
+          return;
+        }
+        setIsResetting(true);
+        try {
+          await supabaseService.updateUserPassword(password);
+          addToast('Password Updated', 'Your password has been successfully reset! You can now log in.', 'success');
+          setResetSuccessMessage('Your password has been reset successfully! Please sign in with your new password.');
+          setAuthMode('login');
+          setPassword('');
+          setConfirmPassword('');
+        } catch (err: any) {
+          setFormError(err.message || "Failed to update password. Recovery link may have expired.");
+        } finally {
+          setIsResetting(false);
+        }
       }
     } catch (error: any) {
-      console.error(`[AuthPage] Error during ${isLoginView ? 'Login' : 'Signup'} handleSubmit:`, error.message || error);
+      console.error(`[AuthPage] Error during handleSubmit:`, error.message || error);
     }
   };
   
-  // inputCombinedClass and labelClass will pick up global styles from index.html
   const labelClass = `block text-sm font-medium mb-1.5`;
 
   return (
@@ -95,27 +135,64 @@ export const AuthPage: React.FC = () => {
               <ICON_MAP.SparklesIcon className="w-12 h-12 text-accent mx-auto mb-3" />
               <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'} text-shadow-subtle text-gradient-accent`}>{APP_TITLE}</h1>
               <p className={`mt-2 text-md ${darkMode ? 'text-slate-300' : 'text-slate-500'}`}>
-              {isLoginView ? 'Welcome back! Please sign in.' : 'Create your account.'}
+                {authMode === 'login' && 'Welcome back! Please sign in.'}
+                {authMode === 'signup' && 'Create your workspace account.'}
+                {authMode === 'forgot_password' && 'Reset your account password.'}
+                {authMode === 'reset_password' && 'Set a new password for your account.'}
               </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {!isLoginView && (
-              <>
-                <div>
-                  <label htmlFor="full-name" className={labelClass}>Full Name</label>
-                  <input type="text" id="full-name" className="w-full font-medium" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLoginView} placeholder="Your Name" disabled={authLoading}/>
-                </div>
-              </>
+          {resetSuccessMessage && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs text-center font-medium leading-relaxed">
+              ✨ {resetSuccessMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {authMode === 'signup' && (
+              <div>
+                <label htmlFor="full-name" className={labelClass}>Full Name</label>
+                <input type="text" id="full-name" className="w-full font-medium" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Your Name" disabled={authLoading || isResetting}/>
+              </div>
             )}
-            <div>
-              <label htmlFor="email" className={labelClass}>Email Address</label>
-              <input type="email" id="email" className="w-full font-medium" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" disabled={authLoading}/>
-            </div>
-            <div>
-              <label htmlFor="password" className={labelClass}>Password</label>
-              <input type="password" id="password" className="w-full font-medium" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" disabled={authLoading}/>
-            </div>
+
+            {authMode !== 'reset_password' && (
+              <div>
+                <label htmlFor="email" className={labelClass}>Email Address</label>
+                <input type="email" id="email" className="w-full font-medium" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" disabled={authLoading || isResetting}/>
+              </div>
+            )}
+
+            {authMode !== 'forgot_password' && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    {authMode === 'reset_password' ? 'New Password' : 'Password'}
+                  </label>
+                  {authMode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('forgot_password');
+                        setFormError(null);
+                        setResetSuccessMessage(null);
+                      }}
+                      className="text-xs text-accent hover:underline cursor-pointer"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <input type="password" id="password" className="w-full font-medium" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" disabled={authLoading || isResetting}/>
+              </div>
+            )}
+
+            {authMode === 'reset_password' && (
+              <div>
+                <label htmlFor="confirm-password" className={labelClass}>Confirm New Password</label>
+                <input type="password" id="confirm-password" className="w-full font-medium" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="••••••••" disabled={authLoading || isResetting}/>
+              </div>
+            )}
 
             {(formError || globalAuthError) && (
               <p className={`text-xs text-status-error text-center py-2.5 px-3.5 rounded-squircle-sm border border-status-error/30 bg-status-error/10`}>
@@ -123,30 +200,58 @@ export const AuthPage: React.FC = () => {
               </p>
             )}
 
-            <Button type="submit" variant="primary" className="w-full text-base py-3" disabled={authLoading}>
-              {authLoading ? (isLoginView ? 'Signing In...' : 'Creating Account...') : (isLoginView ? 'Sign In' : 'Create Account')}
-              {authLoading && <ICON_MAP.SpinnerIcon className="w-5 h-5 animate-spin ml-2" />}
+            <Button type="submit" variant="primary" className="w-full text-base py-3" disabled={authLoading || isResetting}>
+              {authLoading || isResetting ? (
+                <div className="flex items-center justify-center gap-2">
+                  <ICON_MAP.SpinnerIcon className="w-5 h-5 animate-spin" />
+                  <span>Processing...</span>
+                </div>
+              ) : (
+                <>
+                  {authMode === 'login' && 'Sign In'}
+                  {authMode === 'signup' && 'Create Account'}
+                  {authMode === 'forgot_password' && 'Send Password Reset Link'}
+                  {authMode === 'reset_password' && 'Set New Password'}
+                </>
+              )}
             </Button>
           </form>
 
-          <p className={`text-center text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            {isLoginView ? "Don't have an account? " : "Already have an account? "}
-            <button
-              onClick={() => {
-                  setIsLoginView(!isLoginView);
-                  setFormError(null);
-                  setAuthError(null);
-                  setEmail('');
-                  setPassword('');
-                  setFullName('');
-              }}
-              className="font-medium text-accent hover:text-accent-dark dark:hover:text-accent-light transition-colors"
-              disabled={authLoading}
-              type="button"
-            >
-              {isLoginView ? 'Sign Up' : 'Sign In'}
-            </button>
-          </p>
+          {/* Navigation Links between modes */}
+          <div className="space-y-2 text-center text-sm">
+            {authMode === 'forgot_password' ? (
+              <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>
+                Remembered your password?{' '}
+                <button
+                  onClick={() => {
+                    setAuthMode('login');
+                    setFormError(null);
+                    setResetSuccessMessage(null);
+                  }}
+                  className="font-semibold text-accent hover:underline cursor-pointer"
+                  type="button"
+                >
+                  Back to Sign In
+                </button>
+              </p>
+            ) : (
+              <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>
+                {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
+                <button
+                  onClick={() => {
+                    setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                    setFormError(null);
+                    setResetSuccessMessage(null);
+                  }}
+                  className="font-semibold text-accent hover:underline cursor-pointer"
+                  disabled={authLoading}
+                  type="button"
+                >
+                  {authMode === 'login' ? 'Sign Up' : 'Sign In'}
+                </button>
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

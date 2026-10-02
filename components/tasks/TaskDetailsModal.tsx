@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
-import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog, TaskCollaborator } from '../../types';
+import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog, TaskCollaborator, TaskChecklistItem } from '../../types';
 import { ICON_MAP } from '../../constants';
 import supabaseService, { supabase } from '../../services/supabaseService';
 import geminiService from '../../services/geminiService';
@@ -30,7 +30,10 @@ export const TaskDetailsModal: React.FC = () => {
     tasks,
     error,
     openModal,
-    openViewTaskModal
+    openViewTaskModal,
+    sprints,
+    presences,
+    updateUserPresence
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<'general' | 'qa' | 'admin'>('general');
@@ -42,6 +45,14 @@ export const TaskDetailsModal: React.FC = () => {
   const [collaborators, setCollaborators] = useState<TaskCollaborator[]>([]);
   const [isAddingCollaborator, setIsAddingCollaborator] = useState(false);
   const [selectedCollaboratorId, setSelectedCollaboratorId] = useState('');
+
+  // Checklist state
+  const [newChecklistText, setNewChecklistText] = useState('');
+  const [isAddingChecklistItem, setIsAddingChecklistItem] = useState(false);
+
+  // Dependency mapping state
+  const [isAddingBlocker, setIsAddingBlocker] = useState(false);
+  const [selectedBlockerTaskId, setSelectedBlockerTaskId] = useState('');
   
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentContent, setEditCommentContent] = useState('');
@@ -118,6 +129,9 @@ export const TaskDetailsModal: React.FC = () => {
     selectedIndex: 0,
   });
 
+  const [isTypingComment, setIsTypingComment] = useState(false);
+  const typingTimeoutRef = React.useRef<any>(null);
+
   const filteredMentionUsers = users.filter(u => 
     (u.full_name?.toLowerCase().includes(mentionState.search.toLowerCase()) || 
      u.email?.toLowerCase().includes(mentionState.search.toLowerCase()))
@@ -127,6 +141,18 @@ export const TaskDetailsModal: React.FC = () => {
     const value = e.target.value;
     const cursorPosition = e.target.selectionStart;
     setNewComment(value);
+
+    // Live typing indicator
+    if (value.trim().length > 0) {
+      setIsTypingComment(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTypingComment(false);
+      }, 2500);
+    } else {
+      setIsTypingComment(false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    }
 
     // Check if we are in a mention
     const textBeforeCursor = value.slice(0, cursorPosition);
@@ -249,8 +275,29 @@ export const TaskDetailsModal: React.FC = () => {
       fetchTaskDetails();
       setEditedTitle(taskToView.title);
       setEditedDescription(taskToView.description || '');
+      if (taskToView.projectId && (!activeProject || activeProject.id !== taskToView.projectId)) {
+        useAppStore.getState().fetchTasksForProject(taskToView.projectId);
+      }
+      // Broadcast current task presence
+      updateUserPresence(taskToView.id, undefined, { isEditing: isEditingTitle || isEditingDescription });
     }
+
+    return () => {
+      if (isViewTaskModalOpen) {
+        updateUserPresence(undefined);
+      }
+    };
   }, [isViewTaskModalOpen, taskToView]);
+
+  useEffect(() => {
+    if (isViewTaskModalOpen && taskToView) {
+      updateUserPresence(taskToView.id, undefined, {
+        isEditing: isEditingTitle || isEditingDescription,
+        editingField: isEditingTitle ? 'title' : (isEditingDescription ? 'description' : undefined),
+        isTypingComment,
+      });
+    }
+  }, [isEditingTitle, isEditingDescription, isTypingComment, isViewTaskModalOpen, taskToView]);
 
   const fetchTaskDetails = async () => {
     if (!taskToView) return;
@@ -551,6 +598,69 @@ export const TaskDetailsModal: React.FC = () => {
     }
   };
 
+  // Checklist handlers
+  const handleAddChecklistItem = async () => {
+    if (!newChecklistText.trim() || !taskToView) return;
+    const newItem: TaskChecklistItem = {
+      id: crypto.randomUUID(),
+      title: newChecklistText.trim(),
+      completed: false,
+      created_at: new Date().toISOString()
+    };
+    const updatedChecklist = [...(taskToView.checklist || []), newItem];
+    await handleUpdateTask({ checklist: updatedChecklist });
+    setNewChecklistText('');
+    setIsAddingChecklistItem(false);
+  };
+
+  const handleToggleChecklistItem = async (itemId: string) => {
+    if (!taskToView || !taskToView.checklist) return;
+    const updatedChecklist = taskToView.checklist.map(item =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    await handleUpdateTask({ checklist: updatedChecklist });
+  };
+
+  const handleDeleteChecklistItem = async (itemId: string) => {
+    if (!taskToView || !taskToView.checklist) return;
+    const updatedChecklist = taskToView.checklist.filter(item => item.id !== itemId);
+    await handleUpdateTask({ checklist: updatedChecklist });
+  };
+
+  // Dependency / Blocker handlers
+  const handleAddBlocker = async (blockerTaskId: string) => {
+    if (!taskToView || !blockerTaskId || blockerTaskId === taskToView.id) return;
+    const currentBlockedBy = taskToView.blockedBy || [];
+    if (currentBlockedBy.includes(blockerTaskId)) return;
+    
+    const updatedBlockedBy = [...currentBlockedBy, blockerTaskId];
+    await handleUpdateTask({ blockedBy: updatedBlockedBy });
+
+    // Also update the blocker task's 'blocks' field
+    const blockerTask = tasks.find(t => t.id === blockerTaskId);
+    if (blockerTask) {
+      const blockerCurrentBlocks = blockerTask.blocks || [];
+      if (!blockerCurrentBlocks.includes(taskToView.id)) {
+        await updateTask(blockerTaskId, { blocks: [...blockerCurrentBlocks, taskToView.id] });
+      }
+    }
+
+    setSelectedBlockerTaskId('');
+    setIsAddingBlocker(false);
+  };
+
+  const handleRemoveBlocker = async (blockerTaskId: string) => {
+    if (!taskToView) return;
+    const updatedBlockedBy = (taskToView.blockedBy || []).filter(id => id !== blockerTaskId);
+    await handleUpdateTask({ blockedBy: updatedBlockedBy });
+
+    const blockerTask = tasks.find(t => t.id === blockerTaskId);
+    if (blockerTask) {
+      const updatedBlocks = (blockerTask.blocks || []).filter(id => id !== taskToView.id);
+      await updateTask(blockerTaskId, { blocks: updatedBlocks });
+    }
+  };
+
   const handleAddCollaborator = async () => {
     if (!selectedCollaboratorId || !taskToView || !currentUser) return;
     try {
@@ -587,33 +697,93 @@ export const TaskDetailsModal: React.FC = () => {
 
   const parentTask = taskToView.parent_task_id ? tasks.find(t => t.id === taskToView.parent_task_id) : null;
 
+  // Active live viewers for this specific task
+  const activeViewers = (presences || []).filter(
+    p => p.currentTaskId === taskToView.id && p.userId !== currentUser?.id
+  );
+
+  // Derived blocker & dependency tasks
+  const blockedByTasks = tasks.filter(t => (taskToView.blockedBy || []).includes(t.id));
+  const blockingTasks = tasks.filter(
+    t => (taskToView.blocks || []).includes(t.id) || (t.blockedBy || []).includes(taskToView.id)
+  );
+
+  const candidateBlockers = tasks.filter(
+    t => t.projectId === taskToView.projectId && t.id !== taskToView.id && !(taskToView.blockedBy || []).includes(t.id)
+  );
+
+  const projectSprints = sprints.filter(s => s.projectId === taskToView.projectId);
+
+  const checklistItems = taskToView.checklist || [];
+  const completedChecklistCount = checklistItems.filter(item => item.completed).length;
+  const checklistPercent = checklistItems.length > 0 ? Math.round((completedChecklistCount / checklistItems.length) * 100) : 0;
+
   const modalTitle = (
-    <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 font-normal">
-      {parentTask && (
-        <button 
-          onClick={() => openViewTaskModal(parentTask.id)}
-          className="mr-3 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-          title="Back to parent task"
-        >
-          <ICON_MAP.ArrowLeftIcon className="w-4 h-4" />
-        </button>
-      )}
-      <span>Projects</span>
-      <span className="mx-2">/</span>
-      <span>{activeProject?.name || 'Project'}</span>
-      <span className="mx-2">/</span>
-      {parentTask && (
-        <>
-          <span 
-            className="cursor-pointer hover:underline hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+    <div className="flex items-center justify-between w-full pr-8">
+      <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 font-normal truncate">
+        {parentTask && (
+          <button 
             onClick={() => openViewTaskModal(parentTask.id)}
+            className="mr-3 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            title="Back to parent task"
           >
-            {parentTask.title}
+            <ICON_MAP.ArrowLeftIcon className="w-4 h-4" />
+          </button>
+        )}
+        <span>Projects</span>
+        <span className="mx-2">/</span>
+        <span>{activeProject?.name || 'Project'}</span>
+        <span className="mx-2">/</span>
+        {parentTask && (
+          <>
+            <span 
+              className="cursor-pointer hover:underline hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              onClick={() => openViewTaskModal(parentTask.id)}
+            >
+              {parentTask.title}
+            </span>
+            <span className="mx-2">/</span>
+          </>
+        )}
+        <span className="text-slate-800 dark:text-slate-200 font-medium truncate">{taskToView.title}</span>
+      </div>
+      {activeViewers.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs text-emerald-700 dark:text-emerald-400 font-semibold shadow-xs">
+          {/* Blinking Eye Circle */}
+          <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
           </span>
-          <span className="mx-2">/</span>
-        </>
+          <ICON_MAP.EyeIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse flex-shrink-0" />
+          <span>{activeViewers.length} {activeViewers.length === 1 ? 'person viewing' : 'people viewing'}</span>
+          <div className="flex -space-x-1.5 ml-1">
+            {activeViewers.slice(0, 3).map(viewer => (
+              <div
+                key={viewer.userId}
+                className="w-4 h-4 rounded-full ring-2 ring-white dark:ring-slate-900 flex items-center justify-center overflow-hidden text-[9px] font-bold text-white shadow-xs"
+                style={{ backgroundColor: viewer.color || '#10b981' }}
+                title={`${viewer.userName}${viewer.isEditing ? ' (editing)' : ''}${viewer.isTypingComment ? ' (typing comment)' : ''}`}
+              >
+                {viewer.userAvatar ? (
+                  <img src={viewer.userAvatar} alt={viewer.userName} className="w-full h-full object-cover" />
+                ) : (
+                  viewer.userName.charAt(0).toUpperCase()
+                )}
+              </div>
+            ))}
+          </div>
+          {activeViewers.some(v => v.isEditing) && (
+            <span className="text-[11px] text-blue-600 dark:text-blue-400 font-normal border-l border-emerald-500/30 pl-2 ml-1 animate-pulse">
+              {activeViewers.find(v => v.isEditing)?.userName} is editing...
+            </span>
+          )}
+          {activeViewers.some(v => v.isTypingComment) && (
+            <span className="text-[11px] text-purple-600 dark:text-purple-400 font-normal border-l border-emerald-500/30 pl-2 ml-1 animate-pulse">
+              {activeViewers.find(v => v.isTypingComment)?.userName} is typing comment...
+            </span>
+          )}
+        </div>
       )}
-      <span className="text-slate-800 dark:text-slate-200 font-medium">{taskToView.title}</span>
     </div>
   );
 
@@ -822,6 +992,223 @@ export const TaskDetailsModal: React.FC = () => {
               ) : (
                 <p className="text-sm text-slate-500 italic">No subtasks yet.</p>
               )}
+            </div>
+
+            {/* Checklists */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Checklist</h3>
+                  {checklistItems.length > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                      {completedChecklistCount}/{checklistItems.length} ({checklistPercent}%)
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setIsAddingChecklistItem(true)}
+                  className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 text-xs font-medium"
+                  title="Add checklist item"
+                >
+                  <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+                  Add item
+                </button>
+              </div>
+
+              {checklistItems.length > 0 && (
+                <div className="mb-3">
+                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-300"
+                      style={{ width: `${checklistPercent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                {checklistItems.map(item => (
+                  <div
+                    key={item.id}
+                    className="group flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                  >
+                    <label className="flex items-center gap-2.5 flex-1 cursor-pointer min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={item.completed}
+                        onChange={() => handleToggleChecklistItem(item.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className={`text-sm select-none truncate ${
+                        item.completed
+                          ? 'line-through text-slate-400 dark:text-slate-500'
+                          : 'text-slate-700 dark:text-slate-200'
+                      }`}>
+                        {item.title}
+                      </span>
+                    </label>
+                    <button
+                      onClick={() => handleDeleteChecklistItem(item.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 rounded transition-opacity"
+                      title="Delete item"
+                    >
+                      <ICON_MAP.TrashIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {isAddingChecklistItem ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="text"
+                      placeholder="Add an item to complete..."
+                      value={newChecklistText}
+                      onChange={e => setNewChecklistText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleAddChecklistItem();
+                        if (e.key === 'Escape') {
+                          setIsAddingChecklistItem(false);
+                          setNewChecklistText('');
+                        }
+                      }}
+                      autoFocus
+                      className={`flex-1 px-3 py-1.5 rounded-lg border text-sm focus:ring-2 focus:ring-accent focus:border-transparent ${
+                        darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      }`}
+                    />
+                    <Button size="sm" onClick={handleAddChecklistItem} disabled={!newChecklistText.trim()}>Add</Button>
+                    <Button size="sm" variant="secondary" onClick={() => { setIsAddingChecklistItem(false); setNewChecklistText(''); }}>Cancel</Button>
+                  </div>
+                ) : (
+                  checklistItems.length === 0 && (
+                    <p className="text-xs text-slate-500 italic">No checklist items yet. Add quick to-dos or acceptance steps.</p>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* Dependencies & Blockers Mapping */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Dependencies & Blockers</h3>
+                  {blockedByTasks.filter(b => b.status !== TaskStatus.DONE).length > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium">
+                      Blocked by {blockedByTasks.filter(b => b.status !== TaskStatus.DONE).length} active task(s)
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setIsAddingBlocker(!isAddingBlocker)}
+                  className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 text-xs font-medium"
+                >
+                  <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+                  Add Blocker
+                </button>
+              </div>
+
+              {isAddingBlocker && (
+                <div className="mb-4 p-3 rounded-lg border border-dashed border-amber-300 dark:border-amber-700 bg-amber-500/5 space-y-2">
+                  <span className="text-xs font-medium text-amber-800 dark:text-amber-300">Select a task that must finish before this task can proceed:</span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedBlockerTaskId}
+                      onChange={e => setSelectedBlockerTaskId(e.target.value)}
+                      className={`flex-1 p-1.5 rounded-md border text-sm ${
+                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                    >
+                      <option value="">Choose task...</option>
+                      {candidateBlockers.map(candidate => (
+                        <option key={candidate.id} value={candidate.id}>
+                          [{candidate.status}] {candidate.title}
+                        </option>
+                      ))}
+                    </select>
+                    <Button size="sm" onClick={() => handleAddBlocker(selectedBlockerTaskId)} disabled={!selectedBlockerTaskId}>
+                      Link Blocker
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => { setIsAddingBlocker(false); setSelectedBlockerTaskId(''); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {/* Blocked by (Prerequisites) */}
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                    Blocked By ({blockedByTasks.length})
+                  </h4>
+                  {blockedByTasks.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {blockedByTasks.map(blocker => {
+                        const isDone = blocker.status === TaskStatus.DONE;
+                        return (
+                          <div
+                            key={blocker.id}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border text-xs transition-colors ${
+                              isDone
+                                ? 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-75'
+                                : 'bg-amber-500/10 border-amber-500/30'
+                            }`}
+                          >
+                            <div
+                              className="flex items-center gap-2 flex-1 cursor-pointer truncate"
+                              onClick={() => openViewTaskModal(blocker.id)}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${isDone ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                              <span className="font-medium text-slate-800 dark:text-slate-200 truncate hover:underline">
+                                {blocker.title}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                isDone ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                              }`}>
+                                {formatEnumForDisplay(blocker.status)}
+                              </span>
+                              <button
+                                onClick={() => handleRemoveBlocker(blocker.id)}
+                                className="p-1 text-slate-400 hover:text-red-500 rounded"
+                                title="Remove dependency"
+                              >
+                                <ICON_MAP.TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No blockers set for this task.</p>
+                  )}
+                </div>
+
+                {/* Blocks (Dependent tasks) */}
+                {blockingTasks.length > 0 && (
+                  <div className="pt-2">
+                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                      Blocks Following Tasks ({blockingTasks.length})
+                    </h4>
+                    <div className="space-y-1.5">
+                      {blockingTasks.map(dep => (
+                        <div
+                          key={dep.id}
+                          onClick={() => openViewTaskModal(dep.id)}
+                          className="flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-xs transition-colors"
+                        >
+                          <span className="text-slate-700 dark:text-slate-300 truncate">{dep.title}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                            {formatEnumForDisplay(dep.status)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Attachments */}
@@ -1170,6 +1557,48 @@ export const TaskDetailsModal: React.FC = () => {
                       <option key={p} value={p}>{formatEnumForDisplay(p)}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* Sprint Allocation */}
+              <div className="flex items-center">
+                <span className="w-1/3 text-sm text-slate-500">Sprint</span>
+                <div className="w-2/3">
+                  <select
+                    value={taskToView.sprintId || ''}
+                    onChange={(e) => handleUpdateTask({ sprintId: e.target.value || undefined })}
+                    className={`w-full appearance-none px-2 py-1 rounded-md text-sm border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  >
+                    <option value="">Product Backlog (No Sprint)</option>
+                    {projectSprints.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.status.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Story Points */}
+              <div className="flex items-center">
+                <span className="w-1/3 text-sm text-slate-500">Points</span>
+                <div className="w-2/3 flex items-center gap-1">
+                  {[1, 2, 3, 5, 8, 13].map(pts => (
+                    <button
+                      key={pts}
+                      type="button"
+                      onClick={() => handleUpdateTask({ story_points: taskToView.story_points === pts ? undefined : pts })}
+                      className={`px-2 py-0.5 rounded text-xs font-semibold transition-all ${
+                        taskToView.story_points === pts
+                          ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400'
+                          : darkMode
+                          ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
+                      }`}
+                    >
+                      {pts}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

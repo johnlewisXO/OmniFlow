@@ -100,14 +100,20 @@ export const TeamWorkloadWidget: React.FC<TeamWorkloadWidgetProps> = ({ classNam
         </div>
       </div>
 
-      {/* Chart Canvas with Horizontal Scroll Support */}
-      <div className="flex-1 w-full overflow-x-auto scrollbar-thin pt-2">
-        <div className="min-w-[500px] h-64">
+      {/* Chart Canvas with Responsive Container */}
+      <div className="flex-1 w-full pt-2">
+        <div className="w-full h-56 sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 5 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
-              <XAxis dataKey="name" stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 11 }} />
-              <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 11 }} />
+              <XAxis 
+                dataKey="name" 
+                stroke={darkMode ? '#94a3b8' : '#64748b'} 
+                tick={{ fontSize: 10 }} 
+                interval={0}
+                tickFormatter={(val: string) => (val && val.length > 8 ? `${val.substring(0, 7)}...` : val)}
+              />
+              <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 10 }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: darkMode ? '#0f172a' : '#ffffff',
@@ -117,11 +123,11 @@ export const TeamWorkloadWidget: React.FC<TeamWorkloadWidgetProps> = ({ classNam
                   boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-              <Bar dataKey="ToDo" name="To Do" stackId="a" fill="#94a3b8" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="InProgress" name="In Progress" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Review" name="Review" stackId="a" fill="#a855f7" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Done" name="Done" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '6px' }} />
+              <Bar dataKey="ToDo" name="To Do" stackId="a" fill="#94a3b8" radius={[0, 0, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="InProgress" name="In Progress" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="Review" name="Review" stackId="a" fill="#a855f7" radius={[0, 0, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="Done" name="Done" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </div>

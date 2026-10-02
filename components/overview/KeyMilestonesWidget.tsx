@@ -117,11 +117,11 @@ export const KeyMilestonesWidget: React.FC<KeyMilestonesWidgetProps> = ({ classN
         </div>
       </div>
 
-      {/* Recharts Area Curve with Horizontal Scroll */}
-      <div className="w-full overflow-x-auto scrollbar-thin pt-1">
-        <div className="min-w-[500px] h-48">
+      {/* Recharts Area Curve Responsive Container */}
+      <div className="w-full pt-1">
+        <div className="w-full h-44 sm:h-48">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
@@ -129,8 +129,8 @@ export const KeyMilestonesWidget: React.FC<KeyMilestonesWidgetProps> = ({ classN
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
-              <XAxis dataKey="date" stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 11 }} />
-              <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 11 }} domain={[0, 100]} />
+              <XAxis dataKey="date" stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 10 }} />
+              <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 10 }} domain={[0, 100]} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: darkMode ? '#0f172a' : '#ffffff',
@@ -139,7 +139,7 @@ export const KeyMilestonesWidget: React.FC<KeyMilestonesWidgetProps> = ({ classN
                   color: darkMode ? '#f8fafc' : '#0f172a',
                 }}
               />
-              <Area type="monotone" dataKey="Progress" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorProgress)" name="Progress %" />
+              <Area type="monotone" dataKey="Progress" stroke="#8b5cf6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorProgress)" name="Progress %" />
               <Area type="monotone" dataKey="Target" stroke="#10b981" strokeWidth={2} strokeDasharray="4 4" fillOpacity={0} name="Target Pace" />
             </AreaChart>
           </ResponsiveContainer>
