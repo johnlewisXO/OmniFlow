@@ -140,6 +140,7 @@ export interface UserPresence {
   editingField?: string;
   isTypingComment?: boolean;
   statusAction?: string;
+  availabilityStatus?: 'available' | 'away' | 'busy';
   lastActive: string;
   color: string;
   lastSeenLocally?: number;

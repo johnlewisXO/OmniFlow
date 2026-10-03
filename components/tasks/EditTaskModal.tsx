@@ -4,9 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
-import { TaskPriority, TaskStatus, User, Task } from '../../types';
+import { TaskPriority, TaskStatus, User, Task, UserPresence } from '../../types';
 import { AITaskGenerator } from '../ai/AITaskGenerator';
 import { ICON_MAP } from '../../constants';
+import { collabService } from '../../services/collabService';
 
 const formatEnumForDisplay = (enumValue: string): string => {
   if (!enumValue) return '';
@@ -31,15 +32,17 @@ export const EditTaskModal: React.FC = () => {
     setError: setGlobalError,
     isLoadingUsersForAssignment,
     usersForAssignmentError,
-    updateUserPresence
+    updateUserPresence,
+    presences
   } = useAppStore();
 
   const wasEditOpenRef = React.useRef(false);
+  const [editingFieldLabel, setEditingFieldLabel] = useState<string>('details');
 
   useEffect(() => {
     if (isEditTaskModalOpen && taskToEdit) {
       wasEditOpenRef.current = true;
-      updateUserPresence(taskToEdit.id, undefined, { isEditing: true, editingField: 'details', statusAction: 'editing_task' });
+      updateUserPresence(taskToEdit.id, undefined, { isEditing: true, editingField: editingFieldLabel, statusAction: 'editing_task' });
     } else if (!isEditTaskModalOpen && wasEditOpenRef.current) {
       wasEditOpenRef.current = false;
       const state = useAppStore.getState();
@@ -49,7 +52,7 @@ export const EditTaskModal: React.FC = () => {
         updateUserPresence(undefined, undefined, { clearTask: true, isEditing: false });
       }
     }
-  }, [isEditTaskModalOpen, taskToEdit?.id, updateUserPresence]);
+  }, [isEditTaskModalOpen, taskToEdit?.id, editingFieldLabel, updateUserPresence]);
 
   const [title, setTitle] = useState('');
   const [aiHelperDescription, setAiHelperDescription] = useState('');
@@ -154,16 +157,68 @@ export const EditTaskModal: React.FC = () => {
 
   if (!isEditTaskModalOpen || !taskToEdit) return null;
 
+  // Only show OTHER teammates active on this task — never include yourself
+  const otherTaskParticipants: UserPresence[] = (() => {
+    const map = new Map<string, UserPresence>();
+    (presences || []).forEach(p => {
+      if (p.currentTaskId !== taskToEdit.id) return;
+      if (currentUser && p.userId === currentUser.id) return;
+      if (p.sessionId && p.sessionId === collabService.sessionId) return;
+      const existing = map.get(p.userId);
+      if (!existing) {
+        map.set(p.userId, { ...p });
+      } else {
+        map.set(p.userId, {
+          ...existing,
+          isEditing: Boolean(existing.isEditing || p.isEditing),
+          editingField: p.editingField || existing.editingField,
+          isTypingComment: Boolean(existing.isTypingComment || p.isTypingComment),
+        });
+      }
+    });
+    return Array.from(map.values());
+  })();
+
   return (
     <Modal isOpen={isEditTaskModalOpen} onClose={closeEditTaskModal} title={modalTitleText as unknown as string} size="xl">
       <form onSubmit={handleSubmit} className="space-y-5 p-1"> {/* Reduced vertical spacing */}
+        {otherTaskParticipants.length > 0 && (
+          <div className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${
+            darkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              Other teammates active on this ticket:
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {otherTaskParticipants.map(p => {
+                const name = (p.userName || 'Teammate').split(' ')[0];
+                return (
+                  <span
+                    key={p.userId}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold border ${
+                      p.isEditing
+                        ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300 animate-pulse'
+                        : p.isTypingComment
+                          ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300 animate-pulse'
+                          : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                    }`}
+                  >
+                    {name} · {p.isEditing ? `Editing ${p.editingField || 'details'}` : p.isTypingComment ? 'Typing comment...' : 'Viewing'}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div>
           <label htmlFor="edit-task-title" className={labelClass}>Title <span className="text-status-error">*</span></label>
           <input
             type="text"
             id="edit-task-title"
             value={title}
-            onChange={(e) => { setTitle(e.target.value); if(localFormError && title.trim()) setLocalFormError(null);}}
+            onFocus={() => setEditingFieldLabel('title')}
+            onChange={(e) => { setTitle(e.target.value); setEditingFieldLabel('title'); if(localFormError && title.trim()) setLocalFormError(null);}}
             required
             placeholder="e.g., Finalize Q3 report"
             disabled={isSubmitting || globalIsLoading}
@@ -183,7 +238,8 @@ export const EditTaskModal: React.FC = () => {
             id="edit-task-description"
             rows={3}
             value={mainDescription}
-            onChange={(e) => setMainDescription(e.target.value)}
+            onFocus={() => setEditingFieldLabel('description')}
+            onChange={(e) => { setMainDescription(e.target.value); setEditingFieldLabel('description'); }}
             placeholder="Add more details: user stories, acceptance criteria, links..."
             disabled={isSubmitting || globalIsLoading}
             className="w-full font-medium"
@@ -193,14 +249,14 @@ export const EditTaskModal: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
             <div className={selectWrapperClass}>
                 <label htmlFor="edit-task-priority" className={labelClass}>Priority</label>
-                <select id="edit-task-priority" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} disabled={isSubmitting || globalIsLoading} className="font-medium appearance-none">
+                <select id="edit-task-priority" value={priority} onFocus={() => setEditingFieldLabel('priority')} onChange={(e) => { setPriority(e.target.value as TaskPriority); setEditingFieldLabel('priority'); }} disabled={isSubmitting || globalIsLoading} className="font-medium appearance-none">
                     {Object.values(TaskPriority).map(p => <option key={p} value={p}>{formatEnumForDisplay(p)}</option>)}
                 </select>
                 <ICON_MAP.ChevronDownIcon className={selectArrowClass} />
             </div>
             <div className={selectWrapperClass}>
                 <label htmlFor="edit-task-status" className={labelClass}>Status</label>
-                <select id="edit-task-status" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} disabled={isSubmitting || globalIsLoading} className="font-medium appearance-none">
+                <select id="edit-task-status" value={status} onFocus={() => setEditingFieldLabel('status')} onChange={(e) => { setStatus(e.target.value as TaskStatus); setEditingFieldLabel('status'); }} disabled={isSubmitting || globalIsLoading} className="font-medium appearance-none">
                     {Object.values(TaskStatus).map(s => <option key={s} value={s}>{formatEnumForDisplay(s)}</option>)}
                 </select>
                  <ICON_MAP.ChevronDownIcon className={selectArrowClass} />

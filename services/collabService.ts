@@ -24,6 +24,14 @@ export interface CollabTaskUpdatePayload {
   };
 }
 
+export interface CollabUserStatusPayload {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  availabilityStatus: 'available' | 'away' | 'busy';
+  timestamp: string;
+}
+
 class CollabService {
   private broadcastChannel: BroadcastChannel | null = null;
   private supabaseChannel: any = null;
@@ -72,13 +80,25 @@ class CollabService {
   }
 
   private initBroadcastChannel() {
-    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    if (typeof window === 'undefined') return;
     try {
-      this.broadcastChannel = new BroadcastChannel('omni_collab_sync');
-      this.broadcastChannel.onmessage = (event) => {
-        const { type, payload } = event.data || {};
-        this.handleIncomingEvent(type, payload);
-      };
+      if ('BroadcastChannel' in window) {
+        this.broadcastChannel = new BroadcastChannel('omni_collab_sync');
+        this.broadcastChannel.onmessage = (event) => {
+          const { type, payload } = event.data || {};
+          this.handleIncomingEvent(type, payload);
+        };
+      }
+      window.addEventListener('storage', (event) => {
+        if (event.key === 'omni_collab_realtime_pkt' && event.newValue) {
+          try {
+            const parsed = JSON.parse(event.newValue);
+            if (parsed && parsed.sessionId !== this.sessionId) {
+              this.handleIncomingEvent(parsed.type, parsed.payload);
+            }
+          } catch (e) {}
+        }
+      });
     } catch (e) {
       console.warn('BroadcastChannel initialization error:', e);
     }
@@ -220,6 +240,35 @@ class CollabService {
         .on('broadcast', { event: 'task_updated' }, ({ payload }: { payload: CollabTaskUpdatePayload }) => {
           this.handleTaskUpdated(payload);
         })
+        .on('broadcast', { event: 'task_created' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_task_created', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'task_deleted' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_task_deleted', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'user_status_changed' }, ({ payload }: { payload: CollabUserStatusPayload }) => {
+          this.handleUserStatusChanged(payload);
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, (payload: any) => {
+          const updatedRow = payload.new;
+          if (!updatedRow || !updatedRow.id) return;
+          const mappedUpdates: Record<string, any> = {
+            ...updatedRow,
+            projectId: updatedRow.project_id || updatedRow.projectId,
+            dueDate: updatedRow.due_date || updatedRow.dueDate,
+            sprintId: updatedRow.sprint_id || updatedRow.sprintId,
+          };
+          this.handleTaskUpdated({
+            taskId: updatedRow.id,
+            taskTitle: updatedRow.title || 'Task',
+            updates: mappedUpdates,
+            actor: { id: 'remote', name: 'Teammate' }
+          });
+        })
         .on('broadcast', { event: 'chat_message_notification' }, ({ payload }: { payload: ChatMessage }) => {
           this.handleChatMessageNotification(payload);
         })
@@ -281,6 +330,16 @@ class CollabService {
       }
     } else if (type === 'TASK_UPDATED' && payload) {
       this.handleTaskUpdated(payload);
+    } else if (type === 'TASK_CREATED' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_task_created', { detail: payload }));
+      }
+    } else if (type === 'TASK_DELETED' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_task_deleted', { detail: payload }));
+      }
+    } else if (type === 'USER_STATUS_CHANGED' && payload) {
+      this.handleUserStatusChanged(payload);
     } else if (type === 'CHAT_NOTIFICATION' && payload) {
       this.handleChatMessageNotification(payload);
     }
@@ -334,6 +393,68 @@ class CollabService {
     }
   }
 
+  private handleUserStatusChanged(payload: CollabUserStatusPayload) {
+    if (!payload || !payload.userId) return;
+
+    // Update all matching presence entries for this user
+    let found = false;
+    this.presencesMap.forEach((val, key) => {
+      if (val.userId === payload.userId) {
+        this.presencesMap.set(key, {
+          ...val,
+          userName: payload.userName || val.userName,
+          userAvatar: payload.userAvatar || val.userAvatar,
+          availabilityStatus: payload.availabilityStatus,
+          lastActive: new Date().toISOString(),
+          lastSeenLocally: Date.now(),
+        });
+        found = true;
+      }
+    });
+
+    if (!found) {
+      this.presencesMap.set(payload.userId, {
+        userId: payload.userId,
+        sessionId: payload.userId,
+        userName: payload.userName || 'Teammate',
+        userAvatar: payload.userAvatar,
+        availabilityStatus: payload.availabilityStatus,
+        lastActive: new Date().toISOString(),
+        lastSeenLocally: Date.now(),
+        color: '#6366f1',
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('omni_team_statuses');
+        const map = raw ? JSON.parse(raw) : {};
+        map[payload.userId] = payload.availabilityStatus;
+        localStorage.setItem('omni_team_statuses', JSON.stringify(map));
+      } catch (e) {}
+
+      window.dispatchEvent(new CustomEvent('omni_remote_user_status_changed', { detail: payload }));
+    }
+
+    this.notifyPresencesChange();
+  }
+
+  private emitLocalPacket(type: string, payload: any) {
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({ type, payload });
+      } catch (e) {}
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          'omni_collab_realtime_pkt',
+          JSON.stringify({ type, payload, sessionId: this.sessionId, ts: Date.now() })
+        );
+      } catch (e) {}
+    }
+  }
+
   public recordUserActive(userId: string, userName?: string, userAvatar?: string) {
     if (!userId) return;
 
@@ -360,6 +481,7 @@ class CollabService {
       isEditing: existing?.isEditing || false,
       editingField: existing?.editingField,
       isTypingComment: existing?.isTypingComment || false,
+      availabilityStatus: existing?.availabilityStatus || 'available',
       lastActive: new Date().toISOString(),
       lastSeenLocally: Date.now(),
       color: existing?.color || '#6366f1',
@@ -372,7 +494,15 @@ class CollabService {
   public updatePresence(
     taskId?: string,
     view?: string,
-    flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string; projectId?: string; clearTask?: boolean }
+    flags?: {
+      isEditing?: boolean;
+      editingField?: string;
+      isTypingComment?: boolean;
+      statusAction?: string;
+      availabilityStatus?: 'available' | 'away' | 'busy';
+      projectId?: string;
+      clearTask?: boolean;
+    }
   ) {
     if (!this.currentUser) return;
 
@@ -382,6 +512,29 @@ class CollabService {
     const resolvedTaskId = flags?.clearTask
       ? undefined
       : (taskId !== undefined ? taskId : this.currentPresence?.currentTaskId);
+
+    let savedAvailability: 'available' | 'away' | 'busy' = 'available';
+    if (typeof window !== 'undefined') {
+      try {
+        const mapRaw = localStorage.getItem('omni_team_statuses');
+        const map = mapRaw ? JSON.parse(mapRaw) : {};
+        if (map[this.currentUser.id]) {
+          savedAvailability = map[this.currentUser.id];
+        }
+      } catch (e) {}
+    }
+
+    const resolvedAvailability =
+      flags?.availabilityStatus ?? this.currentPresence?.availabilityStatus ?? savedAvailability;
+
+    if (flags?.availabilityStatus && typeof window !== 'undefined') {
+      try {
+        const mapRaw = localStorage.getItem('omni_team_statuses');
+        const map = mapRaw ? JSON.parse(mapRaw) : {};
+        map[this.currentUser.id] = flags.availabilityStatus;
+        localStorage.setItem('omni_team_statuses', JSON.stringify(map));
+      } catch (e) {}
+    }
 
     this.currentPresence = {
       userId: this.currentUser.id,
@@ -395,6 +548,7 @@ class CollabService {
       editingField: resolvedTaskId ? (flags?.editingField !== undefined ? flags.editingField : this.currentPresence?.editingField) : undefined,
       isTypingComment: resolvedTaskId ? (flags?.isTypingComment !== undefined ? flags.isTypingComment : (this.currentPresence?.isTypingComment || false)) : false,
       statusAction: flags?.statusAction ?? this.currentPresence?.statusAction,
+      availabilityStatus: resolvedAvailability,
       lastActive: new Date().toISOString(),
       lastSeenLocally: Date.now(),
       color: userColor,
@@ -404,15 +558,8 @@ class CollabService {
     this.presencesMap.set(this.sessionId, this.currentPresence);
     this.notifyPresencesChange();
 
-    // Broadcast across tabs
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage({
-          type: 'PRESENCE_BROADCAST',
-          payload: this.currentPresence
-        });
-      } catch (e) {}
-    }
+    // Broadcast across tabs & windows
+    this.emitLocalPacket('PRESENCE_BROADCAST', this.currentPresence);
 
     // Broadcast across devices / networks via Supabase Realtime
     if (this.supabaseChannel) {
@@ -425,50 +572,59 @@ class CollabService {
     }
   }
 
+  public broadcastUserStatusChanged(availabilityStatus: 'available' | 'away' | 'busy') {
+    if (!this.currentUser) return;
+    const payload: CollabUserStatusPayload = {
+      userId: this.currentUser.id,
+      userName: this.currentUser.full_name || this.currentUser.email || 'Teammate',
+      userAvatar: this.currentUser.avatar_url,
+      availabilityStatus,
+      timestamp: new Date().toISOString(),
+    };
+    this.updatePresence(undefined, undefined, {
+      availabilityStatus,
+      statusAction: `status_${availabilityStatus}`,
+    });
+    this.emitLocalPacket('USER_STATUS_CHANGED', payload);
+    this.sendBroadcast('user_status_changed', payload, true);
+  }
+
   public broadcastCommentAdded(payload: CollabCommentPayload) {
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage({ type: 'TASK_COMMENT_ADDED', payload });
-      } catch (e) {}
-    }
+    this.emitLocalPacket('TASK_COMMENT_ADDED', payload);
     this.sendBroadcast('task_comment_added', payload, true);
   }
 
   public broadcastCommentUpdated(taskId: string, commentId: string, content: string) {
     const payload = { taskId, commentId, content };
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage({ type: 'TASK_COMMENT_UPDATED', payload });
-      } catch (e) {}
-    }
+    this.emitLocalPacket('TASK_COMMENT_UPDATED', payload);
     this.sendBroadcast('task_comment_updated', payload, true);
   }
 
   public broadcastCommentDeleted(taskId: string, commentId: string) {
     const payload = { taskId, commentId };
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage({ type: 'TASK_COMMENT_DELETED', payload });
-      } catch (e) {}
-    }
+    this.emitLocalPacket('TASK_COMMENT_DELETED', payload);
     this.sendBroadcast('task_comment_deleted', payload, true);
   }
 
   public broadcastTaskUpdated(payload: CollabTaskUpdatePayload) {
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage({ type: 'TASK_UPDATED', payload });
-      } catch (e) {}
-    }
+    this.emitLocalPacket('TASK_UPDATED', payload);
     this.sendBroadcast('task_updated', payload, true);
   }
 
+  public broadcastTaskCreated(task: any, actor: { id: string; name: string }) {
+    const payload = { task, actor };
+    this.emitLocalPacket('TASK_CREATED', payload);
+    this.sendBroadcast('task_created', payload, true);
+  }
+
+  public broadcastTaskDeleted(taskId: string, taskTitle: string, actor: { id: string; name: string }) {
+    const payload = { taskId, taskTitle, actor };
+    this.emitLocalPacket('TASK_DELETED', payload);
+    this.sendBroadcast('task_deleted', payload, true);
+  }
+
   public broadcastChatNotification(message: ChatMessage) {
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage({ type: 'CHAT_NOTIFICATION', payload: message });
-      } catch (e) {}
-    }
+    this.emitLocalPacket('CHAT_NOTIFICATION', message);
     this.sendBroadcast('chat_message_notification', message, true);
   }
 

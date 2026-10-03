@@ -1010,6 +1010,12 @@ const appActionsCreator = (
         const createdTask = await supabaseService.createTask(taskData);
         await selfActions.fetchTasksForProject(activeProject.id); 
         selfActions.emitEvent('TASK_CREATED', { task: createdTask });
+        if (createdTask) {
+          collabService.broadcastTaskCreated(createdTask, {
+            id: currentUser.id,
+            name: currentUser.full_name || currentUser.email || 'Teammate'
+          });
+        }
         updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [], parentTaskIdForNewTask: null }));
         return createdTask;
       } catch (error: any) {
@@ -1019,14 +1025,14 @@ const appActionsCreator = (
       }
     },
     updateTask: async (taskId: string, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at' | 'creator_id' | 'projectId'>>) => {
-        const { activeProject } = get();
-        if (!activeProject) {
-          updateState(s => ({ ...s, tasksError: "Cannot update task: No active project." }));
-          return;
-        }
+        const { activeProject, currentUser } = get();
         const originalTasks = get().tasks;
-        const originalTask = originalTasks.find(t => t.id === taskId);
+        const originalMyTasks = get().myTasks;
+        const originalTask = originalTasks.find(t => t.id === taskId) || originalMyTasks.find(t => t.id === taskId);
         const updatedTasksOptimistic = originalTasks.map(t => 
+            t.id === taskId ? { ...t, ...updates } : t
+        );
+        const updatedMyTasksOptimistic = originalMyTasks.map(t =>
             t.id === taskId ? { ...t, ...updates } : t
         );
         const currentTaskToView = get().taskToView;
@@ -1035,6 +1041,7 @@ const appActionsCreator = (
         updateState(s => ({ 
             ...s, 
             tasks: updatedTasksOptimistic, 
+            myTasks: updatedMyTasksOptimistic,
             taskToView: updatedTaskToView,
             isLoadingTasks: true, 
             tasksError: null, 
@@ -1042,9 +1049,25 @@ const appActionsCreator = (
             taskToEdit: null 
         }));
 
+        // Immediately broadcast the task update (status, priority, assignee, title, etc.) in real-time
+        if (originalTask || currentTaskToView) {
+          const targetTitle = (originalTask?.title || currentTaskToView?.title || 'Task');
+          collabService.broadcastTaskUpdated({
+            taskId,
+            taskTitle: targetTitle,
+            updates,
+            actor: {
+              id: currentUser?.id || 'system',
+              name: currentUser?.full_name || currentUser?.email || 'Teammate',
+            }
+          });
+        }
+
         try {
             await supabaseService.updateTask(taskId, updates);
-            await selfActions.fetchTasksForProject(activeProject.id); 
+            if (activeProject?.id) {
+              await selfActions.fetchTasksForProject(activeProject.id); 
+            }
             if (originalTask) {
               const updatedTask = { ...originalTask, ...updates };
               selfActions.emitEvent('TASK_UPDATED', { task: updatedTask });
@@ -1056,14 +1079,14 @@ const appActionsCreator = (
                 selfActions.emitEvent('TASK_STATUS_UPDATED', { task: updatedTask });
               }
             }
-             updateState(s => ({ ...s, isLoadingTasks: false }));
+            updateState(s => ({ ...s, isLoadingTasks: false }));
         } catch (error: any) {
             const message = parseErrorMessage(error, `Failed to update task ${taskId}. Reverting.`);
-            updateState(s => ({ ...s, tasks: originalTasks, isLoadingTasks: false, tasksError: message }));
+            updateState(s => ({ ...s, tasks: originalTasks, myTasks: originalMyTasks, isLoadingTasks: false, tasksError: message }));
         }
     },
     deleteTask: async (taskId: string) => {
-      const { activeProject, tasks: currentTasks } = get();
+      const { activeProject, tasks: currentTasks, currentUser } = get();
       if (!activeProject) {
         updateState(s => ({ ...s, tasksError: "Cannot delete task: No active project." }));
         return;
@@ -1071,6 +1094,12 @@ const appActionsCreator = (
       const tasksAfterDelete = currentTasks.filter(t => t.id !== taskId);
       const taskToDelete = currentTasks.find(t => t.id === taskId);
       updateState(s => ({ ...s, tasks: tasksAfterDelete, isLoadingTasks: true, tasksError: null }));
+      if (taskToDelete) {
+        collabService.broadcastTaskDeleted(taskId, taskToDelete.title, {
+          id: currentUser?.id || 'system',
+          name: currentUser?.full_name || currentUser?.email || 'Teammate'
+        });
+      }
       try {
         await supabaseService.deleteTask(taskId);
         await selfActions.fetchTasksForProject(activeProject.id); 
@@ -1139,7 +1168,24 @@ const appActionsCreator = (
         .concat(tasksInNewStatusColumn)
         .concat(originalStatus !== newStatus ? tasksInOldStatusColumn : []);
 
-      updateState(s => ({ ...s, tasks: finalOptimisticTasks, tasksError: null }));
+      const currentTaskToView = get().taskToView;
+      const updatedTaskToView = currentTaskToView?.id === draggedTaskId
+        ? { ...currentTaskToView, status: newStatus, position: newVisualIndexInColumn }
+        : currentTaskToView;
+
+      updateState(s => ({ ...s, tasks: finalOptimisticTasks, taskToView: updatedTaskToView, tasksError: null }));
+
+      // Broadcast task move / status update immediately in real-time
+      const curUser = get().currentUser;
+      collabService.broadcastTaskUpdated({
+        taskId: draggedTaskId,
+        taskTitle: draggedTask.title,
+        updates: { status: newStatus, position: newVisualIndexInColumn },
+        actor: {
+          id: curUser?.id || 'system',
+          name: curUser?.full_name || curUser?.email || 'Teammate',
+        }
+      });
 
       const tasksToUpdateOnBackend: { id: string; status: TaskStatus; position: number }[] = [];
       
@@ -1645,7 +1691,15 @@ const appActionsCreator = (
     updateUserPresence: (
       taskId?: string,
       view?: string,
-      flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string; projectId?: string; clearTask?: boolean }
+      flags?: {
+        isEditing?: boolean;
+        editingField?: string;
+        isTypingComment?: boolean;
+        statusAction?: string;
+        availabilityStatus?: 'available' | 'away' | 'busy';
+        projectId?: string;
+        clearTask?: boolean;
+      }
     ) => {
       const state = get();
       const curUser = state.currentUser;
@@ -1835,13 +1889,109 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
     window.addEventListener('omni_remote_task_updated', ((e: CustomEvent) => {
       const payload = e.detail;
       if (!payload || !payload.taskId) return;
+      const curUser = getPureState().currentUser;
+      const existingTask = getPureState().tasks.find(t => t.id === payload.taskId);
+      const prevStatus = existingTask?.status;
       
       setState(s => {
         const updatedTasks = s.tasks.map(t => t.id === payload.taskId ? { ...t, ...payload.updates } : t);
         const updatedMyTasks = s.myTasks.map(t => t.id === payload.taskId ? { ...t, ...payload.updates } : t);
         const updatedToView = s.taskToView?.id === payload.taskId ? { ...s.taskToView, ...payload.updates } : s.taskToView;
-        return { ...s, tasks: updatedTasks, myTasks: updatedMyTasks, taskToView: updatedToView };
+        return {
+          ...s,
+          tasks: updatedTasks,
+          myTasks: updatedMyTasks,
+          taskToView: updatedToView,
+          highlightedTaskId: payload.taskId,
+        };
       });
+
+      if (payload.actor?.id && payload.actor.id !== 'remote' && payload.actor.id !== curUser?.id) {
+        const actorName = payload.actor.name || 'Teammate';
+        const taskTitle = payload.taskTitle || existingTask?.title || 'Task';
+        if (payload.updates?.status && payload.updates.status !== prevStatus) {
+          const prettyStatus = String(payload.updates.status).replace(/_/g, ' ').toUpperCase();
+          actions.addToast(
+            `⚡ Status Updated by ${actorName}`,
+            `"${taskTitle}" moved to ${prettyStatus}`,
+            'info',
+            { entity_type: 'task', entity_id: payload.taskId, reference_id: payload.taskId }
+          );
+        } else {
+          const changedFields = Object.keys(payload.updates || {}).filter(k => k !== 'position' && k !== 'updated_at');
+          if (changedFields.length > 0) {
+            actions.addToast(
+              `⚡ Task Updated by ${actorName}`,
+              `Updated ${changedFields.join(', ')} on "${taskTitle}"`,
+              'info',
+              { entity_type: 'task', entity_id: payload.taskId, reference_id: payload.taskId }
+            );
+          }
+        }
+      }
+    }) as EventListener);
+
+    // 4. Remote Task Created & Deleted
+    window.addEventListener('omni_remote_task_created', ((e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || !payload.task) return;
+      const curUser = getPureState().currentUser;
+      setState(s => {
+        if (s.tasks.some(t => t.id === payload.task.id)) return s;
+        return {
+          ...s,
+          tasks: [...s.tasks, payload.task],
+          highlightedTaskId: payload.task.id,
+        };
+      });
+      if (payload.actor?.id && payload.actor.id !== curUser?.id) {
+        actions.addToast(
+          `⚡ New Task by ${payload.actor.name || 'Teammate'}`,
+          `Created "${payload.task.title}"`,
+          'info',
+          { entity_type: 'task', entity_id: payload.task.id, reference_id: payload.task.id }
+        );
+      }
+    }) as EventListener);
+
+    window.addEventListener('omni_remote_task_deleted', ((e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || !payload.taskId) return;
+      const curUser = getPureState().currentUser;
+      setState(s => ({
+        ...s,
+        tasks: s.tasks.filter(t => t.id !== payload.taskId),
+        myTasks: s.myTasks.filter(t => t.id !== payload.taskId),
+        isViewTaskModalOpen: s.taskToView?.id === payload.taskId ? false : s.isViewTaskModalOpen,
+        taskToView: s.taskToView?.id === payload.taskId ? null : s.taskToView,
+      }));
+      if (payload.actor?.id && payload.actor.id !== curUser?.id) {
+        actions.addToast(
+          `Task Deleted by ${payload.actor.name || 'Teammate'}`,
+          `Removed "${payload.taskTitle || 'Task'}"`,
+          'warning'
+        );
+      }
+    }) as EventListener);
+
+    // 5. Remote User Availability Status Changed
+    window.addEventListener('omni_remote_user_status_changed', ((e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || !payload.userId) return;
+      const curUser = getPureState().currentUser;
+      if (curUser && payload.userId === curUser.id) return;
+      const statusLabel =
+        payload.availabilityStatus === 'available'
+          ? 'Available 🟢'
+          : payload.availabilityStatus === 'away'
+            ? 'Away 🟡'
+            : 'Busy / DND 🔴';
+      actions.addToast(
+        `⚡ ${payload.userName || 'Teammate'} updated status`,
+        `Now ${statusLabel}`,
+        'info',
+        { entity_type: 'chat', entity_id: payload.userId, reference_id: payload.userId }
+      );
     }) as EventListener);
   }
 

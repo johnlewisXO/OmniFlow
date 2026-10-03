@@ -66,8 +66,18 @@ export const TaskDetailsModal: React.FC = () => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
   const [recentEditingField, setRecentEditingField] = useState<string | null>(null);
+  const [liveTicketBroadcast, setLiveTicketBroadcast] = useState<{ message: string; isRemote: boolean } | null>(null);
   const editFieldTimeoutRef = React.useRef<any>(null);
+  const broadcastBannerTimeoutRef = React.useRef<any>(null);
   const wasModalOpenRef = React.useRef<boolean>(false);
+
+  const showLiveTicketBroadcast = (message: string, isRemote: boolean) => {
+    setLiveTicketBroadcast({ message, isRemote });
+    if (broadcastBannerTimeoutRef.current) clearTimeout(broadcastBannerTimeoutRef.current);
+    broadcastBannerTimeoutRef.current = setTimeout(() => {
+      setLiveTicketBroadcast(null);
+    }, 4500);
+  };
 
   const markEditingField = (fieldName: string) => {
     setRecentEditingField(fieldName);
@@ -75,6 +85,11 @@ export const TaskDetailsModal: React.FC = () => {
     editFieldTimeoutRef.current = setTimeout(() => {
       setRecentEditingField(null);
     }, 3500);
+    if (fieldName === 'status') {
+      showLiveTicketBroadcast('Broadcasting status update to teammates in real-time...', false);
+    } else {
+      showLiveTicketBroadcast(`Broadcasting ${fieldName} update in real-time...`, false);
+    }
   };
 
   const currentEditingField = isEditingTitle
@@ -409,6 +424,28 @@ export const TaskDetailsModal: React.FC = () => {
       });
     }
   }, [isCurrentlyEditing, currentEditingField, isTypingComment, isViewTaskModalOpen, taskToView?.id]);
+
+  useEffect(() => {
+    if (!isViewTaskModalOpen || !taskToView) return;
+    const handleRemoteTaskUpdate = (e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || payload.taskId !== taskToView.id) return;
+      if (payload.actor?.id && payload.actor.id !== currentUser?.id && payload.actor.id !== 'remote') {
+        const actorName = payload.actor.name || 'Teammate';
+        if (payload.updates?.status) {
+          const prettyStatus = String(payload.updates.status).replace(/_/g, ' ').toUpperCase();
+          showLiveTicketBroadcast(`${actorName} updated status to ${prettyStatus} in real-time`, true);
+        } else {
+          const keys = Object.keys(payload.updates || {}).filter(k => k !== 'position' && k !== 'updated_at');
+          if (keys.length > 0) {
+            showLiveTicketBroadcast(`${actorName} updated ${keys.join(', ')} in real-time`, true);
+          }
+        }
+      }
+    };
+    window.addEventListener('omni_remote_task_updated', handleRemoteTaskUpdate as EventListener);
+    return () => window.removeEventListener('omni_remote_task_updated', handleRemoteTaskUpdate as EventListener);
+  }, [isViewTaskModalOpen, taskToView?.id, currentUser?.id]);
 
   const fetchTaskDetails = async () => {
     if (!taskToView) return;
@@ -871,11 +908,14 @@ export const TaskDetailsModal: React.FC = () => {
 
   const parentTask = taskToView.parent_task_id ? tasks.find(t => t.id === taskToView.parent_task_id) : null;
 
-  // Active live participants for this specific task (deduplicated by userId)
+  // Active live OTHER participants for this specific task (deduplicated by userId)
+  // Only include other people — never include the current user themselves
   const activeTaskParticipants: UserPresence[] = (() => {
     const map = new Map<string, UserPresence>();
     (presences || []).forEach(p => {
       if (p.currentTaskId !== taskToView.id) return;
+      if (currentUser && p.userId === currentUser.id) return;
+      if (p.sessionId && p.sessionId === collabService.sessionId) return;
       const existing = map.get(p.userId);
       if (!existing) {
         map.set(p.userId, { ...p });
@@ -888,31 +928,10 @@ export const TaskDetailsModal: React.FC = () => {
         });
       }
     });
-    if (currentUser && !map.has(currentUser.id)) {
-      map.set(currentUser.id, {
-        userId: currentUser.id,
-        userName: currentUser.full_name || currentUser.email || 'You',
-        userAvatar: currentUser.avatar_url,
-        currentTaskId: taskToView.id,
-        isEditing: isCurrentlyEditing,
-        editingField: currentEditingField,
-        isTypingComment,
-        lastActive: new Date().toISOString(),
-        color: '#6366f1',
-      });
-    } else if (currentUser && map.has(currentUser.id)) {
-      const me = map.get(currentUser.id)!;
-      map.set(currentUser.id, {
-        ...me,
-        isEditing: Boolean(me.isEditing || isCurrentlyEditing),
-        editingField: currentEditingField || me.editingField,
-        isTypingComment: Boolean(me.isTypingComment || isTypingComment),
-      });
-    }
     return Array.from(map.values());
   })();
 
-  // Remote viewers (other users, or all participants if viewing together)
+  // Remote viewers (only other users viewing/editing/commenting on this task)
   const activeViewers = activeTaskParticipants;
 
   // Derived blocker & dependency tasks
@@ -1012,95 +1031,111 @@ export const TaskDetailsModal: React.FC = () => {
         {/* Left Column: Main Content */}
         <div className="w-full md:flex-1 flex flex-col min-w-0 md:overflow-y-auto pr-0 md:pr-2">
           
-          {/* Real-Time Task Presence Bar (Viewing, Editing, Typing a Comment) */}
-          <div className={`mb-4 p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${
-            darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50 border-slate-200/80'
-          }`}>
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              <span className="relative flex h-2 w-2 items-center justify-center">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+          {/* Real-Time Broadcast Feedback Banner */}
+          {liveTicketBroadcast && (
+            <div className={`mb-3 px-3.5 py-2 rounded-xl border flex items-center justify-between gap-2 text-xs font-semibold animate-pulse ${
+              liveTicketBroadcast.isRemote
+                ? 'bg-indigo-500/15 border-indigo-500/35 text-indigo-700 dark:text-indigo-300'
+                : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-300'
+            }`}>
+              <div className="flex items-center gap-2">
+                <ICON_MAP.BoltIcon className="w-4 h-4 flex-shrink-0" />
+                <span>{liveTicketBroadcast.message}</span>
+              </div>
+              <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/40 dark:bg-slate-900/40 font-bold">
+                Live Sync
               </span>
-              <span>Live Task Activity:</span>
             </div>
+          )}
 
-            <div className="flex flex-wrap items-center gap-2">
-              {activeTaskParticipants.map(participant => {
-                const isMe = participant.userId === currentUser?.id;
-                const displayName = isMe
-                  ? `${(participant.userName || 'You').split(' ')[0]} (You)`
-                  : (participant.userName || 'Teammate').split(' ')[0];
-                return (
-                  <React.Fragment key={participant.userId}>
-                    {/* Viewing status */}
-                    {!participant.isEditing && !participant.isTypingComment && (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold"
-                        title={`${participant.userName} is viewing this task`}
-                      >
-                        <span
-                          style={{ backgroundColor: participant.color || '#10b981' }}
-                          className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
-                        >
-                          {participant.userAvatar ? (
-                            <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            displayName.charAt(0).toUpperCase()
-                          )}
-                        </span>
-                        <ICON_MAP.EyeIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>{displayName} · Viewing</span>
-                      </span>
-                    )}
+          {/* Real-Time Task Presence Bar (Only shown when OTHER people are Viewing, Editing, or Typing a Comment) */}
+          {activeTaskParticipants.length > 0 && (
+            <div className={`mb-4 p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${
+              darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50 border-slate-200/80'
+            }`}>
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <span className="relative flex h-2 w-2 items-center justify-center">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                <span>Other Teammates Active:</span>
+              </div>
 
-                    {/* Editing status */}
-                    {participant.isEditing && (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 text-xs font-bold animate-pulse"
-                        title={`${participant.userName} is editing ${participant.editingField || 'this task'}`}
-                      >
+              <div className="flex flex-wrap items-center gap-2">
+                {activeTaskParticipants.map(participant => {
+                  const displayName = (participant.userName || 'Teammate').split(' ')[0];
+                  return (
+                    <React.Fragment key={participant.userId}>
+                      {/* Viewing status */}
+                      {!participant.isEditing && !participant.isTypingComment && (
                         <span
-                          style={{ backgroundColor: participant.color || '#3b82f6' }}
-                          className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold"
+                          title={`${participant.userName} is viewing this task`}
                         >
-                          {participant.userAvatar ? (
-                            <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            displayName.charAt(0).toUpperCase()
-                          )}
+                          <span
+                            style={{ backgroundColor: participant.color || '#10b981' }}
+                            className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                          >
+                            {participant.userAvatar ? (
+                              <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              displayName.charAt(0).toUpperCase()
+                            )}
+                          </span>
+                          <ICON_MAP.EyeIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>{displayName} · Viewing</span>
                         </span>
-                        <ICON_MAP.PencilIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>
-                          {displayName} · Editing{participant.editingField ? ` (${participant.editingField})` : ''}
-                        </span>
-                      </span>
-                    )}
+                      )}
 
-                    {/* Typing comment status */}
-                    {participant.isTypingComment && (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold animate-pulse"
-                        title={`${participant.userName} is typing a comment on this task`}
-                      >
+                      {/* Editing status */}
+                      {participant.isEditing && (
                         <span
-                          style={{ backgroundColor: participant.color || '#8b5cf6' }}
-                          className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 text-xs font-bold animate-pulse"
+                          title={`${participant.userName} is editing ${participant.editingField || 'this task'}`}
                         >
-                          {participant.userAvatar ? (
-                            <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            displayName.charAt(0).toUpperCase()
-                          )}
+                          <span
+                            style={{ backgroundColor: participant.color || '#3b82f6' }}
+                            className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                          >
+                            {participant.userAvatar ? (
+                              <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              displayName.charAt(0).toUpperCase()
+                            )}
+                          </span>
+                          <ICON_MAP.PencilIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>
+                            {displayName} · Editing{participant.editingField ? ` (${participant.editingField})` : ''}
+                          </span>
                         </span>
-                        <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>{displayName} · Typing comment...</span>
-                      </span>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+                      )}
+
+                      {/* Typing comment status */}
+                      {participant.isTypingComment && (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold animate-pulse"
+                          title={`${participant.userName} is typing a comment on this task`}
+                        >
+                          <span
+                            style={{ backgroundColor: participant.color || '#8b5cf6' }}
+                            className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                          >
+                            {participant.userAvatar ? (
+                              <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              displayName.charAt(0).toUpperCase()
+                            )}
+                          </span>
+                          <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>{displayName} · Typing comment...</span>
+                        </span>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex items-center justify-between mb-6">
             {isEditingTitle ? (

@@ -66,15 +66,92 @@ export const TeamsChatPage: React.FC = () => {
   // Realtime guide modal
   const [showRealtimeGuide, setShowRealtimeGuide] = useState(false);
 
-  // User presence status
-  const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>('available');
+  // User presence status (synced in real-time across tabs and users)
+  const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      try {
+        const raw = localStorage.getItem('omni_team_statuses');
+        const map = raw ? JSON.parse(raw) : {};
+        if (map[currentUser.id]) return map[currentUser.id];
+      } catch (e) {}
+    }
+    return 'available';
+  });
+
+  const [teamStatuses, setTeamStatuses] = useState<Record<string, 'available' | 'away' | 'busy'>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('omni_team_statuses');
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {}
+    }
+    return {};
+  });
+
+  const [statusBroadcastBanner, setStatusBroadcastBanner] = useState<{ text: string; status: 'available' | 'away' | 'busy' } | null>(null);
+  const statusBannerTimeoutRef = useRef<any>(null);
+
+  const showStatusBanner = (text: string, status: 'available' | 'away' | 'busy') => {
+    setStatusBroadcastBanner({ text, status });
+    if (statusBannerTimeoutRef.current) clearTimeout(statusBannerTimeoutRef.current);
+    statusBannerTimeoutRef.current = setTimeout(() => {
+      setStatusBroadcastBanner(null);
+    }, 5000);
+  };
+
+  const handleMyStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
+    setMyStatus(newStatus);
+    if (currentUser?.id) {
+      setTeamStatuses(prev => {
+        const next = { ...prev, [currentUser.id]: newStatus };
+        try {
+          localStorage.setItem('omni_team_statuses', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+    }
+    collabService.broadcastUserStatusChanged(newStatus);
+    updateUserPresence(undefined, 'team_chat_view', {
+      availabilityStatus: newStatus,
+      statusAction: 'chatting',
+    });
+    const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
+    showStatusBanner(`Broadcasting your status as "${label}" in real-time to all teammates`, newStatus);
+  };
+
+  useEffect(() => {
+    const handleRemoteStatusChange = (e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || !payload.userId) return;
+      setTeamStatuses(prev => ({
+        ...prev,
+        [payload.userId]: payload.availabilityStatus,
+      }));
+      if (currentUser && payload.userId === currentUser.id) {
+        setMyStatus(payload.availabilityStatus);
+      } else {
+        const label =
+          payload.availabilityStatus === 'available'
+            ? 'Available'
+            : payload.availabilityStatus === 'away'
+              ? 'Away'
+              : 'Busy / DND';
+        showStatusBanner(`${payload.userName || 'Teammate'} updated status to "${label}" in real-time`, payload.availabilityStatus);
+      }
+    };
+    window.addEventListener('omni_remote_user_status_changed', handleRemoteStatusChange as EventListener);
+    return () => window.removeEventListener('omni_remote_user_status_changed', handleRemoteStatusChange as EventListener);
+  }, [currentUser?.id]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Announce chat presence
   useEffect(() => {
-    updateUserPresence(undefined, 'team_chat_view', { statusAction: 'chatting' });
-  }, [activeDirectUserId, activeChannelId, updateUserPresence]);
+    updateUserPresence(undefined, 'team_chat_view', {
+      availabilityStatus: myStatus,
+      statusAction: 'chatting',
+    });
+  }, [activeDirectUserId, activeChannelId, myStatus, updateUserPresence]);
 
   // Handle direct contact selection via interactive toast clicks
   useEffect(() => {
@@ -437,12 +514,13 @@ export const TeamsChatPage: React.FC = () => {
               {/* Presence Selector */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs">
                 <span className={`w-2.5 h-2.5 rounded-full ${
-                  myStatus === 'available' ? 'bg-emerald-400' :
-                  myStatus === 'away' ? 'bg-amber-400' : 'bg-rose-400'
+                  myStatus === 'available' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]' :
+                  myStatus === 'away' ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]' : 'bg-rose-400 shadow-[0_0_6px_rgba(251,113,133,0.9)]'
                 }`} />
                 <select
                   value={myStatus}
-                  onChange={e => setMyStatus(e.target.value as any)}
+                  onChange={e => handleMyStatusChange(e.target.value as 'available' | 'away' | 'busy')}
+                  aria-label="Update availability status"
                   className="bg-transparent text-white text-xs font-semibold focus:outline-hidden cursor-pointer"
                 >
                   <option value="available" className="bg-slate-900 text-white">Available</option>
@@ -470,6 +548,23 @@ export const TeamsChatPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Live Real-Time Status Broadcast Banner */}
+          {statusBroadcastBanner && (
+            <div className="mt-3 px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 flex items-center justify-between gap-2 text-xs text-white animate-pulse">
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                  statusBroadcastBanner.status === 'available' ? 'bg-emerald-400' :
+                  statusBroadcastBanner.status === 'away' ? 'bg-amber-400' : 'bg-rose-400'
+                }`} />
+                <ICON_MAP.BoltIcon className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
+                <span className="font-semibold">{statusBroadcastBanner.text}</span>
+              </div>
+              <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-white/15 text-indigo-100">
+                Real-Time Broadcast
+              </span>
+            </div>
+          )}
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-indigo-800/40 text-xs">
@@ -598,7 +693,22 @@ export const TeamsChatPage: React.FC = () => {
                     const isActive = activeDirectUserId === user.id;
                     const userPresence = presences.find(p => p.userId === user.id);
                     const isUserTyping = !!(typingUsers[user.id] && typingUsers[user.id].length > 0);
-                    const isOnline = !!userPresence || isUserTyping;
+                    const isOnline = !!userPresence || isUserTyping || !!teamStatuses[user.id];
+                    const userAvailability: 'available' | 'away' | 'busy' =
+                      userPresence?.availabilityStatus || teamStatuses[user.id] || 'available';
+                    const statusDotClass = !isOnline
+                      ? 'bg-slate-400'
+                      : userAvailability === 'away'
+                        ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.85)]'
+                        : userAvailability === 'busy'
+                          ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.85)]'
+                          : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]';
+                    const statusLabel =
+                      userAvailability === 'away'
+                        ? 'Away'
+                        : userAvailability === 'busy'
+                          ? 'Busy / DND'
+                          : 'Available';
 
                     return (
                       <button
@@ -615,9 +725,7 @@ export const TeamsChatPage: React.FC = () => {
                         <div className="flex items-center gap-2.5 truncate">
                           <div className="relative flex-shrink-0">
                             <Avatar user={user} size="sm" />
-                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-800 ${
-                              isOnline ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]' : 'bg-slate-400'
-                            }`} />
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-800 ${statusDotClass}`} />
                           </div>
                           <div className="truncate">
                             <span className="block truncate">{user.full_name || user.email}</span>
@@ -629,14 +737,24 @@ export const TeamsChatPage: React.FC = () => {
                               {isUserTyping
                                 ? '✍️ Typing...'
                                 : isOnline
-                                  ? (userPresence?.currentTaskId ? 'Viewing task' : userPresence?.currentView === 'team_chat_view' ? 'In chat' : 'Online now')
+                                  ? `${statusLabel}${userPresence?.currentTaskId ? ' · Viewing task' : userPresence?.currentView === 'team_chat_view' ? ' · In chat' : ''}`
                                   : (user.role ? user.role.replace(/_/g, ' ') : 'Member')}
                             </span>
                           </div>
                         </div>
 
                         {isOnline && (
-                          <span className={`w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse ${isActive ? 'bg-white' : ''}`} />
+                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold flex-shrink-0 ${
+                            isActive
+                              ? 'bg-white/20 text-white'
+                              : userAvailability === 'away'
+                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                : userAvailability === 'busy'
+                                  ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                          }`}>
+                            {statusLabel}
+                          </span>
                         )}
                       </button>
                     );
@@ -670,23 +788,50 @@ export const TeamsChatPage: React.FC = () => {
                 const directPresence = presences.find(p => p.userId === activeDirectUser.id);
                 const directTypingList = typingUsers[activeDirectUser.id] || [];
                 const isDirectUserTyping = directTypingList.length > 0;
-                const isDirectUserOnline = !!directPresence || isDirectUserTyping;
+                const isDirectUserOnline = !!directPresence || isDirectUserTyping || !!teamStatuses[activeDirectUser.id];
+                const directAvailability: 'available' | 'away' | 'busy' =
+                  directPresence?.availabilityStatus || teamStatuses[activeDirectUser.id] || 'available';
+                const directDotClass = !isDirectUserOnline
+                  ? 'bg-slate-400'
+                  : directAvailability === 'away'
+                    ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)]'
+                    : directAvailability === 'busy'
+                      ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)]'
+                      : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse';
+                const directStatusText =
+                  directAvailability === 'away'
+                    ? 'Away'
+                    : directAvailability === 'busy'
+                      ? 'Busy / DND'
+                      : 'Available';
                 return (
                   <>
                     <div className="relative flex-shrink-0">
                       <Avatar user={activeDirectUser} size="md" />
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 ${
-                        isDirectUserOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse' : 'bg-slate-400'
-                      }`} />
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 ${directDotClass}`} />
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h2 className="text-sm font-black text-slate-900 dark:text-white truncate">
                           {activeDirectUser.full_name || activeDirectUser.email}
                         </h2>
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                           {activeDirectUser.role ? activeDirectUser.role.replace(/_/g, ' ') : 'Member'}
                         </span>
+                        {isDirectUserOnline && (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            directAvailability === 'away'
+                              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30'
+                              : directAvailability === 'busy'
+                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30'
+                                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              directAvailability === 'away' ? 'bg-amber-400' : directAvailability === 'busy' ? 'bg-rose-500' : 'bg-emerald-500'
+                            }`} />
+                            {directStatusText}
+                          </span>
+                        )}
                         {isDirectUserTyping && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 animate-pulse">
                             ✍️ Typing...
@@ -700,9 +845,17 @@ export const TeamsChatPage: React.FC = () => {
                           </span>
                         ) : isDirectUserOnline ? (
                           <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping" />
-                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                              Active now{directPresence?.currentTaskId ? ' · Viewing task' : directPresence?.currentView === 'team_chat_view' ? ' · In Chat' : ''}
+                            <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                              directAvailability === 'away' ? 'bg-amber-400' : directAvailability === 'busy' ? 'bg-rose-500' : 'bg-emerald-500 animate-ping'
+                            }`} />
+                            <span className={`font-bold ${
+                              directAvailability === 'away'
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : directAvailability === 'busy'
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                            }`}>
+                              {directStatusText}{directPresence?.currentTaskId ? ' · Viewing task' : directPresence?.currentView === 'team_chat_view' ? ' · In Chat' : ''}
                             </span>
                           </>
                         ) : (

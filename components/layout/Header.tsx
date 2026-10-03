@@ -1,10 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 // Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
+import { collabService } from '../../services/collabService';
+import { UserPresence } from '../../types';
 
 export const Header: React.FC = () => {
   const { 
@@ -21,8 +23,58 @@ export const Header: React.FC = () => {
     toggleMobileSidebar,
     openCommandPalette,
     openShortcutsModal,
-    presences
+    presences,
+    updateUserPresence
   } = useAppStore();
+
+  const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      try {
+        const raw = localStorage.getItem('omni_team_statuses');
+        const map = raw ? JSON.parse(raw) : {};
+        if (map[currentUser.id]) return map[currentUser.id];
+      } catch (e) {}
+    }
+    return 'available';
+  });
+
+  useEffect(() => {
+    const handleStatusSync = (e: CustomEvent) => {
+      const payload = e.detail;
+      if (payload && currentUser && payload.userId === currentUser.id) {
+        setMyStatus(payload.availabilityStatus);
+      }
+    };
+    window.addEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
+    return () => window.removeEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
+  }, [currentUser?.id]);
+
+  const handleStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
+    setMyStatus(newStatus);
+    collabService.broadcastUserStatusChanged(newStatus);
+    updateUserPresence(undefined, undefined, { availabilityStatus: newStatus });
+    const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
+    addToast('Status Broadcast Live', `Your status is now "${label}" across all connected teammates.`, 'info');
+  };
+
+  // Deduplicated presences by userId for the header bar
+  const uniquePresences = useMemo(() => {
+    const map = new Map<string, UserPresence>();
+    presences.forEach(p => {
+      const existing = map.get(p.userId);
+      if (!existing) {
+        map.set(p.userId, p);
+      } else {
+        map.set(p.userId, {
+          ...existing,
+          availabilityStatus: p.availabilityStatus || existing.availabilityStatus,
+          currentTaskId: p.currentTaskId || existing.currentTaskId,
+          isEditing: Boolean(existing.isEditing || p.isEditing),
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [presences]);
 
   const handleAddTaskClick = () => {
     if (!activeProject) {
@@ -105,28 +157,67 @@ export const Header: React.FC = () => {
 
         <div className="flex items-center space-x-1.5 sm:space-x-2.5 flex-shrink-0">
           {/* Live Team Presence Avatars */}
-          {presences.length > 0 && (
-            <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
-              <span className="relative flex h-2 w-2 mr-1">
+          {uniquePresences.length > 0 && (
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
+              <span className="relative flex h-2 w-2 mr-0.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-1">Live:</span>
-              <div className="flex -space-x-1.5 overflow-hidden">
-                {presences.slice(0, 4).map((p) => (
-                  <div
-                    key={p.userId}
-                    className="inline-block h-5 w-5 rounded-full ring-1 ring-white dark:ring-slate-900 overflow-hidden bg-slate-200 dark:bg-slate-700 text-center font-bold text-[9px] leading-5 text-slate-700 dark:text-slate-200"
-                    title={`${p.userName} (${p.currentTaskId ? 'Viewing task' : p.currentView || 'Active'})`}
-                  >
-                    {p.userAvatar ? (
-                      <img src={p.userAvatar} alt={p.userName} className="h-full w-full object-cover" />
-                    ) : (
-                      p.userName?.charAt(0)?.toUpperCase() || 'U'
-                    )}
-                  </div>
-                ))}
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-0.5">Live:</span>
+              <div className="flex items-center gap-1">
+                {uniquePresences.slice(0, 5).map((p) => {
+                  const status = p.availabilityStatus || 'available';
+                  const dotColor =
+                    status === 'away'
+                      ? 'bg-amber-400'
+                      : status === 'busy'
+                        ? 'bg-rose-500'
+                        : 'bg-emerald-500';
+                  const statusLabel =
+                    status === 'away'
+                      ? 'Away'
+                      : status === 'busy'
+                        ? 'Busy / DND'
+                        : 'Available';
+                  return (
+                    <div
+                      key={p.userId}
+                      className="relative inline-block"
+                      title={`${p.userName} — ${statusLabel} (${p.currentTaskId ? 'Viewing task' : p.currentView || 'Active'})`}
+                    >
+                      <div className="h-5 w-5 rounded-full ring-1 ring-white dark:ring-slate-900 overflow-hidden bg-slate-200 dark:bg-slate-700 text-center font-bold text-[9px] leading-5 text-slate-700 dark:text-slate-200">
+                        {p.userAvatar ? (
+                          <img src={p.userAvatar} alt={p.userName} className="h-full w-full object-cover" />
+                        ) : (
+                          p.userName?.charAt(0)?.toUpperCase() || 'U'
+                        )}
+                      </div>
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-900 ${dotColor}`} />
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          )}
+
+          {/* Quick User Status Selector */}
+          {currentUser && (
+            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold ${
+              darkMode ? 'bg-slate-800/80 border-slate-700 text-slate-200' : 'bg-slate-100/90 border-slate-200 text-slate-700'
+            }`}>
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                myStatus === 'available' ? 'bg-emerald-500' : myStatus === 'away' ? 'bg-amber-400' : 'bg-rose-500'
+              }`} />
+              <select
+                value={myStatus}
+                onChange={(e) => handleStatusChange(e.target.value as 'available' | 'away' | 'busy')}
+                aria-label="Set your availability status"
+                className="bg-transparent text-xs font-semibold focus:outline-hidden cursor-pointer"
+              >
+                <option value="available" className="bg-slate-900 text-white">Available</option>
+                <option value="away" className="bg-slate-900 text-white">Away</option>
+                <option value="busy" className="bg-slate-900 text-white">Busy / DND</option>
+              </select>
             </div>
           )}
 

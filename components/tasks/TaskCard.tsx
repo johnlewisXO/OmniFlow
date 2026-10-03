@@ -1,9 +1,10 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Task, User, TaskPriority, TaskStatus, UserPresence } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Avatar } from '../shared/Avatar';
 import { PRIORITY_STYLES, ICON_MAP } from '../../constants';
+import { collabService } from '../../services/collabService';
 
 interface TaskCardProps {
   task: Task;
@@ -21,6 +22,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     presences,
     currentUser
   } = useAppStore();
+
+  const [recentRemoteBroadcast, setRecentRemoteBroadcast] = useState<{ actorName: string; summary: string } | null>(null);
+
+  useEffect(() => {
+    const handleRemoteUpdate = (e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || payload.taskId !== task.id) return;
+      if (payload.actor?.id && payload.actor.id !== currentUser?.id && payload.actor.id !== 'remote') {
+        const actorName = (payload.actor.name || 'Teammate').split(' ')[0];
+        let summary = 'updated ticket';
+        if (payload.updates?.status) {
+          summary = `moved to ${String(payload.updates.status).replace(/_/g, ' ')}`;
+        } else if (payload.updates?.priority) {
+          summary = `set priority ${payload.updates.priority}`;
+        } else if (payload.updates?.title) {
+          summary = 'updated title';
+        }
+        setRecentRemoteBroadcast({ actorName, summary });
+      }
+    };
+    window.addEventListener('omni_remote_task_updated', handleRemoteUpdate as EventListener);
+    return () => window.removeEventListener('omni_remote_task_updated', handleRemoteUpdate as EventListener);
+  }, [task.id, currentUser?.id]);
+
+  useEffect(() => {
+    if (!recentRemoteBroadcast) return;
+    const t = setTimeout(() => setRecentRemoteBroadcast(null), 5000);
+    return () => clearTimeout(t);
+  }, [recentRemoteBroadcast]);
   
   const assignee = users.find(user => user.id === task.assignee_id); 
 
@@ -50,11 +80,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     return { completed, total, percent: Math.round((completed / total) * 100) };
   }, [task.checklist]);
 
-  // Users currently active on this card (viewing, editing, or typing a comment), deduplicated by userId
+  // OTHER users currently active on this card (viewing, editing, or typing a comment), deduplicated by userId
+  // Never include the current user themselves
   const viewers = useMemo(() => {
     const map = new Map<string, UserPresence>();
     presences.forEach(p => {
       if (p.currentTaskId !== task.id) return;
+      if (currentUser && p.userId === currentUser.id) return;
+      if (p.sessionId && p.sessionId === collabService.sessionId) return;
       const existing = map.get(p.userId);
       if (!existing) {
         map.set(p.userId, { ...p });
@@ -68,7 +101,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       }
     });
     return Array.from(map.values());
-  }, [presences, task.id]);
+  }, [presences, task.id, currentUser?.id]);
 
   const activeEditors = useMemo(() => {
     return viewers.filter(v => v.isEditing);
@@ -137,7 +170,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Top Badges: Blocked, Story Points, & Live Presence Count */}
+      {/* Top Badges: Blocked, Story Points, & Live Presence Count (Other Users Only) */}
       <div className="flex items-center justify-between gap-1.5 mb-2.5">
         <div className="flex items-center gap-1.5 flex-wrap">
           {isBlocked && (
@@ -155,9 +188,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
               {task.story_points} pts
             </span>
           )}
+
+          {recentRemoteBroadcast && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 animate-pulse">
+              <ICON_MAP.BoltIcon className="w-2.5 h-2.5" />
+              {recentRemoteBroadcast.actorName} {recentRemoteBroadcast.summary}
+            </span>
+          )}
         </div>
 
-        {/* Compact Live Presence Indicator */}
+        {/* Compact Live Presence Indicator (Only shown when OTHER people are active on this task) */}
         {viewers.length > 0 && (
           <div
             className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold shadow-xs transition-all"
@@ -183,15 +223,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
         )}
       </div>
 
-      {/* Detailed Real-Time User Activity Chips (Viewing, Editing, Typing a Comment) */}
+      {/* Detailed Real-Time User Activity Chips (Other People Viewing, Editing, or Typing a Comment) */}
       {viewers.length > 0 && (
         <div className="mb-2.5 flex flex-wrap gap-1.5 p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70">
           {viewers.map(v => {
-            const isMe = v.userId === currentUser?.id;
-            const displayName = isMe ? `${(v.userName || 'You').split(' ')[0]} (You)` : (v.userName || 'Teammate').split(' ')[0];
+            const displayName = (v.userName || 'Teammate').split(' ')[0];
             return (
               <React.Fragment key={v.userId}>
-                {/* Always show viewing indicator or active state */}
                 {!v.isEditing && !v.isTypingComment && (
                   <span
                     title={`${v.userName} is viewing this task`}
