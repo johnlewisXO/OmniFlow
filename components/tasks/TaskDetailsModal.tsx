@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
-import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog, TaskCollaborator, TaskChecklistItem } from '../../types';
+import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog, TaskCollaborator, TaskChecklistItem, UserPresence } from '../../types';
 import { ICON_MAP } from '../../constants';
 import supabaseService, { supabase } from '../../services/supabaseService';
+import collabService from '../../services/collabService';
 import geminiService from '../../services/geminiService';
 
 const formatEnumForDisplay = (enumValue: string): string => {
@@ -64,6 +65,33 @@ export const TaskDetailsModal: React.FC = () => {
   const [editedTitle, setEditedTitle] = useState('');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
+  const [recentEditingField, setRecentEditingField] = useState<string | null>(null);
+  const editFieldTimeoutRef = React.useRef<any>(null);
+  const wasModalOpenRef = React.useRef<boolean>(false);
+
+  const markEditingField = (fieldName: string) => {
+    setRecentEditingField(fieldName);
+    if (editFieldTimeoutRef.current) clearTimeout(editFieldTimeoutRef.current);
+    editFieldTimeoutRef.current = setTimeout(() => {
+      setRecentEditingField(null);
+    }, 3500);
+  };
+
+  const currentEditingField = isEditingTitle
+    ? 'title'
+    : isEditingDescription
+      ? 'description'
+      : editingCommentId
+        ? 'comment'
+        : isAddingChecklistItem
+          ? 'checklist'
+          : isAddingBlocker
+            ? 'dependencies'
+            : isAddingCollaborator
+              ? 'collaborators'
+              : recentEditingField || undefined;
+
+  const isCurrentlyEditing = Boolean(currentEditingField);
 
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -145,13 +173,35 @@ export const TaskDetailsModal: React.FC = () => {
     // Live typing indicator
     if (value.trim().length > 0) {
       setIsTypingComment(true);
+      if (taskToView) {
+        updateUserPresence(taskToView.id, undefined, {
+          isEditing: isCurrentlyEditing,
+          editingField: currentEditingField,
+          isTypingComment: true,
+          statusAction: 'typing_comment',
+        });
+      }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
         setIsTypingComment(false);
+        if (taskToView) {
+          updateUserPresence(taskToView.id, undefined, {
+            isEditing: isCurrentlyEditing,
+            editingField: currentEditingField,
+            isTypingComment: false,
+          });
+        }
       }, 2500);
     } else {
       setIsTypingComment(false);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (taskToView) {
+        updateUserPresence(taskToView.id, undefined, {
+          isEditing: isCurrentlyEditing,
+          editingField: currentEditingField,
+          isTypingComment: false,
+        });
+      }
     }
 
     // Check if we are in a mention
@@ -172,6 +222,61 @@ export const TaskDetailsModal: React.FC = () => {
   };
 
   const commentTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const commentsEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Real-time comment subscriptions and focus listener
+  useEffect(() => {
+    if (!taskToView) return;
+
+    const handleCommentAdded = (e: any) => {
+      const { taskId, comment } = e.detail || {};
+      if (taskId === taskToView.id && comment) {
+        setComments(prev => {
+          if (prev.some(c => c.id === comment.id)) return prev;
+          return [...prev, comment];
+        });
+        setTimeout(() => {
+          commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    };
+
+    const handleCommentUpdated = (e: any) => {
+      const { taskId, commentId, content } = e.detail || {};
+      if (taskId === taskToView.id && commentId) {
+        setComments(prev => prev.map(c => c.id === commentId ? { ...c, content } : c));
+      }
+    };
+
+    const handleCommentDeleted = (e: any) => {
+      const { taskId, commentId } = e.detail || {};
+      if (taskId === taskToView.id && commentId) {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+      }
+    };
+
+    const handleFocusComments = (e: any) => {
+      if (e.detail?.taskId === taskToView.id) {
+        setActivityTab('comments');
+        setTimeout(() => {
+          commentTextareaRef.current?.focus();
+          commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+      }
+    };
+
+    window.addEventListener('omni_task_comment_added', handleCommentAdded);
+    window.addEventListener('omni_task_comment_updated', handleCommentUpdated);
+    window.addEventListener('omni_task_comment_deleted', handleCommentDeleted);
+    window.addEventListener('omni_focus_task_comments', handleFocusComments);
+
+    return () => {
+      window.removeEventListener('omni_task_comment_added', handleCommentAdded);
+      window.removeEventListener('omni_task_comment_updated', handleCommentUpdated);
+      window.removeEventListener('omni_task_comment_deleted', handleCommentDeleted);
+      window.removeEventListener('omni_focus_task_comments', handleFocusComments);
+    };
+  }, [taskToView]);
 
   const insertMention = (user: User) => {
     const beforeMention = newComment.slice(0, mentionState.startIndex);
@@ -272,6 +377,7 @@ export const TaskDetailsModal: React.FC = () => {
 
   useEffect(() => {
     if (isViewTaskModalOpen && taskToView) {
+      wasModalOpenRef.current = true;
       fetchTaskDetails();
       setEditedTitle(taskToView.title);
       setEditedDescription(taskToView.description || '');
@@ -279,25 +385,30 @@ export const TaskDetailsModal: React.FC = () => {
         useAppStore.getState().fetchTasksForProject(taskToView.projectId);
       }
       // Broadcast current task presence
-      updateUserPresence(taskToView.id, undefined, { isEditing: isEditingTitle || isEditingDescription });
-    }
-
-    return () => {
-      if (isViewTaskModalOpen) {
-        updateUserPresence(undefined);
+      updateUserPresence(taskToView.id, undefined, {
+        isEditing: isCurrentlyEditing,
+        editingField: currentEditingField,
+        isTypingComment,
+        statusAction: 'viewing_task'
+      });
+    } else if (!isViewTaskModalOpen && wasModalOpenRef.current) {
+      wasModalOpenRef.current = false;
+      if (!useAppStore.getState().isEditTaskModalOpen) {
+        updateUserPresence(undefined, undefined, { clearTask: true, isEditing: false, isTypingComment: false });
       }
-    };
-  }, [isViewTaskModalOpen, taskToView]);
+    }
+  }, [isViewTaskModalOpen, taskToView?.id]);
 
   useEffect(() => {
     if (isViewTaskModalOpen && taskToView) {
       updateUserPresence(taskToView.id, undefined, {
-        isEditing: isEditingTitle || isEditingDescription,
-        editingField: isEditingTitle ? 'title' : (isEditingDescription ? 'description' : undefined),
+        isEditing: isCurrentlyEditing,
+        editingField: currentEditingField,
         isTypingComment,
+        statusAction: isCurrentlyEditing ? 'editing_task' : (isTypingComment ? 'typing_comment' : 'viewing_task'),
       });
     }
-  }, [isEditingTitle, isEditingDescription, isTypingComment, isViewTaskModalOpen, taskToView]);
+  }, [isCurrentlyEditing, currentEditingField, isTypingComment, isViewTaskModalOpen, taskToView?.id]);
 
   const fetchTaskDetails = async () => {
     if (!taskToView) return;
@@ -383,14 +494,20 @@ export const TaskDetailsModal: React.FC = () => {
       if (data) {
         setComments([...comments, data as any]);
         
-        // Find mentioned users
+        // Find mentioned users (match full name, first name, email, or email username)
         const mentionedUsers = users.filter(u => {
-            const name = u.full_name || u.email;
-            if (!name) return false;
-            // Escape special characters in name for regex
+          const candidates = [
+            u.full_name,
+            u.full_name ? u.full_name.split(' ')[0] : null,
+            u.email,
+            u.email ? u.email.split('@')[0] : null
+          ].filter(Boolean) as string[];
+
+          return candidates.some(name => {
             const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`@${escapedName}(?![a-zA-Z0-9_])`, 'i');
             return regex.test(newComment);
+          });
         });
 
         // Send notifications to mentioned users
@@ -413,14 +530,63 @@ export const TaskDetailsModal: React.FC = () => {
                         read: false,
                         created_at: new Date().toISOString()
                     });
-                    console.log("Successfully inserted mention notification for user", u.id);
                 } catch (notifError) {
                     console.error("Failed to insert mention notification for user", u.id, notifError);
                 }
             }
         }
 
+        // Also notify task assignee if not already mentioned and not the commenter
+        if (
+          taskToView.assignee_id &&
+          taskToView.assignee_id !== currentUser.id &&
+          !mentionedUsers.some(u => u.id === taskToView.assignee_id)
+        ) {
+          try {
+            await supabaseService.insertNotification({
+              id: crypto.randomUUID(),
+              user_id: taskToView.assignee_id,
+              actor_id: currentUser.id,
+              sender_id: currentUser.id,
+              type: 'TASK_COMMENT',
+              content: `${currentUser.full_name || currentUser.email} commented on "${taskToView.title}": ${newComment.trim().slice(0, 80)}`,
+              reference_id: taskToView.id,
+              is_read: false,
+              entity_type: 'task',
+              entity_id: taskToView.id,
+              title: `New comment on "${taskToView.title}"`,
+              message: `${currentUser.full_name || currentUser.email}: ${newComment.trim().slice(0, 80)}`,
+              read: false,
+              created_at: new Date().toISOString()
+            });
+          } catch (e) {}
+        }
+
+        // Broadcast comment added in real-time across devices, tabs, and network
+        collabService.broadcastCommentAdded({
+          taskId: taskToView.id,
+          taskTitle: taskToView.title,
+          comment: data as any,
+          sender: {
+            id: currentUser.id,
+            name: currentUser.full_name || currentUser.email,
+            avatar: currentUser.avatar_url,
+          },
+          mentionedUserIds: mentionedUsers.map(u => u.id),
+          assigneeId: taskToView.assignee_id,
+        });
+
+        setTimeout(() => {
+          commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+
         setNewComment('');
+        setIsTypingComment(false);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        updateUserPresence(taskToView.id, undefined, {
+          isEditing: isEditingTitle || isEditingDescription,
+          isTypingComment: false,
+        });
         
         // Log activity
         await supabase.from('task_activity_logs').insert({
@@ -437,7 +603,7 @@ export const TaskDetailsModal: React.FC = () => {
   };
 
   const handleSaveEditComment = async (commentId: string) => {
-    if (!editCommentContent.trim()) return;
+    if (!editCommentContent.trim() || !taskToView) return;
     try {
       const { error } = await supabase
         .from('task_comments')
@@ -447,13 +613,15 @@ export const TaskDetailsModal: React.FC = () => {
       
       setComments(comments.map(c => c.id === commentId ? { ...c, content: editCommentContent.trim() } : c));
       setEditingCommentId(null);
+
+      collabService.broadcastCommentUpdated(taskToView.id, commentId, editCommentContent.trim());
     } catch (error) {
       console.error("Error editing comment:", error);
     }
   };
 
   const handleDeleteComment = async () => {
-    if (!commentToDelete) return;
+    if (!commentToDelete || !taskToView) return;
     try {
       const { error } = await supabase
         .from('task_comments')
@@ -462,6 +630,7 @@ export const TaskDetailsModal: React.FC = () => {
       if (error) throw error;
       
       setComments(comments.filter(c => c.id !== commentToDelete));
+      collabService.broadcastCommentDeleted(taskToView.id, commentToDelete);
       setCommentToDelete(null);
     } catch (error) {
       console.error("Error deleting comment:", error);
@@ -543,6 +712,10 @@ export const TaskDetailsModal: React.FC = () => {
 
   const handleUpdateTask = async (updates: Partial<Task>) => {
     if (!taskToView) return;
+    const changedKeys = Object.keys(updates);
+    if (changedKeys.length > 0) {
+      markEditingField(changedKeys[0].replace(/_/g, ' '));
+    }
     try {
       await updateTask(taskToView.id, updates);
       // Update local state to reflect change immediately
@@ -580,6 +753,7 @@ export const TaskDetailsModal: React.FC = () => {
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
     if (!taskToView || !currentUser) return;
+    markEditingField('status');
     try {
       await updateTask(taskToView.id, { status: newStatus });
       
@@ -697,10 +871,49 @@ export const TaskDetailsModal: React.FC = () => {
 
   const parentTask = taskToView.parent_task_id ? tasks.find(t => t.id === taskToView.parent_task_id) : null;
 
-  // Active live viewers for this specific task
-  const activeViewers = (presences || []).filter(
-    p => p.currentTaskId === taskToView.id && p.userId !== currentUser?.id
-  );
+  // Active live participants for this specific task (deduplicated by userId)
+  const activeTaskParticipants: UserPresence[] = (() => {
+    const map = new Map<string, UserPresence>();
+    (presences || []).forEach(p => {
+      if (p.currentTaskId !== taskToView.id) return;
+      const existing = map.get(p.userId);
+      if (!existing) {
+        map.set(p.userId, { ...p });
+      } else {
+        map.set(p.userId, {
+          ...existing,
+          isEditing: Boolean(existing.isEditing || p.isEditing),
+          editingField: p.editingField || existing.editingField,
+          isTypingComment: Boolean(existing.isTypingComment || p.isTypingComment),
+        });
+      }
+    });
+    if (currentUser && !map.has(currentUser.id)) {
+      map.set(currentUser.id, {
+        userId: currentUser.id,
+        userName: currentUser.full_name || currentUser.email || 'You',
+        userAvatar: currentUser.avatar_url,
+        currentTaskId: taskToView.id,
+        isEditing: isCurrentlyEditing,
+        editingField: currentEditingField,
+        isTypingComment,
+        lastActive: new Date().toISOString(),
+        color: '#6366f1',
+      });
+    } else if (currentUser && map.has(currentUser.id)) {
+      const me = map.get(currentUser.id)!;
+      map.set(currentUser.id, {
+        ...me,
+        isEditing: Boolean(me.isEditing || isCurrentlyEditing),
+        editingField: currentEditingField || me.editingField,
+        isTypingComment: Boolean(me.isTypingComment || isTypingComment),
+      });
+    }
+    return Array.from(map.values());
+  })();
+
+  // Remote viewers (other users, or all participants if viewing together)
+  const activeViewers = activeTaskParticipants;
 
   // Derived blocker & dependency tasks
   const blockedByTasks = tasks.filter(t => (taskToView.blockedBy || []).includes(t.id));
@@ -799,6 +1012,96 @@ export const TaskDetailsModal: React.FC = () => {
         {/* Left Column: Main Content */}
         <div className="w-full md:flex-1 flex flex-col min-w-0 md:overflow-y-auto pr-0 md:pr-2">
           
+          {/* Real-Time Task Presence Bar (Viewing, Editing, Typing a Comment) */}
+          <div className={`mb-4 p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${
+            darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50 border-slate-200/80'
+          }`}>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+              <span className="relative flex h-2 w-2 items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              <span>Live Task Activity:</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {activeTaskParticipants.map(participant => {
+                const isMe = participant.userId === currentUser?.id;
+                const displayName = isMe
+                  ? `${(participant.userName || 'You').split(' ')[0]} (You)`
+                  : (participant.userName || 'Teammate').split(' ')[0];
+                return (
+                  <React.Fragment key={participant.userId}>
+                    {/* Viewing status */}
+                    {!participant.isEditing && !participant.isTypingComment && (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold"
+                        title={`${participant.userName} is viewing this task`}
+                      >
+                        <span
+                          style={{ backgroundColor: participant.color || '#10b981' }}
+                          className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                        >
+                          {participant.userAvatar ? (
+                            <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            displayName.charAt(0).toUpperCase()
+                          )}
+                        </span>
+                        <ICON_MAP.EyeIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{displayName} · Viewing</span>
+                      </span>
+                    )}
+
+                    {/* Editing status */}
+                    {participant.isEditing && (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 text-xs font-bold animate-pulse"
+                        title={`${participant.userName} is editing ${participant.editingField || 'this task'}`}
+                      >
+                        <span
+                          style={{ backgroundColor: participant.color || '#3b82f6' }}
+                          className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                        >
+                          {participant.userAvatar ? (
+                            <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            displayName.charAt(0).toUpperCase()
+                          )}
+                        </span>
+                        <ICON_MAP.PencilIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>
+                          {displayName} · Editing{participant.editingField ? ` (${participant.editingField})` : ''}
+                        </span>
+                      </span>
+                    )}
+
+                    {/* Typing comment status */}
+                    {participant.isTypingComment && (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold animate-pulse"
+                        title={`${participant.userName} is typing a comment on this task`}
+                      >
+                        <span
+                          style={{ backgroundColor: participant.color || '#8b5cf6' }}
+                          className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                        >
+                          {participant.userAvatar ? (
+                            <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            displayName.charAt(0).toUpperCase()
+                          )}
+                        </span>
+                        <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{displayName} · Typing comment...</span>
+                      </span>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between mb-6">
             {isEditingTitle ? (
               <input
@@ -820,7 +1123,18 @@ export const TaskDetailsModal: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditingDescription(true);
+                markEditingField('description');
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
+            >
+              <ICON_MAP.PencilIcon className="w-4 h-4" />
+              Edit task
+            </button>
             <label className="cursor-pointer relative group">
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/jpeg,image/png,image/gif,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
               <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -1285,6 +1599,17 @@ export const TaskDetailsModal: React.FC = () => {
 
               {activityTab === 'comments' && (
                 <div className="space-y-6">
+                  {/* Live Typing Indicator for Comments */}
+                  {activeViewers.some(v => v.isTypingComment) && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-xs text-purple-700 dark:text-purple-300 font-semibold animate-pulse">
+                      <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />
+                      <span>
+                        {activeViewers.filter(v => v.isTypingComment).map(v => v.userName).join(', ')}{' '}
+                        {activeViewers.filter(v => v.isTypingComment).length === 1 ? 'is' : 'are'} typing a comment...
+                      </span>
+                    </div>
+                  )}
+
                   {/* Comment Input */}
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -1402,6 +1727,7 @@ export const TaskDetailsModal: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                  <div ref={commentsEndRef} />
                 </div>
               )}
 

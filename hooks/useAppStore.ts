@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig } from '../types';
 import { ICON_MAP } from '../constants';
 import supabaseService, { supabase } from '../services/supabaseService';
+import collabService from '../services/collabService';
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
 
@@ -150,8 +151,6 @@ const initialStoreStateValues: StoreState = {
   // Webhooks
   webhooks: _storedWebhooks,
 };
-
-let globalSupabaseCollabChannel: RealtimeChannel | null = null;
 
 const parseErrorMessage = (error: any, defaultMessage: string = "An unexpected error occurred."): string => {
   if (!error) return defaultMessage;
@@ -382,7 +381,12 @@ const appActionsCreator = (
         selfActions.addNotification(notification);
       }
     },
-    addToast: (title: string, message: string, toastType: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    addToast: (
+      title: string,
+      message: string,
+      toastType: 'success' | 'error' | 'warning' | 'info' = 'info',
+      navTarget?: { entity_type?: 'task' | 'project' | 'user' | 'system' | 'chat'; entity_id?: string; reference_id?: string; metadata?: Record<string, any> }
+    ) => {
       const { currentUser } = get();
       const id = crypto.randomUUID();
       const toastNotification: Notification = {
@@ -390,10 +394,13 @@ const appActionsCreator = (
         title,
         message,
         content: message,
-        type: 'SYSTEM_TOAST',
+        type: navTarget?.entity_type ? `${navTarget.entity_type.toUpperCase()}_UPDATE` : 'SYSTEM_TOAST',
         toastType,
         user_id: currentUser?.id || 'system',
-        reference_id: id,
+        reference_id: navTarget?.reference_id || navTarget?.entity_id || id,
+        entity_type: navTarget?.entity_type,
+        entity_id: navTarget?.entity_id,
+        metadata: navTarget?.metadata,
         is_read: false,
         read: false,
         created_at: new Date().toISOString()
@@ -662,24 +669,57 @@ const appActionsCreator = (
     },
     fetchUsersForAssignmentList: async () => { 
         const currentUser = get().currentUser;
-        if (!currentUser || !currentUser.organization_id) {
-            updateState(s => ({ ...s, users: [], isLoadingUsersForAssignment: false, usersForAssignmentError: currentUser ? "User not part of an organization to list members." : "Not logged in." }));
+        if (!currentUser) {
+            updateState(s => ({ ...s, users: [], isLoadingUsersForAssignment: false, usersForAssignmentError: "Not logged in." }));
             return;
         }
-        console.log(`[useAppStore] fetchUsersForAssignmentList: Fetching users for org ${currentUser.organization_id}`);
         updateState(s => ({ ...s, isLoadingUsersForAssignment: true, usersForAssignmentError: null }));
         try {
-          const fetchedUsers = await withTimeout(
-            supabaseService.getUsersByOrganizationId(currentUser.organization_id),
-            10000,
-            "Users fetch timeout"
-          );
-          console.log(`[useAppStore] fetchUsersForAssignmentList: Fetched ${fetchedUsers.length} users. First user (if any):`, fetchedUsers[0]);
+          let fetchedUsers: User[] = [];
+          if (currentUser.organization_id) {
+            try {
+              fetchedUsers = await withTimeout(
+                supabaseService.getUsersByOrganizationId(currentUser.organization_id),
+                10000,
+                "Users fetch timeout"
+              );
+            } catch (orgErr) {
+              console.warn('[useAppStore] Org users fetch fallback:', orgErr);
+            }
+          }
+
+          // Also fetch other user_profiles on the platform so teammates can discover & add each other
+          try {
+            const { data: allProfiles } = await supabase.from('user_profiles').select('*').limit(50);
+            if (Array.isArray(allProfiles)) {
+              allProfiles.forEach((p: any) => {
+                if (p && p.id && !fetchedUsers.some(u => u.id === p.id)) {
+                  fetchedUsers.push(p as User);
+                }
+              });
+            }
+          } catch (e) {}
+
+          // Merge any custom added people from localStorage
+          if (typeof window !== 'undefined') {
+            try {
+              const savedCustom = localStorage.getItem('omni_custom_team_members');
+              if (savedCustom) {
+                const customList: User[] = JSON.parse(savedCustom);
+                customList.forEach(cu => {
+                  if (cu && cu.id && !fetchedUsers.some(u => u.id === cu.id)) {
+                    fetchedUsers.push(cu);
+                  }
+                });
+              }
+            } catch (e) {}
+          }
+
           updateState(s => ({ ...s, users: fetchedUsers, isLoadingUsersForAssignment: false }));
         } catch (error: any) {
           const message = parseErrorMessage(error, 'Failed to fetch users for organization.');
           console.error(`[useAppStore] fetchUsersForAssignmentList: Error - ${message}`);
-          updateState(s => ({ ...s, isLoadingUsersForAssignment: false, usersForAssignmentError: message, users: [] }));
+          updateState(s => ({ ...s, isLoadingUsersForAssignment: false, usersForAssignmentError: message }));
         }
       },
   };
@@ -705,18 +745,20 @@ const appActionsCreator = (
     try {
         await supabaseService.updateTask(taskId, updates);
         
-        // Broadcast change across tabs
-        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-          try {
-            const bc = new BroadcastChannel('omni_collab_sync');
-            bc.postMessage({ type: 'TASK_EXTENSION_SYNC', taskId, extension: updates });
-            bc.close();
-          } catch (e) {}
-        }
-
-        // Record activity log & in-app notification
+        // Broadcast change across tabs & Supabase Realtime
         const currentUser = get().currentUser;
         const targetTask = get().tasks.find(t => t.id === taskId) || previousTask;
+        if (currentUser && targetTask) {
+          collabService.broadcastTaskUpdated({
+            taskId,
+            taskTitle: targetTask.title,
+            updates,
+            actor: {
+              id: currentUser.id,
+              name: currentUser.full_name || currentUser.email,
+            }
+          });
+        }
         if (currentUser && targetTask) {
           const changedKeys = Object.keys(updates);
           let actionLabel = 'task_updated';
@@ -785,16 +827,16 @@ const appActionsCreator = (
             } catch (e) {}
           }
 
-          // Broadcast task update across all browsers and devices via Supabase Realtime
-          if (globalSupabaseCollabChannel) {
-            try {
-              globalSupabaseCollabChannel.send({
-                type: 'broadcast',
-                event: 'task_updated',
-                payload: { taskId, updates }
-              }).catch(() => {});
-            } catch (e) {}
-          }
+          // Broadcast task update across all browsers and devices via CollabService
+          collabService.broadcastTaskUpdated({
+            taskId,
+            taskTitle: currentTask?.title || 'Task',
+            updates,
+            actor: {
+              id: currentUser?.id || 'system',
+              name: currentUser?.full_name || currentUser?.email || 'Teammate'
+            }
+          });
         }
     } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update task ${taskId}.`);
@@ -876,6 +918,7 @@ const appActionsCreator = (
       }
     },
     setCurrentUser: (user: User | null) => {
+      collabService.syncCurrentUser(user);
       const currentActiveProject = get().activeProject;
       let nextActiveView = get().activeView;
       let nextActiveProject = currentActiveProject;
@@ -1159,12 +1202,15 @@ const appActionsCreator = (
     },
     closeModal: () => updateState(s => ({ ...s, isModalOpen: false, suggestedTaskTitles: [], error: null, parentTaskIdForNewTask: null })),
 
-    openViewTaskModal: async (taskId: string, navigateToProject?: boolean) => {
+    openViewTaskModal: async (taskIdOrTask: string | Task, navigateToProject?: boolean) => {
+        const resolvedId = typeof taskIdOrTask === 'object' && taskIdOrTask !== null ? taskIdOrTask.id : taskIdOrTask;
         // 1. Search in active project tasks
-        let task = get().tasks.find(t => t.id === taskId);
+        let task = typeof taskIdOrTask === 'object' && taskIdOrTask !== null
+          ? taskIdOrTask
+          : get().tasks.find(t => t.id === resolvedId);
         // 2. Search in user's assigned tasks
         if (!task) {
-          task = get().myTasks.find(t => t.id === taskId);
+          task = get().myTasks.find(t => t.id === resolvedId);
         }
         
         // If task found immediately in local store
@@ -1181,13 +1227,14 @@ const appActionsCreator = (
                 activeProject: (navigateToProject && project) ? project : s.activeProject
               };
             });
+            get().updateUserPresence(task.id, get().activeView, { isEditing: false, statusAction: 'viewing_task' });
             return;
         }
 
         // 3. Fallback: Fetch dynamically from Supabase database
         try {
             updateState(s => ({ ...s, isLoadingTasks: true, tasksError: null }));
-            const fetchedTask = await supabaseService.getTaskById(taskId);
+            const fetchedTask = await supabaseService.getTaskById(resolvedId);
             if (fetchedTask) {
                 updateState(s => {
                   const taskList = s.tasks.some(t => t.id === fetchedTask.id) ? s.tasks : [...s.tasks, fetchedTask];
@@ -1202,18 +1249,19 @@ const appActionsCreator = (
                     activeProject: (navigateToProject && project) ? project : s.activeProject
                   };
                 });
+                get().updateUserPresence(fetchedTask.id, get().activeView, { isEditing: false, statusAction: 'viewing_task' });
             } else {
-                console.warn(`Task with ID ${taskId} not found in database or local state.`);
-                updateState(s => ({ ...s, isLoadingTasks: false, tasksError: `Task details for ID ${taskId} could not be loaded.`}));
+                console.warn(`Task with ID ${resolvedId} not found in database or local state.`);
+                updateState(s => ({ ...s, isLoadingTasks: false, tasksError: `Task details for ID ${resolvedId} could not be loaded.`}));
             }
         } catch (err: any) {
-            console.error(`Error loading task ${taskId}:`, err);
-            updateState(s => ({ ...s, isLoadingTasks: false, tasksError: `Task details for ID ${taskId} could not be loaded.`}));
+            console.error(`Error loading task ${resolvedId}:`, err);
+            updateState(s => ({ ...s, isLoadingTasks: false, tasksError: `Task details for ID ${resolvedId} could not be loaded.`}));
         }
     },
     closeViewTaskModal: () => {
       updateState(s => ({ ...s, taskToView: null, isViewTaskModalOpen: false }));
-      get().updateUserPresence(undefined);
+      get().updateUserPresence(undefined, get().activeView, { clearTask: true, isEditing: false, isTypingComment: false });
     },
 
     openEditTaskModal: async (taskId: string) => {
@@ -1223,6 +1271,7 @@ const appActionsCreator = (
       }
       if (task) {
           updateState(s => ({ ...s, taskToEdit: task, isEditTaskModalOpen: true, error: null, suggestedTaskTitles: [] }));
+          get().updateUserPresence(task.id, get().activeView, { isEditing: true, editingField: 'details', statusAction: 'editing_task' });
           return;
       }
       try {
@@ -1239,6 +1288,7 @@ const appActionsCreator = (
                   suggestedTaskTitles: []
                 };
               });
+              get().updateUserPresence(fetchedTask.id, get().activeView, { isEditing: true, editingField: 'details', statusAction: 'editing_task' });
           } else {
               console.warn(`Task with ID ${taskId} not found to open edit modal.`);
               updateState(s => ({ ...s, error: `Task details for ID ${taskId} could not be loaded for editing.`}));
@@ -1248,7 +1298,15 @@ const appActionsCreator = (
           updateState(s => ({ ...s, error: `Task details for ID ${taskId} could not be loaded for editing.`}));
       }
     },
-    closeEditTaskModal: () => updateState(s => ({ ...s, taskToEdit: null, isEditTaskModalOpen: false, error: null, suggestedTaskTitles: [] })),
+    closeEditTaskModal: () => {
+      updateState(s => ({ ...s, taskToEdit: null, isEditTaskModalOpen: false, error: null, suggestedTaskTitles: [] }));
+      const state = get();
+      if (state.isViewTaskModalOpen && state.taskToView) {
+        state.updateUserPresence(state.taskToView.id, state.activeView, { isEditing: false });
+      } else {
+        state.updateUserPresence(undefined, state.activeView, { clearTask: true, isEditing: false });
+      }
+    },
 
 
     openCreateProjectModal: () => updateState(s => ({ ...s, isCreateProjectModalOpen: true, createProjectError: null })),
@@ -1578,17 +1636,6 @@ const appActionsCreator = (
             bc.close();
           } catch (e) {}
         }
-
-        // Broadcast to Supabase Realtime channel
-        if (globalSupabaseCollabChannel) {
-          try {
-            globalSupabaseCollabChannel.send({
-              type: 'broadcast',
-              event: 'task_sprint_assigned',
-              payload: { taskId, sprintId }
-            }).catch(() => {});
-          } catch (e) {}
-        }
       } catch (err: any) {
         console.error('Error assigning task to sprint:', err);
       }
@@ -1598,60 +1645,25 @@ const appActionsCreator = (
     updateUserPresence: (
       taskId?: string,
       view?: string,
-      flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string }
+      flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string; projectId?: string; clearTask?: boolean }
     ) => {
-      const currentUser = get().currentUser;
-      if (!currentUser) return;
-
-      const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#14b8a6', '#f97316'];
-      const userColor = colors[Math.abs(currentUser.id.charCodeAt(0) + (currentUser.id.charCodeAt(1) || 0)) % colors.length];
-
-      const now = Date.now();
-      const myPresence: UserPresence = {
-        userId: currentUser.id,
-        userName: currentUser.full_name || currentUser.email || 'You',
-        userAvatar: currentUser.avatar_url,
-        currentTaskId: taskId,
-        currentView: view || get().activeView,
-        isEditing: flags?.isEditing || false,
-        editingField: flags?.editingField,
-        isTypingComment: flags?.isTypingComment || false,
-        statusAction: flags?.statusAction,
-        lastActive: new Date(now).toISOString(),
-        color: userColor,
-      };
-
-      updateState(s => {
-        // Only keep actively communicating remote users (checked in within 15 seconds)
-        const validActiveRemote = s.presences.filter(p => {
-          if (p.userId === currentUser.id) return false;
-          const age = now - new Date(p.lastActive).getTime();
-          return age >= 0 && age < 15000;
-        });
-
-        return { ...s, presences: [...validActiveRemote, myPresence] };
+      const state = get();
+      const curUser = state.currentUser;
+      if (curUser && !collabService.getCurrentUser()) {
+        collabService.syncCurrentUser(curUser);
+      }
+      const activeTaskId = flags?.clearTask
+        ? undefined
+        : (taskId !== undefined
+            ? taskId
+            : (state.isViewTaskModalOpen && state.taskToView
+                ? state.taskToView.id
+                : (state.isEditTaskModalOpen && state.taskToEdit ? state.taskToEdit.id : undefined)));
+      const activeProject = state.activeProject;
+      collabService.updatePresence(activeTaskId, view || state.activeView, {
+        ...flags,
+        projectId: flags?.projectId || activeProject?.id
       });
-
-      // Broadcast immediately across all browser tabs
-      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-        try {
-          const bc = new BroadcastChannel('omni_collab_sync');
-          bc.postMessage({ type: 'PRESENCE_BROADCAST', presence: myPresence });
-          bc.close();
-        } catch (e) {}
-      }
-
-      // Broadcast across all clients via Supabase Realtime channel (and track presence)
-      if (globalSupabaseCollabChannel) {
-        try {
-          globalSupabaseCollabChannel.track(myPresence);
-          globalSupabaseCollabChannel.send({
-            type: 'broadcast',
-            event: 'collab_presence',
-            payload: myPresence
-          }).catch(() => {});
-        } catch (e) {}
-      }
     },
 
     removeUserPresence: (userId: string) => {
@@ -1659,25 +1671,6 @@ const appActionsCreator = (
         ...s,
         presences: s.presences.filter(p => p.userId !== userId)
       }));
-
-      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-        try {
-          const bc = new BroadcastChannel('omni_collab_sync');
-          bc.postMessage({ type: 'PRESENCE_LEAVE', userId });
-          bc.close();
-        } catch (e) {}
-      }
-
-      if (globalSupabaseCollabChannel) {
-        try {
-          globalSupabaseCollabChannel.untrack();
-          globalSupabaseCollabChannel.send({
-            type: 'broadcast',
-            event: 'collab_leave',
-            payload: { userId }
-          }).catch(() => {});
-        } catch (e) {}
-      }
     },
 
     // Keyboard Shortcuts Modal
@@ -1775,6 +1768,83 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
     document.documentElement.classList.add('dark');
   }
 
+  // Real-time Presence sync across the entire platform
+  collabService.onPresencesChange((presences) => {
+    setState(s => ({ ...s, presences }));
+  });
+
+  // Cross-client / Cross-tab real-time event subscriptions
+  if (typeof window !== 'undefined') {
+    // 1. Task comment notifications and mentions
+    window.addEventListener('omni_remote_comment_notification', ((e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload) return;
+      const curUser = getPureState().currentUser;
+      if (!curUser) return;
+      if (payload.sender?.id === curUser.id) return;
+
+      const commentText = (payload.comment?.content || '').toLowerCase();
+      const myName = (curUser.full_name || '').toLowerCase();
+      const myFirstName = myName ? myName.split(' ')[0] : '';
+      const myEmailName = (curUser.email || '').split('@')[0].toLowerCase();
+
+      const isMentioned =
+        payload.mentionedUserIds?.includes(curUser.id) ||
+        (myName && commentText.includes(`@${myName}`)) ||
+        (myFirstName && commentText.includes(`@${myFirstName}`)) ||
+        (myEmailName && commentText.includes(`@${myEmailName}`));
+
+      const isAssignee = payload.assigneeId === curUser.id;
+      const isViewingTask = getPureState().taskToView?.id === payload.taskId;
+
+      if (isMentioned) {
+        actions.addToast(
+          `Mentioned by ${payload.sender?.name || 'Teammate'}`,
+          `In "${payload.taskTitle}": ${payload.comment?.content?.slice(0, 90) || ''}`,
+          'info',
+          { entity_type: 'task', entity_id: payload.taskId, reference_id: payload.taskId, metadata: { commentId: payload.comment?.id, isComment: true } }
+        );
+      } else if (isAssignee || isViewingTask) {
+        actions.addToast(
+          `New comment on "${payload.taskTitle}"`,
+          `${payload.sender?.name || 'Teammate'}: ${payload.comment?.content?.slice(0, 90) || ''}`,
+          'info',
+          { entity_type: 'task', entity_id: payload.taskId, reference_id: payload.taskId, metadata: { commentId: payload.comment?.id, isComment: true } }
+        );
+      }
+    }) as EventListener);
+
+    // 2. Chat notifications
+    window.addEventListener('omni_remote_chat_notification', ((e: CustomEvent) => {
+      const message = e.detail;
+      if (!message) return;
+      const curUser = getPureState().currentUser;
+      if (!curUser) return;
+
+      if (message.recipient_id === curUser.id) {
+        actions.addToast(
+          `💬 ${message.sender_name || 'Teammate'}`,
+          message.content?.slice(0, 90) || 'Sent you a message',
+          'info',
+          { entity_type: 'chat', entity_id: message.sender_id, reference_id: message.sender_id }
+        );
+      }
+    }) as EventListener);
+
+    // 3. Task updates
+    window.addEventListener('omni_remote_task_updated', ((e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || !payload.taskId) return;
+      
+      setState(s => {
+        const updatedTasks = s.tasks.map(t => t.id === payload.taskId ? { ...t, ...payload.updates } : t);
+        const updatedMyTasks = s.myTasks.map(t => t.id === payload.taskId ? { ...t, ...payload.updates } : t);
+        const updatedToView = s.taskToView?.id === payload.taskId ? { ...s.taskToView, ...payload.updates } : s.taskToView;
+        return { ...s, tasks: updatedTasks, myTasks: updatedMyTasks, taskToView: updatedToView };
+      });
+    }) as EventListener);
+  }
+
   const useHook = (): TState & ReturnType<TActionsCreator> => {
     const [localState, setLocalState] = useState(getPureState());
 
@@ -1787,225 +1857,8 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
       }
       
       setLocalState(getPureState()); 
-
-      // Cross-tab real-time collaboration listener
-      let bc: BroadcastChannel | null = null;
-      let heartbeatInterval: any = null;
-
-      const handleBeforeUnload = () => {
-        const cur = getPureState().currentUser;
-        if (cur) {
-          if (bc) {
-            try {
-              bc.postMessage({ type: 'PRESENCE_LEAVE', userId: cur.id });
-            } catch (e) {}
-          }
-          if (globalSupabaseCollabChannel) {
-            try {
-              globalSupabaseCollabChannel.untrack();
-              globalSupabaseCollabChannel.send({
-                type: 'broadcast',
-                event: 'collab_leave',
-                payload: { userId: cur.id }
-              }).catch(() => {});
-            } catch (e) {}
-          }
-        }
-      };
-
-      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-        try {
-          bc = new BroadcastChannel('omni_collab_sync');
-          bc.onmessage = (event) => {
-            const data = event.data;
-            if (!data) return;
-            if (data.type === 'PRESENCE_BROADCAST' && data.presence) {
-              const remotePresence: UserPresence = data.presence;
-              const currentUserId = getPureState().currentUser?.id;
-              // Ignore our own echoes
-              if (currentUserId && remotePresence.userId === currentUserId) return;
-              setState(s => {
-                const now = Date.now();
-                const others = s.presences.filter(p => p.userId !== remotePresence.userId && (now - new Date(p.lastActive).getTime() < 15000));
-                return { ...s, presences: [...others, remotePresence] };
-              });
-            } else if (data.type === 'PRESENCE_LEAVE') {
-              setState(s => ({
-                ...s,
-                presences: s.presences.filter(p => p.userId !== data.userId)
-              }));
-            } else if (data.type === 'PRESENCE_REQUEST') {
-              const cur = getPureState().currentUser;
-              if (cur && bc) {
-                const myPres = getPureState().presences.find(p => p.userId === cur.id);
-                if (myPres) {
-                  bc.postMessage({ type: 'PRESENCE_BROADCAST', presence: myPres });
-                }
-              }
-            } else if (data.type === 'TASK_SPRINT_ASSIGNED') {
-              setState(s => {
-                const updated = s.tasks.map(t => t.id === data.taskId ? { ...t, sprintId: data.sprintId } : t);
-                const updatedToView = s.taskToView?.id === data.taskId ? { ...s.taskToView, sprintId: data.sprintId } : s.taskToView;
-                return { ...s, tasks: updated, taskToView: updatedToView };
-              });
-            } else if (data.type === 'TASK_UPDATED') {
-              setState(s => {
-                const updated = s.tasks.map(t => t.id === data.taskId ? { ...t, ...data.updates } : t);
-                const updatedToView = s.taskToView?.id === data.taskId ? { ...s.taskToView, ...data.updates } : s.taskToView;
-                return { ...s, tasks: updated, taskToView: updatedToView };
-              });
-            } else if (data.type === 'TASK_EXTENSION_SYNC') {
-              setState(s => {
-                const updated = s.tasks.map(t => t.id === data.taskId ? { ...t, ...data.extension } : t);
-                const updatedToView = s.taskToView?.id === data.taskId ? { ...s.taskToView, ...data.extension } : s.taskToView;
-                return { ...s, tasks: updated, taskToView: updatedToView };
-              });
-            }
-          };
-
-          // Announce arrival and request presence from any already open tab
-          bc.postMessage({ type: 'PRESENCE_REQUEST' });
-          window.addEventListener('beforeunload', handleBeforeUnload);
-        } catch (e) {}
-      }
-
-      // Supabase Realtime Collaboration Hub (Cross-Browser, Cross-Device, Incognito)
-      if (typeof window !== 'undefined' && !globalSupabaseCollabChannel) {
-        try {
-          globalSupabaseCollabChannel = supabase.channel('omni_flow_collab_hub', {
-            config: {
-              broadcast: { ack: true }
-            }
-          });
-
-          globalSupabaseCollabChannel
-            .on('presence', { event: 'sync' }, () => {
-              if (!globalSupabaseCollabChannel) return;
-              const state = globalSupabaseCollabChannel.presenceState();
-              const curId = getPureState().currentUser?.id;
-              const now = Date.now();
-              const remotePresences: UserPresence[] = [];
-
-              Object.values(state).forEach((presList: any) => {
-                if (Array.isArray(presList)) {
-                  presList.forEach((pres: any) => {
-                    if (pres && pres.userId && pres.userId !== curId) {
-                      const age = now - new Date(pres.lastActive || now).getTime();
-                      if (age < 20000) {
-                        remotePresences.push(pres as UserPresence);
-                      }
-                    }
-                  });
-                }
-              });
-
-              setState(s => {
-                const myPres = curId ? s.presences.filter(p => p.userId === curId) : [];
-                return { ...s, presences: [...myPres, ...remotePresences] };
-              });
-            })
-            .on('presence', { event: 'join' }, ({ newPresences }: any) => {
-              const curId = getPureState().currentUser?.id;
-              if (Array.isArray(newPresences)) {
-                const fresh = newPresences.filter((p: any) => p && p.userId && p.userId !== curId);
-                if (fresh.length > 0) {
-                  setState(s => {
-                    const ids = new Set(fresh.map((f: any) => f.userId));
-                    const remaining = s.presences.filter(p => !ids.has(p.userId));
-                    return { ...s, presences: [...remaining, ...(fresh as UserPresence[])] };
-                  });
-                }
-              }
-            })
-            .on('presence', { event: 'leave' }, ({ leftPresences }: any) => {
-              if (Array.isArray(leftPresences)) {
-                const leftIds = new Set(leftPresences.map((l: any) => l.userId));
-                setState(s => ({
-                  ...s,
-                  presences: s.presences.filter(p => !leftIds.has(p.userId))
-                }));
-              }
-            })
-            .on('broadcast', { event: 'collab_presence' }, ({ payload }: any) => {
-              if (!payload || !payload.userId) return;
-              const curId = getPureState().currentUser?.id;
-              if (curId && payload.userId === curId) return;
-
-              setState(s => {
-                const now = Date.now();
-                const others = s.presences.filter(p => 
-                  p.userId !== payload.userId && (now - new Date(p.lastActive).getTime() < 20000)
-                );
-                return { ...s, presences: [...others, payload as UserPresence] };
-              });
-            })
-            .on('broadcast', { event: 'collab_leave' }, ({ payload }: any) => {
-              if (!payload || !payload.userId) return;
-              setState(s => ({
-                ...s,
-                presences: s.presences.filter(p => p.userId !== payload.userId)
-              }));
-            })
-            .on('broadcast', { event: 'task_updated' }, ({ payload }: any) => {
-              if (!payload || !payload.taskId) return;
-              setState(s => {
-                const updated = s.tasks.map(t => t.id === payload.taskId ? { ...t, ...payload.updates } : t);
-                const updatedToView = s.taskToView?.id === payload.taskId ? { ...s.taskToView, ...payload.updates } : s.taskToView;
-                return { ...s, tasks: updated, taskToView: updatedToView };
-              });
-            })
-            .on('broadcast', { event: 'task_sprint_assigned' }, ({ payload }: any) => {
-              if (!payload || !payload.taskId) return;
-              setState(s => {
-                const updated = s.tasks.map(t => t.id === payload.taskId ? { ...t, sprintId: payload.sprintId } : t);
-                const updatedToView = s.taskToView?.id === payload.taskId ? { ...s.taskToView, sprintId: payload.sprintId } : s.taskToView;
-                return { ...s, tasks: updated, taskToView: updatedToView };
-              });
-            })
-            .subscribe((status: string) => {
-              console.log('[Supabase Realtime Collab] Status:', status);
-              const cur = getPureState().currentUser;
-              if (status === 'SUBSCRIBED' && cur) {
-                const myPres = getPureState().presences.find(p => p.userId === cur.id);
-                if (myPres) {
-                  globalSupabaseCollabChannel?.track(myPres);
-                }
-              }
-            });
-        } catch (e) {
-          console.warn('Failed to initialize Supabase Realtime collab channel:', e);
-        }
-      }
-
-      // Heartbeat every 5 seconds to announce presence and purge stale presences
-      heartbeatInterval = setInterval(() => {
-        const cur = getPureState().currentUser;
-        if (!cur) return;
-        const now = Date.now();
-        // Prune stale presences older than 15s
-        setState(s => {
-          const fresh = s.presences.filter(p => {
-            if (p.userId === cur.id) return true;
-            const age = now - new Date(p.lastActive).getTime();
-            return age >= 0 && age < 15000;
-          });
-          if (fresh.length !== s.presences.length) {
-            return { ...s, presences: fresh };
-          }
-          return s;
-        });
-
-        // Keep local user active
-        actions.updateUserPresence(getPureState().taskToView?.id);
-      }, 5000);
-
       return () => {
         listeners.delete(listener);
-        if (heartbeatInterval) clearInterval(heartbeatInterval);
-        if (typeof window !== 'undefined') {
-          window.removeEventListener('beforeunload', handleBeforeUnload);
-        }
-        if (bc) bc.close();
       };
     }, []); 
 
@@ -2034,7 +1887,6 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
         if (taskTimeoutId) clearTimeout(taskTimeoutId);
       };
     }, [highlightedTaskId, actions]);
-
 
     return { ...localState, ...actions };
   };

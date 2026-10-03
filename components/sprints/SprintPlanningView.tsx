@@ -3,7 +3,6 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { Sprint, Task, TaskStatus, TaskPriority } from '../../types';
 import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
-import { ProjectLiveCollabBar } from '../projects/ProjectLiveCollabBar';
 
 export const SprintPlanningView: React.FC = () => {
   const {
@@ -19,7 +18,9 @@ export const SprintPlanningView: React.FC = () => {
     updateTask,
     openViewTaskModal,
     openModal,
-    darkMode
+    darkMode,
+    currentUser,
+    presences
   } = useAppStore();
 
   const [isCreateSprintOpen, setIsCreateSprintOpen] = useState(false);
@@ -71,6 +72,11 @@ export const SprintPlanningView: React.FC = () => {
       return matchesSearch && matchesPriority && isUnassignedToSprint;
     });
   }, [projectTasks, searchQuery, priorityFilter, projectSprints]);
+
+  // Active teammates online across the platform
+  const activeCollabs = useMemo(() => {
+    return presences.filter(p => p.userId !== currentUser?.id);
+  }, [presences, currentUser]);
 
   // Helper for sprint statistics
   const getSprintStats = (sprintId: string) => {
@@ -161,9 +167,6 @@ export const SprintPlanningView: React.FC = () => {
 
   return (
     <div className="space-y-4 pb-12 p-4 md:p-6 overflow-y-auto scrollbar-thin">
-      
-      {/* Live Collaborator Presence & Realtime Radar */}
-      <ProjectLiveCollabBar />
 
       {/* 1. Analytics Hero Section */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/50 relative overflow-hidden">
@@ -188,8 +191,36 @@ export const SprintPlanningView: React.FC = () => {
             </p>
           </div>
 
-          {/* Action Button */}
-          <div className="flex items-center gap-3">
+          {/* Action Button & Active Online Teammates */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {activeCollabs.length > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white">
+                <span className="relative flex h-2 w-2 items-center justify-center">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                <span className="text-[11px] font-semibold text-indigo-200">
+                  Online:
+                </span>
+                <div className="flex -space-x-1.5 items-center">
+                  {activeCollabs.slice(0, 4).map(collab => (
+                    <div
+                      key={collab.userId}
+                      title={`${collab.userName} (${collab.isEditing ? 'Editing' : collab.isTypingComment ? 'Typing' : 'Planning'})`}
+                      className="w-6 h-6 rounded-full border-2 ring-1 ring-black/40 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600 hover:scale-110 transition-transform shadow-xs"
+                      style={{ borderColor: collab.color || '#6366f1' }}
+                    >
+                      {collab.userAvatar ? (
+                        <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
+                      ) : (
+                        collab.userName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={() => setIsCreateSprintOpen(true)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all transform active:scale-95 cursor-pointer"

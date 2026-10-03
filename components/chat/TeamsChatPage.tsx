@@ -3,13 +3,33 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { User, ChatMessage, ChatChannel, UserRole } from '../../types';
 import chatService, { DEFAULT_CHANNELS } from '../../services/chatService';
+import { supabase } from '../../services/supabaseService';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '🚀', '🎉', '👀', '🔥', '👏', '💡'];
 
+const SUGGESTED_COLLEAGUES: Array<{ id: string; full_name: string; email: string; role: UserRole }> = [
+  { id: 'seed-alex', full_name: 'Alex Rivera', email: 'alex.rivera@workspace.live', role: UserRole.PROJECT_MANAGER },
+  { id: 'seed-sarah', full_name: 'Sarah Chen', email: 'sarah.chen@workspace.live', role: UserRole.DEVELOPER },
+  { id: 'seed-marcus', full_name: 'Marcus Vance', email: 'marcus.vance@workspace.live', role: UserRole.DEVELOPER },
+  { id: 'seed-elena', full_name: 'Elena Rostova', email: 'elena.rostova@workspace.live', role: UserRole.DESIGNER },
+  { id: 'seed-david', full_name: 'David Kim', email: 'david.kim@workspace.live', role: UserRole.QA_ENGINEER },
+  { id: 'seed-priya', full_name: 'Priya Patel', email: 'priya.patel@workspace.live', role: UserRole.PROJECT_MANAGER },
+];
+
 export const TeamsChatPage: React.FC = () => {
-  const { users, currentUser, darkMode, activeProject, presences } = useAppStore();
+  const {
+    users,
+    setUsers,
+    currentUser,
+    darkMode,
+    activeProject,
+    presences,
+    updateUserPresence,
+    fetchUsersForAssignmentList,
+    addToast
+  } = useAppStore();
 
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [activeChannelId, setActiveChannelId] = useState<string>('general');
@@ -29,6 +49,20 @@ export const TeamsChatPage: React.FC = () => {
   const [newChannelDesc, setNewChannelDesc] = useState('');
   const [newChannelDept, setNewChannelDept] = useState('Engineering');
 
+  // Add Person / Direct Message modal
+  const [isAddPersonModalOpen, setIsAddPersonModalOpen] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
+  const [newPersonEmail, setNewPersonEmail] = useState('');
+  const [newPersonRole, setNewPersonRole] = useState<UserRole>(UserRole.DEVELOPER);
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [customPeopleVersion, setCustomPeopleVersion] = useState(0);
+  const remoteTypingTimeoutsRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
+
+  // Ensure all available users are fetched on mount
+  useEffect(() => {
+    fetchUsersForAssignmentList().catch(() => {});
+  }, [fetchUsersForAssignmentList]);
+
   // Realtime guide modal
   const [showRealtimeGuide, setShowRealtimeGuide] = useState(false);
 
@@ -36,6 +70,23 @@ export const TeamsChatPage: React.FC = () => {
   const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>('available');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Announce chat presence
+  useEffect(() => {
+    updateUserPresence(undefined, 'team_chat_view', { statusAction: 'chatting' });
+  }, [activeDirectUserId, activeChannelId, updateUserPresence]);
+
+  // Handle direct contact selection via interactive toast clicks
+  useEffect(() => {
+    const handleSelectContact = (e: any) => {
+      if (e.detail?.userId) {
+        setActiveDirectUserId(e.detail.userId);
+        setActiveChannelId('');
+      }
+    };
+    window.addEventListener('omni_select_chat_contact', handleSelectContact);
+    return () => window.removeEventListener('omni_select_chat_contact', handleSelectContact);
+  }, []);
 
   // Load channels on mount
   useEffect(() => {
@@ -77,25 +128,65 @@ export const TeamsChatPage: React.FC = () => {
     });
 
     const unsubscribeTyping = chatService.onTyping((targetId, user, isTyping) => {
-      setTypingUsers(prev => {
-        const currentList = prev[targetId] || [];
-        const userName = user.full_name || user.email;
-        if (isTyping) {
-          if (!currentList.includes(userName)) {
-            return { ...prev, [targetId]: [...currentList, userName] };
-          }
-        } else {
-          return { ...prev, [targetId]: currentList.filter(n => n !== userName) };
+      if (!user) return;
+      const userName = user.full_name || user.email || 'Teammate';
+
+      // Collect all keys that should reflect this typing event:
+      // 1. Direct targetId (for channels, or when two tabs view the same DM target)
+      // 2. Sender's user.id (so recipient viewing DM with sender sees sender typing)
+      // 3. Any matching user in directMessageUsers by email or full_name (in case user was added by email/name with a custom ID)
+      const keysToUpdate = new Set<string>();
+      if (targetId) keysToUpdate.add(targetId);
+      if (user.id) keysToUpdate.add(user.id);
+
+      const userEmailLower = user.email?.toLowerCase();
+      const userNameLower = user.full_name?.toLowerCase();
+      users.forEach(u => {
+        if (
+          (userEmailLower && u.email?.toLowerCase() === userEmailLower) ||
+          (userNameLower && u.full_name?.toLowerCase() === userNameLower)
+        ) {
+          keysToUpdate.add(u.id);
         }
-        return prev;
       });
+
+      const applyTypingState = (typingFlag: boolean) => {
+        setTypingUsers(prev => {
+          const next = { ...prev };
+          keysToUpdate.forEach(key => {
+            const currentList = next[key] || [];
+            next[key] = typingFlag
+              ? (currentList.includes(userName) ? currentList : [...currentList, userName])
+              : currentList.filter(n => n !== userName);
+          });
+          return next;
+        });
+      };
+
+      applyTypingState(isTyping);
+
+      const timeoutKey = `${user.id || userName}_${targetId}`;
+      if (remoteTypingTimeoutsRef.current[timeoutKey]) {
+        clearTimeout(remoteTypingTimeoutsRef.current[timeoutKey]);
+      }
+      if (isTyping) {
+        remoteTypingTimeoutsRef.current[timeoutKey] = setTimeout(() => {
+          applyTypingState(false);
+        }, 4000);
+      }
+    });
+
+    const unsubscribePersonAdded = chatService.onPersonAdded((addedUser) => {
+      setCustomPeopleVersion(v => v + 1);
+      setUsers(users.some(u => u.id === addedUser.id) ? users : [...users, addedUser]);
     });
 
     return () => {
       unsubscribeMessages();
       unsubscribeTyping();
+      unsubscribePersonAdded();
     };
-  }, [activeChannelId, activeDirectUserId, currentUser]);
+  }, [activeChannelId, activeDirectUserId, currentUser, users, setUsers]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -175,13 +266,122 @@ export const TeamsChatPage: React.FC = () => {
     setNewChannelDesc('');
   };
 
-  // Other users in organization (for DMs)
+  // Other users in organization + custom added people + online presences (so any colleague can be messaged)
   const directMessageUsers = useMemo(() => {
-    return users.filter(u => u.id !== currentUser?.id);
-  }, [users, currentUser]);
+    const map = new Map<string, User>();
+    users.forEach(u => {
+      if (u.id !== currentUser?.id) {
+        map.set(u.id, u);
+      }
+    });
+
+    // Load custom added people from localStorage immediately
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('omni_custom_team_members');
+        if (raw) {
+          const customList: User[] = JSON.parse(raw);
+          if (Array.isArray(customList)) {
+            customList.forEach(cu => {
+              if (cu && cu.id && cu.id !== currentUser?.id && !map.has(cu.id)) {
+                map.set(cu.id, cu);
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
+    presences.forEach(p => {
+      if (p.userId && p.userId !== currentUser?.id && !map.has(p.userId)) {
+        map.set(p.userId, {
+          id: p.userId,
+          full_name: p.userName || 'Online Teammate',
+          email: `${(p.userName || 'user').toLowerCase().replace(/\s+/g, '.')}@workspace.live`,
+          avatar_url: p.userAvatar,
+          role: UserRole.DEVELOPER,
+          organization_id: currentUser?.organization_id,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [users, presences, currentUser, customPeopleVersion]);
 
   const activeChannel = channels.find(c => c.id === activeChannelId);
-  const activeDirectUser = users.find(u => u.id === activeDirectUserId);
+  const activeDirectUser = directMessageUsers.find(u => u.id === activeDirectUserId) || users.find(u => u.id === activeDirectUserId);
+
+  const addPersonRecord = async (nameInput: string, emailInput: string, roleInput: UserRole, keepModalOpen = false) => {
+    const cleanName = nameInput.trim();
+    if (!cleanName) return;
+
+    const cleanEmail = emailInput.trim()
+      ? emailInput.trim().toLowerCase()
+      : `${cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@workspace.live`;
+
+    // Check if user already exists in current list by email or name
+    const existing = directMessageUsers.find(
+      u => u.email.toLowerCase() === cleanEmail || (u.full_name && u.full_name.toLowerCase() === cleanName.toLowerCase())
+    );
+    if (existing) {
+      setActiveDirectUserId(existing.id);
+      if (!keepModalOpen) setIsAddPersonModalOpen(false);
+      setNewPersonName('');
+      setNewPersonEmail('');
+      addToast('Opened Direct Chat', `Switched to conversation with ${existing.full_name || existing.email}.`, 'info');
+      return;
+    }
+
+    // Check if user exists in Supabase user_profiles by email
+    let addedUser: User | null = null;
+    try {
+      const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+
+      if (existingProfile) {
+        addedUser = existingProfile as User;
+      }
+    } catch (err) {}
+
+    if (!addedUser) {
+      addedUser = {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        full_name: cleanName,
+        email: cleanEmail,
+        role: roleInput,
+        organization_id: currentUser?.organization_id,
+      };
+    }
+
+    // Persist in localStorage custom team members so they stay available across the app
+    try {
+      const raw = localStorage.getItem('omni_custom_team_members');
+      const customList: User[] = raw ? JSON.parse(raw) : [];
+      if (!customList.some(u => u.id === addedUser!.id || u.email.toLowerCase() === cleanEmail)) {
+        customList.push(addedUser);
+        localStorage.setItem('omni_custom_team_members', JSON.stringify(customList));
+      }
+    } catch (err) {}
+
+    setCustomPeopleVersion(v => v + 1);
+    const updatedUsers = users.some(u => u.id === addedUser!.id) ? users : [...users, addedUser];
+    setUsers(updatedUsers);
+    chatService.broadcastPersonAdded(addedUser);
+    setActiveDirectUserId(addedUser.id);
+    if (!keepModalOpen) {
+      setIsAddPersonModalOpen(false);
+    }
+    setNewPersonName('');
+    setNewPersonEmail('');
+    addToast('Person Added', `${addedUser.full_name} has been added to your Direct Messages.`, 'success');
+  };
+
+  const handleAddPersonSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await addPersonRecord(newPersonName, newPersonEmail, newPersonRole, false);
+  };
 
   // Filter channels and users
   const filteredChannels = useMemo(() => {
@@ -250,6 +450,15 @@ export const TeamsChatPage: React.FC = () => {
                   <option value="busy" className="bg-slate-900 text-white">Busy / DND</option>
                 </select>
               </div>
+
+              {/* Add Person Button */}
+              <button
+                onClick={() => setIsAddPersonModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold shadow-md shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer"
+              >
+                <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
+                <span>+ Add Person</span>
+              </button>
 
               {/* Real-time Guide Button */}
               <button
@@ -363,15 +572,33 @@ export const TeamsChatPage: React.FC = () => {
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Direct Messages ({filteredUsers.length})
                 </span>
+                <button
+                  onClick={() => setIsAddPersonModalOpen(true)}
+                  title="Add Person to Direct Messages"
+                  className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                >
+                  <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               <div className="space-y-0.5">
                 {filteredUsers.length === 0 ? (
-                  <p className="px-3 py-2 text-[11px] text-slate-400 italic">No colleagues found</p>
+                  <div className="px-3 py-2 space-y-2">
+                    <p className="text-[11px] text-slate-400 italic">No colleagues found</p>
+                    <button
+                      onClick={() => setIsAddPersonModalOpen(true)}
+                      className="w-full py-1.5 px-2.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+                      Add Person
+                    </button>
+                  </div>
                 ) : (
                   filteredUsers.map(user => {
                     const isActive = activeDirectUserId === user.id;
-                    const isOnline = presences.some(p => p.userId === user.id);
+                    const userPresence = presences.find(p => p.userId === user.id);
+                    const isUserTyping = !!(typingUsers[user.id] && typingUsers[user.id].length > 0);
+                    const isOnline = !!userPresence || isUserTyping;
 
                     return (
                       <button
@@ -389,24 +616,43 @@ export const TeamsChatPage: React.FC = () => {
                           <div className="relative flex-shrink-0">
                             <Avatar user={user} size="sm" />
                             <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-800 ${
-                              isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+                              isOnline ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]' : 'bg-slate-400'
                             }`} />
                           </div>
                           <div className="truncate">
                             <span className="block truncate">{user.full_name || user.email}</span>
-                            <span className={`text-[10px] block truncate font-normal ${isActive ? 'text-indigo-200' : 'text-slate-400'}`}>
-                              {user.role ? user.role.replace(/_/g, ' ') : 'Member'}
+                            <span className={`text-[10px] block truncate font-normal ${
+                              isUserTyping
+                                ? (isActive ? 'text-amber-200 font-bold animate-pulse' : 'text-indigo-500 dark:text-indigo-400 font-bold animate-pulse')
+                                : (isActive ? 'text-indigo-200' : 'text-slate-400')
+                            }`}>
+                              {isUserTyping
+                                ? '✍️ Typing...'
+                                : isOnline
+                                  ? (userPresence?.currentTaskId ? 'Viewing task' : userPresence?.currentView === 'team_chat_view' ? 'In chat' : 'Online now')
+                                  : (user.role ? user.role.replace(/_/g, ' ') : 'Member')}
                             </span>
                           </div>
                         </div>
 
                         {isOnline && (
-                          <span className={`w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 ${isActive ? 'bg-white' : ''}`} />
+                          <span className={`w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse ${isActive ? 'bg-white' : ''}`} />
                         )}
                       </button>
                     );
                   })
                 )}
+
+                <div className="pt-1.5 px-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPersonModalOpen(true)}
+                    className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-indigo-400/50 hover:border-indigo-500 bg-indigo-500/5 hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
+                    <span>+ Add Another Person</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -420,27 +666,58 @@ export const TeamsChatPage: React.FC = () => {
           {/* Conversation Header */}
           <div className="p-4 border-b border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
             <div className="flex items-center gap-3 min-w-0">
-              {activeDirectUser ? (
-                <>
-                  <div className="relative">
-                    <Avatar user={activeDirectUser} size="md" />
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-black text-slate-900 dark:text-white truncate">
-                        {activeDirectUser.full_name || activeDirectUser.email}
-                      </h2>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                        {activeDirectUser.role ? activeDirectUser.role.replace(/_/g, ' ') : 'Member'}
-                      </span>
+              {activeDirectUser ? (() => {
+                const directPresence = presences.find(p => p.userId === activeDirectUser.id);
+                const directTypingList = typingUsers[activeDirectUser.id] || [];
+                const isDirectUserTyping = directTypingList.length > 0;
+                const isDirectUserOnline = !!directPresence || isDirectUserTyping;
+                return (
+                  <>
+                    <div className="relative flex-shrink-0">
+                      <Avatar user={activeDirectUser} size="md" />
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 ${
+                        isDirectUserOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse' : 'bg-slate-400'
+                      }`} />
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      Direct 1:1 conversation · {activeDirectUser.email}
-                    </p>
-                  </div>
-                </>
-              ) : activeChannel ? (
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-black text-slate-900 dark:text-white truncate">
+                          {activeDirectUser.full_name || activeDirectUser.email}
+                        </h2>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                          {activeDirectUser.role ? activeDirectUser.role.replace(/_/g, ' ') : 'Member'}
+                        </span>
+                        {isDirectUserTyping && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 animate-pulse">
+                            ✍️ Typing...
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
+                        {isDirectUserTyping ? (
+                          <span className="text-indigo-600 dark:text-indigo-400 font-bold animate-pulse">
+                            {activeDirectUser.full_name || activeDirectUser.email} is typing a message...
+                          </span>
+                        ) : isDirectUserOnline ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping" />
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              Active now{directPresence?.currentTaskId ? ' · Viewing task' : directPresence?.currentView === 'team_chat_view' ? ' · In Chat' : ''}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
+                            <span className="text-slate-400 font-medium">Offline</span>
+                          </>
+                        )}
+                        <span>·</span>
+                        <span className="truncate">{activeDirectUser.email}</span>
+                      </p>
+                    </div>
+                  </>
+                );
+              })() : activeChannel ? (
                 <>
                   <div className="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-black text-lg flex items-center justify-center flex-shrink-0">
                     #
@@ -714,7 +991,171 @@ export const TeamsChatPage: React.FC = () => {
         </div>
       )}
 
-      {/* 4. Real-Time Testing Guide Modal */}
+      {/* 4. Add Person / Start Direct Message Modal */}
+      {isAddPersonModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
+                  <ICON_MAP.UserPlusIcon className="w-5 h-5" />
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Add Person & Start Direct Chat
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsAddPersonModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            {directMessageUsers.length > 0 && (
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Quick Select Existing Person ({directMessageUsers.length})
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter existing people..."
+                  value={directorySearch}
+                  onChange={e => setDirectorySearch(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                />
+                <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                  {directMessageUsers
+                    .filter(u =>
+                      !directorySearch.trim() ||
+                      (u.full_name && u.full_name.toLowerCase().includes(directorySearch.toLowerCase())) ||
+                      u.email.toLowerCase().includes(directorySearch.toLowerCase())
+                    )
+                    .map(u => {
+                      const online = presences.some(p => p.userId === u.id);
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveDirectUserId(u.id);
+                            setIsAddPersonModalOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-indigo-50 dark:hover:bg-slate-700/60 text-left transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <Avatar user={u} size="sm" />
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{u.full_name || u.email}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{u.email}</p>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            online ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                          }`}>
+                            {online ? 'Online' : 'Message'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Suggested Colleagues to Quick-Add */}
+            {(() => {
+              const availableSuggestions = SUGGESTED_COLLEAGUES.filter(
+                sc => !directMessageUsers.some(u => u.email.toLowerCase() === sc.email.toLowerCase() || (u.full_name && u.full_name.toLowerCase() === sc.full_name.toLowerCase()))
+              );
+              if (availableSuggestions.length === 0) return null;
+              return (
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Quick Add Colleagues
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableSuggestions.map(sc => (
+                      <button
+                        key={sc.id}
+                        type="button"
+                        onClick={() => addPersonRecord(sc.full_name, sc.email, sc.role, true)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        <ICON_MAP.PlusIcon className="w-3 h-3" />
+                        <span>{sc.full_name}</span>
+                        <span className="text-[9px] opacity-70">({sc.role.replace(/_/g, ' ')})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <form onSubmit={handleAddPersonSubmit} className="space-y-3 text-xs pt-2 border-t border-slate-100 dark:border-slate-700">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Add New Person by Details
+              </p>
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sarah Jenkins"
+                  value={newPersonName}
+                  onChange={e => setNewPersonName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Email Address <span className="text-slate-400 font-normal">(optional)</span></label>
+                <input
+                  type="email"
+                  placeholder="e.g. sarah@company.com (auto-generated if blank)"
+                  value={newPersonEmail}
+                  onChange={e => setNewPersonEmail(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Role</label>
+                <select
+                  value={newPersonRole}
+                  onChange={e => setNewPersonRole(e.target.value as UserRole)}
+                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value={UserRole.DEVELOPER}>Developer</option>
+                  <option value={UserRole.DESIGNER}>Designer</option>
+                  <option value={UserRole.PROJECT_MANAGER}>Project Manager</option>
+                  <option value={UserRole.QA_ENGINEER}>QA Engineer</option>
+                  <option value={UserRole.MEMBER}>Team Member</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+                <Button variant="outline" size="sm" type="button" onClick={() => setIsAddPersonModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  disabled={!newPersonName.trim()}
+                  onClick={() => addPersonRecord(newPersonName, newPersonEmail, newPersonRole, true)}
+                >
+                  + Add & Add Another
+                </Button>
+                <Button variant="primary" size="sm" type="submit" disabled={!newPersonName.trim()}>
+                  Add & Start Chat
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Real-Time Testing Guide Modal */}
       {showRealtimeGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">

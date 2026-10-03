@@ -30,8 +30,26 @@ export const EditTaskModal: React.FC = () => {
     error: globalError,
     setError: setGlobalError,
     isLoadingUsersForAssignment,
-    usersForAssignmentError
+    usersForAssignmentError,
+    updateUserPresence
   } = useAppStore();
+
+  const wasEditOpenRef = React.useRef(false);
+
+  useEffect(() => {
+    if (isEditTaskModalOpen && taskToEdit) {
+      wasEditOpenRef.current = true;
+      updateUserPresence(taskToEdit.id, undefined, { isEditing: true, editingField: 'details', statusAction: 'editing_task' });
+    } else if (!isEditTaskModalOpen && wasEditOpenRef.current) {
+      wasEditOpenRef.current = false;
+      const state = useAppStore.getState();
+      if (state.isViewTaskModalOpen && state.taskToView) {
+        updateUserPresence(state.taskToView.id, undefined, { isEditing: false });
+      } else {
+        updateUserPresence(undefined, undefined, { clearTask: true, isEditing: false });
+      }
+    }
+  }, [isEditTaskModalOpen, taskToEdit?.id, updateUserPresence]);
 
   const [title, setTitle] = useState('');
   const [aiHelperDescription, setAiHelperDescription] = useState('');

@@ -8,7 +8,6 @@ import { TaskListView } from './TaskListView';
 import { SprintPlanningView } from '../sprints/SprintPlanningView';
 import { AutomatedTriggersModal } from './AutomatedTriggersModal';
 import { Button } from '../shared/Button';
-import { ProjectLiveCollabBar } from '../projects/ProjectLiveCollabBar';
 
 type SwimlaneType = 'none' | 'assignee' | 'priority';
 
@@ -24,7 +23,8 @@ export const KanbanBoard: React.FC = () => {
     currentUser,
     openViewTaskModal,
     sprints,
-    activeSprintId
+    activeSprintId,
+    presences
   } = useAppStore();
 
   const [viewMode, setViewMode] = useState<'kanban' | 'sprints' | 'list' | 'gantt'>('kanban');
@@ -57,6 +57,11 @@ export const KanbanBoard: React.FC = () => {
       localStorage.setItem(`wip_limits_${activeProject.id}`, JSON.stringify(updated));
     }
   };
+
+  // Active teammates online across the platform
+  const activeCollabs = useMemo(() => {
+    return presences.filter(p => p.userId !== currentUser?.id);
+  }, [presences, currentUser]);
 
   const toggleSwimlane = (id: string) => {
     setCollapsedSwimlanes(prev => ({ ...prev, [id]: !prev[id] }));
@@ -238,9 +243,6 @@ export const KanbanBoard: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 h-full p-2 sm:p-4 md:p-6 bg-transparent overflow-y-auto md:overflow-hidden space-y-3">
-      
-      {/* Live Project Collaborator Interaction Bar */}
-      <ProjectLiveCollabBar />
 
       {/* Top Agile Toolbar: View Switcher, Stats & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1 flex-shrink-0">
@@ -317,6 +319,58 @@ export const KanbanBoard: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Center / Inline: Active Teammates on Project */}
+        {activeCollabs.length > 0 && (
+          <div className={`hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs ${
+            darkMode ? 'bg-slate-800/80 border-slate-700/80 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+          }`}>
+            <span className="relative flex h-2 w-2 items-center justify-center">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              Active:
+            </span>
+            <div className="flex -space-x-1.5 items-center">
+              {activeCollabs.slice(0, 5).map(collab => {
+                const viewingTask = collab.currentTaskId ? tasks.find(t => t.id === collab.currentTaskId) : null;
+                const statusDesc = collab.isEditing
+                  ? `Editing ${collab.editingField || 'task'}`
+                  : collab.isTypingComment
+                    ? 'Typing comment...'
+                    : viewingTask
+                      ? `Viewing "${viewingTask.title}"`
+                      : 'Viewing board';
+
+                return (
+                  <div
+                    key={collab.userId}
+                    title={`${collab.userName} (${statusDesc})`}
+                    className="relative group cursor-pointer"
+                  >
+                    <div
+                      style={{ borderColor: collab.color || '#6366f1' }}
+                      className="w-6 h-6 rounded-full border-2 ring-1 ring-white dark:ring-slate-800 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600 hover:scale-110 transition-transform shadow-xs"
+                    >
+                      {collab.userAvatar ? (
+                        <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
+                      ) : (
+                        collab.userName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-800" />
+                  </div>
+                );
+              })}
+            </div>
+            {activeCollabs.length > 5 && (
+              <span className="text-[10px] text-slate-400 font-bold ml-0.5">
+                +{activeCollabs.length - 5}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Right: Agile Stats & Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">

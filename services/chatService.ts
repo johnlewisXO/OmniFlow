@@ -1,5 +1,6 @@
 import { ChatMessage, ChatChannel, User } from '../types';
 import { supabase } from './supabaseService';
+import collabService from './collabService';
 
 export const DEFAULT_CHANNELS: ChatChannel[] = [
   {
@@ -83,8 +84,14 @@ const STORAGE_KEY_CHANNELS = 'omni_chat_channels';
 class ChatService {
   private broadcastChannel: BroadcastChannel | null = null;
   private supabaseChannel: any = null;
+  private isChannelSubscribed = false;
+  private readonly clientId: string =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : 'chat_' + Math.random().toString(36).substring(2, 10);
   private typingListeners = new Set<(channelOrUserId: string, user: User, isTyping: boolean) => void>();
   private messageListeners = new Set<(message: ChatMessage) => void>();
+  private personAddedListeners = new Set<(user: User) => void>();
 
   constructor() {
     this.initBroadcastChannel();
@@ -98,13 +105,20 @@ class ChatService {
         this.broadcastChannel.onmessage = (event) => {
           const { type, payload } = event.data || {};
           if (type === 'NEW_MESSAGE' && payload) {
+            collabService.recordUserActive(payload.sender_id, payload.sender_name, payload.sender_avatar);
             this.handleIncomingRemoteMessage(payload);
           } else if (type === 'TYPING_STATUS' && payload) {
+            if (payload.clientId && payload.clientId === this.clientId) return;
+            if (payload.user?.id) {
+              collabService.recordUserActive(payload.user.id, payload.user.full_name || payload.user.email, payload.user.avatar_url);
+            }
             this.typingListeners.forEach(listener => 
               listener(payload.targetId, payload.user, payload.isTyping)
             );
           } else if (type === 'REACTION_UPDATE' && payload) {
             this.handleIncomingRemoteReaction(payload.messageId, payload.emoji, payload.userId);
+          } else if (type === 'PERSON_ADDED' && payload) {
+            this.handleIncomingPersonAdded(payload);
           }
         };
       } catch (e) {
@@ -118,17 +132,22 @@ class ChatService {
     try {
       this.supabaseChannel = supabase.channel('omni_flow_chat_hub', {
         config: {
-          broadcast: { ack: true }
+          broadcast: { self: false }
         }
       });
 
       this.supabaseChannel
         .on('broadcast', { event: 'new_message' }, ({ payload }: { payload: ChatMessage }) => {
           if (!payload || !payload.id) return;
+          collabService.recordUserActive(payload.sender_id, payload.sender_name, payload.sender_avatar);
           this.handleIncomingRemoteMessage(payload);
         })
         .on('broadcast', { event: 'typing_status' }, ({ payload }: any) => {
           if (!payload) return;
+          if (payload.clientId && payload.clientId === this.clientId) return;
+          if (payload.user?.id) {
+            collabService.recordUserActive(payload.user.id, payload.user.full_name || payload.user.email, payload.user.avatar_url);
+          }
           this.typingListeners.forEach(listener => 
             listener(payload.targetId, payload.user, payload.isTyping)
           );
@@ -137,12 +156,54 @@ class ChatService {
           if (!payload) return;
           this.handleIncomingRemoteReaction(payload.messageId, payload.emoji, payload.userId);
         })
+        .on('broadcast', { event: 'person_added' }, ({ payload }: any) => {
+          if (!payload || !payload.id) return;
+          this.handleIncomingPersonAdded(payload);
+        })
         .subscribe((status: string) => {
-          console.log('[Supabase Realtime Chat] Connected to channel "omni_flow_chat_hub". Status:', status);
+          this.isChannelSubscribed = status === 'SUBSCRIBED';
         });
     } catch (err) {
       console.warn('Failed to initialize Supabase Realtime chat:', err);
     }
+  }
+
+  private canUseWebSocket(): boolean {
+    if (!this.supabaseChannel || !this.isChannelSubscribed) return false;
+    if (typeof this.supabaseChannel.canPush === 'function') {
+      return this.supabaseChannel.canPush();
+    }
+    return this.supabaseChannel.state === 'joined';
+  }
+
+  private sendBroadcast(event: string, payload: any, allowHttpFallback = true) {
+    if (!this.supabaseChannel) return;
+    try {
+      if (this.canUseWebSocket()) {
+        this.supabaseChannel.send({
+          type: 'broadcast',
+          event,
+          payload
+        }).catch(() => {});
+      } else if (allowHttpFallback && typeof this.supabaseChannel.httpSend === 'function') {
+        this.supabaseChannel.httpSend(event, payload).catch(() => {});
+      }
+    } catch (e) {}
+  }
+
+  private handleIncomingPersonAdded(user: User) {
+    if (!user || !user.id) return;
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('omni_custom_team_members');
+        const customList: User[] = raw ? JSON.parse(raw) : [];
+        if (!customList.some(u => u.id === user.id || (u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase()))) {
+          customList.push(user);
+          localStorage.setItem('omni_custom_team_members', JSON.stringify(customList));
+        }
+      } catch (e) {}
+    }
+    this.personAddedListeners.forEach(listener => listener(user));
   }
 
   private handleIncomingRemoteMessage(message: ChatMessage) {
@@ -264,15 +325,7 @@ class ChatService {
     }
 
     // 1. Broadcast via Supabase Realtime channel (Cross-browser, Incognito, and Cross-device)
-    if (this.supabaseChannel) {
-      try {
-        this.supabaseChannel.send({
-          type: 'broadcast',
-          event: 'new_message',
-          payload: message
-        }).catch((e: any) => console.warn('Supabase chat broadcast send warning:', e));
-      } catch (e) {}
-    }
+    this.sendBroadcast('new_message', message, true);
 
     // 2. Broadcast via local BroadcastChannel
     if (this.broadcastChannel) {
@@ -280,6 +333,16 @@ class ChatService {
         this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', payload: message });
       } catch (e) {}
     }
+
+    // 3. Broadcast notification through collabService so interactive toast appears across app
+    if (params.recipientId) {
+      try {
+        collabService.broadcastChatNotification(message);
+      } catch (e) {}
+    }
+
+    // Keep sender registered as active
+    collabService.updatePresence(undefined, 'team_chat_view', { statusAction: 'chatting' });
 
     // 3. Try to log into audit_logs or chat_messages in Supabase for log inspection
     try {
@@ -331,15 +394,7 @@ class ChatService {
     }
 
     // Broadcast via Supabase Realtime
-    if (this.supabaseChannel) {
-      try {
-        this.supabaseChannel.send({
-          type: 'broadcast',
-          event: 'reaction_toggle',
-          payload: { messageId, emoji, userId }
-        }).catch(() => {});
-      } catch (e) {}
-    }
+    this.sendBroadcast('reaction_toggle', { messageId, emoji, userId }, true);
 
     // Broadcast via local BroadcastChannel
     if (this.broadcastChannel) {
@@ -356,23 +411,34 @@ class ChatService {
 
   // Broadcast typing indicator
   broadcastTyping(targetId: string, user: User, isTyping: boolean): void {
-    // 1. Send via Supabase Realtime
-    if (this.supabaseChannel) {
-      try {
-        this.supabaseChannel.send({
-          type: 'broadcast',
-          event: 'typing_status',
-          payload: { targetId, user, isTyping }
-        }).catch(() => {});
-      } catch (e) {}
+    if (isTyping) {
+      collabService.updatePresence(undefined, 'team_chat_view', { statusAction: 'typing' });
     }
+
+    const payload = { targetId, user, isTyping, clientId: this.clientId };
+
+    // 1. Send via Supabase Realtime (with REST fallback if socket still connecting)
+    this.sendBroadcast('typing_status', payload, true);
 
     // 2. Send via local BroadcastChannel
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({
           type: 'TYPING_STATUS',
-          payload: { targetId, user, isTyping }
+          payload
+        });
+      } catch (e) {}
+    }
+  }
+
+  // Broadcast newly added person across tabs and teammates
+  broadcastPersonAdded(user: User): void {
+    this.sendBroadcast('person_added', user, true);
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'PERSON_ADDED',
+          payload: user
         });
       } catch (e) {}
     }
@@ -388,6 +454,12 @@ class ChatService {
   onTyping(listener: (targetId: string, user: User, isTyping: boolean) => void): () => void {
     this.typingListeners.add(listener);
     return () => this.typingListeners.delete(listener);
+  }
+
+  // Subscribe to person added
+  onPersonAdded(listener: (user: User) => void): () => void {
+    this.personAddedListeners.add(listener);
+    return () => this.personAddedListeners.delete(listener);
   }
 
   private getAllMessages(): ChatMessage[] {

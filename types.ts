@@ -130,9 +130,11 @@ export interface Sprint {
 
 export interface UserPresence {
   userId: string;
+  sessionId?: string;
   userName: string;
   userAvatar?: string;
   currentTaskId?: string;
+  currentProjectId?: string;
   currentView?: string;
   isEditing?: boolean;
   editingField?: string;
@@ -140,6 +142,7 @@ export interface UserPresence {
   statusAction?: string;
   lastActive: string;
   color: string;
+  lastSeenLocally?: number;
 }
 
 export interface WebhookConfig {
@@ -310,7 +313,7 @@ export interface Notification {
   reference_id?: string;
   reference_parent_id?: string;
   is_read?: boolean;
-  entity_type?: 'task' | 'project' | 'user' | 'system';
+  entity_type?: 'task' | 'project' | 'user' | 'system' | 'chat';
   entity_id?: string;
   title?: string;
   message?: string;
@@ -391,7 +394,7 @@ export interface AppStore {
 
   isViewTaskModalOpen: boolean; 
   taskToView: Task | null;      
-  openViewTaskModal: (taskId: string, navigateToProject?: boolean) => void; 
+  openViewTaskModal: (taskIdOrTask: string | Task, navigateToProject?: boolean) => void; 
   closeViewTaskModal: () => void;    
 
   isEditTaskModalOpen: boolean; 
@@ -445,7 +448,12 @@ export interface AppStore {
   deleteUserError: string | null;
 
   notifications: Notification[];
-  addToast: (title: string, message: string, toastType?: 'success' | 'error' | 'warning' | 'info') => void;
+  addToast: (
+    title: string,
+    message: string,
+    toastType?: 'success' | 'error' | 'warning' | 'info',
+    navTarget?: { entity_type?: 'task' | 'project' | 'user' | 'system' | 'chat'; entity_id?: string; reference_id?: string; metadata?: Record<string, any> }
+  ) => void;
   addNotification: (notification: Partial<Notification> & Omit<Notification, 'id' | 'created_at' | 'read'>) => void;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
@@ -475,7 +483,7 @@ export interface AppStore {
   updateUserPresence: (
     taskId?: string,
     view?: string,
-    flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string }
+    flags?: { isEditing?: boolean; editingField?: string; isTypingComment?: boolean; statusAction?: string; projectId?: string; clearTask?: boolean }
   ) => void;
   removeUserPresence: (userId: string) => void;
 

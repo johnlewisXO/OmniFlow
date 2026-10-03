@@ -39,7 +39,18 @@ import { CommandPalette } from './components/layout/CommandPalette';
 import { KeyboardShortcutsModal } from './components/layout/KeyboardShortcutsModal'; 
 
 const ToastContainer: React.FC = () => {
-  const { notifications, markNotificationAsRead, darkMode } = useAppStore();
+  const {
+    notifications,
+    markNotificationAsRead,
+    darkMode,
+    tasks,
+    projects,
+    setActiveProject,
+    setActiveView,
+    openViewTaskModal,
+    setHighlightedTaskId,
+    setHighlightedProjectId
+  } = useAppStore();
   const [visibleToasts, setVisibleToasts] = useState<string[]>([]);
 
   useEffect(() => {
@@ -57,11 +68,75 @@ const ToastContainer: React.FC = () => {
         newIds.forEach(id => {
           setTimeout(() => {
             setVisibleToasts(prev => prev.filter(tId => tId !== id));
-          }, 4500);
+          }, 5500);
         });
       }
     }
   }, [notifications, visibleToasts]);
+
+  const handleToastClick = async (n: any) => {
+    markNotificationAsRead(n.id);
+    setVisibleToasts(prev => prev.filter(id => id !== n.id));
+
+    const typeStr = (n.type || '').toUpperCase();
+    const entityType =
+      n.entity_type ||
+      (typeStr.includes('CHAT') ? 'chat' : typeStr.includes('TASK') || typeStr === 'MENTION' ? 'task' : typeStr.includes('PROJECT') ? 'project' : undefined);
+    const targetId = n.entity_id || n.reference_id;
+
+    // 1. Direct message or chat notification
+    if (entityType === 'chat' || typeStr.includes('CHAT')) {
+      setActiveView('team_chat_view');
+      if (targetId) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('omni_select_chat_contact', { detail: { userId: targetId } }));
+        }, 80);
+      }
+      return;
+    }
+
+    // 2. Task comment, mention, or task update
+    if (entityType === 'task' || typeStr === 'MENTION' || typeStr.includes('TASK')) {
+      let targetTask = tasks.find(t => t.id === targetId);
+      if (!targetTask && targetId) {
+        try {
+          const { data } = await supabase.from('tasks').select('*').eq('id', targetId).single();
+          if (data) {
+            targetTask = data as any;
+          }
+        } catch (e) {}
+      }
+
+      if (targetTask) {
+        if (targetTask.project_id) {
+          const proj = projects.find(p => p.id === targetTask!.project_id);
+          if (proj) setActiveProject(proj);
+        }
+        setActiveView('kanban');
+        setHighlightedTaskId(targetTask.id);
+        openViewTaskModal(targetTask);
+
+        // Focus last comment/update in the task modal
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('omni_focus_task_comments', {
+            detail: { taskId: targetTask!.id, commentId: n.metadata?.commentId }
+          }));
+        }, 150);
+      }
+      return;
+    }
+
+    // 3. Project update
+    if (entityType === 'project' || typeStr.includes('PROJECT')) {
+      const proj = projects.find(p => p.id === targetId);
+      if (proj) {
+        setActiveProject(proj);
+        setHighlightedProjectId(proj.id);
+        setActiveView('kanban');
+      }
+      return;
+    }
+  };
 
   if (visibleToasts.length === 0) return null;
 
@@ -71,6 +146,7 @@ const ToastContainer: React.FC = () => {
     <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
       {toastsToShow.map(n => {
         const type = n.toastType || (n.type === 'TASK_DELETED' || n.type === 'USER_REMOVED_FROM_ORG' ? 'error' : 'success');
+        const isInteractive = !!(n.entity_type || n.entity_id || n.reference_id || n.type === 'MENTION' || (n.type && (n.type.includes('TASK') || n.type.includes('CHAT') || n.type.includes('PROJECT'))));
         
         let iconEl = <ICON_MAP.CheckIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />;
         let borderClass = 'border-emerald-500/30 dark:border-emerald-500/40';
@@ -93,7 +169,12 @@ const ToastContainer: React.FC = () => {
         return (
           <div
             key={n.id}
+            onClick={() => isInteractive && handleToastClick(n)}
+            role={isInteractive ? 'button' : undefined}
+            tabIndex={isInteractive ? 0 : undefined}
             className={`pointer-events-auto p-3.5 rounded-xl shadow-xl border backdrop-blur-md flex items-start gap-3 transition-all duration-300 transform translate-y-0 animate-in slide-in-from-bottom-4 ${borderClass} ${
+              isInteractive ? 'cursor-pointer hover:scale-[1.02] hover:shadow-2xl active:scale-[0.99]' : ''
+            } ${
               darkMode ? 'bg-slate-900/95 text-slate-100' : 'bg-white/95 text-slate-900'
             }`}
           >
@@ -101,15 +182,23 @@ const ToastContainer: React.FC = () => {
               {iconEl}
             </div>
             <div className="flex-1 min-w-0 pr-1">
-              <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 leading-snug truncate">
-                {n.title || n.type.replace(/_/g, ' ')}
-              </h4>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 leading-snug truncate">
+                  {n.title || n.type.replace(/_/g, ' ')}
+                </h4>
+              </div>
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 break-words">
                 {n.message || n.content}
               </p>
+              {isInteractive && (
+                <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  Click to view & reply →
+                </span>
+              )}
             </div>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 markNotificationAsRead(n.id);
                 setVisibleToasts(prev => prev.filter(id => id !== n.id));
               }}
@@ -401,7 +490,18 @@ function App() {
     tasks, setTasks,
     isLoadingProjects,
     setTasksError, setProjectsError, setUsersForAssignmentError,
+    updateUserPresence,
   } = useAppStore();
+
+  // Seamlessly broadcast user's current view and project presence across the platform
+  useEffect(() => {
+    if (currentUser) {
+      updateUserPresence(undefined, activeView, {
+        projectId: activeProject?.id,
+        statusAction: activeProject ? `viewing_${activeView}` : 'online'
+      });
+    }
+  }, [currentUser, activeProject?.id, activeView, updateUserPresence]);
 
 
   useEffect(() => {

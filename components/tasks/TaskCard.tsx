@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Task, User, TaskPriority, TaskStatus } from '../../types';
+import { Task, User, TaskPriority, TaskStatus, UserPresence } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Avatar } from '../shared/Avatar';
 import { PRIORITY_STYLES, ICON_MAP } from '../../constants';
@@ -16,6 +16,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     darkMode, 
     deleteTask: deleteTaskAction, 
     openViewTaskModal,
+    openEditTaskModal,
     highlightedTaskId,
     presences,
     currentUser
@@ -49,15 +50,25 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     return { completed, total, percent: Math.round((completed / total) * 100) };
   }, [task.checklist]);
 
-  // Users currently viewing this card (strictly active within 15 seconds)
+  // Users currently active on this card (viewing, editing, or typing a comment), deduplicated by userId
   const viewers = useMemo(() => {
-    const now = Date.now();
-    return presences.filter(p => 
-      p.currentTaskId === task.id && 
-      p.userId !== currentUser?.id &&
-      (now - new Date(p.lastActive).getTime() < 15000)
-    );
-  }, [presences, task.id, currentUser]);
+    const map = new Map<string, UserPresence>();
+    presences.forEach(p => {
+      if (p.currentTaskId !== task.id) return;
+      const existing = map.get(p.userId);
+      if (!existing) {
+        map.set(p.userId, { ...p });
+      } else {
+        map.set(p.userId, {
+          ...existing,
+          isEditing: Boolean(existing.isEditing || p.isEditing),
+          editingField: p.editingField || existing.editingField,
+          isTypingComment: Boolean(existing.isTypingComment || p.isTypingComment),
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [presences, task.id]);
 
   const activeEditors = useMemo(() => {
     return viewers.filter(v => v.isEditing);
@@ -66,6 +77,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
   const activeTypers = useMemo(() => {
     return viewers.filter(v => v.isTypingComment);
   }, [viewers]);
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openEditTaskModal(task.id);
+  };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation(); 
@@ -114,13 +130,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       style={cardBackgroundStyle}
       className={`p-3.5 sm:p-4 rounded-xl shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group
                   ${isHighlighted ? (darkMode ? 'ring-2 ring-accent-light shadow-accent-light/20' : 'ring-2 ring-accent shadow-accent/20') : ''}
+                  ${activeEditors.length > 0 ? 'ring-1 ring-blue-500/50 border-blue-500/40' : activeTypers.length > 0 ? 'ring-1 ring-purple-500/50 border-purple-500/40' : viewers.length > 0 ? 'ring-1 ring-emerald-500/30 border-emerald-500/30' : ''}
                   ${isBlocked ? 'border-amber-400/60 dark:border-amber-500/50 bg-amber-50/20 dark:bg-amber-950/10' : ''}`}
       onClick={handleCardClick}
       draggable={true} 
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Top Badges: Blocked, Story Points, & Blinking Eye Viewer Circle */}
+      {/* Top Badges: Blocked, Story Points, & Live Presence Count */}
       <div className="flex items-center justify-between gap-1.5 mb-2.5">
         <div className="flex items-center gap-1.5 flex-wrap">
           {isBlocked && (
@@ -140,61 +157,104 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
           )}
         </div>
 
-        {/* Live Collaborator Presence with Blinking Eye Circle */}
-        <div className="flex items-center gap-1.5">
-          {activeEditors.length > 0 && (
-            <span
-              title={`${activeEditors.map(e => e.userName).join(', ')} is currently editing this task`}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 text-[10px] font-semibold animate-pulse"
-            >
-              <ICON_MAP.PencilIcon className="w-3 h-3" />
-              <span>Editing</span>
+        {/* Compact Live Presence Indicator */}
+        {viewers.length > 0 && (
+          <div
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold shadow-xs transition-all"
+            title={`${viewers.map(v => v.userName).join(', ')} active on this task`}
+          >
+            <span className="relative flex h-2 w-2 items-center justify-center">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
             </span>
-          )}
-
-          {activeTypers.length > 0 && (
-            <span
-              title={`${activeTypers.map(e => e.userName).join(', ')} is commenting on this task`}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-400 text-[10px] font-semibold animate-pulse"
-            >
-              <ICON_MAP.ChatBubbleLeftIcon className="w-3 h-3" />
-              <span>Typing</span>
-            </span>
-          )}
-
-          {viewers.length > 0 && (
-            <div
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold shadow-xs transition-all"
-              title={`${viewers.map(v => v.userName).join(', ')} currently viewing this task`}
-            >
-              {/* Blinking Eye Circle */}
-              <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-              </span>
-              <ICON_MAP.EyeIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse flex-shrink-0" />
-              <span>{viewers.length}</span>
-              {/* Stacked Avatars */}
-              <div className="flex -space-x-1 items-center ml-0.5">
-                {viewers.slice(0, 3).map(v => (
-                  <span
-                    key={v.userId}
-                    style={{ backgroundColor: v.color }}
-                    className="w-4 h-4 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center ring-1 ring-white dark:ring-slate-900 overflow-hidden shadow-xs"
-                    title={v.userName}
-                  >
-                    {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : v.userName.charAt(0).toUpperCase()}
-                  </span>
-                ))}
-              </div>
+            <div className="flex -space-x-1">
+              {viewers.slice(0, 3).map(v => (
+                <span
+                  key={v.userId}
+                  style={{ backgroundColor: v.color || '#10b981' }}
+                  className="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-slate-900 text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden"
+                >
+                  {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : (v.userName || 'U').charAt(0).toUpperCase()}
+                </span>
+              ))}
             </div>
-          )}
-        </div>
+            <span>{viewers.length} active</span>
+          </div>
+        )}
       </div>
+
+      {/* Detailed Real-Time User Activity Chips (Viewing, Editing, Typing a Comment) */}
+      {viewers.length > 0 && (
+        <div className="mb-2.5 flex flex-wrap gap-1.5 p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70">
+          {viewers.map(v => {
+            const isMe = v.userId === currentUser?.id;
+            const displayName = isMe ? `${(v.userName || 'You').split(' ')[0]} (You)` : (v.userName || 'Teammate').split(' ')[0];
+            return (
+              <React.Fragment key={v.userId}>
+                {/* Always show viewing indicator or active state */}
+                {!v.isEditing && !v.isTypingComment && (
+                  <span
+                    title={`${v.userName} is viewing this task`}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold"
+                  >
+                    <span
+                      style={{ backgroundColor: v.color || '#10b981' }}
+                      className="w-3.5 h-3.5 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                    >
+                      {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
+                    </span>
+                    <ICON_MAP.EyeIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                    <span className="truncate max-w-[130px]">{displayName} · Viewing</span>
+                  </span>
+                )}
+                {v.isEditing && (
+                  <span
+                    title={`${v.userName} is currently editing ${v.editingField || 'this task'}`}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold animate-pulse"
+                  >
+                    <span
+                      style={{ backgroundColor: v.color || '#3b82f6' }}
+                      className="w-3.5 h-3.5 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                    >
+                      {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
+                    </span>
+                    <ICON_MAP.PencilIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                    <span className="truncate max-w-[140px]">
+                      {displayName} · Editing{v.editingField ? ` ${v.editingField}` : ''}
+                    </span>
+                  </span>
+                )}
+                {v.isTypingComment && (
+                  <span
+                    title={`${v.userName} is typing a comment on this task`}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[10px] font-bold animate-pulse"
+                  >
+                    <span
+                      style={{ backgroundColor: v.color || '#8b5cf6' }}
+                      className="w-3.5 h-3.5 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
+                    >
+                      {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
+                    </span>
+                    <ICON_MAP.ChatBubbleLeftIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                    <span className="truncate max-w-[145px]">{displayName} · Typing comment...</span>
+                  </span>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex justify-between items-start mb-2">
         <h3 className={`text-sm font-bold ${textColor} leading-snug mr-2`}>{task.title}</h3>
         <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+                onClick={handleEdit}
+                title="Edit task"
+                className={`p-1 rounded-squircle-sm ${darkMode ? 'text-slate-400 hover:bg-blue-500/20 hover:text-blue-300' : 'text-slate-500 hover:bg-blue-500/15 hover:text-blue-600'} transition-colors cursor-pointer`}
+            >
+              <ICON_MAP.PencilIcon className="w-3.5 h-3.5" />
+            </button>
             <button
                 onClick={handleDelete}
                 title="Delete task"
