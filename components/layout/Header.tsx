@@ -52,7 +52,6 @@ export const Header: React.FC = () => {
   const handleStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
     setMyStatus(newStatus);
     collabService.broadcastUserStatusChanged(newStatus);
-    updateUserPresence(undefined, undefined, { availabilityStatus: newStatus });
     const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
     addToast('Status Broadcast Live', `Your status is now "${label}" across all connected teammates.`, 'info');
   };

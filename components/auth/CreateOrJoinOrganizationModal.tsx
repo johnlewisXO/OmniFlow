@@ -189,21 +189,32 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
   useEffect(() => {
     // If auth or app is loading, or user is not logged in, or user already has an organization_id, hide modal
     if (authLoading || appLoading || !currentUser || currentUser.organization_id) {
+      if (currentUser?.organization_id && typeof window !== 'undefined') {
+        sessionStorage.removeItem('omni_just_registered');
+      }
       setShouldShowModal(false);
       return;
     }
 
-    // Add a 500ms grace period so initial profile sync finishes before showing modal
+    // Only show this modal on successful new registration (or if processing a pending invite token)
+    const isNewRegistration = typeof window !== 'undefined' && sessionStorage.getItem('omni_just_registered') === 'true';
+    const hasPendingInvite = typeof window !== 'undefined' && Boolean(localStorage.getItem('pending_invite_token'));
+
+    if (!isNewRegistration && !hasPendingInvite) {
+      setShouldShowModal(false);
+      return;
+    }
+
     const timer = setTimeout(() => {
-      if (!currentUser.organization_id) {
+      if (!currentUser.organization_id && (sessionStorage.getItem('omni_just_registered') === 'true' || localStorage.getItem('pending_invite_token'))) {
         setShouldShowModal(true);
       }
-    }, 500);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [authLoading, appLoading, currentUser?.id, currentUser?.organization_id]);
 
-  // Only show if app and auth are finished loading, user is logged in, and genuinely has no organization
+  // Only show if app and auth are finished loading, user is logged in, and genuinely just registered without an organization
   if (!shouldShowModal || authLoading || appLoading || !currentUser || currentUser.organization_id) {
     return null;
   }
@@ -211,7 +222,12 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
   return (
     <Modal
       isOpen={true}
-      onClose={() => {}} // Prevent closing without joining/creating
+      onClose={() => {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('omni_just_registered');
+        }
+        setShouldShowModal(false);
+      }}
       title="Welcome! Let's get you set up."
     >
       <div className="p-6 space-y-6">

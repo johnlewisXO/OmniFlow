@@ -131,10 +131,24 @@ export const TASK_STATUS_COLUMNS = [
   { id: TaskStatus.DONE, title: 'Done', color: 'bg-green-500 dark:bg-green-400' },
 ];
 
-// Priority Styles
-export const PRIORITY_STYLES: Record<TaskPriority, { icon: React.FC<{ className?: string }>, color: string }> = {
+const MEDIUM_PRIORITY_ICON = createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 0a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5h16.5a1.5 1.5 0 011.5 1.5v1.5a1.5 1.5 0 01-1.5 1.5M3.75 9V3.75M3.75 9h16.5" />);
+const HIGH_PRIORITY_ICON = createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />);
+
+// Priority Styles (supports both TitleCase enum values and raw lowercase DB values)
+export const PRIORITY_STYLES: Record<string, { icon: React.FC<{ className?: string }>, color: string }> = {
   [TaskPriority.LOW]: { icon: ICON_MAP.ChevronDownIcon, color: 'text-green-500 dark:text-green-400' },
-  [TaskPriority.MEDIUM]: { icon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 0a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5h16.5a1.5 1.5 0 011.5 1.5v1.5a1.5 1.5 0 01-1.5 1.5M3.75 9V3.75M3.75 9h16.5" />), color: 'text-yellow-500 dark:text-yellow-400' }, // Example custom equals-like icon for medium
-  [TaskPriority.HIGH]: { icon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />) , color: 'text-orange-500 dark:text-orange-400' }, // Using ChevronUp for High
+  low: { icon: ICON_MAP.ChevronDownIcon, color: 'text-green-500 dark:text-green-400' },
+  LOW: { icon: ICON_MAP.ChevronDownIcon, color: 'text-green-500 dark:text-green-400' },
+  [TaskPriority.MEDIUM]: { icon: MEDIUM_PRIORITY_ICON, color: 'text-yellow-500 dark:text-yellow-400' },
+  medium: { icon: MEDIUM_PRIORITY_ICON, color: 'text-yellow-500 dark:text-yellow-400' },
+  MEDIUM: { icon: MEDIUM_PRIORITY_ICON, color: 'text-yellow-500 dark:text-yellow-400' },
+  [TaskPriority.HIGH]: { icon: HIGH_PRIORITY_ICON, color: 'text-orange-500 dark:text-orange-400' },
+  high: { icon: HIGH_PRIORITY_ICON, color: 'text-orange-500 dark:text-orange-400' },
+  HIGH: { icon: HIGH_PRIORITY_ICON, color: 'text-orange-500 dark:text-orange-400' },
   [TaskPriority.CRITICAL]: { icon: ICON_MAP.ExclamationIcon, color: 'text-red-600 dark:text-red-500' },
+  critical: { icon: ICON_MAP.ExclamationIcon, color: 'text-red-600 dark:text-red-500' },
+  CRITICAL: { icon: ICON_MAP.ExclamationIcon, color: 'text-red-600 dark:text-red-500' },
+  Urgent: { icon: ICON_MAP.ExclamationIcon, color: 'text-red-600 dark:text-red-500' },
+  urgent: { icon: ICON_MAP.ExclamationIcon, color: 'text-red-600 dark:text-red-500' },
+  URGENT: { icon: ICON_MAP.ExclamationIcon, color: 'text-red-600 dark:text-red-500' },
 };

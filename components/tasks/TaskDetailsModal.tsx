@@ -190,16 +190,18 @@ export const TaskDetailsModal: React.FC = () => {
     const cursorPosition = e.target.selectionStart;
     setNewComment(value);
 
-    // Live typing indicator
+    // Live typing indicator (only broadcast on state transition to avoid hitting presence rate limits)
     if (value.trim().length > 0) {
-      setIsTypingComment(true);
-      if (taskToView) {
-        updateUserPresence(taskToView.id, undefined, {
-          isEditing: isCurrentlyEditing,
-          editingField: currentEditingField,
-          isTypingComment: true,
-          statusAction: 'typing_comment',
-        });
+      if (!isTypingComment) {
+        setIsTypingComment(true);
+        if (taskToView) {
+          updateUserPresence(taskToView.id, undefined, {
+            isEditing: isCurrentlyEditing,
+            editingField: currentEditingField,
+            isTypingComment: true,
+            statusAction: 'typing_comment',
+          });
+        }
       }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
@@ -213,15 +215,17 @@ export const TaskDetailsModal: React.FC = () => {
         }
       }, 2500);
     } else {
-      setIsTypingComment(false);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      if (taskToView) {
-        updateUserPresence(taskToView.id, undefined, {
-          isEditing: isCurrentlyEditing,
-          editingField: currentEditingField,
-          isTypingComment: false,
-        });
+      if (isTypingComment) {
+        setIsTypingComment(false);
+        if (taskToView) {
+          updateUserPresence(taskToView.id, undefined, {
+            isEditing: isCurrentlyEditing,
+            editingField: currentEditingField,
+            isTypingComment: false,
+          });
+        }
       }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
 
     // Check if we are in a mention
@@ -484,28 +488,19 @@ export const TaskDetailsModal: React.FC = () => {
         .order('created_at', { ascending: false });
       
       if (attachmentsData) {
-        const attachmentsWithSignedUrls = await Promise.all(attachmentsData.map(async (att: any) => {
+        const attachmentsWithSignedUrls = attachmentsData.map((att: any) => {
           let signedUrl = '';
           try {
-            const filePath = att.file_path;
-            
-            // Generate a signed URL valid for 1 hour
-            const { data, error } = await supabase.storage
-              .from('task-attachments')
-              .createSignedUrl(filePath, 3600);
-              
-            if (error || !data?.signedUrl) {
-              console.warn("Could not generate signed URL, falling back to public URL:", error);
+            const filePath = att.file_path || '';
+            if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:')) {
+              signedUrl = filePath;
+            } else if (filePath) {
               const { data: publicData } = supabase.storage.from('task-attachments').getPublicUrl(filePath);
-              signedUrl = publicData.publicUrl;
-            } else {
-              signedUrl = data.signedUrl;
+              signedUrl = publicData?.publicUrl || '';
             }
-          } catch (e) {
-            console.error("Error generating signed URL for attachment:", e);
-          }
+          } catch (e) {}
           return { ...att, signedUrl };
-        }));
+        });
         setAttachments(attachmentsWithSignedUrls as any);
       }
 

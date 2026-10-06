@@ -54,8 +54,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
   
   const assignee = users.find(user => user.id === task.assignee_id); 
 
-  const PriorityIconComponent = PRIORITY_STYLES[task.priority].icon;
-  const priorityColor = PRIORITY_STYLES[task.priority].color;
+  const priorityStyle = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES[TaskPriority.MEDIUM];
+  const PriorityIconComponent = priorityStyle.icon;
+  const priorityColor = priorityStyle.color;
 
   const cardBackgroundStyle = { backgroundColor: 'var(--card-background)', borderColor: 'var(--card-border)' };
   const textColor = darkMode ? 'text-slate-200' : 'text-slate-700';

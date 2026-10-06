@@ -35,6 +35,16 @@ export interface CollabUserStatusPayload {
 
 const ACTIVE_PRESENCES_STORAGE_KEY = 'omni_active_presences_v2';
 
+const normalizePriority = (raw?: string): string | undefined => {
+  if (!raw) return undefined;
+  const lower = String(raw).toLowerCase();
+  if (lower === 'low') return 'Low';
+  if (lower === 'medium') return 'Medium';
+  if (lower === 'high') return 'High';
+  if (lower === 'critical' || lower === 'urgent') return 'Critical';
+  return raw;
+};
+
 class CollabService {
   private broadcastChannel: BroadcastChannel | null = null;
   private supabaseChannel: any = null;
@@ -45,6 +55,13 @@ class CollabService {
   private currentPresence: UserPresence | null = null;
   private onPresencesChangeCallbacks = new Set<(presences: UserPresence[]) => void>();
   private presencesMap = new Map<string, UserPresence>();
+  private lastTrackedSignature = '';
+  private lastTrackTime = 0;
+  private trackTimer: any = null;
+  private lastBroadcastSignature = '';
+  private lastBroadcastTime = 0;
+  private lastPresenceReplyTime = 0;
+  private lastRequestRemoteTime = 0;
   public readonly sessionId: string =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
@@ -113,40 +130,77 @@ class CollabService {
 
     if (user) {
       this.updatePresence();
-      this.requestRemotePresences();
       if (user.id !== prevId) {
-        setTimeout(() => {
-          if (this.currentUser) {
-            this.updatePresence();
-            this.requestRemotePresences();
-          }
-        }, 600);
+        this.requestRemotePresences();
         setTimeout(() => {
           if (this.currentUser) {
             this.updatePresence();
           }
-        }, 2000);
+        }, 1200);
       }
     }
   }
 
   public requestRemotePresences() {
+    const now = Date.now();
+    if (now - this.lastRequestRemoteTime < 2500) return;
+    this.lastRequestRemoteTime = now;
     const reqPayload = {
       requesterSessionId: this.sessionId,
       requesterUserId: this.currentUser?.id,
       presence: this.currentPresence || undefined,
-      ts: Date.now(),
+      ts: now,
     };
     this.emitLocalPacket('PRESENCE_REQUEST', reqPayload);
-    this.sendBroadcast('collab_presence_request', reqPayload, true);
+    this.sendBroadcast('collab_presence_request', reqPayload, false);
   }
 
   private canUseWebSocket(): boolean {
     if (!this.supabaseChannel || !this.isChannelSubscribed) return false;
+    if (typeof this.supabaseChannel._canPush === 'function') {
+      return this.supabaseChannel._canPush();
+    }
     if (typeof this.supabaseChannel.canPush === 'function') {
       return this.supabaseChannel.canPush();
     }
-    return this.supabaseChannel.state === 'joined';
+    return this.supabaseChannel.state === 'joined' && Boolean(this.supabaseChannel.socket?.isConnected?.());
+  }
+
+  private getPresenceSignature(p: UserPresence | null): string {
+    if (!p) return '';
+    return `${p.userId}|${p.currentTaskId || ''}|${p.currentProjectId || ''}|${p.currentView || ''}|${p.isEditing ? 1 : 0}|${p.editingField || ''}|${p.isTypingComment ? 1 : 0}|${p.availabilityStatus || 'available'}|${p.statusAction || ''}`;
+  }
+
+  private syncPresenceTrackThrottled(force = false) {
+    if (!this.supabaseChannel || !this.currentPresence || !this.canUseWebSocket()) return;
+    const sig = this.getPresenceSignature(this.currentPresence);
+    if (!force && sig === this.lastTrackedSignature) return;
+
+    const now = Date.now();
+    const elapsed = now - this.lastTrackTime;
+    const minInterval = 3500; // Prevent Supabase ClientPresenceRateLimitReached
+
+    if (elapsed >= minInterval) {
+      if (this.trackTimer) {
+        clearTimeout(this.trackTimer);
+        this.trackTimer = null;
+      }
+      this.lastTrackedSignature = sig;
+      this.lastTrackTime = now;
+      this.supabaseChannel.track(this.currentPresence).catch(() => {});
+    } else if (!this.trackTimer) {
+      this.trackTimer = setTimeout(() => {
+        this.trackTimer = null;
+        if (this.supabaseChannel && this.currentPresence && this.canUseWebSocket()) {
+          const latestSig = this.getPresenceSignature(this.currentPresence);
+          if (latestSig !== this.lastTrackedSignature) {
+            this.lastTrackedSignature = latestSig;
+            this.lastTrackTime = Date.now();
+            this.supabaseChannel.track(this.currentPresence).catch(() => {});
+          }
+        }
+      }, minInterval - elapsed + 50);
+    }
   }
 
   private initBroadcastChannel() {
@@ -211,17 +265,22 @@ class CollabService {
         })
         .on('presence', { event: 'join' }, ({ newPresences }: any) => {
           const now = Date.now();
+          let joinedOther = false;
           if (Array.isArray(newPresences)) {
             newPresences.forEach((pres: any) => {
               if (pres && pres.userId && pres.sessionId !== this.sessionId) {
                 const key = pres.sessionId || pres.userId;
                 this.presencesMap.set(key, { ...(pres as UserPresence), lastSeenLocally: now });
+                joinedOther = true;
               }
             });
-            this.notifyPresencesChange();
+            if (joinedOther) {
+              this.notifyPresencesChange();
+            }
           }
-          if (this.currentPresence) {
-            this.sendBroadcast('collab_presence', this.currentPresence, true);
+          if (joinedOther && this.currentPresence && now - this.lastPresenceReplyTime > 2500) {
+            this.lastPresenceReplyTime = now;
+            this.sendBroadcast('collab_presence', this.currentPresence, false);
           }
         })
         .on('presence', { event: 'leave' }, ({ leftPresences }: any) => {
@@ -242,8 +301,10 @@ class CollabService {
           if (payload?.presence) {
             this.ingestRemotePresence(payload.presence);
           }
-          if (payload?.requesterSessionId !== this.sessionId && this.currentPresence) {
-            this.sendBroadcast('collab_presence', this.currentPresence, true);
+          const now = Date.now();
+          if (payload?.requesterSessionId !== this.sessionId && this.currentPresence && now - this.lastPresenceReplyTime > 2500) {
+            this.lastPresenceReplyTime = now;
+            this.sendBroadcast('collab_presence', this.currentPresence, false);
           }
         })
         .on('broadcast', { event: 'collab_leave' }, ({ payload }: { payload: { userId: string; sessionId?: string } }) => {
@@ -292,10 +353,8 @@ class CollabService {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
           if (status === 'SUBSCRIBED') {
             if (this.currentPresence) {
-              if (this.canUseWebSocket()) {
-                this.supabaseChannel.track(this.currentPresence).catch(() => {});
-              }
-              this.sendBroadcast('collab_presence', this.currentPresence, true);
+              this.syncPresenceTrackThrottled(true);
+              this.sendBroadcast('collab_presence', this.currentPresence, false);
             }
             this.requestRemotePresences();
           }
@@ -360,6 +419,9 @@ class CollabService {
             dueDate: updatedRow.due_date || updatedRow.dueDate,
             sprintId: updatedRow.sprint_id || updatedRow.sprintId,
           };
+          if (mappedUpdates.priority) {
+            mappedUpdates.priority = normalizePriority(mappedUpdates.priority);
+          }
           this.handleTaskUpdated({
             taskId: updatedRow.id,
             taskTitle: updatedRow.title || 'Task',
@@ -389,8 +451,10 @@ class CollabService {
       if (payload?.presence) {
         this.ingestRemotePresence(payload.presence);
       }
-      if (payload?.requesterSessionId !== this.sessionId && this.currentPresence) {
-        this.sendBroadcast('collab_presence', this.currentPresence, true);
+      const now = Date.now();
+      if (payload?.requesterSessionId !== this.sessionId && this.currentPresence && now - this.lastPresenceReplyTime > 2500) {
+        this.lastPresenceReplyTime = now;
+        this.sendBroadcast('collab_presence', this.currentPresence, false);
       }
     } else if (event === 'user_status_changed') {
       this.handleUserStatusChanged(payload);
@@ -402,10 +466,12 @@ class CollabService {
   }
 
   private sendBroadcast(event: string, payload: any, allowHttpFallback = true) {
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('omni_collab_bridge_out', { detail: { event, payload } }));
+    if (!this.supabaseChannel) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_collab_bridge_out', { detail: { event, payload } }));
+      }
+      return;
     }
-    if (!this.supabaseChannel) return;
     try {
       if (this.canUseWebSocket()) {
         this.supabaseChannel.send({
@@ -415,6 +481,8 @@ class CollabService {
         }).catch(() => {});
       } else if (allowHttpFallback && typeof this.supabaseChannel.httpSend === 'function') {
         this.supabaseChannel.httpSend(event, payload).catch(() => {});
+      } else if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_collab_bridge_out', { detail: { event, payload } }));
       }
     } catch (e) {}
   }
@@ -695,14 +763,14 @@ class CollabService {
     // Broadcast across tabs & windows
     this.emitLocalPacket('PRESENCE_BROADCAST', this.currentPresence);
 
-    // Broadcast across devices / networks via Supabase Realtime (with HTTP fallback)
-    if (this.supabaseChannel) {
-      try {
-        if (this.canUseWebSocket()) {
-          this.supabaseChannel.track(this.currentPresence).catch(() => {});
-        }
-        this.sendBroadcast('collab_presence', this.currentPresence, true);
-      } catch (e) {}
+    // Broadcast across devices / networks via Supabase Realtime when presence meaningfully changes
+    const sig = this.getPresenceSignature(this.currentPresence);
+    const now = Date.now();
+    if (sig !== this.lastBroadcastSignature || now - this.lastBroadcastTime > 12000) {
+      this.lastBroadcastSignature = sig;
+      this.lastBroadcastTime = now;
+      this.syncPresenceTrackThrottled();
+      this.sendBroadcast('collab_presence', this.currentPresence, true);
     }
   }
 
@@ -782,8 +850,8 @@ class CollabService {
       }
       const lastSeen = p.lastSeenLocally || (p.lastActive ? new Date(p.lastActive).getTime() : now);
       const age = now - lastSeen;
-      // Keep user visible as active if seen within last 45 seconds (resistant to clock skew)
-      if (age < 45000) {
+      // Keep user visible as active if seen within last 90 seconds
+      if (age < 90000) {
         active.push(p);
       }
     });
@@ -800,13 +868,13 @@ class CollabService {
     this.heartbeatTimer = setInterval(() => {
       const now = Date.now();
 
-      // Clean expired remote presences (> 45s)
+      // Clean expired remote presences (> 90s)
       let changed = false;
       this.presencesMap.forEach((p, key) => {
         if (key === this.sessionId || p.sessionId === this.sessionId) return;
         const lastSeen = p.lastSeenLocally || (p.lastActive ? new Date(p.lastActive).getTime() : now);
         const age = now - lastSeen;
-        if (age >= 45000) {
+        if (age >= 90000) {
           this.presencesMap.delete(key);
           changed = true;
         }
@@ -816,7 +884,7 @@ class CollabService {
         this.notifyPresencesChange();
       }
 
-      // Re-broadcast self presence
+      // Lightweight keep-alive broadcast (without calling .track() repeatedly so we never hit Supabase presence rate limits)
       if (this.currentUser && this.currentPresence) {
         this.currentPresence.lastActive = new Date(now).toISOString();
         this.currentPresence.lastSeenLocally = now;
@@ -830,16 +898,12 @@ class CollabService {
             });
           } catch (e) {}
         }
-        if (this.supabaseChannel) {
-          try {
-            if (this.canUseWebSocket()) {
-              this.supabaseChannel.track(this.currentPresence).catch(() => {});
-            }
-            this.sendBroadcast('collab_presence', this.currentPresence, true);
-          } catch (e) {}
+        if (this.supabaseChannel && this.canUseWebSocket()) {
+          this.lastBroadcastTime = now;
+          this.sendBroadcast('collab_presence', this.currentPresence, false);
         }
       }
-    }, 4000);
+    }, 15000);
   }
 
   private initUnloadListener() {

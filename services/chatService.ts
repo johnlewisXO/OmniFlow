@@ -195,10 +195,13 @@ class ChatService {
 
   private canUseWebSocket(): boolean {
     if (!this.supabaseChannel || !this.isChannelSubscribed) return false;
+    if (typeof this.supabaseChannel._canPush === 'function') {
+      return this.supabaseChannel._canPush();
+    }
     if (typeof this.supabaseChannel.canPush === 'function') {
       return this.supabaseChannel.canPush();
     }
-    return this.supabaseChannel.state === 'joined';
+    return this.supabaseChannel.state === 'joined' && Boolean(this.supabaseChannel.socket?.isConnected?.());
   }
 
   private sendBroadcast(event: string, payload: any, allowHttpFallback = true) {

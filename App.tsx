@@ -184,7 +184,7 @@ const ToastContainer: React.FC = () => {
             <div className="flex-1 min-w-0 pr-1">
               <div className="flex items-center justify-between gap-2">
                 <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 leading-snug truncate">
-                  {n.title || n.type.replace(/_/g, ' ')}
+                  {n.title || (n.type ? n.type.replace(/_/g, ' ') : 'Notification')}
                 </h4>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 break-words">
@@ -645,9 +645,9 @@ function App() {
       if (session && session.user) {
         console.log(`[App.tsx AuthEffect] Session active. User ID: ${session.user.id}. Fetching profile.`);
         try {
-          // Timeout profile fetch after 4 seconds to guarantee the app loads without getting stuck
+          // Timeout profile fetch after 10 seconds to guarantee the app loads without getting stuck
           const profilePromise = supabaseService.getUserProfile(session.user.id);
-          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000));
           const userProfile = await Promise.race([profilePromise, timeoutPromise]);
           
           if (userProfile && mounted) {
@@ -668,6 +668,9 @@ function App() {
               organization_id: userProfile.organization_id,
               role: finalRole,
             };
+            try {
+              localStorage.setItem(`omni_user_profile_${session.user.id}`, JSON.stringify(appUserPayload));
+            } catch (e) {}
             setCurrentUser(appUserPayload);
             useAppStore.getState().setAuthLoading(false);
 
@@ -675,14 +678,21 @@ function App() {
               window.location.hash = '#/app';
             }
           } else if (mounted) {
-             console.warn("[App.tsx AuthEffect] Profile not found or timed out. Using fallback user payload from session.");
+             console.warn("[App.tsx AuthEffect] Profile not found or timed out. Checking cached user profile.");
+             let cachedProfile: AppUserType | null = null;
+             try {
+               const raw = localStorage.getItem(`omni_user_profile_${session.user.id}`);
+               if (raw) cachedProfile = JSON.parse(raw);
+             } catch (e) {}
+             const existingStoreUser = useAppStore.getState().currentUser;
              const fallbackUser: AppUserType = {
                id: session.user.id,
                supabase_auth_id: session.user.id,
-               email: session.user.email || '',
-               full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-               avatar_url: session.user.user_metadata?.avatar_url,
-               role: UserRole.MEMBER,
+               email: session.user.email || cachedProfile?.email || '',
+               full_name: cachedProfile?.full_name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+               avatar_url: cachedProfile?.avatar_url || session.user.user_metadata?.avatar_url,
+               organization_id: cachedProfile?.organization_id || (existingStoreUser?.id === session.user.id ? existingStoreUser.organization_id : undefined),
+               role: cachedProfile?.role || (existingStoreUser?.id === session.user.id ? existingStoreUser.role : UserRole.MEMBER),
              };
              setCurrentUser(fallbackUser);
              useAppStore.getState().setAuthLoading(false);
@@ -693,13 +703,20 @@ function App() {
         } catch (error: any) {
           if (mounted) {
             console.error("[App.tsx AuthEffect] Error fetching/setting user profile:", error);
+            let cachedProfile: AppUserType | null = null;
+            try {
+              const raw = localStorage.getItem(`omni_user_profile_${session.user.id}`);
+              if (raw) cachedProfile = JSON.parse(raw);
+            } catch (e) {}
+            const existingStoreUser = useAppStore.getState().currentUser;
             const fallbackUser: AppUserType = {
               id: session.user.id,
               supabase_auth_id: session.user.id,
-              email: session.user.email || '',
-              full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-              avatar_url: session.user.user_metadata?.avatar_url,
-              role: UserRole.MEMBER,
+              email: session.user.email || cachedProfile?.email || '',
+              full_name: cachedProfile?.full_name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+              avatar_url: cachedProfile?.avatar_url || session.user.user_metadata?.avatar_url,
+              organization_id: cachedProfile?.organization_id || (existingStoreUser?.id === session.user.id ? existingStoreUser.organization_id : undefined),
+              role: cachedProfile?.role || (existingStoreUser?.id === session.user.id ? existingStoreUser.role : UserRole.MEMBER),
             };
             setCurrentUser(fallbackUser);
             useAppStore.getState().setAuthLoading(false);

@@ -817,26 +817,6 @@ const appActionsCreator = (
 
           // Trigger webhook for automations
           get().triggerWebhook('task.updated', { taskId, updates, previousTask });
-
-          // Broadcast task update across tabs
-          if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-            try {
-              const bc = new BroadcastChannel('omni_collab_sync');
-              bc.postMessage({ type: 'TASK_UPDATED', taskId, updates });
-              bc.close();
-            } catch (e) {}
-          }
-
-          // Broadcast task update across all browsers and devices via CollabService
-          collabService.broadcastTaskUpdated({
-            taskId,
-            taskTitle: currentTask?.title || 'Task',
-            updates,
-            actor: {
-              id: currentUser?.id || 'system',
-              name: currentUser?.full_name || currentUser?.email || 'Teammate'
-            }
-          });
         }
     } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update task ${taskId}.`);
@@ -866,6 +846,9 @@ const appActionsCreator = (
         const result = await supabaseService.signUpUser(email, password, fullName, organizationName, role);
         if (result && result.profile) {
              console.log("[useAppStore signUp] Supabase signUpUser successful, profile returned:", result.profile);
+             if (!result.profile.organization_id && typeof window !== 'undefined') {
+               sessionStorage.setItem('omni_just_registered', 'true');
+             }
              get().setCurrentUser(result.profile);
         } else {
             console.warn("[useAppStore signUp] signUpUser completed but didn't return a profile as expected.");
@@ -884,6 +867,12 @@ const appActionsCreator = (
       updateState(s => ({ ...s, authLoading: true, authError: null }));
       try {
         const updatedProfile = await supabaseService.joinOrCreateOrganizationForUser(currentUser.id, organizationName, role);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('omni_just_registered');
+          try {
+            localStorage.setItem(`omni_user_profile_${updatedProfile.id}`, JSON.stringify(updatedProfile));
+          } catch (e) {}
+        }
         updateState(s => ({ ...s, currentUser: updatedProfile, authLoading: false }));
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to join or create organization.');
@@ -947,6 +936,12 @@ const appActionsCreator = (
       }
 
       if (user?.organization_id) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('omni_just_registered');
+          try {
+            localStorage.setItem(`omni_user_profile_${user.id}`, JSON.stringify(user));
+          } catch (e) {}
+        }
         setTimeout(() => {
           selfActions.fetchCurrentOrganization();
         }, 0);
@@ -1895,11 +1890,19 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
       const curUser = getPureState().currentUser;
       const existingTask = getPureState().tasks.find(t => t.id === payload.taskId);
       const prevStatus = existingTask?.status;
+      const safeUpdates = { ...(payload.updates || {}) };
+      if (safeUpdates.priority) {
+        const lower = String(safeUpdates.priority).toLowerCase();
+        if (lower === 'low') safeUpdates.priority = TaskPriority.LOW;
+        else if (lower === 'medium') safeUpdates.priority = TaskPriority.MEDIUM;
+        else if (lower === 'high') safeUpdates.priority = TaskPriority.HIGH;
+        else if (lower === 'critical' || lower === 'urgent') safeUpdates.priority = TaskPriority.CRITICAL;
+      }
       
       setState(s => {
-        const updatedTasks = s.tasks.map(t => t.id === payload.taskId ? { ...t, ...payload.updates } : t);
-        const updatedMyTasks = s.myTasks.map(t => t.id === payload.taskId ? { ...t, ...payload.updates } : t);
-        const updatedToView = s.taskToView?.id === payload.taskId ? { ...s.taskToView, ...payload.updates } : s.taskToView;
+        const updatedTasks = s.tasks.map(t => t.id === payload.taskId ? { ...t, ...safeUpdates } : t);
+        const updatedMyTasks = s.myTasks.map(t => t.id === payload.taskId ? { ...t, ...safeUpdates } : t);
+        const updatedToView = s.taskToView?.id === payload.taskId ? { ...s.taskToView, ...safeUpdates } : s.taskToView;
         return {
           ...s,
           tasks: updatedTasks,
