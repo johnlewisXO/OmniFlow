@@ -51,7 +51,7 @@ export const ProjectsOverviewPage: React.FC = () => {
   }, [projects]);
 
   return (
-    <div className={`flex-1 p-4 md:p-6 overflow-y-auto scrollbar-thin ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
+    <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
       
       {/* 1. Analytics Hero Section */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-slate-700/60 relative overflow-hidden">

@@ -15,7 +15,7 @@ export const OwnerDashboard: React.FC = () => {
   const ExclamationIcon = ICON_MAP.ExclamationIcon; // For danger zone
 
   return (
-    <div className={`flex-1 p-0 md:p-0 overflow-y-auto scrollbar-thin ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+    <div className={`p-0 md:p-0 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
       <div className={`p-4 md:p-6 mb-0 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
         <div className="flex items-center">
             <ShieldCheckIcon className={`w-8 h-8 mr-3 ${darkMode ? 'text-amber-400' : 'text-amber-500'}`} />

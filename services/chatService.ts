@@ -146,7 +146,7 @@ class ChatService {
           if (!payload) return;
           if (payload.clientId && payload.clientId === this.clientId) return;
           if (payload.user?.id) {
-            collabService.recordUserActive(payload.user.id, payload.user.full_name || payload.user.email, payload.user.avatar_url);
+            collabService.recordUserActive(payload.user.id, payload.user.full_name || payload.user.email, payload.user.avatar_url, payload.user.email);
           }
           this.typingListeners.forEach(listener => 
             listener(payload.targetId, payload.user, payload.isTyping)
@@ -160,9 +160,34 @@ class ChatService {
           if (!payload || !payload.id) return;
           this.handleIncomingPersonAdded(payload);
         })
+        .on('broadcast', { event: 'collab_presence' }, ({ payload }: any) => {
+          collabService.ingestRemoteEventFromBridge('collab_presence', payload);
+        })
+        .on('broadcast', { event: 'collab_presence_request' }, ({ payload }: any) => {
+          collabService.ingestRemoteEventFromBridge('collab_presence_request', payload);
+        })
+        .on('broadcast', { event: 'user_status_changed' }, ({ payload }: any) => {
+          collabService.ingestRemoteEventFromBridge('user_status_changed', payload);
+        })
+        .on('broadcast', { event: 'task_updated' }, ({ payload }: any) => {
+          collabService.ingestRemoteEventFromBridge('task_updated', payload);
+        })
+        .on('broadcast', { event: 'task_comment_added' }, ({ payload }: any) => {
+          collabService.ingestRemoteEventFromBridge('task_comment_added', payload);
+        })
         .subscribe((status: string) => {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
+          if (status === 'SUBSCRIBED') {
+            collabService.requestRemotePresences();
+          }
         });
+
+      window.addEventListener('omni_collab_bridge_out', ((e: CustomEvent) => {
+        const { event, payload } = e.detail || {};
+        if (event && payload) {
+          this.sendBroadcast(event, payload, true);
+        }
+      }) as EventListener);
     } catch (err) {
       console.warn('Failed to initialize Supabase Realtime chat:', err);
     }

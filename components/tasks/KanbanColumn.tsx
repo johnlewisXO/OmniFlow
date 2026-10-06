@@ -138,7 +138,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <PlusIcon className="w-5 h-5" />
         </button>
       </div>
-      <div className="flex-1 h-[calc(100vh-12rem-90px)] overflow-y-auto space-y-3.5 px-1 pb-2 scrollbar-thin column-content-area">
+      <div className="flex-1 min-h-[420px] space-y-3.5 px-1 pb-2 column-content-area">
         {isLoadingTasks && tasksInColumn.length === 0 && (
           <div className="text-center py-12">
              <ICON_MAP.SpinnerIcon className={`w-10 h-10 mx-auto ${darkMode ? 'text-accent-light/70' : 'text-accent/70'} animate-spin`} />

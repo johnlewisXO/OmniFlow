@@ -166,7 +166,7 @@ export const SprintPlanningView: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 pb-12 p-4 md:p-6 overflow-y-auto scrollbar-thin">
+    <div className="space-y-4 pb-12 p-4 md:p-6">
 
       {/* 1. Analytics Hero Section */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/50 relative overflow-hidden">
@@ -375,7 +375,7 @@ export const SprintPlanningView: React.FC = () => {
                         No tasks in active sprint yet. Use the Product Backlog list to move tasks here!
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      <div className="space-y-2 pr-1">
                         {stats.tasks.map(task => {
                           const taskAssignee = users.find(u => u.id === task.assignee_id);
                           return (
@@ -626,7 +626,7 @@ export const SprintPlanningView: React.FC = () => {
             )}
 
             {/* Backlog Items List with High Contrast & Legibility */}
-            <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 pr-1">
               {backlogTasks.length === 0 ? (
                 <div className="p-8 text-center rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
                   {searchQuery ? 'No backlog items match your search filter.' : 'Your backlog is clear! Click "Add Task" above to add work items.'}

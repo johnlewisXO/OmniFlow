@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 // Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from '../../hooks/useAppStore';
-import { User, UserRole, OrganizationInvitation, AuditLog } from '../../types';
+import { User, UserRole, OrganizationInvitation, AuditLog, UserPresence } from '../../types';
 import supabaseService from '../../services/supabaseService';
+import { collabService } from '../../services/collabService';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
@@ -37,8 +38,13 @@ export const TeamManagementPage: React.FC = () => {
     isDeletingUser,
     deleteUserError,
     setActiveView,
-    addToast
+    addToast,
+    presences
   } = useAppStore();
+
+  useEffect(() => {
+    collabService.requestRemotePresences();
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'directory' | 'invitations' | 'audit_logs'>(
     activeView === 'user_logs_view' ? 'audit_logs' : 'directory'
@@ -274,7 +280,7 @@ export const TeamManagementPage: React.FC = () => {
   const taskEventCount = useMemo(() => auditLogs.filter(l => l.target_type === 'task' || l.action?.includes('task') || l.action?.includes('sprint')).length, [auditLogs]);
 
   return (
-    <div className={`flex-1 p-4 md:p-6 overflow-y-auto scrollbar-thin ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
+    <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
       {/* 1. Analytics Hero Section */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
@@ -495,6 +501,7 @@ export const TeamManagementPage: React.FC = () => {
                 <thead style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)'}}>
                   <tr>
                     <th scope="col" className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">User</th>
+                    <th scope="col" className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
                     <th scope="col" className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Email</th>
                     <th scope="col" className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Current Role</th>
                     <th scope="col" className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider min-w-[200px]">New Role</th>
@@ -507,14 +514,62 @@ export const TeamManagementPage: React.FC = () => {
                     const userCanBeManaged = canManageRole(user.role);
                     const assignableRolesForThisUser = getAssignableRolesForUser(user.role);
                     const isThisUserBeingDeleted = isDeletingUser === user.id;
+                    const uEmail = user.email?.toLowerCase();
+                    const uName = user.full_name?.toLowerCase();
+                    const userPresence = presences.find(
+                      (p: UserPresence) =>
+                        p.userId === user.id ||
+                        (uEmail && p.userEmail && p.userEmail.toLowerCase() === uEmail) ||
+                        (uName && p.userName && p.userName.toLowerCase() === uName)
+                    );
+                    const isUserOnline = isCurrentUserRow || !!userPresence;
+                    const availStatus = userPresence?.availabilityStatus || 'available';
+                    const statusLabel = !isUserOnline
+                      ? 'Offline'
+                      : availStatus === 'away'
+                        ? 'Away'
+                        : availStatus === 'busy'
+                          ? 'Busy / DND'
+                          : 'Available';
+                    const statusDotColor = !isUserOnline
+                      ? 'bg-slate-400'
+                      : availStatus === 'away'
+                        ? 'bg-amber-400'
+                        : availStatus === 'busy'
+                          ? 'bg-rose-500'
+                          : 'bg-emerald-500';
 
                     return (
                     <tr key={user.id} className={`${darkMode ? 'hover:bg-accent/10' : 'hover:bg-accent/5'} transition-colors duration-150 ${isThisUserBeingDeleted ? 'opacity-50' : ''}`}>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">
-                          <Avatar user={user} size="md" className="mr-3" />
-                          <span className="font-medium text-sm">{user.full_name || 'N/A'}</span>
+                          <div className="relative mr-3">
+                            <Avatar user={user} size="md" />
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${statusDotColor}`} />
+                          </div>
+                          <div>
+                            <span className="font-medium text-sm block">{user.full_name || 'N/A'}</span>
+                            {userPresence?.currentTaskId && (
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                {userPresence.isEditing ? 'Editing task' : 'Viewing task'}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          !isUserOnline
+                            ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                            : availStatus === 'away'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                              : availStatus === 'busy'
+                                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor}`} />
+                          {statusLabel}
+                        </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm opacity-80">{user.email}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm opacity-90">{formatRoleForDisplay(user.role)}</td>

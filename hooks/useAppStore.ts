@@ -1307,7 +1307,10 @@ const appActionsCreator = (
     },
     closeViewTaskModal: () => {
       updateState(s => ({ ...s, taskToView: null, isViewTaskModalOpen: false }));
-      get().updateUserPresence(undefined, get().activeView, { clearTask: true, isEditing: false, isTypingComment: false });
+      const state = get();
+      if (!state.isEditTaskModalOpen) {
+        get().updateUserPresence(undefined, state.activeView, { clearTask: true, isEditing: false, isTypingComment: false });
+      }
     },
 
     openEditTaskModal: async (taskId: string) => {

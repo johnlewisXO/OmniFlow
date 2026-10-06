@@ -36,7 +36,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ showWelcomeMessage =
   }
 
   return (
-    <div className={`flex-1 flex flex-col p-4 md:p-6 overflow-y-auto scrollbar-thin space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+    <div className={`flex flex-col p-4 md:p-6 space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
       
       {/* 1. Analytics Hero Section */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">

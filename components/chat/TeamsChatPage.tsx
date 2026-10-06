@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
-import { User, ChatMessage, ChatChannel, UserRole } from '../../types';
+import { User, ChatMessage, ChatChannel, UserRole, UserPresence } from '../../types';
 import chatService, { DEFAULT_CHANNELS } from '../../services/chatService';
+import { collabService } from '../../services/collabService';
 import { supabase } from '../../services/supabaseService';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
@@ -58,9 +59,10 @@ export const TeamsChatPage: React.FC = () => {
   const [customPeopleVersion, setCustomPeopleVersion] = useState(0);
   const remoteTypingTimeoutsRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
-  // Ensure all available users are fetched on mount
+  // Ensure all available users and live presences are fetched on mount
   useEffect(() => {
     fetchUsersForAssignmentList().catch(() => {});
+    collabService.requestRemotePresences();
   }, [fetchUsersForAssignmentList]);
 
   // Realtime guide modal
@@ -123,10 +125,11 @@ export const TeamsChatPage: React.FC = () => {
     const handleRemoteStatusChange = (e: CustomEvent) => {
       const payload = e.detail;
       if (!payload || !payload.userId) return;
-      setTeamStatuses(prev => ({
-        ...prev,
-        [payload.userId]: payload.availabilityStatus,
-      }));
+      setTeamStatuses(prev => {
+        const next = { ...prev, [payload.userId]: payload.availabilityStatus };
+        if (payload.userEmail) next[payload.userEmail.toLowerCase()] = payload.availabilityStatus;
+        return next;
+      });
       if (currentUser && payload.userId === currentUser.id) {
         setMyStatus(payload.availabilityStatus);
       } else {
@@ -371,18 +374,49 @@ export const TeamsChatPage: React.FC = () => {
 
     presences.forEach(p => {
       if (p.userId && p.userId !== currentUser?.id && !map.has(p.userId)) {
-        map.set(p.userId, {
-          id: p.userId,
-          full_name: p.userName || 'Online Teammate',
-          email: `${(p.userName || 'user').toLowerCase().replace(/\s+/g, '.')}@workspace.live`,
-          avatar_url: p.userAvatar,
-          role: UserRole.DEVELOPER,
-          organization_id: currentUser?.organization_id,
-        });
+        const pEmail = p.userEmail?.toLowerCase();
+        const pName = p.userName?.toLowerCase();
+        const alreadyExists = Array.from(map.values()).some(
+          existing =>
+            (pEmail && existing.email?.toLowerCase() === pEmail) ||
+            (pName && existing.full_name?.toLowerCase() === pName)
+        );
+        if (!alreadyExists) {
+          map.set(p.userId, {
+            id: p.userId,
+            supabase_auth_id: p.userId,
+            full_name: p.userName || 'Online Teammate',
+            email: p.userEmail || `${(p.userName || 'user').toLowerCase().replace(/\s+/g, '.')}@workspace.live`,
+            avatar_url: p.userAvatar,
+            role: UserRole.MEMBER,
+            organization_id: currentUser?.organization_id,
+          });
+        }
       }
     });
     return Array.from(map.values());
   }, [users, presences, currentUser, customPeopleVersion]);
+
+  const findPresenceForUser = (user?: User | null): UserPresence | undefined => {
+    if (!user) return undefined;
+    const uEmail = user.email?.toLowerCase();
+    const uName = user.full_name?.toLowerCase();
+    return presences.find(
+      p =>
+        p.userId === user.id ||
+        (uEmail && p.userEmail && p.userEmail.toLowerCase() === uEmail) ||
+        (uName && p.userName && p.userName.toLowerCase() === uName)
+    );
+  };
+
+  const getAvailabilityForUser = (user?: User | null, presence?: UserPresence): 'available' | 'away' | 'busy' => {
+    if (presence?.availabilityStatus) return presence.availabilityStatus;
+    if (user) {
+      if (teamStatuses[user.id]) return teamStatuses[user.id];
+      if (user.email && teamStatuses[user.email.toLowerCase()]) return teamStatuses[user.email.toLowerCase()];
+    }
+    return 'available';
+  };
 
   const activeChannel = channels.find(c => c.id === activeChannelId);
   const activeDirectUser = directMessageUsers.find(u => u.id === activeDirectUserId) || users.find(u => u.id === activeDirectUserId);
@@ -480,10 +514,10 @@ export const TeamsChatPage: React.FC = () => {
   const currentTyping = typingUsers[currentTargetId] || [];
 
   return (
-    <div className={`flex-1 flex flex-col h-full overflow-hidden ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+    <div className={`flex-1 flex flex-col min-h-full pb-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
       
       {/* 1. Analytics & Collab Header Hero */}
-      <div className="p-4 md:p-6 pb-0 flex-shrink-0">
+      <div className="p-4 md:p-6 pb-0">
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 shadow-xl border border-indigo-900/60 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
@@ -592,7 +626,7 @@ export const TeamsChatPage: React.FC = () => {
       </div>
 
       {/* 2. Main MS Teams Split Layout */}
-      <div className="flex-1 flex p-4 md:p-6 min-h-0 min-w-0 gap-4 overflow-hidden">
+      <div className="flex p-4 md:p-6 h-[calc(100vh-5.5rem)] min-h-[620px] min-w-0 gap-4 overflow-hidden">
         
         {/* Left Sidebar: Channels & Direct Messages (320px) */}
         <div className={`w-72 md:w-80 flex flex-col flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden ${
@@ -691,11 +725,11 @@ export const TeamsChatPage: React.FC = () => {
                 ) : (
                   filteredUsers.map(user => {
                     const isActive = activeDirectUserId === user.id;
-                    const userPresence = presences.find(p => p.userId === user.id);
+                    const userPresence = findPresenceForUser(user);
                     const isUserTyping = !!(typingUsers[user.id] && typingUsers[user.id].length > 0);
-                    const isOnline = !!userPresence || isUserTyping || !!teamStatuses[user.id];
-                    const userAvailability: 'available' | 'away' | 'busy' =
-                      userPresence?.availabilityStatus || teamStatuses[user.id] || 'available';
+                    const hasSavedStatus = !!(teamStatuses[user.id] || (user.email && teamStatuses[user.email.toLowerCase()]));
+                    const isOnline = !!userPresence || isUserTyping || hasSavedStatus;
+                    const userAvailability: 'available' | 'away' | 'busy' = getAvailabilityForUser(user, userPresence);
                     const statusDotClass = !isOnline
                       ? 'bg-slate-400'
                       : userAvailability === 'away'
@@ -785,12 +819,12 @@ export const TeamsChatPage: React.FC = () => {
           <div className="p-4 border-b border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
             <div className="flex items-center gap-3 min-w-0">
               {activeDirectUser ? (() => {
-                const directPresence = presences.find(p => p.userId === activeDirectUser.id);
+                const directPresence = findPresenceForUser(activeDirectUser);
                 const directTypingList = typingUsers[activeDirectUser.id] || [];
                 const isDirectUserTyping = directTypingList.length > 0;
-                const isDirectUserOnline = !!directPresence || isDirectUserTyping || !!teamStatuses[activeDirectUser.id];
-                const directAvailability: 'available' | 'away' | 'busy' =
-                  directPresence?.availabilityStatus || teamStatuses[activeDirectUser.id] || 'available';
+                const hasDirectSavedStatus = !!(teamStatuses[activeDirectUser.id] || (activeDirectUser.email && teamStatuses[activeDirectUser.email.toLowerCase()]));
+                const isDirectUserOnline = !!directPresence || isDirectUserTyping || hasDirectSavedStatus;
+                const directAvailability: 'available' | 'away' | 'busy' = getAvailabilityForUser(activeDirectUser, directPresence);
                 const directDotClass = !isDirectUserOnline
                   ? 'bg-slate-400'
                   : directAvailability === 'away'

@@ -27,14 +27,18 @@ export interface CollabTaskUpdatePayload {
 export interface CollabUserStatusPayload {
   userId: string;
   userName: string;
+  userEmail?: string;
   userAvatar?: string;
   availabilityStatus: 'available' | 'away' | 'busy';
   timestamp: string;
 }
 
+const ACTIVE_PRESENCES_STORAGE_KEY = 'omni_active_presences_v2';
+
 class CollabService {
   private broadcastChannel: BroadcastChannel | null = null;
   private supabaseChannel: any = null;
+  private dbChangesChannel: any = null;
   private isChannelSubscribed = false;
   private heartbeatTimer: any = null;
   private currentUser: User | null = null;
@@ -47,10 +51,56 @@ class CollabService {
       : 'sess_' + Math.random().toString(36).substring(2, 10);
 
   constructor() {
+    this.hydrateStoredPresences();
     this.initBroadcastChannel();
     this.initSupabaseRealtime();
     this.startHeartbeat();
     this.initUnloadListener();
+  }
+
+  private hydrateStoredPresences() {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(ACTIVE_PRESENCES_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, UserPresence>;
+      const now = Date.now();
+      Object.entries(parsed).forEach(([key, pres]) => {
+        if (pres && pres.userId && key !== this.sessionId && pres.sessionId !== this.sessionId) {
+          const lastSeen = pres.lastSeenLocally || (pres.lastActive ? new Date(pres.lastActive).getTime() : 0);
+          if (now - lastSeen < 60000) {
+            this.presencesMap.set(key, pres);
+          }
+        }
+      });
+    } catch (e) {}
+  }
+
+  private persistActivePresencesToStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+      const now = Date.now();
+      const mapObj: Record<string, UserPresence> = {};
+      try {
+        const existingRaw = localStorage.getItem(ACTIVE_PRESENCES_STORAGE_KEY);
+        if (existingRaw) {
+          const parsed = JSON.parse(existingRaw) as Record<string, UserPresence>;
+          Object.entries(parsed).forEach(([k, v]) => {
+            const lastSeen = v?.lastSeenLocally || (v?.lastActive ? new Date(v.lastActive).getTime() : 0);
+            if (now - lastSeen < 60000) {
+              mapObj[k] = v;
+            }
+          });
+        }
+      } catch (e) {}
+      this.presencesMap.forEach((v, k) => {
+        const lastSeen = v.lastSeenLocally || (v.lastActive ? new Date(v.lastActive).getTime() : now);
+        if (now - lastSeen < 60000) {
+          mapObj[k] = v;
+        }
+      });
+      localStorage.setItem(ACTIVE_PRESENCES_STORAGE_KEY, JSON.stringify(mapObj));
+    } catch (e) {}
   }
 
   public getCurrentUser(): User | null {
@@ -61,14 +111,34 @@ class CollabService {
     const prevId = this.currentUser?.id;
     this.currentUser = user;
 
-    if (user && user.id !== prevId) {
+    if (user) {
       this.updatePresence();
-      if (this.supabaseChannel && this.canUseWebSocket() && this.currentPresence) {
-        try {
-          this.supabaseChannel.track(this.currentPresence).catch(() => {});
-        } catch (e) {}
+      this.requestRemotePresences();
+      if (user.id !== prevId) {
+        setTimeout(() => {
+          if (this.currentUser) {
+            this.updatePresence();
+            this.requestRemotePresences();
+          }
+        }, 600);
+        setTimeout(() => {
+          if (this.currentUser) {
+            this.updatePresence();
+          }
+        }, 2000);
       }
     }
+  }
+
+  public requestRemotePresences() {
+    const reqPayload = {
+      requesterSessionId: this.sessionId,
+      requesterUserId: this.currentUser?.id,
+      presence: this.currentPresence || undefined,
+      ts: Date.now(),
+    };
+    this.emitLocalPacket('PRESENCE_REQUEST', reqPayload);
+    this.sendBroadcast('collab_presence_request', reqPayload, true);
   }
 
   private canUseWebSocket(): boolean {
@@ -97,6 +167,9 @@ class CollabService {
               this.handleIncomingEvent(parsed.type, parsed.payload);
             }
           } catch (e) {}
+        } else if (event.key === ACTIVE_PRESENCES_STORAGE_KEY && event.newValue) {
+          this.hydrateStoredPresences();
+          this.notifyPresencesChange();
         }
       });
     } catch (e) {
@@ -107,6 +180,7 @@ class CollabService {
   private initSupabaseRealtime() {
     if (typeof window === 'undefined') return;
     try {
+      // 1. Pure broadcast + presence channel (no postgres_changes so subscription never stalls)
       this.supabaseChannel = supabase.channel('omni_flow_collab_hub', {
         config: {
           presence: {
@@ -117,7 +191,6 @@ class CollabService {
       });
 
       this.supabaseChannel
-        // Handle presence sync from Supabase
         .on('presence', { event: 'sync' }, () => {
           if (!this.supabaseChannel) return;
           const state = this.supabaseChannel.presenceState();
@@ -147,6 +220,9 @@ class CollabService {
             });
             this.notifyPresencesChange();
           }
+          if (this.currentPresence) {
+            this.sendBroadcast('collab_presence', this.currentPresence, true);
+          }
         })
         .on('presence', { event: 'leave' }, ({ leftPresences }: any) => {
           if (Array.isArray(leftPresences)) {
@@ -159,12 +235,15 @@ class CollabService {
             this.notifyPresencesChange();
           }
         })
-        // Broadcast events
         .on('broadcast', { event: 'collab_presence' }, ({ payload }: { payload: UserPresence }) => {
-          if (payload && payload.userId && payload.sessionId !== this.sessionId) {
-            const key = payload.sessionId || payload.userId;
-            this.presencesMap.set(key, { ...payload, lastSeenLocally: Date.now() });
-            this.notifyPresencesChange();
+          this.ingestRemotePresence(payload);
+        })
+        .on('broadcast', { event: 'collab_presence_request' }, ({ payload }: any) => {
+          if (payload?.presence) {
+            this.ingestRemotePresence(payload.presence);
+          }
+          if (payload?.requesterSessionId !== this.sessionId && this.currentPresence) {
+            this.sendBroadcast('collab_presence', this.currentPresence, true);
           }
         })
         .on('broadcast', { event: 'collab_leave' }, ({ payload }: { payload: { userId: string; sessionId?: string } }) => {
@@ -180,6 +259,51 @@ class CollabService {
         .on('broadcast', { event: 'task_comment_added' }, ({ payload }: { payload: CollabCommentPayload }) => {
           this.handleTaskCommentAdded(payload);
         })
+        .on('broadcast', { event: 'task_comment_updated' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('omni_task_comment_updated', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'task_comment_deleted' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('omni_task_comment_deleted', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'task_updated' }, ({ payload }: { payload: CollabTaskUpdatePayload }) => {
+          this.handleTaskUpdated(payload);
+        })
+        .on('broadcast', { event: 'task_created' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_task_created', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'task_deleted' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_task_deleted', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'user_status_changed' }, ({ payload }: { payload: CollabUserStatusPayload }) => {
+          this.handleUserStatusChanged(payload);
+        })
+        .on('broadcast', { event: 'chat_message_notification' }, ({ payload }: { payload: ChatMessage }) => {
+          this.handleChatMessageNotification(payload);
+        })
+        .subscribe((status: string) => {
+          this.isChannelSubscribed = status === 'SUBSCRIBED';
+          if (status === 'SUBSCRIBED') {
+            if (this.currentPresence) {
+              if (this.canUseWebSocket()) {
+                this.supabaseChannel.track(this.currentPresence).catch(() => {});
+              }
+              this.sendBroadcast('collab_presence', this.currentPresence, true);
+            }
+            this.requestRemotePresences();
+          }
+        });
+
+      // 2. Separate channel for database table changes so RLS/publication config never blocks realtime broadcasts
+      this.dbChangesChannel = supabase.channel('omni_flow_db_changes_hub');
+      this.dbChangesChannel
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_comments' }, async (payload: any) => {
           const newComment = payload.new;
           if (!newComment || !newComment.task_id) return;
@@ -227,32 +351,6 @@ class CollabService {
             assigneeId
           });
         })
-        .on('broadcast', { event: 'task_comment_updated' }, ({ payload }: any) => {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('omni_task_comment_updated', { detail: payload }));
-          }
-        })
-        .on('broadcast', { event: 'task_comment_deleted' }, ({ payload }: any) => {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('omni_task_comment_deleted', { detail: payload }));
-          }
-        })
-        .on('broadcast', { event: 'task_updated' }, ({ payload }: { payload: CollabTaskUpdatePayload }) => {
-          this.handleTaskUpdated(payload);
-        })
-        .on('broadcast', { event: 'task_created' }, ({ payload }: any) => {
-          if (typeof window !== 'undefined' && payload) {
-            window.dispatchEvent(new CustomEvent('omni_remote_task_created', { detail: payload }));
-          }
-        })
-        .on('broadcast', { event: 'task_deleted' }, ({ payload }: any) => {
-          if (typeof window !== 'undefined' && payload) {
-            window.dispatchEvent(new CustomEvent('omni_remote_task_deleted', { detail: payload }));
-          }
-        })
-        .on('broadcast', { event: 'user_status_changed' }, ({ payload }: { payload: CollabUserStatusPayload }) => {
-          this.handleUserStatusChanged(payload);
-        })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, (payload: any) => {
           const updatedRow = payload.new;
           if (!updatedRow || !updatedRow.id) return;
@@ -269,24 +367,44 @@ class CollabService {
             actor: { id: 'remote', name: 'Teammate' }
           });
         })
-        .on('broadcast', { event: 'chat_message_notification' }, ({ payload }: { payload: ChatMessage }) => {
-          this.handleChatMessageNotification(payload);
-        })
-        .subscribe((status: string) => {
-          this.isChannelSubscribed = status === 'SUBSCRIBED';
-          if (status === 'SUBSCRIBED' && this.currentPresence) {
-            if (this.canUseWebSocket()) {
-              this.supabaseChannel.track(this.currentPresence).catch(() => {});
-            }
-            this.sendBroadcast('collab_presence', this.currentPresence, true);
-          }
-        });
+        .subscribe();
     } catch (err) {
       console.warn('Failed initializing Supabase collab hub:', err);
     }
   }
 
+  public ingestRemotePresence(payload: UserPresence) {
+    if (!payload || !payload.userId || payload.sessionId === this.sessionId) return;
+    const key = payload.sessionId || payload.userId;
+    this.presencesMap.set(key, { ...payload, lastSeenLocally: Date.now() });
+    this.persistActivePresencesToStorage();
+    this.notifyPresencesChange();
+  }
+
+  public ingestRemoteEventFromBridge(event: string, payload: any) {
+    if (!event) return;
+    if (event === 'collab_presence') {
+      this.ingestRemotePresence(payload);
+    } else if (event === 'collab_presence_request') {
+      if (payload?.presence) {
+        this.ingestRemotePresence(payload.presence);
+      }
+      if (payload?.requesterSessionId !== this.sessionId && this.currentPresence) {
+        this.sendBroadcast('collab_presence', this.currentPresence, true);
+      }
+    } else if (event === 'user_status_changed') {
+      this.handleUserStatusChanged(payload);
+    } else if (event === 'task_updated') {
+      this.handleTaskUpdated(payload);
+    } else if (event === 'task_comment_added') {
+      this.handleTaskCommentAdded(payload);
+    }
+  }
+
   private sendBroadcast(event: string, payload: any, allowHttpFallback = true) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omni_collab_bridge_out', { detail: { event, payload } }));
+    }
     if (!this.supabaseChannel) return;
     try {
       if (this.canUseWebSocket()) {
@@ -305,11 +423,14 @@ class CollabService {
     if (!type) return;
 
     if (type === 'PRESENCE_BROADCAST' && payload) {
-      const pres = payload as UserPresence;
-      if (pres.sessionId !== this.sessionId) {
-        const key = pres.sessionId || pres.userId;
-        this.presencesMap.set(key, { ...pres, lastSeenLocally: Date.now() });
-        this.notifyPresencesChange();
+      this.ingestRemotePresence(payload as UserPresence);
+    } else if (type === 'PRESENCE_REQUEST' && payload) {
+      if (payload.presence) {
+        this.ingestRemotePresence(payload.presence as UserPresence);
+      }
+      if (payload.requesterSessionId !== this.sessionId && this.currentPresence) {
+        this.emitLocalPacket('PRESENCE_BROADCAST', this.currentPresence);
+        this.sendBroadcast('collab_presence', this.currentPresence, true);
       }
     } else if (type === 'PRESENCE_LEAVE' && payload) {
       if (payload.sessionId) {
@@ -399,10 +520,15 @@ class CollabService {
     // Update all matching presence entries for this user
     let found = false;
     this.presencesMap.forEach((val, key) => {
-      if (val.userId === payload.userId) {
+      if (
+        val.userId === payload.userId ||
+        (payload.userEmail && val.userEmail && val.userEmail.toLowerCase() === payload.userEmail.toLowerCase()) ||
+        (payload.userName && val.userName && val.userName.toLowerCase() === payload.userName.toLowerCase())
+      ) {
         this.presencesMap.set(key, {
           ...val,
           userName: payload.userName || val.userName,
+          userEmail: payload.userEmail || val.userEmail,
           userAvatar: payload.userAvatar || val.userAvatar,
           availabilityStatus: payload.availabilityStatus,
           lastActive: new Date().toISOString(),
@@ -417,6 +543,7 @@ class CollabService {
         userId: payload.userId,
         sessionId: payload.userId,
         userName: payload.userName || 'Teammate',
+        userEmail: payload.userEmail,
         userAvatar: payload.userAvatar,
         availabilityStatus: payload.availabilityStatus,
         lastActive: new Date().toISOString(),
@@ -430,12 +557,14 @@ class CollabService {
         const raw = localStorage.getItem('omni_team_statuses');
         const map = raw ? JSON.parse(raw) : {};
         map[payload.userId] = payload.availabilityStatus;
+        if (payload.userEmail) map[payload.userEmail.toLowerCase()] = payload.availabilityStatus;
         localStorage.setItem('omni_team_statuses', JSON.stringify(map));
       } catch (e) {}
 
       window.dispatchEvent(new CustomEvent('omni_remote_user_status_changed', { detail: payload }));
     }
 
+    this.persistActivePresencesToStorage();
     this.notifyPresencesChange();
   }
 
@@ -455,7 +584,7 @@ class CollabService {
     }
   }
 
-  public recordUserActive(userId: string, userName?: string, userAvatar?: string) {
+  public recordUserActive(userId: string, userName?: string, userAvatar?: string, userEmail?: string) {
     if (!userId) return;
 
     // Find any existing session for this userId
@@ -463,7 +592,7 @@ class CollabService {
     let existing: UserPresence | undefined = this.presencesMap.get(userId);
     if (!existing) {
       this.presencesMap.forEach((val, key) => {
-        if (val.userId === userId) {
+        if (val.userId === userId || (userEmail && val.userEmail && val.userEmail.toLowerCase() === userEmail.toLowerCase())) {
           existingKey = key;
           existing = val;
         }
@@ -474,6 +603,7 @@ class CollabService {
       userId,
       sessionId: existing?.sessionId || userId,
       userName: userName || existing?.userName || 'Teammate',
+      userEmail: userEmail || existing?.userEmail,
       userAvatar: userAvatar || existing?.userAvatar,
       currentTaskId: existing?.currentTaskId,
       currentProjectId: existing?.currentProjectId,
@@ -488,6 +618,7 @@ class CollabService {
     };
 
     this.presencesMap.set(existingKey, updated);
+    this.persistActivePresencesToStorage();
     this.notifyPresencesChange();
   }
 
@@ -532,6 +663,7 @@ class CollabService {
         const mapRaw = localStorage.getItem('omni_team_statuses');
         const map = mapRaw ? JSON.parse(mapRaw) : {};
         map[this.currentUser.id] = flags.availabilityStatus;
+        if (this.currentUser.email) map[this.currentUser.email.toLowerCase()] = flags.availabilityStatus;
         localStorage.setItem('omni_team_statuses', JSON.stringify(map));
       } catch (e) {}
     }
@@ -540,6 +672,7 @@ class CollabService {
       userId: this.currentUser.id,
       sessionId: this.sessionId,
       userName: this.currentUser.full_name || this.currentUser.email || 'You',
+      userEmail: this.currentUser.email,
       userAvatar: this.currentUser.avatar_url,
       currentTaskId: resolvedTaskId,
       currentProjectId: flags?.projectId ?? this.currentPresence?.currentProjectId,
@@ -556,12 +689,13 @@ class CollabService {
 
     // Keep self in map under this tab's sessionId
     this.presencesMap.set(this.sessionId, this.currentPresence);
+    this.persistActivePresencesToStorage();
     this.notifyPresencesChange();
 
     // Broadcast across tabs & windows
     this.emitLocalPacket('PRESENCE_BROADCAST', this.currentPresence);
 
-    // Broadcast across devices / networks via Supabase Realtime
+    // Broadcast across devices / networks via Supabase Realtime (with HTTP fallback)
     if (this.supabaseChannel) {
       try {
         if (this.canUseWebSocket()) {
@@ -577,6 +711,7 @@ class CollabService {
     const payload: CollabUserStatusPayload = {
       userId: this.currentUser.id,
       userName: this.currentUser.full_name || this.currentUser.email || 'Teammate',
+      userEmail: this.currentUser.email,
       userAvatar: this.currentUser.avatar_url,
       availabilityStatus,
       timestamp: new Date().toISOString(),
@@ -685,6 +820,8 @@ class CollabService {
       if (this.currentUser && this.currentPresence) {
         this.currentPresence.lastActive = new Date(now).toISOString();
         this.currentPresence.lastSeenLocally = now;
+        this.presencesMap.set(this.sessionId, this.currentPresence);
+        this.persistActivePresencesToStorage();
         if (this.broadcastChannel) {
           try {
             this.broadcastChannel.postMessage({
@@ -693,10 +830,12 @@ class CollabService {
             });
           } catch (e) {}
         }
-        if (this.supabaseChannel && this.canUseWebSocket()) {
+        if (this.supabaseChannel) {
           try {
-            this.supabaseChannel.track(this.currentPresence).catch(() => {});
-            this.sendBroadcast('collab_presence', this.currentPresence, false);
+            if (this.canUseWebSocket()) {
+              this.supabaseChannel.track(this.currentPresence).catch(() => {});
+            }
+            this.sendBroadcast('collab_presence', this.currentPresence, true);
           } catch (e) {}
         }
       }

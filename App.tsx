@@ -376,9 +376,9 @@ const MainAppLayout: React.FC = () => {
   return (
     <div className="h-full w-full flex gap-2 sm:gap-3 md:gap-4 min-w-0">
       <Sidebar />
-      <div className="flex-1 flex flex-col gap-2 sm:gap-3 md:gap-4 min-w-0 h-full overflow-y-auto md:overflow-hidden">
+      <div className="flex-1 flex flex-col gap-2 sm:gap-3 md:gap-4 min-w-0 h-full overflow-hidden">
         <Header />
-        <div className="flex-1 flex flex-col glass-panel rounded-2xl p-0 overflow-y-auto md:overflow-hidden min-h-0 min-w-0">
+        <div className="flex-1 flex flex-col glass-panel rounded-2xl p-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0">
           {authError && !authError.toLowerCase().includes("rls") && !authError.toLowerCase().includes("policy") && ( 
             <div className={`p-3 m-3 rounded-xl text-xs sm:text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
                 <strong>Authentication Issue:</strong> {authError}

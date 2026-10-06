@@ -242,7 +242,7 @@ export const KanbanBoard: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 h-full p-2 sm:p-4 md:p-6 bg-transparent overflow-y-auto md:overflow-hidden space-y-3">
+    <div className="flex-1 flex flex-col p-2 sm:p-4 md:p-6 bg-transparent space-y-3">
 
       {/* Top Agile Toolbar: View Switcher, Stats & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1 flex-shrink-0">
@@ -537,7 +537,7 @@ export const KanbanBoard: React.FC = () => {
       ) : viewMode === 'kanban' ? (
         swimlaneMode === 'none' ? (
           /* Standard Columns */
-          <div className="flex-1 flex space-x-3 md:space-x-4 overflow-x-auto scrollbar-thin">
+          <div className="flex-1 flex items-start space-x-3 md:space-x-4 overflow-x-auto pb-4 scrollbar-thin">
             {TASK_STATUS_COLUMNS.map(column => (
               <KanbanColumn
                 key={column.id}
@@ -551,7 +551,7 @@ export const KanbanBoard: React.FC = () => {
           </div>
         ) : (
           /* Swimlane Rows */
-          <div className="flex-1 flex flex-col gap-4 overflow-y-auto scrollbar-thin">
+          <div className="flex-1 flex flex-col gap-4 pb-4">
             {swimlanes.map(swimlane => {
               const isCollapsed = collapsedSwimlanes[swimlane.id];
               return (

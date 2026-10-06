@@ -460,7 +460,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   };
 
   return (
-    <div className={`flex-1 flex flex-col min-h-0 h-full rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm overflow-y-auto md:overflow-hidden`}>
+    <div className={`flex-1 flex flex-col rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm`}>
       {/* Overview Progress Header */}
       <div className={`p-3 sm:p-4 border-b space-y-2.5 sm:space-y-3 flex-shrink-0 ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-slate-50/80'}`}>
         <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -560,7 +560,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       </div>
 
       {/* Main List Body */}
-      <div className="flex-1 min-h-[300px] overflow-y-auto p-2 sm:p-4 scrollbar-thin">
+      <div className="flex-1 min-h-[300px] p-2 sm:p-4">
         {groupBy === 'status' ? (
           <>
             {renderGroupedTasks(TaskStatus.TODO, 'To Do', 'bg-slate-400')}

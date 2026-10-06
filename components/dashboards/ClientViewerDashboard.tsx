@@ -15,7 +15,7 @@ export const ClientViewerDashboard: React.FC = () => {
   const sharedProjects = projects; // Placeholder: shows all projects. Adapt if sharing logic exists.
   
   return (
-    <div className={`flex-1 p-4 md:p-6 overflow-y-auto scrollbar-thin ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+    <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-semibold">Project Viewer Dashboard</h1>
         <p className={`text-md ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>View progress on projects shared with you.</p>

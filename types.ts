@@ -132,6 +132,7 @@ export interface UserPresence {
   userId: string;
   sessionId?: string;
   userName: string;
+  userEmail?: string;
   userAvatar?: string;
   currentTaskId?: string;
   currentProjectId?: string;

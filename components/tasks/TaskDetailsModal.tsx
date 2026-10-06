@@ -61,6 +61,7 @@ export const TaskDetailsModal: React.FC = () => {
   const [subtaskToDelete, setSubtaskToDelete] = useState<string | null>(null);
   const [selectedAttachment, setSelectedAttachment] = useState<TaskAttachment | null>(null);
   
+  const [isEditMode, setIsEditMode] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -84,7 +85,7 @@ export const TaskDetailsModal: React.FC = () => {
     if (editFieldTimeoutRef.current) clearTimeout(editFieldTimeoutRef.current);
     editFieldTimeoutRef.current = setTimeout(() => {
       setRecentEditingField(null);
-    }, 3500);
+    }, 5000);
     if (fieldName === 'status') {
       showLiveTicketBroadcast('Broadcasting status update to teammates in real-time...', false);
     } else {
@@ -104,9 +105,13 @@ export const TaskDetailsModal: React.FC = () => {
             ? 'dependencies'
             : isAddingCollaborator
               ? 'collaborators'
-              : recentEditingField || undefined;
+              : recentEditingField
+                ? recentEditingField
+                : isEditMode
+                  ? 'task details'
+                  : undefined;
 
-  const isCurrentlyEditing = Boolean(currentEditingField);
+  const isCurrentlyEditing = Boolean(currentEditingField || isEditMode);
 
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -393,26 +398,39 @@ export const TaskDetailsModal: React.FC = () => {
   useEffect(() => {
     if (isViewTaskModalOpen && taskToView) {
       wasModalOpenRef.current = true;
+      setIsEditMode(false);
       fetchTaskDetails();
       setEditedTitle(taskToView.title);
       setEditedDescription(taskToView.description || '');
       if (taskToView.projectId && (!activeProject || activeProject.id !== taskToView.projectId)) {
         useAppStore.getState().fetchTasksForProject(taskToView.projectId);
       }
+      collabService.requestRemotePresences();
       // Broadcast current task presence
       updateUserPresence(taskToView.id, undefined, {
-        isEditing: isCurrentlyEditing,
-        editingField: currentEditingField,
-        isTypingComment,
+        isEditing: false,
+        editingField: undefined,
+        isTypingComment: false,
         statusAction: 'viewing_task'
       });
     } else if (!isViewTaskModalOpen && wasModalOpenRef.current) {
       wasModalOpenRef.current = false;
+      setIsEditMode(false);
       if (!useAppStore.getState().isEditTaskModalOpen) {
         updateUserPresence(undefined, undefined, { clearTask: true, isEditing: false, isTypingComment: false });
       }
     }
   }, [isViewTaskModalOpen, taskToView?.id]);
+
+  // Keep local title/description synced if updated remotely while not actively typing in them
+  useEffect(() => {
+    if (taskToView && !isEditingTitle && !isEditMode) {
+      setEditedTitle(taskToView.title);
+    }
+    if (taskToView && !isEditingDescription && !isEditMode) {
+      setEditedDescription(taskToView.description || '');
+    }
+  }, [taskToView?.title, taskToView?.description, isEditingTitle, isEditingDescription, isEditMode]);
 
   useEffect(() => {
     if (isViewTaskModalOpen && taskToView) {
@@ -1020,16 +1038,16 @@ export const TaskDetailsModal: React.FC = () => {
   );
 
   return (
-    <Modal isOpen={isViewTaskModalOpen} onClose={closeViewTaskModal} title={modalTitle as any} size="full">
+    <Modal isOpen={isViewTaskModalOpen} onClose={closeViewTaskModal} title={modalTitle as any} size="5xl">
       {error && (
         <div className={`p-4 mb-4 rounded-md text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
             <strong>Error:</strong> {error}
         </div>
       )}
-      <div className="flex flex-col md:flex-row md:h-full gap-6 min-w-0 min-h-0">
+      <div className="flex flex-col lg:flex-row gap-6 min-w-0">
         
         {/* Left Column: Main Content */}
-        <div className="w-full md:flex-1 flex flex-col min-w-0 md:overflow-y-auto pr-0 md:pr-2">
+        <div className="w-full lg:flex-1 flex flex-col min-w-0 pr-0 lg:pr-2">
           
           {/* Real-Time Broadcast Feedback Banner */}
           {liveTicketBroadcast && (
@@ -1137,7 +1155,7 @@ export const TaskDetailsModal: React.FC = () => {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-start justify-between gap-3 mb-4">
             {isEditingTitle ? (
               <input
                 type="text"
@@ -1146,69 +1164,250 @@ export const TaskDetailsModal: React.FC = () => {
                 onBlur={handleTitleSave}
                 onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
                 autoFocus
-                className={`text-2xl font-semibold w-full bg-transparent border-b-2 border-accent focus:outline-none ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                className={`text-xl sm:text-2xl font-bold w-full bg-transparent border-b-2 border-accent focus:outline-none ${darkMode ? 'text-white' : 'text-slate-900'}`}
               />
             ) : (
               <h1 
-                className="text-2xl font-semibold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-2 -ml-2 py-1 transition-colors"
-                onClick={() => setIsEditingTitle(true)}
+                className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-2 -ml-2 py-1 transition-colors leading-snug"
+                onClick={() => {
+                  setIsEditingTitle(true);
+                  markEditingField('title');
+                }}
+                title="Click to edit title"
               >
                 {taskToView.title}
               </h1>
             )}
           </div>
 
-          <div className="flex items-center gap-2 mb-6 flex-wrap">
+          {/* Clean, Intuitive Quick Action Toolbar */}
+          <div className="flex items-center gap-2 mb-5 flex-wrap">
             <button
               type="button"
               onClick={() => {
-                setIsEditingDescription(true);
-                markEditingField('description');
+                const nextMode = !isEditMode;
+                setIsEditMode(nextMode);
+                if (nextMode) {
+                  setEditedTitle(taskToView.title);
+                  setEditedDescription(taskToView.description || '');
+                  markEditingField('task details');
+                } else {
+                  setIsEditingTitle(false);
+                  setIsEditingDescription(false);
+                  setRecentEditingField(null);
+                }
               }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                isEditMode
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
+                  : darkMode
+                    ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
+                    : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-800'
+              }`}
             >
-              <ICON_MAP.PencilIcon className="w-4 h-4" />
-              Edit task
+              <ICON_MAP.PencilIcon className="w-3.5 h-3.5" />
+              {isEditMode ? 'Editing Ticket (Click when Done)' : 'Edit Ticket'}
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('general');
+                setActivityTab('comments');
+                setTimeout(() => {
+                  commentTextareaRef.current?.focus();
+                  commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
+            >
+              <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Comments ({comments.length})</span>
+            </button>
+
             <label className="cursor-pointer relative group">
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/jpeg,image/png,image/gif,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                {isUploading ? <SpinnerIcon className="w-4 h-4 animate-spin" /> : <ICON_MAP.PaperClipIcon className="w-4 h-4" />}
-                Attach
-              </div>
-              <div className="absolute top-full left-0 mt-2 w-64 p-2 bg-slate-800 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
-                Supported formats: Images (JPEG, PNG, GIF), PDFs, Documents (DOCX, TXT). Max size: 10MB.
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {isUploading ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <ICON_MAP.PaperClipIcon className="w-3.5 h-3.5 text-emerald-500" />}
+                <span>Attach ({attachments.length})</span>
               </div>
             </label>
+
             <button 
+              type="button"
               onClick={() => {
                 openModal(taskToView.id);
               }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
             >
-              <ICON_MAP.PlusIcon className="w-4 h-4" />
-              Create subtask
-            </button>
-            <button className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'} transition-colors`}>
-              <ICON_MAP.LinkIcon className="w-4 h-4" />
-              Link issue
+              <ICON_MAP.PlusIcon className="w-3.5 h-3.5 text-amber-500" />
+              <span>Add Subtask ({subtasks.length})</span>
             </button>
           </div>
 
-          {/* Tabs */}
-          <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6">
+          {/* Streamlined Unified Edit Panel when Edit Mode is toggled */}
+          {isEditMode && (
+            <div className={`mb-6 p-4 rounded-2xl border-2 border-indigo-500/40 space-y-4 ${
+              darkMode ? 'bg-indigo-950/20' : 'bg-indigo-50/50'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                  <span>Live Edit Mode — Teammates can see you are editing this ticket</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditMode(false)}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 font-semibold"
+                >
+                  Close Edit Mode
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                    Task Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editedTitle}
+                    onFocus={() => markEditingField('title')}
+                    onChange={(e) => {
+                      setEditedTitle(e.target.value);
+                      markEditingField('title');
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl border text-sm font-semibold ${
+                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editedDescription}
+                    onFocus={() => markEditingField('description')}
+                    onChange={(e) => {
+                      setEditedDescription(e.target.value);
+                      markEditingField('description');
+                    }}
+                    placeholder="Add detailed task description, acceptance criteria, or notes..."
+                    className={`w-full p-3 rounded-xl border text-sm ${
+                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={taskToView.status}
+                      onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
+                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold ${
+                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                    >
+                      {Object.values(TaskStatus).map(s => (
+                        <option key={s} value={s}>{formatEnumForDisplay(s)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                      Priority
+                    </label>
+                    <select
+                      value={taskToView.priority}
+                      onChange={(e) => handleUpdateTask({ priority: e.target.value as TaskPriority })}
+                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold ${
+                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                    >
+                      {Object.values(TaskPriority).map(p => (
+                        <option key={p} value={p}>{formatEnumForDisplay(p)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                      Assignee
+                    </label>
+                    <select
+                      value={taskToView.assignee_id || ''}
+                      onChange={(e) => handleUpdateTask({ assignee_id: e.target.value || undefined })}
+                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold ${
+                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                    >
+                      <option value="">Unassigned</option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setEditedTitle(taskToView.title);
+                      setEditedDescription(taskToView.description || '');
+                      setIsEditMode(false);
+                      setRecentEditingField(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={async () => {
+                      const updates: Partial<Task> = {};
+                      if (editedTitle.trim() && editedTitle.trim() !== taskToView.title) {
+                        updates.title = editedTitle.trim();
+                      }
+                      if (editedDescription !== (taskToView.description || '')) {
+                        updates.description = editedDescription;
+                      }
+                      if (Object.keys(updates).length > 0) {
+                        await handleUpdateTask(updates);
+                      }
+                      setIsEditMode(false);
+                      setRecentEditingField(null);
+                    }}
+                  >
+                    Save & Done Editing
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Clean Section Navigation Tabs */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 mb-6 w-fit">
             {[
-              { id: 'general', label: 'General' },
-              { id: 'qa', label: 'QA/Testing' },
-              { id: 'admin', label: 'Admin' }
+              { id: 'general', label: 'Overview & Discussion' },
+              { id: 'qa', label: 'QA & Testing' },
+              { id: 'admin', label: 'Settings & Danger Zone' }
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeTab === tab.id
-                    ? 'border-accent text-accent'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
                 {tab.label}
@@ -1860,7 +2059,7 @@ export const TaskDetailsModal: React.FC = () => {
         </div>
 
         {/* Right Column: Sidebar Details */}
-        <div className="w-full md:w-80 flex-shrink-0 flex flex-col gap-6 md:overflow-y-auto">
+        <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-5">
           
           {/* Status & Actions */}
           <div className="flex items-center gap-2">

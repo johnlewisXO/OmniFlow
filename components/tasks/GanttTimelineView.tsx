@@ -378,7 +378,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
   };
 
   return (
-    <div className={`flex-1 flex flex-col min-h-0 h-full rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm overflow-y-auto md:overflow-hidden`}>
+    <div className={`flex-1 flex flex-col rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-sm`}>
       {/* Top Header Bar */}
       <div className={`p-3.5 sm:p-4 md:p-5 border-b flex flex-wrap items-center justify-between gap-3 flex-shrink-0 ${darkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-slate-50/60'}`}>
         <div>
@@ -648,7 +648,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
       {/* Timeline Chart Grid Container with Explicit Horizontal Scrollbar */}
       <div 
         ref={scrollContainerRef}
-        className="flex-1 min-h-[350px] sm:min-h-[400px] overflow-x-auto overflow-y-auto scrollbar-thin relative border-t border-slate-200 dark:border-slate-800"
+        className="flex-1 min-h-[480px] overflow-x-auto scrollbar-thin relative border-t border-slate-200 dark:border-slate-800"
       >
         {allFlatFiltered.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">

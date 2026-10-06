@@ -42,6 +42,7 @@ export const EditTaskModal: React.FC = () => {
   useEffect(() => {
     if (isEditTaskModalOpen && taskToEdit) {
       wasEditOpenRef.current = true;
+      collabService.requestRemotePresences();
       updateUserPresence(taskToEdit.id, undefined, { isEditing: true, editingField: editingFieldLabel, statusAction: 'editing_task' });
     } else if (!isEditTaskModalOpen && wasEditOpenRef.current) {
       wasEditOpenRef.current = false;
