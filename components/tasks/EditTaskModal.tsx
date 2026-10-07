@@ -154,7 +154,6 @@ export const EditTaskModal: React.FC = () => {
   const selectArrowClass = `absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 ${darkMode ? 'text-slate-400' : 'text-slate-500'} pointer-events-none`;
 
   const displayError = localFormError || globalError;
-  const modalTitleText = taskToEdit ? <span className="text-gradient-accent">{`Edit Task: ${taskToEdit.title}`}</span> : <span className="text-gradient-accent">Edit Task</span>;
 
   if (!isEditTaskModalOpen || !taskToEdit) return null;
 
@@ -180,38 +179,36 @@ export const EditTaskModal: React.FC = () => {
     return Array.from(map.values());
   })();
 
+  const modalTitleText = (
+    <div className="flex items-center justify-between w-full pr-8 gap-2">
+      <span className="text-gradient-accent truncate">{`Edit Task: ${taskToEdit.title}`}</span>
+      {otherTaskParticipants.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {otherTaskParticipants.map(p => {
+            const name = (p.userName || 'Teammate').split(' ')[0];
+            return (
+              <span
+                key={p.userId}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                  p.isEditing
+                    ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300'
+                    : p.isTypingComment
+                      ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300'
+                      : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                }`}
+              >
+                {name} {p.isEditing ? `editing` : p.isTypingComment ? 'commenting' : 'viewing'}
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Modal isOpen={isEditTaskModalOpen} onClose={closeEditTaskModal} title={modalTitleText as unknown as string} size="xl">
-      <form onSubmit={handleSubmit} className="space-y-5 p-1"> {/* Reduced vertical spacing */}
-        {otherTaskParticipants.length > 0 && (
-          <div className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${
-            darkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              Other teammates active on this ticket:
-            </span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {otherTaskParticipants.map(p => {
-                const name = (p.userName || 'Teammate').split(' ')[0];
-                return (
-                  <span
-                    key={p.userId}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold border ${
-                      p.isEditing
-                        ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300 animate-pulse'
-                        : p.isTypingComment
-                          ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300 animate-pulse'
-                          : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-                    }`}
-                  >
-                    {name} · {p.isEditing ? `Editing ${p.editingField || 'details'}` : p.isTypingComment ? 'Typing comment...' : 'Viewing'}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-5 p-1">
         <div>
           <label htmlFor="edit-task-title" className={labelClass}>Title <span className="text-status-error">*</span></label>
           <input
@@ -227,17 +224,11 @@ export const EditTaskModal: React.FC = () => {
           />
         </div>
 
-        <AITaskGenerator
-          description={aiHelperDescription} 
-          onDescriptionChange={setAiHelperDescription}
-          onSuggestionSelect={handleSuggestionSelect}
-        />
-
         <div>
           <label htmlFor="edit-task-description" className={labelClass}>Description</label>
           <textarea
             id="edit-task-description"
-            rows={3}
+            rows={4}
             value={mainDescription}
             onFocus={() => setEditingFieldLabel('description')}
             onChange={(e) => { setMainDescription(e.target.value); setEditingFieldLabel('description'); }}

@@ -171,13 +171,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Top Badges: Blocked, Story Points, & Live Presence Count (Other Users Only) */}
-      <div className="flex items-center justify-between gap-1.5 mb-2.5">
+      {/* Top Badges: Blocked, Story Points, & Single Unified Live Presence Indicator */}
+      <div className="flex items-center justify-between gap-1.5 mb-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           {isBlocked && (
             <span
               title="This task is blocked by unfinished prerequisite tasks."
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 animate-pulse"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60"
             >
               <ICON_MAP.ExclamationTriangleIcon className="w-3 h-3 text-amber-600 dark:text-amber-400" />
               Blocked
@@ -189,100 +189,64 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
               {task.story_points} pts
             </span>
           )}
-
-          {recentRemoteBroadcast && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 animate-pulse">
-              <ICON_MAP.BoltIcon className="w-2.5 h-2.5" />
-              {recentRemoteBroadcast.actorName} {recentRemoteBroadcast.summary}
-            </span>
-          )}
         </div>
 
-        {/* Compact Live Presence Indicator (Only shown when OTHER people are active on this task) */}
-        {viewers.length > 0 && (
-          <div
-            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold shadow-xs transition-all"
-            title={`${viewers.map(v => v.userName).join(', ')} active on this task`}
-          >
-            <span className="relative flex h-2 w-2 items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-            </span>
-            <div className="flex -space-x-1">
-              {viewers.slice(0, 3).map(v => (
-                <span
-                  key={v.userId}
-                  style={{ backgroundColor: v.color || '#10b981' }}
-                  className="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-slate-900 text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden"
-                >
-                  {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : (v.userName || 'U').charAt(0).toUpperCase()}
-                </span>
-              ))}
+        {/* Single Unified Live Presence Pill (Other Users Only) */}
+        {viewers.length > 0 && (() => {
+          const primaryEditor = activeEditors[0];
+          const primaryTyper = activeTypers[0];
+          const primaryViewer = viewers[0];
+          const firstName = ((primaryEditor || primaryTyper || primaryViewer)?.userName || 'Teammate').split(' ')[0];
+          const pillTone = primaryEditor
+            ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300'
+            : primaryTyper
+              ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300'
+              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400';
+
+          return (
+            <div
+              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold shadow-xs transition-all ${pillTone}`}
+              title={viewers
+                .map(v => `${v.userName}: ${v.isEditing ? `Editing${v.editingField ? ` ${v.editingField}` : ''}` : v.isTypingComment ? 'Commenting' : 'Viewing'}`)
+                .join(' • ')}
+            >
+              <div className="flex -space-x-1">
+                {viewers.slice(0, 3).map(v => (
+                  <span
+                    key={v.userId}
+                    style={{ backgroundColor: v.color || '#10b981' }}
+                    className="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-slate-900 text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden"
+                  >
+                    {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : (v.userName || 'U').charAt(0).toUpperCase()}
+                  </span>
+                ))}
+              </div>
+              {primaryEditor ? (
+                <>
+                  <ICON_MAP.PencilIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                  <span className="truncate max-w-[110px]">
+                    {firstName} editing{viewers.length > 1 ? ` +${viewers.length - 1}` : ''}
+                  </span>
+                </>
+              ) : primaryTyper ? (
+                <>
+                  <ICON_MAP.ChatBubbleLeftIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                  <span className="truncate max-w-[110px]">
+                    {firstName} commenting{viewers.length > 1 ? ` +${viewers.length - 1}` : ''}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ICON_MAP.EyeIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                  <span className="truncate max-w-[110px]">
+                    {viewers.length === 1 ? `${firstName} viewing` : `${viewers.length} viewing`}
+                  </span>
+                </>
+              )}
             </div>
-            <span>{viewers.length} active</span>
-          </div>
-        )}
+          );
+        })()}
       </div>
-
-      {/* Detailed Real-Time User Activity Chips (Other People Viewing, Editing, or Typing a Comment) */}
-      {viewers.length > 0 && (
-        <div className="mb-2.5 flex flex-wrap gap-1.5 p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70">
-          {viewers.map(v => {
-            const displayName = (v.userName || 'Teammate').split(' ')[0];
-            return (
-              <React.Fragment key={v.userId}>
-                {!v.isEditing && !v.isTypingComment && (
-                  <span
-                    title={`${v.userName} is viewing this task`}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold"
-                  >
-                    <span
-                      style={{ backgroundColor: v.color || '#10b981' }}
-                      className="w-3.5 h-3.5 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
-                    >
-                      {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
-                    </span>
-                    <ICON_MAP.EyeIcon className="w-2.5 h-2.5 flex-shrink-0" />
-                    <span className="truncate max-w-[130px]">{displayName} · Viewing</span>
-                  </span>
-                )}
-                {v.isEditing && (
-                  <span
-                    title={`${v.userName} is currently editing ${v.editingField || 'this task'}`}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold animate-pulse"
-                  >
-                    <span
-                      style={{ backgroundColor: v.color || '#3b82f6' }}
-                      className="w-3.5 h-3.5 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
-                    >
-                      {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
-                    </span>
-                    <ICON_MAP.PencilIcon className="w-2.5 h-2.5 flex-shrink-0" />
-                    <span className="truncate max-w-[140px]">
-                      {displayName} · Editing{v.editingField ? ` ${v.editingField}` : ''}
-                    </span>
-                  </span>
-                )}
-                {v.isTypingComment && (
-                  <span
-                    title={`${v.userName} is typing a comment on this task`}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[10px] font-bold animate-pulse"
-                  >
-                    <span
-                      style={{ backgroundColor: v.color || '#8b5cf6' }}
-                      className="w-3.5 h-3.5 rounded-full text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
-                    >
-                      {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
-                    </span>
-                    <ICON_MAP.ChatBubbleLeftIcon className="w-2.5 h-2.5 flex-shrink-0" />
-                    <span className="truncate max-w-[145px]">{displayName} · Typing comment...</span>
-                  </span>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      )}
 
       <div className="flex justify-between items-start mb-2">
         <h3 className={`text-sm font-bold ${textColor} leading-snug mr-2`}>{task.title}</h3>

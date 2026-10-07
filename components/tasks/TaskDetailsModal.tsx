@@ -993,40 +993,50 @@ export const TaskDetailsModal: React.FC = () => {
         <span className="text-slate-800 dark:text-slate-200 font-medium truncate">{taskToView.title}</span>
       </div>
       {activeViewers.length > 0 && (
-        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs text-emerald-700 dark:text-emerald-400 font-semibold shadow-xs">
-          {/* Blinking Eye Circle */}
-          <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-          </span>
-          <ICON_MAP.EyeIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse flex-shrink-0" />
-          <span>{activeViewers.length} {activeViewers.length === 1 ? 'person viewing' : 'people viewing'}</span>
-          <div className="flex -space-x-1.5 ml-1">
-            {activeViewers.slice(0, 3).map(viewer => (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {activeViewers.map(viewer => {
+            const firstName = (viewer.userName || 'Teammate').split(' ')[0];
+            const badgeClass = viewer.isEditing
+              ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300'
+              : viewer.isTypingComment
+                ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300'
+                : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400';
+
+            return (
               <div
                 key={viewer.userId}
-                className="w-4 h-4 rounded-full ring-2 ring-white dark:ring-slate-900 flex items-center justify-center overflow-hidden text-[9px] font-bold text-white shadow-xs"
-                style={{ backgroundColor: viewer.color || '#10b981' }}
-                title={`${viewer.userName}${viewer.isEditing ? ' (editing)' : ''}${viewer.isTypingComment ? ' (typing comment)' : ''}`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-full text-xs font-semibold shadow-xs ${badgeClass}`}
+                title={`${viewer.userName} is ${viewer.isEditing ? `editing ${viewer.editingField || 'this task'}` : viewer.isTypingComment ? 'typing a comment' : 'viewing this task'}`}
               >
-                {viewer.userAvatar ? (
-                  <img src={viewer.userAvatar} alt={viewer.userName} className="w-full h-full object-cover" />
+                <div
+                  className="w-4 h-4 rounded-full ring-1 ring-white dark:ring-slate-900 flex items-center justify-center overflow-hidden text-[9px] font-bold text-white flex-shrink-0"
+                  style={{ backgroundColor: viewer.color || '#10b981' }}
+                >
+                  {viewer.userAvatar ? (
+                    <img src={viewer.userAvatar} alt={viewer.userName} className="w-full h-full object-cover" />
+                  ) : (
+                    firstName.charAt(0).toUpperCase()
+                  )}
+                </div>
+                {viewer.isEditing ? (
+                  <>
+                    <ICON_MAP.PencilIcon className="w-3 h-3 flex-shrink-0" />
+                    <span>{firstName} editing{viewer.editingField ? ` ${viewer.editingField}` : ''}</span>
+                  </>
+                ) : viewer.isTypingComment ? (
+                  <>
+                    <ICON_MAP.ChatBubbleLeftIcon className="w-3 h-3 flex-shrink-0" />
+                    <span>{firstName} commenting...</span>
+                  </>
                 ) : (
-                  viewer.userName.charAt(0).toUpperCase()
+                  <>
+                    <ICON_MAP.EyeIcon className="w-3 h-3 flex-shrink-0" />
+                    <span>{firstName} viewing</span>
+                  </>
                 )}
               </div>
-            ))}
-          </div>
-          {activeViewers.some(v => v.isEditing) && (
-            <span className="text-[11px] text-blue-600 dark:text-blue-400 font-normal border-l border-emerald-500/30 pl-2 ml-1 animate-pulse">
-              {activeViewers.find(v => v.isEditing)?.userName} is editing...
-            </span>
-          )}
-          {activeViewers.some(v => v.isTypingComment) && (
-            <span className="text-[11px] text-purple-600 dark:text-purple-400 font-normal border-l border-emerald-500/30 pl-2 ml-1 animate-pulse">
-              {activeViewers.find(v => v.isTypingComment)?.userName} is typing comment...
-            </span>
-          )}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1043,123 +1053,26 @@ export const TaskDetailsModal: React.FC = () => {
         
         {/* Left Column: Main Content */}
         <div className="w-full lg:flex-1 flex flex-col min-w-0 pr-0 lg:pr-2">
-          
-          {/* Real-Time Broadcast Feedback Banner */}
-          {liveTicketBroadcast && (
-            <div className={`mb-3 px-3.5 py-2 rounded-xl border flex items-center justify-between gap-2 text-xs font-semibold animate-pulse ${
-              liveTicketBroadcast.isRemote
-                ? 'bg-indigo-500/15 border-indigo-500/35 text-indigo-700 dark:text-indigo-300'
-                : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-300'
-            }`}>
-              <div className="flex items-center gap-2">
-                <ICON_MAP.BoltIcon className="w-4 h-4 flex-shrink-0" />
-                <span>{liveTicketBroadcast.message}</span>
-              </div>
-              <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/40 dark:bg-slate-900/40 font-bold">
-                Live Sync
-              </span>
-            </div>
-          )}
-
-          {/* Real-Time Task Presence Bar (Only shown when OTHER people are Viewing, Editing, or Typing a Comment) */}
-          {activeTaskParticipants.length > 0 && (
-            <div className={`mb-4 p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${
-              darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50 border-slate-200/80'
-            }`}>
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                <span className="relative flex h-2 w-2 items-center justify-center">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                </span>
-                <span>Other Teammates Active:</span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {activeTaskParticipants.map(participant => {
-                  const displayName = (participant.userName || 'Teammate').split(' ')[0];
-                  return (
-                    <React.Fragment key={participant.userId}>
-                      {/* Viewing status */}
-                      {!participant.isEditing && !participant.isTypingComment && (
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold"
-                          title={`${participant.userName} is viewing this task`}
-                        >
-                          <span
-                            style={{ backgroundColor: participant.color || '#10b981' }}
-                            className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
-                          >
-                            {participant.userAvatar ? (
-                              <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              displayName.charAt(0).toUpperCase()
-                            )}
-                          </span>
-                          <ICON_MAP.EyeIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{displayName} · Viewing</span>
-                        </span>
-                      )}
-
-                      {/* Editing status */}
-                      {participant.isEditing && (
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 text-xs font-bold animate-pulse"
-                          title={`${participant.userName} is editing ${participant.editingField || 'this task'}`}
-                        >
-                          <span
-                            style={{ backgroundColor: participant.color || '#3b82f6' }}
-                            className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
-                          >
-                            {participant.userAvatar ? (
-                              <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              displayName.charAt(0).toUpperCase()
-                            )}
-                          </span>
-                          <ICON_MAP.PencilIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>
-                            {displayName} · Editing{participant.editingField ? ` (${participant.editingField})` : ''}
-                          </span>
-                        </span>
-                      )}
-
-                      {/* Typing comment status */}
-                      {participant.isTypingComment && (
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-bold animate-pulse"
-                          title={`${participant.userName} is typing a comment on this task`}
-                        >
-                          <span
-                            style={{ backgroundColor: participant.color || '#8b5cf6' }}
-                            className="w-4 h-4 rounded-full text-[9px] font-extrabold text-white flex items-center justify-center overflow-hidden flex-shrink-0"
-                          >
-                            {participant.userAvatar ? (
-                              <img src={participant.userAvatar} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              displayName.charAt(0).toUpperCase()
-                            )}
-                          </span>
-                          <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{displayName} · Typing comment...</span>
-                        </span>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div className="flex items-start justify-between gap-3 mb-4">
-            {isEditingTitle ? (
+            {isEditingTitle || isEditMode ? (
               <input
                 type="text"
                 value={editedTitle}
-                onChange={(e) => setEditedTitle(e.target.value)}
-                onBlur={handleTitleSave}
-                onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-                autoFocus
-                className={`text-xl sm:text-2xl font-bold w-full bg-transparent border-b-2 border-accent focus:outline-none ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                onFocus={() => markEditingField('title')}
+                onChange={(e) => {
+                  setEditedTitle(e.target.value);
+                  markEditingField('title');
+                }}
+                onBlur={() => {
+                  if (!isEditMode) handleTitleSave();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isEditMode) handleTitleSave();
+                }}
+                autoFocus={isEditingTitle}
+                className={`text-xl sm:text-2xl font-bold w-full px-3 py-1.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent ${
+                  darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                }`}
               />
             ) : (
               <h1 
@@ -1179,17 +1092,28 @@ export const TaskDetailsModal: React.FC = () => {
           <div className="flex items-center gap-2 mb-5 flex-wrap">
             <button
               type="button"
-              onClick={() => {
-                const nextMode = !isEditMode;
-                setIsEditMode(nextMode);
-                if (nextMode) {
-                  setEditedTitle(taskToView.title);
-                  setEditedDescription(taskToView.description || '');
-                  markEditingField('task details');
-                } else {
+              onClick={async () => {
+                if (isEditMode) {
+                  const updates: Partial<Task> = {};
+                  if (editedTitle.trim() && editedTitle.trim() !== taskToView.title) {
+                    updates.title = editedTitle.trim();
+                  }
+                  if (editedDescription !== (taskToView.description || '')) {
+                    updates.description = editedDescription;
+                  }
+                  if (Object.keys(updates).length > 0) {
+                    await handleUpdateTask(updates);
+                  }
+                  setIsEditMode(false);
                   setIsEditingTitle(false);
                   setIsEditingDescription(false);
                   setRecentEditingField(null);
+                } else {
+                  setIsEditMode(true);
+                  setActiveTab('general');
+                  setEditedTitle(taskToView.title);
+                  setEditedDescription(taskToView.description || '');
+                  markEditingField('details');
                 }
               }}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
@@ -1201,8 +1125,27 @@ export const TaskDetailsModal: React.FC = () => {
               }`}
             >
               <ICON_MAP.PencilIcon className="w-3.5 h-3.5" />
-              {isEditMode ? 'Editing Ticket (Click when Done)' : 'Edit Ticket'}
+              {isEditMode ? 'Save Changes' : 'Edit Ticket'}
             </button>
+
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditedTitle(taskToView.title);
+                  setEditedDescription(taskToView.description || '');
+                  setIsEditMode(false);
+                  setIsEditingTitle(false);
+                  setIsEditingDescription(false);
+                  setRecentEditingField(null);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                  darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+                }`}
+              >
+                Cancel
+              </button>
+            )}
 
             <button
               type="button"
@@ -1240,155 +1183,6 @@ export const TaskDetailsModal: React.FC = () => {
             </button>
           </div>
 
-          {/* Streamlined Unified Edit Panel when Edit Mode is toggled */}
-          {isEditMode && (
-            <div className={`mb-6 p-4 rounded-2xl border-2 border-indigo-500/40 space-y-4 ${
-              darkMode ? 'bg-indigo-950/20' : 'bg-indigo-50/50'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
-                  <span>Live Edit Mode — Teammates can see you are editing this ticket</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsEditMode(false)}
-                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 font-semibold"
-                >
-                  Close Edit Mode
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                    Task Title
-                  </label>
-                  <input
-                    type="text"
-                    value={editedTitle}
-                    onFocus={() => markEditingField('title')}
-                    onChange={(e) => {
-                      setEditedTitle(e.target.value);
-                      markEditingField('title');
-                    }}
-                    className={`w-full px-3 py-2 rounded-xl border text-sm font-semibold ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editedDescription}
-                    onFocus={() => markEditingField('description')}
-                    onChange={(e) => {
-                      setEditedDescription(e.target.value);
-                      markEditingField('description');
-                    }}
-                    placeholder="Add detailed task description, acceptance criteria, or notes..."
-                    className={`w-full p-3 rounded-xl border text-sm ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                    }`}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                      Status
-                    </label>
-                    <select
-                      value={taskToView.status}
-                      onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
-                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold ${
-                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                      }`}
-                    >
-                      {Object.values(TaskStatus).map(s => (
-                        <option key={s} value={s}>{formatEnumForDisplay(s)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                      Priority
-                    </label>
-                    <select
-                      value={taskToView.priority}
-                      onChange={(e) => handleUpdateTask({ priority: e.target.value as TaskPriority })}
-                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold ${
-                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                      }`}
-                    >
-                      {Object.values(TaskPriority).map(p => (
-                        <option key={p} value={p}>{formatEnumForDisplay(p)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                      Assignee
-                    </label>
-                    <select
-                      value={taskToView.assignee_id || ''}
-                      onChange={(e) => handleUpdateTask({ assignee_id: e.target.value || undefined })}
-                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold ${
-                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                      }`}
-                    >
-                      <option value="">Unassigned</option>
-                      {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setEditedTitle(taskToView.title);
-                      setEditedDescription(taskToView.description || '');
-                      setIsEditMode(false);
-                      setRecentEditingField(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={async () => {
-                      const updates: Partial<Task> = {};
-                      if (editedTitle.trim() && editedTitle.trim() !== taskToView.title) {
-                        updates.title = editedTitle.trim();
-                      }
-                      if (editedDescription !== (taskToView.description || '')) {
-                        updates.description = editedDescription;
-                      }
-                      if (Object.keys(updates).length > 0) {
-                        await handleUpdateTask(updates);
-                      }
-                      setIsEditMode(false);
-                      setRecentEditingField(null);
-                    }}
-                  >
-                    Save & Done Editing
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Clean Section Navigation Tabs */}
           <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 mb-6 w-fit">
             {[
@@ -1416,31 +1210,40 @@ export const TaskDetailsModal: React.FC = () => {
             {/* Description */}
             <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Description</h3>
-              {isEditingDescription ? (
+              {isEditingDescription || isEditMode ? (
                 <div className="space-y-2">
                   <textarea
                     value={editedDescription}
-                    onChange={(e) => setEditedDescription(e.target.value)}
+                    onFocus={() => markEditingField('description')}
+                    onChange={(e) => {
+                      setEditedDescription(e.target.value);
+                      markEditingField('description');
+                    }}
                     className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-accent focus:border-transparent min-h-[100px] ${
                       darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                     placeholder="Add a more detailed description..."
-                    autoFocus
+                    autoFocus={isEditingDescription && !isEditMode}
                   />
-                  <div className="flex gap-2">
-                    <Button onClick={handleDescriptionSave} size="sm">Save</Button>
-                    <Button variant="secondary" onClick={() => {
-                      setEditedDescription(taskToView.description || '');
-                      setIsEditingDescription(false);
-                    }} size="sm">Cancel</Button>
-                  </div>
+                  {!isEditMode && (
+                    <div className="flex gap-2">
+                      <Button onClick={handleDescriptionSave} size="sm">Save</Button>
+                      <Button variant="secondary" onClick={() => {
+                        setEditedDescription(taskToView.description || '');
+                        setIsEditingDescription(false);
+                      }} size="sm">Cancel</Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div 
                   className={`text-sm whitespace-pre-wrap cursor-pointer p-3 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors ${
                     taskToView.description ? 'text-slate-700 dark:text-slate-300' : 'text-slate-500 italic'
                   }`}
-                  onClick={() => setIsEditingDescription(true)}
+                  onClick={() => {
+                    setIsEditingDescription(true);
+                    markEditingField('description');
+                  }}
                 >
                   {taskToView.description || 'Add a more detailed description...'}
                 </div>

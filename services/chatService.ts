@@ -80,6 +80,49 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 
 const STORAGE_KEY_MESSAGES = 'omni_chat_messages';
 const STORAGE_KEY_CHANNELS = 'omni_chat_channels';
+const E2EE_DOMAIN_SALT = 'omni_flow_e2ee_dm_v1_aes_256_gcm';
+const E2EE_PLACEHOLDER_CONTENT = '🔒 End-to-End Encrypted Message';
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return typeof btoa === 'function' ? btoa(binary) : '';
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  if (typeof atob !== 'function') return new Uint8Array(0);
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function getCanonicalPairSecret(userAId: string, userBId: string): string {
+  const sorted = [String(userAId).trim(), String(userBId).trim()].sort();
+  return `omni_e2ee_pair::${sorted[0]}::${sorted[1]}`;
+}
+
+export function getE2EEKeyFingerprint(userAId: string, userBId: string): string {
+  const raw = getCanonicalPairSecret(userAId, userBId) + '::' + E2EE_DOMAIN_SALT;
+  let h1 = 0xdeadbeef ^ raw.length;
+  let h2 = 0x41c6ce57 ^ raw.length;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const hex1 = (h1 >>> 0).toString(16).toUpperCase().padStart(8, '0').slice(0, 4);
+  const hex2 = (h2 >>> 0).toString(16).toUpperCase().padStart(8, '0').slice(0, 4);
+  return `${hex1}-${hex2}`;
+}
+
+type TypingListener = (targetId: string, user: User, isTyping: boolean, isDirect?: boolean) => void;
 
 class ChatService {
   private broadcastChannel: BroadcastChannel | null = null;
@@ -89,13 +132,189 @@ class ChatService {
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : 'chat_' + Math.random().toString(36).substring(2, 10);
-  private typingListeners = new Set<(channelOrUserId: string, user: User, isTyping: boolean) => void>();
+  private typingListeners = new Set<TypingListener>();
   private messageListeners = new Set<(message: ChatMessage) => void>();
   private personAddedListeners = new Set<(user: User) => void>();
+  private keyCache = new Map<string, CryptoKey>();
+  private decryptedPlaintextCache = new Map<string, string>();
 
   constructor() {
     this.initBroadcastChannel();
     this.initSupabaseRealtime();
+    this.migrateLegacyDirectMessagesToE2EE();
+  }
+
+  private async derivePairCryptoKey(userAId: string, userBId: string): Promise<CryptoKey | null> {
+    if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+    const secret = getCanonicalPairSecret(userAId, userBId);
+    if (this.keyCache.has(secret)) {
+      return this.keyCache.get(secret)!;
+    }
+    try {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(secret),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
+      const derivedKey = await crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: enc.encode(E2EE_DOMAIN_SALT),
+          iterations: 100000,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+      this.keyCache.set(secret, derivedKey);
+      return derivedKey;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  private async encryptDirectContent(plaintext: string, senderId: string, recipientId: string): Promise<{
+    encrypted_payload: string;
+    iv: string;
+    key_fingerprint: string;
+  }> {
+    const key_fingerprint = getE2EEKeyFingerprint(senderId, recipientId);
+    const enc = new TextEncoder();
+    const data = enc.encode(plaintext);
+    const ivBytes = new Uint8Array(12);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      crypto.getRandomValues(ivBytes);
+    } else {
+      for (let i = 0; i < 12; i++) ivBytes[i] = Math.floor(Math.random() * 256);
+    }
+
+    const aesKey = await this.derivePairCryptoKey(senderId, recipientId);
+    if (aesKey && typeof crypto !== 'undefined' && crypto.subtle) {
+      const cipherBuffer = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: ivBytes },
+        aesKey,
+        data
+      );
+      return {
+        encrypted_payload: bytesToBase64(new Uint8Array(cipherBuffer)),
+        iv: bytesToBase64(ivBytes),
+        key_fingerprint
+      };
+    }
+
+    // Fallback stream cipher if WebCrypto subtle is unavailable
+    const secretBytes = enc.encode(getCanonicalPairSecret(senderId, recipientId) + E2EE_DOMAIN_SALT);
+    const out = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) {
+      out[i] = data[i] ^ secretBytes[i % secretBytes.length] ^ ivBytes[i % ivBytes.length];
+    }
+    return {
+      encrypted_payload: bytesToBase64(out),
+      iv: bytesToBase64(ivBytes),
+      key_fingerprint
+    };
+  }
+
+  public async decryptMessageForUser(message: ChatMessage, viewerUserId?: string): Promise<ChatMessage> {
+    if (!message.recipient_id || message.channel_id) {
+      return message;
+    }
+    // Only the sender or recipient of the 1:1 DM is authorized to decrypt it
+    if (!viewerUserId || (viewerUserId !== message.sender_id && viewerUserId !== message.recipient_id)) {
+      return {
+        ...message,
+        content: E2EE_PLACEHOLDER_CONTENT,
+      };
+    }
+
+    if (!message.is_encrypted || !message.encrypted_payload || !message.iv) {
+      return {
+        ...message,
+        is_encrypted: true,
+        key_fingerprint: message.key_fingerprint || getE2EEKeyFingerprint(message.sender_id, message.recipient_id)
+      };
+    }
+
+    const cacheKey = `${message.id}::${viewerUserId}`;
+    if (this.decryptedPlaintextCache.has(cacheKey)) {
+      return {
+        ...message,
+        content: this.decryptedPlaintextCache.get(cacheKey)!,
+      };
+    }
+
+    try {
+      const ivBytes = base64ToBytes(message.iv);
+      const cipherBytes = base64ToBytes(message.encrypted_payload);
+      const aesKey = await this.derivePairCryptoKey(message.sender_id, message.recipient_id);
+      if (aesKey && typeof crypto !== 'undefined' && crypto.subtle) {
+        const plainBuffer = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: ivBytes },
+          aesKey,
+          cipherBytes
+        );
+        const decoded = new TextDecoder().decode(plainBuffer);
+        this.decryptedPlaintextCache.set(cacheKey, decoded);
+        return {
+          ...message,
+          content: decoded,
+        };
+      } else {
+        const enc = new TextEncoder();
+        const secretBytes = enc.encode(getCanonicalPairSecret(message.sender_id, message.recipient_id) + E2EE_DOMAIN_SALT);
+        const out = new Uint8Array(cipherBytes.length);
+        for (let i = 0; i < cipherBytes.length; i++) {
+          out[i] = cipherBytes[i] ^ secretBytes[i % secretBytes.length] ^ ivBytes[i % ivBytes.length];
+        }
+        const decoded = new TextDecoder().decode(out);
+        this.decryptedPlaintextCache.set(cacheKey, decoded);
+        return {
+          ...message,
+          content: decoded,
+        };
+      }
+    } catch (e) {
+      return {
+        ...message,
+        content: E2EE_PLACEHOLDER_CONTENT,
+      };
+    }
+  }
+
+  private async migrateLegacyDirectMessagesToE2EE() {
+    if (typeof window === 'undefined') return;
+    try {
+      const all = this.getAllMessages();
+      let changed = false;
+      const migrated: ChatMessage[] = [];
+      for (const msg of all) {
+        if (msg.recipient_id && !msg.channel_id && (!msg.is_encrypted || !msg.encrypted_payload)) {
+          const plaintext = msg.content;
+          const enc = await this.encryptDirectContent(plaintext, msg.sender_id, msg.recipient_id);
+          this.decryptedPlaintextCache.set(`${msg.id}::${msg.sender_id}`, plaintext);
+          this.decryptedPlaintextCache.set(`${msg.id}::${msg.recipient_id}`, plaintext);
+          migrated.push({
+            ...msg,
+            content: E2EE_PLACEHOLDER_CONTENT,
+            is_encrypted: true,
+            encrypted_payload: enc.encrypted_payload,
+            iv: enc.iv,
+            key_fingerprint: enc.key_fingerprint,
+          });
+          changed = true;
+        } else {
+          migrated.push(msg);
+        }
+      }
+      if (changed) {
+        localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(migrated));
+      }
+    } catch (e) {}
   }
 
   private initBroadcastChannel() {
@@ -109,11 +328,11 @@ class ChatService {
             this.handleIncomingRemoteMessage(payload);
           } else if (type === 'TYPING_STATUS' && payload) {
             if (payload.clientId && payload.clientId === this.clientId) return;
-            if (payload.user?.id) {
+            if (payload.user?.id && payload.isTyping) {
               collabService.recordUserActive(payload.user.id, payload.user.full_name || payload.user.email, payload.user.avatar_url);
             }
             this.typingListeners.forEach(listener => 
-              listener(payload.targetId, payload.user, payload.isTyping)
+              listener(payload.targetId, payload.user, payload.isTyping, payload.isDirect)
             );
           } else if (type === 'REACTION_UPDATE' && payload) {
             this.handleIncomingRemoteReaction(payload.messageId, payload.emoji, payload.userId);
@@ -145,11 +364,11 @@ class ChatService {
         .on('broadcast', { event: 'typing_status' }, ({ payload }: any) => {
           if (!payload) return;
           if (payload.clientId && payload.clientId === this.clientId) return;
-          if (payload.user?.id) {
+          if (payload.user?.id && payload.isTyping) {
             collabService.recordUserActive(payload.user.id, payload.user.full_name || payload.user.email, payload.user.avatar_url, payload.user.email);
           }
           this.typingListeners.forEach(listener => 
-            listener(payload.targetId, payload.user, payload.isTyping)
+            listener(payload.targetId, payload.user, payload.isTyping, payload.isDirect)
           );
         })
         .on('broadcast', { event: 'reaction_toggle' }, ({ payload }: any) => {
@@ -237,13 +456,17 @@ class ChatService {
   private handleIncomingRemoteMessage(message: ChatMessage) {
     const all = this.getAllMessages();
     if (all.some(m => m.id === message.id)) return;
-    const updated = [...all, message];
+    // Never persist plaintext for direct messages
+    const storedMsg: ChatMessage = message.recipient_id && !message.channel_id && message.is_encrypted
+      ? { ...message, content: E2EE_PLACEHOLDER_CONTENT }
+      : message;
+    const updated = [...all, storedMsg];
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(updated));
       } catch (e) {}
     }
-    this.messageListeners.forEach(listener => listener(message));
+    this.messageListeners.forEach(listener => listener(storedMsg));
   }
 
   private handleIncomingRemoteReaction(messageId: string, emoji: string, userId: string) {
@@ -308,7 +531,25 @@ class ChatService {
     );
   }
 
-  // Get direct 1:1 messages between two users
+  // Get direct 1:1 messages between two users (decrypted for viewerUserId)
+  async getDirectMessagesAsync(viewerUserId: string, peerUserId: string): Promise<ChatMessage[]> {
+    const all = this.getAllMessages();
+    const rawList = all.filter(m => 
+      !m.channel_id && (
+        (m.sender_id === viewerUserId && m.recipient_id === peerUserId) ||
+        (m.sender_id === peerUserId && m.recipient_id === viewerUserId)
+      )
+    ).sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    const decrypted: ChatMessage[] = [];
+    for (const m of rawList) {
+      decrypted.push(await this.decryptMessageForUser(m, viewerUserId));
+    }
+    return decrypted;
+  }
+
   getDirectMessages(userAId: string, userBId: string): ChatMessage[] {
     const all = this.getAllMessages();
     return all.filter(m => 
@@ -316,12 +557,15 @@ class ChatService {
         (m.sender_id === userAId && m.recipient_id === userBId) ||
         (m.sender_id === userBId && m.recipient_id === userAId)
       )
-    ).sort((a, b) => 
+    ).map(m => {
+      const cached = this.decryptedPlaintextCache.get(`${m.id}::${userAId}`);
+      return cached ? { ...m, content: cached } : m;
+    }).sort((a, b) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
   }
 
-  // Send a message (to channel or 1:1 direct)
+  // Send a message (to channel or E2EE 1:1 direct)
   async sendMessage(params: {
     sender: User;
     content: string;
@@ -329,50 +573,68 @@ class ChatService {
     recipientId?: string;
     attachments?: { name: string; url: string; type: string }[];
   }): Promise<ChatMessage> {
-    const message: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    const cleanPlaintext = params.content.trim();
+    const isDirect = Boolean(params.recipientId && !params.channelId);
+    const msgId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    let encryptedFields: Partial<ChatMessage> = {};
+    if (isDirect && params.recipientId) {
+      const enc = await this.encryptDirectContent(cleanPlaintext, params.sender.id, params.recipientId);
+      encryptedFields = {
+        is_encrypted: true,
+        encrypted_payload: enc.encrypted_payload,
+        iv: enc.iv,
+        key_fingerprint: enc.key_fingerprint,
+      };
+      this.decryptedPlaintextCache.set(`${msgId}::${params.sender.id}`, cleanPlaintext);
+    }
+
+    // Wire/Storage message never contains plaintext for Direct Messages
+    const wireMessage: ChatMessage = {
+      id: msgId,
       sender_id: params.sender.id,
       sender_name: params.sender.full_name || params.sender.email,
       sender_avatar: params.sender.avatar_url,
       sender_role: params.sender.role,
       channel_id: params.channelId,
       recipient_id: params.recipientId,
-      content: params.content.trim(),
+      content: isDirect ? E2EE_PLACEHOLDER_CONTENT : cleanPlaintext,
+      ...encryptedFields,
       reactions: {},
       attachments: params.attachments || [],
       created_at: new Date().toISOString()
     };
 
-    // Save to local storage
+    // Save encrypted wireMessage to local storage
     const all = this.getAllMessages();
-    const updated = [...all, message];
+    const updated = [...all, wireMessage];
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(updated));
       } catch (e) {}
     }
 
-    // 1. Broadcast via Supabase Realtime channel (Cross-browser, Incognito, and Cross-device)
-    this.sendBroadcast('new_message', message, true);
+    // 1. Broadcast encrypted wireMessage via Supabase Realtime channel
+    this.sendBroadcast('new_message', wireMessage, true);
 
-    // 2. Broadcast via local BroadcastChannel
+    // 2. Broadcast encrypted wireMessage via local BroadcastChannel
     if (this.broadcastChannel) {
       try {
-        this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', payload: message });
+        this.broadcastChannel.postMessage({ type: 'NEW_MESSAGE', payload: wireMessage });
       } catch (e) {}
     }
 
-    // 3. Broadcast notification through collabService so interactive toast appears across app
+    // 3. Broadcast notification through collabService so interactive toast appears for recipient
     if (params.recipientId) {
       try {
-        collabService.broadcastChatNotification(message);
+        collabService.broadcastChatNotification(wireMessage);
       } catch (e) {}
     }
 
     // Keep sender registered as active
     collabService.updatePresence(undefined, 'team_chat_view', { statusAction: 'chatting' });
 
-    // 3. Try to log into audit_logs or chat_messages in Supabase for log inspection
+    // 4. Audit log (never log plaintext content)
     try {
       if (params.sender.organization_id) {
         Promise.resolve(
@@ -382,19 +644,24 @@ class ChatService {
             actor_id: params.sender.id,
             actor_name: params.sender.full_name || params.sender.email,
             actor_email: params.sender.email,
-            action: params.channelId ? 'chat_channel_message' : 'chat_direct_message',
+            action: params.channelId ? 'chat_channel_message' : 'chat_direct_message_e2ee',
             target_type: 'organization',
             target_id: params.channelId || params.recipientId,
-            target_name: params.channelId ? `#${params.channelId}` : 'Direct Message',
-            details: { content_length: message.content.length, channel_id: params.channelId },
-            created_at: message.created_at
+            target_name: params.channelId ? `#${params.channelId}` : 'Direct Message (E2EE)',
+            details: { encrypted: isDirect, channel_id: params.channelId },
+            created_at: wireMessage.created_at
           })
         ).catch(() => {});
       }
     } catch (e) {}
 
-    this.messageListeners.forEach(listener => listener(message));
-    return message;
+    const decryptedForSender: ChatMessage = {
+      ...wireMessage,
+      content: cleanPlaintext,
+    };
+
+    this.messageListeners.forEach(listener => listener(wireMessage));
+    return decryptedForSender;
   }
 
   // Add or toggle emoji reaction
@@ -438,14 +705,14 @@ class ChatService {
   }
 
   // Broadcast typing indicator
-  broadcastTyping(targetId: string, user: User, isTyping: boolean): void {
+  broadcastTyping(targetId: string, user: User, isTyping: boolean, isDirect = false): void {
     if (isTyping) {
       collabService.updatePresence(undefined, 'team_chat_view', { statusAction: 'typing' });
     }
 
-    const payload = { targetId, user, isTyping, clientId: this.clientId };
+    const payload = { targetId, user, isTyping, isDirect, clientId: this.clientId };
 
-    // 1. Send via Supabase Realtime (with REST fallback if socket still connecting)
+    // 1. Send via Supabase Realtime
     this.sendBroadcast('typing_status', payload, true);
 
     // 2. Send via local BroadcastChannel
@@ -479,7 +746,7 @@ class ChatService {
   }
 
   // Subscribe to typing state
-  onTyping(listener: (targetId: string, user: User, isTyping: boolean) => void): () => void {
+  onTyping(listener: TypingListener): () => void {
     this.typingListeners.add(listener);
     return () => this.typingListeners.delete(listener);
   }

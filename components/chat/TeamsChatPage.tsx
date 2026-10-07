@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { User, ChatMessage, ChatChannel, UserRole, UserPresence } from '../../types';
-import chatService, { DEFAULT_CHANNELS } from '../../services/chatService';
+import chatService, { getE2EEKeyFingerprint } from '../../services/chatService';
 import { collabService } from '../../services/collabService';
 import { supabase } from '../../services/supabaseService';
 import { Avatar } from '../shared/Avatar';
@@ -25,7 +25,6 @@ export const TeamsChatPage: React.FC = () => {
     setUsers,
     currentUser,
     darkMode,
-    activeProject,
     presences,
     updateUserPresence,
     fetchUsersForAssignmentList,
@@ -40,7 +39,7 @@ export const TeamsChatPage: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
   
-  // Real-time typing indicators
+  // Real-time typing indicators keyed by channelId (for channels) or senderUserId (for DMs)
   const [typingUsers, setTypingUsers] = useState<{ [targetId: string]: string[] }>({});
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -65,21 +64,6 @@ export const TeamsChatPage: React.FC = () => {
     collabService.requestRemotePresences();
   }, [fetchUsersForAssignmentList]);
 
-  // Realtime guide modal
-  const [showRealtimeGuide, setShowRealtimeGuide] = useState(false);
-
-  // User presence status (synced in real-time across tabs and users)
-  const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
-    if (typeof window !== 'undefined' && currentUser?.id) {
-      try {
-        const raw = localStorage.getItem('omni_team_statuses');
-        const map = raw ? JSON.parse(raw) : {};
-        if (map[currentUser.id]) return map[currentUser.id];
-      } catch (e) {}
-    }
-    return 'available';
-  });
-
   const [teamStatuses, setTeamStatuses] = useState<Record<string, 'available' | 'away' | 'busy'>>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -90,37 +74,6 @@ export const TeamsChatPage: React.FC = () => {
     return {};
   });
 
-  const [statusBroadcastBanner, setStatusBroadcastBanner] = useState<{ text: string; status: 'available' | 'away' | 'busy' } | null>(null);
-  const statusBannerTimeoutRef = useRef<any>(null);
-
-  const showStatusBanner = (text: string, status: 'available' | 'away' | 'busy') => {
-    setStatusBroadcastBanner({ text, status });
-    if (statusBannerTimeoutRef.current) clearTimeout(statusBannerTimeoutRef.current);
-    statusBannerTimeoutRef.current = setTimeout(() => {
-      setStatusBroadcastBanner(null);
-    }, 5000);
-  };
-
-  const handleMyStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
-    setMyStatus(newStatus);
-    if (currentUser?.id) {
-      setTeamStatuses(prev => {
-        const next = { ...prev, [currentUser.id]: newStatus };
-        try {
-          localStorage.setItem('omni_team_statuses', JSON.stringify(next));
-        } catch (e) {}
-        return next;
-      });
-    }
-    collabService.broadcastUserStatusChanged(newStatus);
-    updateUserPresence(undefined, 'team_chat_view', {
-      availabilityStatus: newStatus,
-      statusAction: 'chatting',
-    });
-    const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
-    showStatusBanner(`Broadcasting your status as "${label}" in real-time to all teammates`, newStatus);
-  };
-
   useEffect(() => {
     const handleRemoteStatusChange = (e: CustomEvent) => {
       const payload = e.detail;
@@ -130,31 +83,19 @@ export const TeamsChatPage: React.FC = () => {
         if (payload.userEmail) next[payload.userEmail.toLowerCase()] = payload.availabilityStatus;
         return next;
       });
-      if (currentUser && payload.userId === currentUser.id) {
-        setMyStatus(payload.availabilityStatus);
-      } else {
-        const label =
-          payload.availabilityStatus === 'available'
-            ? 'Available'
-            : payload.availabilityStatus === 'away'
-              ? 'Away'
-              : 'Busy / DND';
-        showStatusBanner(`${payload.userName || 'Teammate'} updated status to "${label}" in real-time`, payload.availabilityStatus);
-      }
     };
     window.addEventListener('omni_remote_user_status_changed', handleRemoteStatusChange as EventListener);
     return () => window.removeEventListener('omni_remote_user_status_changed', handleRemoteStatusChange as EventListener);
-  }, [currentUser?.id]);
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Announce chat presence
   useEffect(() => {
     updateUserPresence(undefined, 'team_chat_view', {
-      availabilityStatus: myStatus,
       statusAction: 'chatting',
     });
-  }, [activeDirectUserId, activeChannelId, myStatus, updateUserPresence]);
+  }, [activeDirectUserId, activeChannelId, updateUserPresence]);
 
   // Handle direct contact selection via interactive toast clicks
   useEffect(() => {
@@ -173,28 +114,37 @@ export const TeamsChatPage: React.FC = () => {
     setChannels(chatService.getChannels());
   }, []);
 
-  // Load messages when channel or direct user changes
+  // Load and decrypt messages when channel or direct user changes
   useEffect(() => {
+    let isCancelled = false;
     if (activeDirectUserId && currentUser) {
-      setMessages(chatService.getDirectMessages(currentUser.id, activeDirectUserId));
+      chatService.getDirectMessagesAsync(currentUser.id, activeDirectUserId).then(decrypted => {
+        if (!isCancelled) {
+          setMessages(decrypted);
+        }
+      });
     } else if (activeChannelId) {
       setMessages(chatService.getChannelMessages(activeChannelId));
     }
+    return () => {
+      isCancelled = true;
+    };
   }, [activeChannelId, activeDirectUserId, currentUser]);
 
-  // Real-time message subscription
+  // Real-time message & typing subscription
   useEffect(() => {
-    const unsubscribeMessages = chatService.onMessage((incomingMessage) => {
+    const unsubscribeMessages = chatService.onMessage(async (incomingMessage) => {
       if (activeDirectUserId && currentUser) {
         if (
           (incomingMessage.sender_id === activeDirectUserId && incomingMessage.recipient_id === currentUser.id) ||
           (incomingMessage.sender_id === currentUser.id && incomingMessage.recipient_id === activeDirectUserId)
         ) {
+          const decryptedMsg = await chatService.decryptMessageForUser(incomingMessage, currentUser.id);
           setMessages(prev => {
-            if (prev.some(m => m.id === incomingMessage.id)) {
-              return prev.map(m => m.id === incomingMessage.id ? incomingMessage : m);
+            if (prev.some(m => m.id === decryptedMsg.id)) {
+              return prev.map(m => m.id === decryptedMsg.id ? decryptedMsg : m);
             }
-            return [...prev, incomingMessage];
+            return [...prev, decryptedMsg];
           });
         }
       } else if (activeChannelId && incomingMessage.channel_id === activeChannelId) {
@@ -207,28 +157,46 @@ export const TeamsChatPage: React.FC = () => {
       }
     });
 
-    const unsubscribeTyping = chatService.onTyping((targetId, user, isTyping) => {
-      if (!user) return;
+    const unsubscribeTyping = chatService.onTyping((targetId, user, isTyping, isDirect) => {
+      if (!user || !user.id) return;
+      // Never show the current logged-in user's own typing indicator
+      if (currentUser && user.id === currentUser.id) return;
+
       const userName = user.full_name || user.email || 'Teammate';
+      const isChannelTarget = !isDirect && channels.some(c => c.id === targetId);
 
-      // Collect all keys that should reflect this typing event:
-      // 1. Direct targetId (for channels, or when two tabs view the same DM target)
-      // 2. Sender's user.id (so recipient viewing DM with sender sees sender typing)
-      // 3. Any matching user in directMessageUsers by email or full_name (in case user was added by email/name with a custom ID)
       const keysToUpdate = new Set<string>();
-      if (targetId) keysToUpdate.add(targetId);
-      if (user.id) keysToUpdate.add(user.id);
 
-      const userEmailLower = user.email?.toLowerCase();
-      const userNameLower = user.full_name?.toLowerCase();
-      users.forEach(u => {
-        if (
-          (userEmailLower && u.email?.toLowerCase() === userEmailLower) ||
-          (userNameLower && u.full_name?.toLowerCase() === userNameLower)
-        ) {
-          keysToUpdate.add(u.id);
+      if (isChannelTarget) {
+        // Channel typing: only associate with the channel ID, never with a DM user ID
+        if (targetId) keysToUpdate.add(targetId);
+      } else {
+        // 1:1 Direct Message typing:
+        // targetId is the recipient's user ID; user.id is the sender who is typing.
+        // ONLY the intended recipient (currentUser) should see this typing indicator!
+        if (!currentUser) return;
+        const isIntendedForCurrentUser =
+          targetId === currentUser.id ||
+          (Boolean(currentUser.email) &&
+            users.some(u => u.id === targetId && u.email?.toLowerCase() === currentUser.email.toLowerCase()));
+
+        if (!isIntendedForCurrentUser) {
+          return;
         }
-      });
+
+        // Record typing ONLY under the SENDER's user ID (user.id), NEVER under targetId!
+        keysToUpdate.add(user.id);
+        const senderEmailLower = user.email?.toLowerCase();
+        if (senderEmailLower) {
+          users.forEach(u => {
+            if (u.email?.toLowerCase() === senderEmailLower) {
+              keysToUpdate.add(u.id);
+            }
+          });
+        }
+      }
+
+      if (keysToUpdate.size === 0) return;
 
       const applyTypingState = (typingFlag: boolean) => {
         setTypingUsers(prev => {
@@ -245,14 +213,14 @@ export const TeamsChatPage: React.FC = () => {
 
       applyTypingState(isTyping);
 
-      const timeoutKey = `${user.id || userName}_${targetId}`;
+      const timeoutKey = `${user.id}_${targetId}`;
       if (remoteTypingTimeoutsRef.current[timeoutKey]) {
         clearTimeout(remoteTypingTimeoutsRef.current[timeoutKey]);
       }
       if (isTyping) {
         remoteTypingTimeoutsRef.current[timeoutKey] = setTimeout(() => {
           applyTypingState(false);
-        }, 4000);
+        }, 3500);
       }
     });
 
@@ -266,7 +234,7 @@ export const TeamsChatPage: React.FC = () => {
       unsubscribeTyping();
       unsubscribePersonAdded();
     };
-  }, [activeChannelId, activeDirectUserId, currentUser, users, setUsers]);
+  }, [activeChannelId, activeDirectUserId, currentUser, users, channels, setUsers]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -279,16 +247,19 @@ export const TeamsChatPage: React.FC = () => {
     setInputText(text);
 
     if (!currentUser) return;
+    const isDirect = Boolean(activeDirectUserId);
     const targetId = activeDirectUserId || activeChannelId;
+    if (!targetId) return;
 
     if (text.trim().length > 0) {
-      chatService.broadcastTyping(targetId, currentUser, true);
+      chatService.broadcastTyping(targetId, currentUser, true, isDirect);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
-        chatService.broadcastTyping(targetId, currentUser, false);
+        chatService.broadcastTyping(targetId, currentUser, false, isDirect);
       }, 2500);
     } else {
-      chatService.broadcastTyping(targetId, currentUser, false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      chatService.broadcastTyping(targetId, currentUser, false, isDirect);
     }
   };
 
@@ -299,8 +270,12 @@ export const TeamsChatPage: React.FC = () => {
     const content = inputText.trim();
     setInputText('');
 
+    const isDirect = Boolean(activeDirectUserId);
     const targetId = activeDirectUserId || activeChannelId;
-    chatService.broadcastTyping(targetId, currentUser, false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (targetId) {
+      chatService.broadcastTyping(targetId, currentUser, false, isDirect);
+    }
 
     const newMsg = await chatService.sendMessage({
       sender: currentUser,
@@ -509,118 +484,59 @@ export const TeamsChatPage: React.FC = () => {
     );
   }, [directMessageUsers, searchFilter]);
 
-  // Current typing names for active view
+  // Current typing names for active view (for DMs, only if peer user is actually online)
   const currentTargetId = activeDirectUserId || activeChannelId;
-  const currentTyping = typingUsers[currentTargetId] || [];
+  const isCurrentDirectPeerOnline = activeDirectUser ? Boolean(findPresenceForUser(activeDirectUser)) : true;
+  const currentTyping = isCurrentDirectPeerOnline ? (typingUsers[currentTargetId] || []) : [];
 
   return (
     <div className={`flex-1 flex flex-col min-h-full pb-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
       
-      {/* 1. Analytics & Collab Header Hero */}
-      <div className="p-4 md:p-6 pb-0">
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 shadow-xl border border-indigo-900/60 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
-                  <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5" />
-                </span>
-                <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
-                  Real-Time Workspace Messaging & Channels
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  Live Sync
+      {/* 1. Refined, Minimal Workspace Chat Header */}
+      <div className="px-4 md:px-6 pt-4 pb-0">
+        <div className={`rounded-2xl px-5 py-3.5 border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+          darkMode ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200'
+        }`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="p-2 rounded-xl bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 flex-shrink-0">
+              <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                  Teams Hub & Chat
+                </h1>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
+                  E2EE Direct Messages
                 </span>
               </div>
-              <h1 className="text-2xl font-black tracking-tight text-white">
-                Teams Hub & Chat
-              </h1>
-              <p className="text-xs text-indigo-200/80 max-w-xl">
-                Collaborate instantly across engineering, design, and sprints. Direct messages, group channels, and real-time typing indicators.
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {channels.length} channels · {directMessageUsers.length + 1} members · End-to-end encrypted 1:1 conversations
               </p>
-            </div>
-
-            {/* Quick Actions & Testing Helper */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Presence Selector */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs">
-                <span className={`w-2.5 h-2.5 rounded-full ${
-                  myStatus === 'available' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]' :
-                  myStatus === 'away' ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]' : 'bg-rose-400 shadow-[0_0_6px_rgba(251,113,133,0.9)]'
-                }`} />
-                <select
-                  value={myStatus}
-                  onChange={e => handleMyStatusChange(e.target.value as 'available' | 'away' | 'busy')}
-                  aria-label="Update availability status"
-                  className="bg-transparent text-white text-xs font-semibold focus:outline-hidden cursor-pointer"
-                >
-                  <option value="available" className="bg-slate-900 text-white">Available</option>
-                  <option value="away" className="bg-slate-900 text-white">Away</option>
-                  <option value="busy" className="bg-slate-900 text-white">Busy / DND</option>
-                </select>
-              </div>
-
-              {/* Add Person Button */}
-              <button
-                onClick={() => setIsAddPersonModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold shadow-md shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer"
-              >
-                <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-                <span>+ Add Person</span>
-              </button>
-
-              {/* Real-time Guide Button */}
-              <button
-                onClick={() => setShowRealtimeGuide(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold shadow-md shadow-indigo-500/30 transition-all active:scale-95 cursor-pointer"
-              >
-                <ICON_MAP.BoltIcon className="w-3.5 h-3.5 text-amber-300" />
-                <span>How to Test Real-Time</span>
-              </button>
             </div>
           </div>
 
-          {/* Live Real-Time Status Broadcast Banner */}
-          {statusBroadcastBanner && (
-            <div className="mt-3 px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 flex items-center justify-between gap-2 text-xs text-white animate-pulse">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                  statusBroadcastBanner.status === 'available' ? 'bg-emerald-400' :
-                  statusBroadcastBanner.status === 'away' ? 'bg-amber-400' : 'bg-rose-400'
-                }`} />
-                <ICON_MAP.BoltIcon className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
-                <span className="font-semibold">{statusBroadcastBanner.text}</span>
-              </div>
-              <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-white/15 text-indigo-100">
-                Real-Time Broadcast
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => setIsNewChannelModalOpen(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                  : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+              }`}
+            >
+              <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+              <span>New Channel</span>
+            </button>
 
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-indigo-800/40 text-xs">
-            <div>
-              <span className="text-indigo-300 uppercase tracking-wider text-[10px] font-semibold">Active Channels</span>
-              <p className="text-lg font-bold text-white mt-0.5">{channels.length} channels</p>
-            </div>
-            <div>
-              <span className="text-indigo-300 uppercase tracking-wider text-[10px] font-semibold">Colleagues in Org</span>
-              <p className="text-lg font-bold text-emerald-400 mt-0.5">{users.length} teammates</p>
-            </div>
-            <div>
-              <span className="text-indigo-300 uppercase tracking-wider text-[10px] font-semibold">Active Project</span>
-              <p className="text-lg font-bold text-indigo-200 mt-0.5 truncate">{activeProject?.name || 'Omni Workspace'}</p>
-            </div>
-            <div>
-              <span className="text-indigo-300 uppercase tracking-wider text-[10px] font-semibold">Live WebSockets</span>
-              <p className="text-lg font-bold text-emerald-300 mt-0.5 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                Connected
-              </p>
-            </div>
+            <button
+              onClick={() => setIsAddPersonModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
+              <span>+ Direct Message</span>
+            </button>
           </div>
         </div>
       </div>
@@ -726,9 +642,8 @@ export const TeamsChatPage: React.FC = () => {
                   filteredUsers.map(user => {
                     const isActive = activeDirectUserId === user.id;
                     const userPresence = findPresenceForUser(user);
-                    const isUserTyping = !!(typingUsers[user.id] && typingUsers[user.id].length > 0);
-                    const hasSavedStatus = !!(teamStatuses[user.id] || (user.email && teamStatuses[user.email.toLowerCase()]));
-                    const isOnline = !!userPresence || isUserTyping || hasSavedStatus;
+                    const isOnline = Boolean(userPresence);
+                    const isUserTyping = isOnline && Boolean(typingUsers[user.id] && typingUsers[user.id].length > 0);
                     const userAvailability: 'available' | 'away' | 'busy' = getAvailabilityForUser(user, userPresence);
                     const statusDotClass = !isOnline
                       ? 'bg-slate-400'
@@ -748,6 +663,14 @@ export const TeamsChatPage: React.FC = () => {
                       <button
                         key={user.id}
                         onClick={() => {
+                          if (currentUser && (activeDirectUserId || activeChannelId)) {
+                            chatService.broadcastTyping(
+                              activeDirectUserId || activeChannelId,
+                              currentUser,
+                              false,
+                              Boolean(activeDirectUserId)
+                            );
+                          }
                           setActiveDirectUserId(user.id);
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
@@ -820,11 +743,11 @@ export const TeamsChatPage: React.FC = () => {
             <div className="flex items-center gap-3 min-w-0">
               {activeDirectUser ? (() => {
                 const directPresence = findPresenceForUser(activeDirectUser);
+                const isDirectUserOnline = Boolean(directPresence);
                 const directTypingList = typingUsers[activeDirectUser.id] || [];
-                const isDirectUserTyping = directTypingList.length > 0;
-                const hasDirectSavedStatus = !!(teamStatuses[activeDirectUser.id] || (activeDirectUser.email && teamStatuses[activeDirectUser.email.toLowerCase()]));
-                const isDirectUserOnline = !!directPresence || isDirectUserTyping || hasDirectSavedStatus;
+                const isDirectUserTyping = isDirectUserOnline && directTypingList.length > 0;
                 const directAvailability: 'available' | 'away' | 'busy' = getAvailabilityForUser(activeDirectUser, directPresence);
+                const e2eeFingerprint = currentUser ? getE2EEKeyFingerprint(currentUser.id, activeDirectUser.id) : '';
                 const directDotClass = !isDirectUserOnline
                   ? 'bg-slate-400'
                   : directAvailability === 'away'
@@ -851,6 +774,13 @@ export const TeamsChatPage: React.FC = () => {
                         </h2>
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                           {activeDirectUser.role ? activeDirectUser.role.replace(/_/g, ' ') : 'Member'}
+                        </span>
+                        <span
+                          title={`End-to-End Encrypted with AES-256-GCM (Key Fingerprint: ${e2eeFingerprint})`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
+                        >
+                          <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
+                          <span>E2EE · {e2eeFingerprint}</span>
                         </span>
                         {isDirectUserOnline && (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
@@ -984,6 +914,15 @@ export const TeamsChatPage: React.FC = () => {
                           </span>
                         )}
                         <span className="text-slate-400">{formattedTime}</span>
+                        {(msg.is_encrypted || msg.recipient_id) && (
+                          <span
+                            title={`End-to-End Encrypted (AES-256-GCM${msg.key_fingerprint ? ` · Key ${msg.key_fingerprint}` : ''})`}
+                            className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400"
+                          >
+                            <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
+                            E2EE
+                          </span>
+                        )}
                       </div>
 
                       <div
@@ -1338,69 +1277,6 @@ export const TeamsChatPage: React.FC = () => {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Real-Time Testing Guide Modal */}
-      {showRealtimeGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
-                  <ICON_MAP.BoltIcon className="w-5 h-5" />
-                </span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  How to Test Real-Time Collaboration
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowRealtimeGuide(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-1">
-                <p className="font-bold text-indigo-900 dark:text-indigo-200">
-                  ⚡ Two-Window Instant Verification:
-                </p>
-                <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
-                  You can verify every real-time feature in seconds using two browser windows side by side.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                  <p><strong>Open a Second Tab or Incognito Window:</strong> Navigate to this same app URL so you have two active clients open.</p>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                  <p><strong>Watch the Blinking Eye Viewer Circle:</strong> In Tab 1, open any task card modal. In Tab 2, immediately notice the glowing blinking eye circle appear on that exact card with live viewer count.</p>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p><strong>Live Typing & Comments:</strong> Type in the task comments or Teams Chat input. Tab 2 will instantly show the "Typing..." animated bouncing indicator.</p>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                  <p><strong>Sprint Planning & Task Moves:</strong> Move a backlog task to Active Sprint or change task status. The other tab updates automatically without page reloads.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-700">
-              <Button variant="primary" size="sm" onClick={() => setShowRealtimeGuide(false)}>
-                Got it, let's collaborate!
-              </Button>
-            </div>
           </div>
         </div>
       )}

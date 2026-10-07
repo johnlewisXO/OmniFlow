@@ -238,6 +238,10 @@ export interface ChatMessage {
   channel_id?: string;
   recipient_id?: string;
   content: string;
+  is_encrypted?: boolean;
+  encrypted_payload?: string;
+  iv?: string;
+  key_fingerprint?: string;
   reactions?: Record<string, string[]>; // emoji -> array of userIds
   attachments?: { name: string; url: string; type: string }[];
   created_at: string;
