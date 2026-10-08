@@ -3,6 +3,7 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { Task, TaskChecklistItem, TaskStatus } from '../../types';
 import { ICON_MAP } from '../../constants';
 import geminiService, { TaskCopilotAnalysis } from '../../services/geminiService';
+import { AIBotFace } from './AIBotFace';
 
 interface TaskAICopilotPanelProps {
   task: Task;
@@ -117,9 +118,7 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-indigo-600 text-white flex-shrink-0">
-            <ICON_MAP.SparklesIcon className="w-4 h-4" />
-          </div>
+          <AIBotFace mood={isAnalyzing ? 'thinking' : analysis ? 'happy' : 'idle'} size="sm" className="flex-shrink-0" />
           <div>
             <div className="flex items-center gap-2 text-xs">
               <span className="font-semibold text-indigo-600 dark:text-indigo-400">Context-Aware Task Co-Pilot</span>

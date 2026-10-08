@@ -3,6 +3,8 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Task, TaskStatus, TaskPriority } from '../../types';
 import geminiService, { AICommandResponse } from '../../services/geminiService';
+import { AIBotFace } from '../ai/AIBotFace';
+import { useAnimatedMount } from '../shared/Modal';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -443,15 +445,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, items, selectedIndex, onClose, query]);
 
-  if (!isOpen) return null;
+  const { shouldRender, isClosing } = useAnimatedMount(isOpen, 190);
+
+  if (!shouldRender) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+      className={`fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 bg-black/50 backdrop-blur-sm transition-opacity duration-200 ${
+        isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
+      }`}
       onClick={onClose}
     >
       <div
         className={`w-full max-w-2xl rounded-2xl shadow-2xl border overflow-hidden transition-all ${
+          isClosing ? 'animate-modal-disappear' : 'animate-modal-appear'
+        } ${
           darkMode ? 'bg-slate-900 border-slate-700/80 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
         }`}
         onClick={e => e.stopPropagation()}
@@ -468,7 +476,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
           }}
           className={`flex items-center px-4 py-3.5 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}
         >
-          <ICON_MAP.SparklesIcon className="w-5 h-5 mr-3 flex-shrink-0 text-indigo-500" />
+          <AIBotFace mood={isAIThinking ? 'thinking' : aiResponse ? 'speaking' : 'idle'} size="sm" className="mr-3 flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"

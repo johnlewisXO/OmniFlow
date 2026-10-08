@@ -6,6 +6,7 @@ import { Button } from '../shared/Button';
 import { ICON_MAP, APP_TITLE } from '../../constants';
 import { UserRole } from '../../types';
 import supabaseService from '../../services/supabaseService';
+import { AIBotFace, AIGuidedAuthAssistant } from '../ai/AIBotFace';
 
 // Debounce helper
 const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
@@ -130,9 +131,11 @@ export const AuthPage: React.FC = () => {
     <div className="min-h-screen flex w-full animate-fadeIn">
       {/* Left Column - Form */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-24 relative z-10">
-        <div className={`w-full max-w-md auth-panel p-8 md:p-10 space-y-6 rounded-squircle-lg`}>
+        <div className={`w-full max-w-md auth-panel p-8 md:p-10 space-y-6 rounded-squircle-lg animate-modal-appear`}>
           <div className="text-center">
-              <ICON_MAP.SparklesIcon className="w-12 h-12 text-accent mx-auto mb-3" />
+              <div className="flex justify-center mb-3">
+                <AIBotFace mood={authLoading || isResetting ? 'thinking' : 'happy'} size="lg" />
+              </div>
               <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'} text-shadow-subtle text-gradient-accent`}>{APP_TITLE}</h1>
               <p className={`mt-2 text-md ${darkMode ? 'text-slate-300' : 'text-slate-500'}`}>
                 {authMode === 'login' && 'Welcome back! Please sign in.'}
@@ -142,6 +145,16 @@ export const AuthPage: React.FC = () => {
               </p>
           </div>
 
+          <AIGuidedAuthAssistant
+            mode={authMode === 'signup' ? 'signup' : authMode === 'login' ? 'login' : 'reset'}
+            emailValue={email}
+            onSwitchMode={(m) => {
+              setAuthMode(m === 'reset' ? 'forgot_password' : m);
+              setFormError(null);
+              setResetSuccessMessage(null);
+            }}
+          />
+
           {resetSuccessMessage && (
             <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs text-center font-medium leading-relaxed">
               ✨ {resetSuccessMessage}
@@ -150,21 +163,21 @@ export const AuthPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {authMode === 'signup' && (
-              <div>
+              <div data-auth-tour-id="auth-fullname">
                 <label htmlFor="full-name" className={labelClass}>Full Name</label>
                 <input type="text" id="full-name" className="w-full font-medium" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Your Name" disabled={authLoading || isResetting}/>
               </div>
             )}
 
             {authMode !== 'reset_password' && (
-              <div>
+              <div data-auth-tour-id="auth-email">
                 <label htmlFor="email" className={labelClass}>Email Address</label>
                 <input type="email" id="email" className="w-full font-medium" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" disabled={authLoading || isResetting}/>
               </div>
             )}
 
             {authMode !== 'forgot_password' && (
-              <div>
+              <div data-auth-tour-id="auth-password">
                 <div className="flex items-center justify-between mb-1.5">
                   <label htmlFor="password" className="text-sm font-medium">
                     {authMode === 'reset_password' ? 'New Password' : 'Password'}
@@ -188,7 +201,7 @@ export const AuthPage: React.FC = () => {
             )}
 
             {authMode === 'reset_password' && (
-              <div>
+              <div data-auth-tour-id="auth-confirm-password">
                 <label htmlFor="confirm-password" className={labelClass}>Confirm New Password</label>
                 <input type="password" id="confirm-password" className="w-full font-medium" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="••••••••" disabled={authLoading || isResetting}/>
               </div>
@@ -200,25 +213,27 @@ export const AuthPage: React.FC = () => {
               </p>
             )}
 
-            <Button type="submit" variant="primary" className="w-full text-base py-3" disabled={authLoading || isResetting}>
-              {authLoading || isResetting ? (
-                <div className="flex items-center justify-center gap-2">
-                  <ICON_MAP.SpinnerIcon className="w-5 h-5 animate-spin" />
-                  <span>Processing...</span>
-                </div>
-              ) : (
-                <>
-                  {authMode === 'login' && 'Sign In'}
-                  {authMode === 'signup' && 'Create Account'}
-                  {authMode === 'forgot_password' && 'Send Password Reset Link'}
-                  {authMode === 'reset_password' && 'Set New Password'}
-                </>
-              )}
-            </Button>
+            <div data-auth-tour-id="auth-submit">
+              <Button type="submit" variant="primary" className="w-full text-base py-3" disabled={authLoading || isResetting}>
+                {authLoading || isResetting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <ICON_MAP.SpinnerIcon className="w-5 h-5 animate-spin" />
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  <>
+                    {authMode === 'login' && 'Sign In'}
+                    {authMode === 'signup' && 'Create Account'}
+                    {authMode === 'forgot_password' && 'Send Password Reset Link'}
+                    {authMode === 'reset_password' && 'Set New Password'}
+                  </>
+                )}
+              </Button>
+            </div>
           </form>
 
           {/* Navigation Links between modes */}
-          <div className="space-y-2 text-center text-sm">
+          <div data-auth-tour-id="auth-switch" className="space-y-2 text-center text-sm">
             {authMode === 'forgot_password' ? (
               <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>
                 Remembered your password?{' '}

@@ -135,6 +135,7 @@ class ChatService {
   private typingListeners = new Set<TypingListener>();
   private messageListeners = new Set<(message: ChatMessage) => void>();
   private personAddedListeners = new Set<(user: User) => void>();
+  private channelUpdatedListeners = new Set<(channels: ChatChannel[]) => void>();
   private keyCache = new Map<string, CryptoKey>();
   private decryptedPlaintextCache = new Map<string, string>();
   private lastTypingBroadcastMap = new Map<string, { isTyping: boolean; ts: number }>();
@@ -339,6 +340,8 @@ class ChatService {
             this.handleIncomingRemoteReaction(payload.messageId, payload.emoji, payload.userId);
           } else if (type === 'PERSON_ADDED' && payload) {
             this.handleIncomingPersonAdded(payload);
+          } else if (type === 'CHANNEL_UPDATED' && payload) {
+            this.handleIncomingChannelUpdated(payload);
           }
         };
       } catch (e) {
@@ -380,6 +383,10 @@ class ChatService {
           if (!payload || !payload.id) return;
           this.handleIncomingPersonAdded(payload);
         })
+        .on('broadcast', { event: 'channel_updated' }, ({ payload }: any) => {
+          if (!payload || !payload.id) return;
+          this.handleIncomingChannelUpdated(payload);
+        })
         .subscribe((status: string) => {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
         });
@@ -416,17 +423,43 @@ class ChatService {
 
   private handleIncomingPersonAdded(user: User) {
     if (!user || !user.id) return;
+    const safeUser: User = {
+      ...user,
+      full_name: user.full_name || user.email || 'Team Member',
+      email: user.email || `${user.id}@workspace.live`,
+    };
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem('omni_custom_team_members');
         const customList: User[] = raw ? JSON.parse(raw) : [];
-        if (!customList.some(u => u.id === user.id || (u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase()))) {
-          customList.push(user);
+        if (
+          !customList.some(
+            u =>
+              u.id === safeUser.id ||
+              ((u.email || '').toLowerCase() && (u.email || '').toLowerCase() === (safeUser.email || '').toLowerCase())
+          )
+        ) {
+          customList.push(safeUser);
           localStorage.setItem('omni_custom_team_members', JSON.stringify(customList));
         }
       } catch (e) {}
     }
-    this.personAddedListeners.forEach(listener => listener(user));
+    this.personAddedListeners.forEach(listener => listener(safeUser));
+  }
+
+  private handleIncomingChannelUpdated(channel: ChatChannel) {
+    if (!channel || !channel.id) return;
+    const current = this.getChannels();
+    const exists = current.some(c => c.id === channel.id);
+    const updated = exists
+      ? current.map(c => (c.id === channel.id ? { ...c, ...channel } : c))
+      : [...current, channel];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_CHANNELS, JSON.stringify(updated));
+      } catch (e) {}
+    }
+    this.channelUpdatedListeners.forEach(listener => listener(updated));
   }
 
   private handleIncomingRemoteMessage(message: ChatMessage) {
@@ -487,16 +520,72 @@ class ChatService {
   // Save new channel
   createChannel(channel: Omit<ChatChannel, 'id'>): ChatChannel {
     const channels = this.getChannels();
+    const baseId = channel.name.toLowerCase().replace(/[^a-z0-9_-]/g, '-') || `channel-${Date.now()}`;
+    const uniqueId = channels.some(c => c.id === baseId) ? `${baseId}-${Math.random().toString(36).slice(2, 5)}` : baseId;
+    const memberIds = Array.from(new Set(channel.memberIds || []));
     const newChan: ChatChannel = {
-      id: channel.name.toLowerCase().replace(/[^a-z0-9_-]/g, '-'),
+      id: uniqueId,
       ...channel,
-      membersCount: 1,
+      memberIds,
+      membersCount: Math.max(memberIds.length, channel.membersCount || 1),
     };
     const updated = [...channels, newChan];
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY_CHANNELS, JSON.stringify(updated));
     }
+    this.broadcastChannelUpdate(newChan);
+    this.channelUpdatedListeners.forEach(listener => listener(updated));
     return newChan;
+  }
+
+  // Update channel members in real time
+  updateChannelMembers(channelId: string, memberIds: string[]): ChatChannel | null {
+    const channels = this.getChannels();
+    const target = channels.find(c => c.id === channelId);
+    if (!target) return null;
+    const deduped = Array.from(new Set(memberIds.filter(Boolean)));
+    const updatedChan: ChatChannel = {
+      ...target,
+      memberIds: deduped,
+      membersCount: Math.max(deduped.length, 1),
+    };
+    const updatedList = channels.map(c => (c.id === channelId ? updatedChan : c));
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_CHANNELS, JSON.stringify(updatedList));
+      } catch (e) {}
+    }
+    this.broadcastChannelUpdate(updatedChan);
+    this.channelUpdatedListeners.forEach(listener => listener(updatedList));
+    return updatedChan;
+  }
+
+  broadcastChannelUpdate(channel: ChatChannel): void {
+    this.sendBroadcast('channel_updated', channel, true);
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'CHANNEL_UPDATED',
+          payload: channel,
+        });
+      } catch (e) {}
+    }
+  }
+
+  onChannelsChanged(listener: (channels: ChatChannel[]) => void): () => void {
+    this.channelUpdatedListeners.add(listener);
+    return () => this.channelUpdatedListeners.delete(listener);
+  }
+
+  hasDirectConversationHistory(userAId: string, userBId: string): boolean {
+    if (!userAId || !userBId) return false;
+    const all = this.getAllMessages();
+    return all.some(
+      m =>
+        !m.channel_id &&
+        ((m.sender_id === userAId && m.recipient_id === userBId) ||
+          (m.sender_id === userBId && m.recipient_id === userAId))
+    );
   }
 
   // Get messages for a channel

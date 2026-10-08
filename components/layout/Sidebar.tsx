@@ -4,6 +4,7 @@ import { Project, ActiveView, UserRole, normalizeUserRole } from '../../types';
 import { ICON_MAP, SIDENAV_ITEMS, APP_TITLE, ALL_ACTIVE_VIEWS } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button'; 
+import { AnimatedPopover } from '../shared/Modal';
 import { StatusDynamicIcon } from './Header';
 import { collabService } from '../../services/collabService';
 
@@ -223,6 +224,7 @@ export const Sidebar: React.FC = () => {
             return (
               <button
                 key={item.id}
+                data-tour-id={`tour-nav-${item.id}`}
                 onClick={() => handleSidenavItemClick(item.id, item.path)}
                 title={(!expanded && !isMobile) ? item.label : undefined}
                 className={`w-full flex items-center ${(expanded || isMobile) ? 'space-x-2.5 px-3' : 'justify-center px-0'} py-2 rounded-xl transition-all group text-left
@@ -347,11 +349,14 @@ export const Sidebar: React.FC = () => {
           </button>
         ) : null}
 
-        {isProfileMenuOpen && currentUser && (
-          <div 
-            className={`absolute bottom-full left-0 ${(expanded || isMobile) ? 'right-0 w-full min-w-[240px]' : 'left-full ml-2 w-64'} mb-2 rounded-2xl shadow-2xl py-2 z-50 
-                       border ${darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'} backdrop-blur-xl animate-fadeIn`}
-          >
+        <AnimatedPopover
+          isOpen={Boolean(isProfileMenuOpen && currentUser)}
+          direction="up"
+          className={`absolute bottom-full left-0 ${(expanded || isMobile) ? 'right-0 w-full min-w-[240px]' : 'left-full ml-2 w-64'} mb-2 rounded-2xl shadow-2xl py-2 z-50 
+                     border ${darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'} backdrop-blur-xl`}
+        >
+          {currentUser && (
+            <>
             {/* Identity Summary */}
             <div className={`px-3.5 py-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
               <p className="text-xs font-bold truncate">{currentUser.full_name || currentUser.email}</p>
@@ -490,6 +495,45 @@ export const Sidebar: React.FC = () => {
                 <kbd className="text-[9px] font-mono opacity-60">⌘K</kbd>
               </button>
 
+              {(normalizedRole === UserRole.OWNER || normalizedRole === UserRole.PROJECT_MANAGER) && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'));
+                    setProfileMenuOpen(false);
+                    if (isMobile) setIsMobileSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                             ${darkMode ? 'text-emerald-300 hover:bg-slate-800' : 'text-emerald-700 hover:bg-emerald-50/70'} 
+                             transition-colors`}
+                >
+                  <span className="flex items-center space-x-2.5">
+                    <ICON_MAP.TerminalIcon className="w-4 h-4 text-emerald-400" />
+                    <span>Log Monitor</span>
+                  </span>
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
+                    {normalizedRole === UserRole.OWNER ? 'OWNER' : 'PM'}
+                  </span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('omni_open_ai_guide'));
+                  window.dispatchEvent(new CustomEvent('omni_open_ai_platform_guide'));
+                  setProfileMenuOpen(false);
+                  if (isMobile) setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <span className="flex items-center space-x-2.5">
+                  <ICON_MAP.SparklesIcon className="w-4 h-4 text-indigo-400" />
+                  <span>AI Platform Guide</span>
+                </span>
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400">Tour</span>
+              </button>
+
               <button
                 onClick={() => {
                   openShortcutsModal();
@@ -520,8 +564,9 @@ export const Sidebar: React.FC = () => {
                 <span>Sign Out</span>
               </button>
             </div>
-          </div>
-        )}
+            </>
+          )}
+        </AnimatedPopover>
       </div>
     </>
   );

@@ -303,6 +303,7 @@ export interface ChatChannel {
   department?: string;
   projectId?: string;
   membersCount?: number;
+  memberIds?: string[];
 }
 
 export type AutomationTriggerType =

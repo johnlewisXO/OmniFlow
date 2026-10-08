@@ -39,6 +39,13 @@ import { CommandPalette } from './components/layout/CommandPalette';
 import { KeyboardShortcutsModal } from './components/layout/KeyboardShortcutsModal'; 
 import { AIProjectManagerStudio } from './components/ai/AIProjectManagerStudio';
 import { FloatingAICopilotButton } from './components/ai/FloatingAICopilotButton';
+import logMonitorService from './services/logMonitorService';
+import { SystemLogMonitorModal } from './components/shared/SystemLogMonitorModal';
+
+// Initialize global exception and console log monitoring immediately
+if (typeof logMonitorService?.init === 'function') {
+  logMonitorService.init();
+}
 
 const ToastContainer: React.FC = () => {
   const {
@@ -241,6 +248,56 @@ const MainAppLayout: React.FC = () => {
   } = useAppStore();
 
   const ExclamationIcon = ICON_MAP.ExclamationIcon;
+  const [isSystemLogMonitorOpen, setIsSystemLogMonitorOpen] = useState(false);
+  const [scrollBounceState, setScrollBounceState] = useState<'none' | 'top' | 'bottom'>('none');
+
+  useEffect(() => {
+    const handleOpenLogMonitor = () => setIsSystemLogMonitorOpen(true);
+    window.addEventListener('omni_open_system_log_monitor', handleOpenLogMonitor);
+    return () => window.removeEventListener('omni_open_system_log_monitor', handleOpenLogMonitor);
+  }, []);
+
+  // Subtle elastic bubble-stretch effect when reaching scroll boundaries on views or scrollable components
+  useEffect(() => {
+    let bounceTimeout: ReturnType<typeof setTimeout> | null = null;
+    let lastBounceTime = 0;
+
+    const handleScrollCapture = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || typeof target.scrollTop !== 'number' || typeof target.scrollHeight !== 'number') return;
+      if (target.scrollHeight <= target.clientHeight + 24) return;
+
+      const now = Date.now();
+      if (now - lastBounceTime < 550) return;
+
+      const atTop = target.scrollTop <= 0;
+      const atBottom = Math.ceil(target.scrollTop + target.clientHeight) >= target.scrollHeight - 2;
+
+      if (atTop || atBottom) {
+        lastBounceTime = now;
+        const animClass = atTop ? 'animate-bubbleStretchTop' : 'animate-bubbleStretchBottom';
+        target.classList.remove('animate-bubbleStretchTop', 'animate-bubbleStretchBottom');
+        void target.offsetWidth; // Reflow to trigger animation cleanly
+        target.classList.add(animClass);
+
+        if (target.dataset?.mainScrollView === 'true') {
+          setScrollBounceState(atTop ? 'top' : 'bottom');
+          if (bounceTimeout) clearTimeout(bounceTimeout);
+          bounceTimeout = setTimeout(() => setScrollBounceState('none'), 480);
+        }
+
+        setTimeout(() => {
+          target.classList.remove('animate-bubbleStretchTop', 'animate-bubbleStretchBottom');
+        }, 500);
+      }
+    };
+
+    window.addEventListener('scroll', handleScrollCapture, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScrollCapture, { capture: true } as any);
+      if (bounceTimeout) clearTimeout(bounceTimeout);
+    };
+  }, []);
 
   useEffect(() => {
     if (currentUser && activeView === 'team_management' && currentUser.organization_id && users.length === 0 && !isLoadingUsersForAssignment) {
@@ -383,7 +440,16 @@ const MainAppLayout: React.FC = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col gap-2 sm:gap-3 md:gap-4 min-w-0 h-full overflow-hidden">
         <Header />
-        <div className="flex-1 flex flex-col glass-panel rounded-2xl p-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0">
+        <div
+          data-main-scroll-view="true"
+          className={`flex-1 flex flex-col glass-panel rounded-2xl p-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
+            scrollBounceState === 'top'
+              ? 'animate-bubbleStretchTop'
+              : scrollBounceState === 'bottom'
+                ? 'animate-bubbleStretchBottom'
+                : ''
+          }`}
+        >
           {authError && !authError.toLowerCase().includes("rls") && !authError.toLowerCase().includes("policy") && ( 
             <div className={`p-3 m-3 rounded-xl text-xs sm:text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
                 <strong>Authentication Issue:</strong> {authError}
@@ -414,6 +480,10 @@ const MainAppLayout: React.FC = () => {
       />
       <FloatingAICopilotButton />
       <KeyboardShortcutsModal />
+      <SystemLogMonitorModal
+        isOpen={isSystemLogMonitorOpen}
+        onClose={() => setIsSystemLogMonitorOpen(false)}
+      />
     </div>
   );
 };
@@ -682,6 +752,7 @@ function App() {
 
             if (!window.location.hash.startsWith('#/app')) {
               window.location.hash = '#/app';
+              setCurrentRoute('#/app');
             }
           } else if (mounted) {
              console.warn("[App.tsx AuthEffect] Profile not found or timed out. Checking cached user profile.");
@@ -704,6 +775,7 @@ function App() {
              useAppStore.getState().setAuthLoading(false);
              if (!window.location.hash.startsWith('#/app')) {
                window.location.hash = '#/app';
+               setCurrentRoute('#/app');
              }
           }
         } catch (error: any) {
@@ -728,6 +800,7 @@ function App() {
             useAppStore.getState().setAuthLoading(false);
             if (!window.location.hash.startsWith('#/app')) {
               window.location.hash = '#/app';
+              setCurrentRoute('#/app');
             }
           }
         } finally {

@@ -776,36 +776,50 @@ const supabaseService = {
     return newLog;
   },
 
-  getAuditLogs: async (organizationId?: string): Promise<AuditLog[]> => {
-    let logs: AuditLog[] = [];
+  getAuditLogs: async (organizationId?: string, limit = 200): Promise<AuditLog[]> => {
+    let dbLogs: AuditLog[] = [];
     try {
-      let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
+      let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(limit);
       if (organizationId) {
         query = query.eq('organization_id', organizationId);
       }
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        logs = data.map(item => ({
+        dbLogs = data.map(item => ({
           ...item,
           details: item.details && typeof item.details === 'string' ? JSON.parse(item.details) : item.details
         }));
-        return logs;
       }
     } catch (err) {
       console.warn('Audit logs DB fetch fallback to local storage:', err);
     }
 
-    // Local storage fallback
+    let localLogs: AuditLog[] = [];
     try {
       const existingStr = localStorage.getItem('app_audit_logs');
       if (existingStr) {
-        const localLogs: AuditLog[] = JSON.parse(existingStr);
-        return organizationId ? localLogs.filter(l => !l.organization_id || l.organization_id === organizationId) : localLogs;
+        const parsed: AuditLog[] = JSON.parse(existingStr);
+        if (Array.isArray(parsed)) {
+          localLogs = organizationId
+            ? parsed.filter(l => !l.organization_id || l.organization_id === organizationId)
+            : parsed;
+        }
       }
     } catch (e) {
       console.error('Failed reading local audit logs cache:', e);
     }
-    return logs;
+
+    const mergedMap = new Map<string, AuditLog>();
+    [...localLogs, ...dbLogs].forEach(item => {
+      if (item && item.id) mergedMap.set(item.id, item);
+    });
+    return Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  },
+
+  getOrganizationAuditLogs: async (organizationId?: string, limit = 200): Promise<AuditLog[]> => {
+    return supabaseService.getAuditLogs(organizationId, limit);
   },
 
   // Organization Invitation System

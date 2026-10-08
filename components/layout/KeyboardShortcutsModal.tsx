@@ -1,11 +1,13 @@
 import React from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
+import { useAnimatedMount } from '../shared/Modal';
 
 export const KeyboardShortcutsModal: React.FC = () => {
   const { isShortcutsModalOpen, closeShortcutsModal } = useAppStore();
+  const { shouldRender, isClosing } = useAnimatedMount(isShortcutsModalOpen, 190);
 
-  if (!isShortcutsModalOpen) return null;
+  if (!shouldRender) return null;
 
   const shortcutSections = [
     {
@@ -41,8 +43,18 @@ export const KeyboardShortcutsModal: React.FC = () => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-xl w-full p-6 space-y-5">
+    <div
+      onClick={closeShortcutsModal}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-200 ${
+        isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
+      }`}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-xl w-full p-6 space-y-5 ${
+          isClosing ? 'animate-modal-disappear' : 'animate-modal-appear'
+        }`}
+      >
         <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-primary/10 text-primary dark:bg-primary/20">

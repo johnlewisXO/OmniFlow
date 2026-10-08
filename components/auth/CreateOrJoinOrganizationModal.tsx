@@ -5,6 +5,7 @@ import { Modal } from '../shared/Modal';
 import { ICON_MAP } from '../../constants';
 import supabaseService from '../../services/supabaseService';
 import { UserRole } from '../../types';
+import { AIBotFace } from '../ai/AIBotFace';
 
 const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
   let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -222,6 +223,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
   return (
     <Modal
       isOpen={true}
+      backdropBlur={false}
       onClose={() => {
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('omni_just_registered');
@@ -243,9 +245,17 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
           </div>
         ) : (
           <>
-            <p className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-              To start using the app, please create a new organization or join an existing one.
-            </p>
+            <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-start gap-3">
+              <AIBotFace mood="guiding" size="md" className="flex-shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <div className="font-bold text-indigo-600 dark:text-indigo-300">
+                  Omni AI Workspace Setup Assistant
+                </div>
+                <p className={darkMode ? 'text-slate-300' : 'text-slate-600'}>
+                  Type an organization name below. If it’s brand new, I’ll provision it and assign you as the <strong>Organization Owner</strong>. If it already exists, you can join your teammates immediately.
+                </p>
+              </div>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
           <div className="relative">

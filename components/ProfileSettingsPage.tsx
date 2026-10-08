@@ -993,24 +993,31 @@ export const ProfileSettingsPage: React.FC = () => {
               )}
 
               {/* Save Bar for Identity / Capacity / Notifications / AI */}
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center gap-2 transition-all cursor-pointer"
-                >
-                  {isSaving ? (
-                    <>
-                      <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
-                      <span>Saving Parameters...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ICON_MAP.CheckIcon className="w-4 h-4" />
-                      <span>Save Profile & Preferences</span>
-                    </>
-                  )}
-                </button>
+              <div className={`sticky bottom-3 z-20 p-3.5 rounded-2xl border backdrop-blur-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-lg ${
+                darkMode ? 'bg-slate-900/90 border-slate-700/80' : 'bg-white/90 border-slate-200/90'
+              }`}>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Changes sync immediately across your profile, team directory, and AI Co-Pilot preferences.
+                </div>
+                <div className="flex items-center gap-2 sm:pr-14">
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    {isSaving ? (
+                      <>
+                        <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
+                        <span>Saving Parameters...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ICON_MAP.CheckIcon className="w-4 h-4" />
+                        <span>Save Profile & Preferences</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           ) : (

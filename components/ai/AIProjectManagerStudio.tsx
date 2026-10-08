@@ -5,6 +5,7 @@ import geminiService, { ProjectBlueprint, MeetingExtractionResult } from '../../
 import { TaskStatus, TaskPriority } from '../../types';
 import { AIInsightsEngineWidget } from './AIInsightsEngineWidget';
 import { Avatar } from '../shared/Avatar';
+import { AIBotFace } from './AIBotFace';
 
 const EXAMPLE_INITIATIVES = [
   'Launch mobile app by December with offline sync and biometric login',
@@ -278,17 +279,24 @@ export const AIProjectManagerStudio: React.FC = () => {
       {/* Studio Hero Header */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 border border-indigo-900/60 shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs text-indigo-300 font-semibold">
-              <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
-              <span>AI-Native Project Co-Pilot · Autonomous Virtual PM</span>
+          <div className="flex items-start gap-4">
+            <AIBotFace
+              mood={isGeneratingBlueprint || isMaterializing || isRebalancing || isExtractingMeeting ? 'thinking' : 'happy'}
+              size="lg"
+              className="flex-shrink-0 mt-1"
+            />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs text-indigo-300 font-semibold">
+                <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
+                <span>AI-Native Project Co-Pilot · Autonomous Virtual PM</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                AI Project Manager & Strategy Studio
+              </h1>
+              <p className="text-sm text-indigo-200/80 max-w-2xl leading-relaxed">
+                Transform natural-language goals into multi-sprint roadmaps, balance team story-point capacity, extract action items from standup transcripts, and resolve delivery risks.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              AI Project Manager & Strategy Studio
-            </h1>
-            <p className="text-sm text-indigo-200/80 max-w-2xl leading-relaxed">
-              Transform natural-language goals into multi-sprint roadmaps, balance team story-point capacity, extract action items from standup transcripts, and resolve delivery risks.
-            </p>
           </div>
 
           {/* Segmented Studio Mode Selector */}

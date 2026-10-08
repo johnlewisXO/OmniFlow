@@ -3,6 +3,7 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
+import { AnimatedPopover } from '../shared/Modal';
 import { collabService } from '../../services/collabService';
 import { UserPresence, normalizeUserRole } from '../../types';
 
@@ -229,7 +230,7 @@ export const Header: React.FC = () => {
 
           {/* Dynamic Icon Status Dropdown */}
           {currentUser && (
-            <div className="relative" ref={statusPopoverRef}>
+            <div className="relative" ref={statusPopoverRef} data-tour-id="tour-header-status">
               <button
                 onClick={() => setIsStatusPopoverOpen(prev => !prev)}
                 title={`Status: ${statusLabelText} (Click to change)`}
@@ -243,49 +244,50 @@ export const Header: React.FC = () => {
                 <StatusDynamicIcon status={myStatus} className="w-4 h-4" />
               </button>
 
-              {isStatusPopoverOpen && (
-                <div
-                  className={`absolute right-0 mt-2 w-48 rounded-xl shadow-2xl py-1.5 z-40 border backdrop-blur-md animate-fadeIn ${
-                    darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'
-                  }`}
-                >
-                  <div className="px-3 py-1.5 border-b border-slate-200/60 dark:border-slate-700/60">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Availability Status</span>
-                  </div>
-                  {[
-                    { id: 'available', label: 'Available', desc: 'Active & receiving alerts' },
-                    { id: 'away', label: 'Away', desc: 'Stepped away briefly' },
-                    { id: 'busy', label: 'Busy / DND', desc: 'Deep focus mode' },
-                  ].map((opt) => {
-                    const active = myStatus === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => handleStatusChange(opt.id as 'available' | 'away' | 'busy')}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
-                          active
-                            ? darkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
-                            : darkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
-                        }`}
-                      >
-                        <StatusDynamicIcon status={opt.id as any} className="w-4 h-4 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold flex items-center justify-between">
-                            <span>{opt.label}</span>
-                            {active && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 text-indigo-500" />}
-                          </div>
-                          <p className="text-[10px] text-slate-400 truncate">{opt.desc}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
+              <AnimatedPopover
+                isOpen={isStatusPopoverOpen}
+                direction="down"
+                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-2xl py-1.5 z-40 border backdrop-blur-md ${
+                  darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'
+                }`}
+              >
+                <div className="px-3 py-1.5 border-b border-slate-200/60 dark:border-slate-700/60">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Availability Status</span>
                 </div>
-              )}
+                {[
+                  { id: 'available', label: 'Available', desc: 'Active & receiving alerts' },
+                  { id: 'away', label: 'Away', desc: 'Stepped away briefly' },
+                  { id: 'busy', label: 'Busy / DND', desc: 'Deep focus mode' },
+                ].map((opt) => {
+                  const active = myStatus === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleStatusChange(opt.id as 'available' | 'away' | 'busy')}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
+                        active
+                          ? darkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
+                          : darkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
+                      }`}
+                    >
+                      <StatusDynamicIcon status={opt.id as any} className="w-4 h-4 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-semibold flex items-center justify-between">
+                          <span>{opt.label}</span>
+                          {active && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 text-indigo-500" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400 truncate">{opt.desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </AnimatedPopover>
             </div>
           )}
 
           {/* Quick Command Palette Button */}
           <button
+            data-tour-id="tour-header-command"
             onClick={openCommandPalette}
             className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
               darkMode 
@@ -351,7 +353,7 @@ export const Header: React.FC = () => {
           </Button>
           
           {/* Rich Profile Dropdown Menu */}
-          <div className="relative" ref={profileMenuRef}>
+          <div className="relative" ref={profileMenuRef} data-tour-id="tour-header-profile">
             {currentUser ? (
               <button 
                 ref={avatarButtonRef}
@@ -371,12 +373,15 @@ export const Header: React.FC = () => {
               </div>
             )}
 
-            {isProfileMenuOpen && currentUser && (
-              <div 
-                className={`absolute right-0 mt-2.5 w-72 rounded-2xl shadow-2xl py-2 z-50 border backdrop-blur-xl animate-fadeIn ${
-                  darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
-                }`}
-              >
+            <AnimatedPopover
+              isOpen={Boolean(isProfileMenuOpen && currentUser)}
+              direction="down"
+              className={`absolute right-0 mt-2.5 w-72 rounded-2xl shadow-2xl py-2 z-50 border backdrop-blur-xl ${
+                darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
+              }`}
+            >
+              {currentUser && (
+                <>
                 {/* User Identity Header */}
                 <div className={`px-4 py-3 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                   <div className="flex items-center gap-3">
@@ -558,6 +563,43 @@ export const Header: React.FC = () => {
                     <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800/50 text-slate-400 border border-slate-700/50">⌘K</kbd>
                   </button>
 
+                  {(normalizeUserRole(currentUser.role) === 'OWNER' || normalizeUserRole(currentUser.role) === 'PROJECT_MANAGER') && (
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'));
+                        setProfileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                        darkMode ? 'text-emerald-300 hover:bg-slate-800' : 'text-emerald-700 hover:bg-emerald-50/70'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <ICON_MAP.TerminalIcon className="w-4 h-4 text-emerald-400" />
+                        <span>Exception & Console Log Monitor</span>
+                      </span>
+                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
+                        {normalizeUserRole(currentUser.role) === 'OWNER' ? 'OWNER' : 'PM'}
+                      </span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('omni_open_ai_guide'));
+                      window.dispatchEvent(new CustomEvent('omni_open_ai_platform_guide'));
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ICON_MAP.SparklesIcon className="w-4 h-4 text-indigo-400" />
+                      <span>Interactive AI Platform Guide</span>
+                    </span>
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400">Tour</span>
+                  </button>
+
                   <button
                     onClick={() => {
                       openShortcutsModal();
@@ -587,8 +629,9 @@ export const Header: React.FC = () => {
                     <span>Sign Out</span>
                   </button>
                 </div>
-              </div>
-            )}
+                </>
+              )}
+            </AnimatedPopover>
           </div>
         </div>
       </div>

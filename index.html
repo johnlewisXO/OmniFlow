@@ -134,6 +134,26 @@
                 '50%': { transform: 'scale(1.2)', boxShadow: '0 0 8px 3px hsla(var(--neon-accent-secondary-rgb), 0.9)' },
               },
               floatUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+              modalZoomIn: {
+                '0%': { opacity: '0', transform: 'scale(0.95) translateY(6px)' },
+                '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+              },
+              modalZoomOut: {
+                '0%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+                '100%': { opacity: '0', transform: 'scale(0.96) translateY(4px)' },
+              },
+              bubbleStretchTop: {
+                '0%': { transform: 'scaleY(1) translateY(0)' },
+                '35%': { transform: 'scaleY(1.018) translateY(5px)', transformOrigin: 'top center' },
+                '70%': { transform: 'scaleY(0.996) translateY(-1px)', transformOrigin: 'top center' },
+                '100%': { transform: 'scaleY(1) translateY(0)', transformOrigin: 'top center' },
+              },
+              bubbleStretchBottom: {
+                '0%': { transform: 'scaleY(1) translateY(0)' },
+                '35%': { transform: 'scaleY(1.018) translateY(-5px)', transformOrigin: 'bottom center' },
+                '70%': { transform: 'scaleY(0.996) translateY(1px)', transformOrigin: 'bottom center' },
+                '100%': { transform: 'scaleY(1) translateY(0)', transformOrigin: 'bottom center' },
+              },
             },
             animation: {
               slowGradientShift: 'slowGradientShift 45s ease infinite',
@@ -144,6 +164,10 @@
               shimmer: 'shimmer 2s infinite linear',
               gridPan: 'gridPan 120s linear infinite alternate',
               floatUp: 'floatUp 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards',
+              modalZoomIn: 'modalZoomIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              modalZoomOut: 'modalZoomOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards',
+              bubbleStretchTop: 'bubbleStretchTop 0.48s cubic-bezier(0.22, 1, 0.36, 1)',
+              bubbleStretchBottom: 'bubbleStretchBottom 0.48s cubic-bezier(0.22, 1, 0.36, 1)',
             }
           }
         }
@@ -418,6 +442,103 @@
 
         .text-gradient-accent { @apply bg-gradient-to-r from-[#6957FF] to-[#857CFF] bg-clip-text text-transparent; }
         .text-gradient-neon { @apply bg-gradient-to-r from-[#6957FF] to-[#78B7FF] bg-clip-text text-transparent; }
+      }
+
+      @keyframes popupZoomIn {
+        0% {
+          opacity: 0;
+          transform: scale(0.95) translateY(-6px);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      @keyframes popupZoomOut {
+        0% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(0.95) translateY(-6px);
+        }
+      }
+      @keyframes popupUpZoomIn {
+        0% {
+          opacity: 0;
+          transform: scale(0.95) translateY(6px);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      @keyframes popupUpZoomOut {
+        0% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(0.95) translateY(6px);
+        }
+      }
+      @keyframes modalZoomIn {
+        0% {
+          opacity: 0;
+          transform: scale(0.94) translateY(10px);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      @keyframes modalZoomOut {
+        0% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(0.94) translateY(10px);
+        }
+      }
+      @keyframes tourRingPulse {
+        0%, 100% {
+          box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.85), 0 0 0 6px rgba(99, 102, 241, 0.18), 0 0 24px rgba(56, 189, 248, 0.35);
+        }
+        50% {
+          box-shadow: 0 0 0 2.5px rgba(56, 189, 248, 0.95), 0 0 0 10px rgba(99, 102, 241, 0.08), 0 0 32px rgba(99, 102, 241, 0.45);
+        }
+      }
+      .animate-popup-in {
+        animation: popupZoomIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        transform-origin: top right;
+      }
+      .animate-popup-out {
+        animation: popupZoomOut 0.16s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        transform-origin: top right;
+        pointer-events: none;
+      }
+      .animate-popup-up-in {
+        animation: popupUpZoomIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        transform-origin: bottom left;
+      }
+      .animate-popup-up-out {
+        animation: popupUpZoomOut 0.16s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        transform-origin: bottom left;
+        pointer-events: none;
+      }
+      .animate-modal-appear {
+        animation: modalZoomIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      .animate-modal-disappear {
+        animation: modalZoomOut 0.19s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        pointer-events: none;
+      }
+      .tour-spotlight-ring {
+        animation: tourRingPulse 2.2s ease-in-out infinite;
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
