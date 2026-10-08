@@ -1,9 +1,9 @@
 
 
 import { useState, useCallback, useEffect } from 'react';
-import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig } from '../types';
+import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig } from '../types';
 import { ICON_MAP } from '../constants';
-import supabaseService, { supabase } from '../services/supabaseService';
+import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions } from '../services/supabaseService';
 import collabService from '../services/collabService';
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
@@ -693,8 +693,18 @@ const appActionsCreator = (
             const { data: allProfiles } = await supabase.from('user_profiles').select('*').limit(50);
             if (Array.isArray(allProfiles)) {
               allProfiles.forEach((p: any) => {
-                if (p && p.id && !fetchedUsers.some(u => u.id === p.id)) {
-                  fetchedUsers.push(p as User);
+                if (p && p.id) {
+                  const ext = getUserProfileExtensions(p.id);
+                  if (ext.removedFromOrgId && ext.removedFromOrgId === currentUser.organization_id) {
+                    return;
+                  }
+                  const normalized = normalizeAppUser(p);
+                  const existingIdx = fetchedUsers.findIndex(u => u.id === p.id);
+                  if (existingIdx >= 0) {
+                    fetchedUsers[existingIdx] = normalized;
+                  } else {
+                    fetchedUsers.push(normalized);
+                  }
                 }
               });
             }
@@ -708,14 +718,18 @@ const appActionsCreator = (
                 const customList: User[] = JSON.parse(savedCustom);
                 customList.forEach(cu => {
                   if (cu && cu.id && !fetchedUsers.some(u => u.id === cu.id)) {
-                    fetchedUsers.push(cu);
+                    const ext = getUserProfileExtensions(cu.id);
+                    if (ext.removedFromOrgId && ext.removedFromOrgId === currentUser.organization_id) {
+                      return;
+                    }
+                    fetchedUsers.push(normalizeAppUser(cu));
                   }
                 });
               }
             } catch (e) {}
           }
 
-          updateState(s => ({ ...s, users: fetchedUsers, isLoadingUsersForAssignment: false }));
+          updateState(s => ({ ...s, users: fetchedUsers.map(normalizeAppUser), isLoadingUsersForAssignment: false }));
         } catch (error: any) {
           const message = parseErrorMessage(error, 'Failed to fetch users for organization.');
           console.error(`[useAppStore] fetchUsersForAssignmentList: Error - ${message}`);
@@ -906,7 +920,8 @@ const appActionsCreator = (
         throw error;
       }
     },
-    setCurrentUser: (user: User | null) => {
+    setCurrentUser: (rawUser: User | null) => {
+      const user = rawUser ? normalizeAppUser(rawUser) : null;
       collabService.syncCurrentUser(user);
       const currentActiveProject = get().activeProject;
       let nextActiveView = get().activeView;
@@ -1457,32 +1472,87 @@ const appActionsCreator = (
       tasks: error ? [] : s.tasks 
     })),
     updateUserRoleInOrganization: async (userId: string, newRole: UserRole) => {
-      const { currentUser } = get();
-      console.log(`[useAppStore] updateUserRoleInOrganization: Initiated for user ${userId} to role ${newRole} by ${currentUser?.id} in org ${currentUser?.organization_id}`);
+      const { currentUser, users } = get();
+      const normalizedTargetNewRole = normalizeUserRole(newRole);
       if (!currentUser || !currentUser.organization_id) {
         const errorMsg = "Not authorized or not in an organization.";
-        console.warn(`[useAppStore] updateUserRoleInOrganization: Auth check failed - ${errorMsg}`);
         updateState(s => ({ ...s, updateUserRoleError: errorMsg, isUpdatingUserRole: false }));
         return;
       }
-      if (userId === currentUser.id && newRole !== currentUser.role) {
+      if (userId === currentUser.id && normalizedTargetNewRole !== normalizeUserRole(currentUser.role)) {
         const errorMsg = "You cannot change your own role through this interface.";
-        console.warn(`[useAppStore] updateUserRoleInOrganization: Self-role change attempt failed - ${errorMsg}`);
         updateState(s => ({ ...s, updateUserRoleError: errorMsg, isUpdatingUserRole: false }));
         return;
       }
 
-      updateState(s => ({ ...s, isUpdatingUserRole: true, updateUserRoleError: null }));
+      const targetUser = users.find(u => u.id === userId);
+      const targetCurrentRole = normalizeUserRole(targetUser?.role);
+      const actorRole = normalizeUserRole(currentUser.role);
+
+      // Strict RBAC Hierarchy Validation:
+      // 1. Nobody except OWNER can modify an OWNER or promote someone to OWNER
+      if (targetCurrentRole === UserRole.OWNER && actorRole !== UserRole.OWNER) {
+        const errorMsg = "Only an Organization Owner can modify another Owner's role.";
+        updateState(s => ({ ...s, updateUserRoleError: errorMsg, isUpdatingUserRole: false }));
+        return;
+      }
+      if (normalizedTargetNewRole === UserRole.OWNER && actorRole !== UserRole.OWNER) {
+        const errorMsg = "Only an Organization Owner can grant the Owner role.";
+        updateState(s => ({ ...s, updateUserRoleError: errorMsg, isUpdatingUserRole: false }));
+        return;
+      }
+      // 2. PROJECT_MANAGER can update anyone's role except OWNER (and cannot grant OWNER)
+      // 3. MEMBER and CLIENT_VIEWER cannot update roles
+      if (actorRole === UserRole.MEMBER || actorRole === UserRole.CLIENT_VIEWER) {
+        const errorMsg = "Insufficient permissions to modify team member roles.";
+        updateState(s => ({ ...s, updateUserRoleError: errorMsg, isUpdatingUserRole: false }));
+        return;
+      }
+
+      // Optimistic state update so the UI reflects the role change immediately
+      updateState(s => ({
+        ...s,
+        isUpdatingUserRole: true,
+        updateUserRoleError: null,
+        users: s.users.map(u => u.id === userId ? normalizeAppUser({ ...u, role: normalizedTargetNewRole, organization_id: currentUser.organization_id }) : u)
+      }));
+
       try {
-        console.log(`[useAppStore] updateUserRoleInOrganization: Calling Supabase service for user ${userId}, role ${newRole}, org ${currentUser.organization_id}`);
-        await supabaseService.updateUserRole(userId, newRole, currentUser.organization_id);
-        console.log(`[useAppStore] updateUserRoleInOrganization: Supabase service call successful for user ${userId}. Fetching updated user list.`);
-        await selfActions.fetchUsersForAssignmentList(); // This will log internal details
+        await supabaseService.updateUserRole(userId, normalizedTargetNewRole, currentUser.organization_id);
+
+        // Broadcast role update in real-time across all connected clients
+        collabService.broadcastTeamMemberUpdated({
+          userId,
+          userName: targetUser?.full_name || targetUser?.email || 'Team Member',
+          updates: { role: normalizedTargetNewRole, organization_id: currentUser.organization_id },
+          actor: {
+            id: currentUser.id,
+            name: currentUser.full_name || currentUser.email || 'Admin'
+          }
+        });
+
+        // Log Audit Event
+        await supabaseService.logAuditEvent({
+          organization_id: currentUser.organization_id,
+          actor_id: currentUser.id,
+          actor_name: currentUser.full_name || currentUser.email,
+          actor_email: currentUser.email,
+          action: 'role_changed',
+          target_type: 'user',
+          target_id: userId,
+          target_name: targetUser?.full_name || targetUser?.email || userId,
+          details: {
+            previous_role: targetCurrentRole,
+            new_role: normalizedTargetNewRole,
+            updated_by_role: actorRole
+          }
+        });
+
+        await selfActions.fetchUsersForAssignmentList();
         updateState(s => ({ ...s, isUpdatingUserRole: false }));
-        console.log(`[useAppStore] updateUserRoleInOrganization: User list refreshed. Update complete for user ${userId}. Current users in store:`, get().users);
-        
+
         // Emit event for notification
-        get().emitEvent('USER_ROLE_UPDATED', { userId, newRole });
+        get().emitEvent('USER_ROLE_UPDATED', { userId, newRole: normalizedTargetNewRole });
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update role for user ${userId}.`);
         console.error(`[useAppStore] updateUserRoleInOrganization: Error for user ${userId} - ${message}`, error);
@@ -1490,30 +1560,55 @@ const appActionsCreator = (
       }
     },
     deleteUserFromOrganization: async (userId: string) => {
-      const { currentUser } = get();
-      console.log(`[useAppStore] deleteUserFromOrganization: Initiated for user ${userId} by ${currentUser?.id} in org ${currentUser?.organization_id}`);
+      const { currentUser, users } = get();
       if (!currentUser || !currentUser.organization_id) {
         const errorMsg = "Not authorized or not in an organization.";
-        console.warn(`[useAppStore] deleteUserFromOrganization: Auth check failed - ${errorMsg}`);
         updateState(s => ({ ...s, deleteUserError: errorMsg, isDeletingUser: null }));
         return;
       }
       if (userId === currentUser.id) {
         const errorMsg = "You cannot remove yourself from the organization through this interface.";
-        console.warn(`[useAppStore] deleteUserFromOrganization: Self-removal attempt failed - ${errorMsg}`);
         updateState(s => ({ ...s, deleteUserError: errorMsg, isDeletingUser: null }));
         return;
       }
 
-      updateState(s => ({ ...s, isDeletingUser: userId, deleteUserError: null }));
+      const targetUser = users.find(u => u.id === userId);
+      if (normalizeUserRole(targetUser?.role) === UserRole.OWNER) {
+        const errorMsg = "Organization Owners cannot be removed.";
+        updateState(s => ({ ...s, deleteUserError: errorMsg, isDeletingUser: null }));
+        return;
+      }
+
+      updateState(s => ({
+        ...s,
+        isDeletingUser: userId,
+        deleteUserError: null,
+        users: s.users.filter(u => u.id !== userId)
+      }));
       try {
-        console.log(`[useAppStore] deleteUserFromOrganization: Calling Supabase service for user ${userId}, org ${currentUser.organization_id}`);
         await supabaseService.removeUserFromOrganization(userId, currentUser.organization_id);
-        console.log(`[useAppStore] deleteUserFromOrganization: Supabase service call successful for user ${userId}. Fetching updated user list.`);
-        await selfActions.fetchUsersForAssignmentList(); // This will log internal details
+        collabService.broadcastTeamMemberRemoved({
+          userId,
+          userName: targetUser?.full_name || targetUser?.email || 'Member',
+          actor: {
+            id: currentUser.id,
+            name: currentUser.full_name || currentUser.email || 'Admin'
+          }
+        });
+        await supabaseService.logAuditEvent({
+          organization_id: currentUser.organization_id,
+          actor_id: currentUser.id,
+          actor_name: currentUser.full_name || currentUser.email,
+          actor_email: currentUser.email,
+          action: 'user_removed',
+          target_type: 'user',
+          target_id: userId,
+          target_name: targetUser?.full_name || targetUser?.email || userId,
+          details: { previous_role: targetUser?.role }
+        });
+        await selfActions.fetchUsersForAssignmentList();
         updateState(s => ({ ...s, isDeletingUser: null }));
-        console.log(`[useAppStore] deleteUserFromOrganization: User list refreshed. Deletion complete for user ${userId}. Current users in store:`, get().users);
-        
+
         // Emit event for notification
         get().emitEvent('USER_REMOVED_FROM_ORG', { userId });
       } catch (error: any) {
@@ -1998,6 +2093,61 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
         'info',
         { entity_type: 'chat', entity_id: payload.userId, reference_id: payload.userId }
       );
+    }) as EventListener);
+
+    // 6. Remote Team Member Role / Metadata Updated
+    window.addEventListener('omni_remote_team_member_updated', ((e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || !payload.userId) return;
+      const curUser = getPureState().currentUser;
+      const updates = payload.updates || {};
+      if (updates.role) {
+        updates.role = normalizeUserRole(updates.role);
+      }
+
+      setState(s => {
+        const updatedUsers = s.users.map(u =>
+          u.id === payload.userId ? normalizeAppUser({ ...u, ...updates }) : u
+        );
+        const updatedCurrentUser =
+          s.currentUser && s.currentUser.id === payload.userId
+            ? normalizeAppUser({ ...s.currentUser, ...updates })
+            : s.currentUser;
+        return {
+          ...s,
+          users: updatedUsers,
+          currentUser: updatedCurrentUser,
+        };
+      });
+
+      if (payload.actor?.id && payload.actor.id !== 'remote' && payload.actor.id !== curUser?.id) {
+        if (updates.role) {
+          actions.addToast(
+            `🛡️ Team Role Updated`,
+            `${payload.userName || 'Member'}'s role was updated to ${String(updates.role).replace(/_/g, ' ')} by ${payload.actor.name || 'Admin'}`,
+            'info',
+            { entity_type: 'user', entity_id: payload.userId }
+          );
+        }
+      }
+    }) as EventListener);
+
+    // 7. Remote Team Member Removed
+    window.addEventListener('omni_remote_team_member_removed', ((e: CustomEvent) => {
+      const payload = e.detail;
+      if (!payload || !payload.userId) return;
+      const curUser = getPureState().currentUser;
+      setState(s => ({
+        ...s,
+        users: s.users.filter(u => u.id !== payload.userId),
+      }));
+      if (payload.actor?.id && payload.actor.id !== curUser?.id) {
+        actions.addToast(
+          `Team Member Removed`,
+          `${payload.userName || 'A member'} was removed from the workspace by ${payload.actor.name || 'Admin'}`,
+          'warning'
+        );
+      }
     }) as EventListener);
   }
 

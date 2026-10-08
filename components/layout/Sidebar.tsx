@@ -1,12 +1,11 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
-// Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from '../../hooks/useAppStore';
-import { Project, ActiveView, UserRole } from '../../types';
+import { Project, ActiveView, UserRole, normalizeUserRole } from '../../types';
 import { ICON_MAP, SIDENAV_ITEMS, APP_TITLE, ALL_ACTIVE_VIEWS } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button'; 
+import { StatusDynamicIcon } from './Header';
+import { collabService } from '../../services/collabService';
 
 export const Sidebar: React.FC = () => {
   const { 
@@ -16,6 +15,7 @@ export const Sidebar: React.FC = () => {
     currentUser, 
     currentOrganization,
     darkMode,
+    toggleDarkMode,
     isLoadingProjects,
     projectsError,
     openCreateProjectModal,
@@ -24,12 +24,45 @@ export const Sidebar: React.FC = () => {
     signOut,
     isMobileSidebarOpen,
     setIsMobileSidebarOpen,
+    openCommandPalette,
+    openShortcutsModal,
+    notifications,
+    addToast,
   } = useAppStore();
 
   const [isHovered, setIsHovered] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      try {
+        const raw = localStorage.getItem('omni_team_statuses');
+        const map = raw ? JSON.parse(raw) : {};
+        if (map[currentUser.id]) return map[currentUser.id];
+      } catch (e) {}
+    }
+    return 'available';
+  });
+
+  useEffect(() => {
+    const handleStatusSync = (e: CustomEvent) => {
+      const payload = e.detail;
+      if (payload && currentUser && payload.userId === currentUser.id) {
+        setMyStatus(payload.availabilityStatus);
+      }
+    };
+    window.addEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
+    return () => window.removeEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
+  }, [currentUser?.id]);
+
+  const handleStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
+    setMyStatus(newStatus);
+    collabService.broadcastUserStatusChanged(newStatus);
+    const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
+    addToast('Status Broadcast Live', `Your status is now "${label}" across all connected teammates.`, 'info');
+  };
 
   const isExpanded = isHovered || isPinned;
 
@@ -43,6 +76,11 @@ export const Sidebar: React.FC = () => {
   const LogoutIcon = ICON_MAP.LogoutIcon;
   const FolderIcon = ICON_MAP.FolderIcon; 
   const XMarkIcon = ICON_MAP.XMarkIcon;
+  const SunIcon = ICON_MAP.SunIcon;
+  const MoonIcon = ICON_MAP.MoonIcon;
+
+  const normalizedRole = normalizeUserRole(currentUser?.role);
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleSidenavItemClick = (id: ActiveView | string , _path: string) => {
     setActiveProject(null); 
@@ -50,7 +88,7 @@ export const Sidebar: React.FC = () => {
 
     const itemConfig = SIDENAV_ITEMS.find(item => item.id === id) || (id === 'admin_settings' ? { id: 'admin_settings' as ActiveView, label: 'Admin Settings', icon: 'CogIcon', path: '#', roles: [UserRole.ADMIN, UserRole.OWNER] as UserRole[] } : null);
     
-    if (itemConfig && itemConfig.roles && currentUser?.role && !itemConfig.roles.includes(currentUser.role as UserRole)) {
+    if (itemConfig && itemConfig.roles && currentUser?.role && !itemConfig.roles.includes(normalizedRole)) {
         console.warn(`Attempted to navigate to "${id}" without sufficient permissions.`);
         setActiveView('overview');
         setIsMobileSidebarOpen(false);
@@ -60,14 +98,13 @@ export const Sidebar: React.FC = () => {
     if (ALL_ACTIVE_VIEWS.includes(targetView)) {
         setActiveView(targetView);
     } else {
-        console.warn(`Navigation to "${id}" might need role-specific handling or is unmapped. Falling back to overview.`);
         setActiveView('overview');
     }
     setIsMobileSidebarOpen(false);
   };
 
-  const isAdminOrOwner = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.OWNER;
-  const canCreateProjectsBasedOnRole = isAdminOrOwner || currentUser?.role === UserRole.PROJECT_MANAGER || currentUser?.role === UserRole.MEMBER;
+  const isAdminOrOwner = normalizedRole === UserRole.ADMIN || normalizedRole === UserRole.OWNER;
+  const canCreateProjectsBasedOnRole = isAdminOrOwner || normalizedRole === UserRole.PROJECT_MANAGER || normalizedRole === UserRole.MEMBER;
 
   const handleLogout = async () => {
     try {
@@ -94,16 +131,18 @@ export const Sidebar: React.FC = () => {
   }, [isProfileMenuOpen]);
   
   const createProjectButtonDisabled = !currentUser || 
-    (!!currentUser.organization_id && !canCreateProjectsBasedOnRole && currentUser.role !== UserRole.OWNER && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.PROJECT_MANAGER);
+    (!!currentUser.organization_id && !canCreateProjectsBasedOnRole);
 
   let createProjectButtonTitle = "Create new project";
   if (!currentUser) {
     createProjectButtonTitle = "Login to create projects";
-  } else if (currentUser.organization_id && !canCreateProjectsBasedOnRole && currentUser.role !== UserRole.OWNER && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.PROJECT_MANAGER) {
+  } else if (currentUser.organization_id && !canCreateProjectsBasedOnRole) {
     createProjectButtonTitle = "You do not have permission to create projects in this organization";
   } else if (!currentUser.organization_id) {
     createProjectButtonTitle = "Create a personal project";
   }
+
+  const statusLabelText = myStatus === 'available' ? 'Available' : myStatus === 'away' ? 'Away' : 'Busy / DND';
 
   const renderSidebarContent = (expanded: boolean, isMobile: boolean = false) => (
     <>
@@ -161,7 +200,7 @@ export const Sidebar: React.FC = () => {
                   )}
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate uppercase tracking-wider">
-                  {currentUser.role ? currentUser.role.replace(/_/g, ' ') : 'MEMBER'}
+                  {normalizedRole.replace(/_/g, ' ')}
                 </p>
               </div>
             )}
@@ -177,7 +216,7 @@ export const Sidebar: React.FC = () => {
             const Icon = ICON_MAP[item.icon as keyof typeof ICON_MAP];
             const isItemActive = activeView === item.id || (item.id === 'projects_overview' && activeView === 'kanban');
             
-            if (item.roles && currentUser?.role && !item.roles.includes(currentUser.role as UserRole)) {
+            if (item.roles && currentUser?.role && !item.roles.includes(normalizedRole)) {
                 return null;
             }
 
@@ -284,48 +323,203 @@ export const Sidebar: React.FC = () => {
             className={`w-full flex items-center ${(expanded || isMobile) ? 'space-x-2.5 p-1.5' : 'justify-center p-1'} rounded-xl ${hoverBgClass} hover:text-accent-light cursor-pointer text-left transition-all`}
             aria-expanded={isProfileMenuOpen}
             aria-haspopup="true"
-            title={(!expanded && !isMobile) ? (currentUser.full_name || currentUser.email) : undefined}
+            title={(!expanded && !isMobile) ? `${currentUser.full_name || currentUser.email} (${statusLabelText})` : undefined}
           >
-            <Avatar user={currentUser} size="sm" />
+            <div className="relative flex-shrink-0">
+              <Avatar user={currentUser} size="sm" />
+              <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white dark:bg-slate-900 p-0.5">
+                <StatusDynamicIcon status={myStatus} className="w-2.5 h-2.5" />
+              </span>
+            </div>
             {(expanded || isMobile) && (
               <>
                 <div className="flex-1 min-w-0">
                   <p className={`text-xs font-semibold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{currentUser.full_name || currentUser.email}</p>
-                  <p className={`text-[11px] truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{currentUser.email}</p>
+                  <p className={`text-[10px] truncate flex items-center gap-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <span>{statusLabelText}</span>
+                    <span>•</span>
+                    <span>{normalizedRole.replace(/_/g, ' ')}</span>
+                  </p>
                 </div>
                 <ICON_MAP.ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 flex-shrink-0 ${isProfileMenuOpen ? 'transform rotate-180' : ''} ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
               </>
             )}
           </button>
         ) : null}
+
         {isProfileMenuOpen && currentUser && (
           <div 
-            className={`absolute bottom-full left-0 ${(expanded || isMobile) ? 'right-0 w-full' : 'left-full ml-2 w-48'} mb-2 rounded-xl shadow-glass-lg py-1 z-50 
-                       border ${darkMode ? 'bg-slate-800/95 border-slate-700' : 'bg-white/95 border-slate-300'} backdrop-blur-md`}
+            className={`absolute bottom-full left-0 ${(expanded || isMobile) ? 'right-0 w-full min-w-[240px]' : 'left-full ml-2 w-64'} mb-2 rounded-2xl shadow-2xl py-2 z-50 
+                       border ${darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'} backdrop-blur-xl animate-fadeIn`}
           >
-            <button
-              onClick={() => {
-                setActiveView('profile_settings');
-                setProfileMenuOpen(false);
-                if (isMobile) setIsMobileSidebarOpen(false);
-              }}
-              className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-medium
-                         ${darkMode ? 'text-slate-300 hover:bg-slate-700/50 hover:text-white' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'} 
-                         transition-colors`}
-            >
-              <ICON_MAP.UserCircleIcon className="w-4 h-4" />
-              <span>Profile Settings</span>
-            </button>
-            <div className={`h-px w-full my-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
-            <button
-              onClick={handleLogout}
-              className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-medium 
-                         ${darkMode ? 'text-status-error hover:bg-status-error/20' : 'text-status-error hover:bg-status-error/10'} 
-                         transition-colors`}
-            >
-              <LogoutIcon className="w-4 h-4" />
-              <span>Logout</span>
-            </button>
+            {/* Identity Summary */}
+            <div className={`px-3.5 py-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+              <p className="text-xs font-bold truncate">{currentUser.full_name || currentUser.email}</p>
+              <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+            </div>
+
+            {/* Dynamic Status Switcher */}
+            <div className={`px-3 py-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
+                <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1">
+                  <StatusDynamicIcon status={myStatus} className="w-3 h-3" />
+                  {statusLabelText}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {(['available', 'away', 'busy'] as const).map((st) => {
+                  const active = myStatus === st;
+                  const label = st === 'available' ? 'Online' : st === 'away' ? 'Away' : 'Busy';
+                  return (
+                    <button
+                      key={st}
+                      onClick={() => handleStatusChange(st)}
+                      className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer ${
+                        active
+                          ? darkMode
+                            ? 'bg-indigo-500/20 border-indigo-500/50 text-white'
+                            : 'bg-indigo-50 border-indigo-300 text-indigo-800'
+                          : darkMode
+                            ? 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <StatusDynamicIcon status={st} className="w-3 h-3" />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Menu Actions */}
+            <div className="py-1 px-1.5 space-y-0.5">
+              <button
+                onClick={() => {
+                  setActiveView('profile_settings');
+                  setProfileMenuOpen(false);
+                  if (isMobile) setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <ICON_MAP.UserCircleIcon className="w-4 h-4 text-indigo-400" />
+                <span>Profile Settings</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveView('my_tasks_view');
+                  setProfileMenuOpen(false);
+                  if (isMobile) setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <ICON_MAP.ClipboardListIcon className="w-4 h-4 text-emerald-400" />
+                <span>My Tasks</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveView('team_management');
+                  setProfileMenuOpen(false);
+                  if (isMobile) setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <ICON_MAP.UserGroupIcon className="w-4 h-4 text-sky-400" />
+                <span>Team & RBAC</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveView('inbox_view');
+                  setProfileMenuOpen(false);
+                  if (isMobile) setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <span className="flex items-center space-x-2.5">
+                  <ICON_MAP.BellIcon className="w-4 h-4 text-amber-400" />
+                  <span>Notifications</span>
+                </span>
+                {unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  toggleDarkMode();
+                }}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <span className="flex items-center space-x-2.5">
+                  {darkMode ? <SunIcon className="w-4 h-4 text-amber-400" /> : <MoonIcon className="w-4 h-4 text-indigo-500" />}
+                  <span>Theme Mode</span>
+                </span>
+                <span className="text-[10px] font-semibold opacity-75">{darkMode ? 'Dark' : 'Light'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  openCommandPalette();
+                  setProfileMenuOpen(false);
+                  if (isMobile) setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <span className="flex items-center space-x-2.5">
+                  <ICON_MAP.SparklesIcon className="w-4 h-4 text-purple-400" />
+                  <span>AI Command Centre</span>
+                </span>
+                <kbd className="text-[9px] font-mono opacity-60">⌘K</kbd>
+              </button>
+
+              <button
+                onClick={() => {
+                  openShortcutsModal();
+                  setProfileMenuOpen(false);
+                  if (isMobile) setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer
+                           ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'} 
+                           transition-colors`}
+              >
+                <span className="flex items-center space-x-2.5">
+                  <ICON_MAP.KeyboardIcon className="w-4 h-4 text-slate-400" />
+                  <span>Shortcuts</span>
+                </span>
+                <kbd className="text-[9px] font-mono opacity-60">?</kbd>
+              </button>
+            </div>
+
+            <div className={`h-px w-full my-1 ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`} />
+            <div className="px-1.5">
+              <button
+                onClick={handleLogout}
+                className={`w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer
+                           ${darkMode ? 'text-rose-400 hover:bg-rose-500/15' : 'text-rose-600 hover:bg-rose-50'} 
+                           transition-colors`}
+              >
+                <LogoutIcon className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

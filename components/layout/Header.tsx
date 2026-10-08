@@ -1,12 +1,35 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-// Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
 import { collabService } from '../../services/collabService';
-import { UserPresence } from '../../types';
+import { UserPresence, normalizeUserRole } from '../../types';
+
+export const StatusDynamicIcon: React.FC<{ status: 'available' | 'away' | 'busy'; className?: string }> = ({ status, className = 'w-4 h-4' }) => {
+  if (status === 'available') {
+    return (
+      <span className={`relative inline-flex items-center justify-center ${className}`}>
+        <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 opacity-60"></span>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-emerald-500">
+          <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+        </svg>
+      </span>
+    );
+  }
+  if (status === 'away') {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" className={`${className} text-amber-400`}>
+        <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={`${className} text-rose-500`}>
+      <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-3.75 9a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5h-7.5z" clipRule="evenodd" />
+    </svg>
+  );
+};
 
 export const Header: React.FC = () => {
   const { 
@@ -24,7 +47,6 @@ export const Header: React.FC = () => {
     openCommandPalette,
     openShortcutsModal,
     presences,
-    updateUserPresence
   } = useAppStore();
 
   const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
@@ -37,6 +59,9 @@ export const Header: React.FC = () => {
     }
     return 'available';
   });
+
+  const [isStatusPopoverOpen, setIsStatusPopoverOpen] = useState(false);
+  const statusPopoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleStatusSync = (e: CustomEvent) => {
@@ -51,6 +76,7 @@ export const Header: React.FC = () => {
 
   const handleStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
     setMyStatus(newStatus);
+    setIsStatusPopoverOpen(false);
     collabService.broadcastUserStatusChanged(newStatus);
     const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
     addToast('Status Broadcast Live', `Your status is now "${label}" across all connected teammates.`, 'info');
@@ -94,9 +120,7 @@ export const Header: React.FC = () => {
   const BellIcon = ICON_MAP.BellIcon;
   const Bars3Icon = ICON_MAP.Bars3Icon;
 
-  const headerTextColor = darkMode ? 'text-slate-100' : 'text-slate-800'; 
   const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
-
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = async () => {
@@ -118,14 +142,18 @@ export const Header: React.FC = () => {
       ) {
         setProfileMenuOpen(false);
       }
+      if (statusPopoverRef.current && !statusPopoverRef.current.contains(event.target as Node)) {
+        setIsStatusPopoverOpen(false);
+      }
     };
-    if (isProfileMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isProfileMenuOpen]);
+  }, []);
+
+  const normalizedRole = normalizeUserRole(currentUser?.role);
+  const statusLabelText = myStatus === 'available' ? 'Available' : myStatus === 'away' ? 'Away' : 'Busy / DND';
 
   return (
     <header className="glass-panel rounded-2xl px-3.5 sm:px-5 py-3 relative z-20">
@@ -199,24 +227,60 @@ export const Header: React.FC = () => {
             </div>
           )}
 
-          {/* Quick User Status Selector */}
+          {/* Dynamic Icon Status Dropdown */}
           {currentUser && (
-            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold ${
-              darkMode ? 'bg-slate-800/80 border-slate-700 text-slate-200' : 'bg-slate-100/90 border-slate-200 text-slate-700'
-            }`}>
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                myStatus === 'available' ? 'bg-emerald-500' : myStatus === 'away' ? 'bg-amber-400' : 'bg-rose-500'
-              }`} />
-              <select
-                value={myStatus}
-                onChange={(e) => handleStatusChange(e.target.value as 'available' | 'away' | 'busy')}
-                aria-label="Set your availability status"
-                className="bg-transparent text-xs font-semibold focus:outline-hidden cursor-pointer"
+            <div className="relative" ref={statusPopoverRef}>
+              <button
+                onClick={() => setIsStatusPopoverOpen(prev => !prev)}
+                title={`Status: ${statusLabelText} (Click to change)`}
+                aria-label={`Change availability status (Currently ${statusLabelText})`}
+                className={`p-2 rounded-xl border transition-all flex items-center justify-center cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700'
+                    : 'bg-slate-100/90 hover:bg-slate-200/90 border-slate-200'
+                }`}
               >
-                <option value="available" className="bg-slate-900 text-white">Available</option>
-                <option value="away" className="bg-slate-900 text-white">Away</option>
-                <option value="busy" className="bg-slate-900 text-white">Busy / DND</option>
-              </select>
+                <StatusDynamicIcon status={myStatus} className="w-4 h-4" />
+              </button>
+
+              {isStatusPopoverOpen && (
+                <div
+                  className={`absolute right-0 mt-2 w-48 rounded-xl shadow-2xl py-1.5 z-40 border backdrop-blur-md animate-fadeIn ${
+                    darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <div className="px-3 py-1.5 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Availability Status</span>
+                  </div>
+                  {[
+                    { id: 'available', label: 'Available', desc: 'Active & receiving alerts' },
+                    { id: 'away', label: 'Away', desc: 'Stepped away briefly' },
+                    { id: 'busy', label: 'Busy / DND', desc: 'Deep focus mode' },
+                  ].map((opt) => {
+                    const active = myStatus === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => handleStatusChange(opt.id as 'available' | 'away' | 'busy')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
+                          active
+                            ? darkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
+                            : darkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
+                        }`}
+                      >
+                        <StatusDynamicIcon status={opt.id as any} className="w-4 h-4 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-semibold flex items-center justify-between">
+                            <span>{opt.label}</span>
+                            {active && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 text-indigo-500" />}
+                          </div>
+                          <p className="text-[10px] text-slate-400 truncate">{opt.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -286,6 +350,7 @@ export const Header: React.FC = () => {
             <span className="hidden sm:inline">Add Task</span>
           </Button>
           
+          {/* Rich Profile Dropdown Menu */}
           <div className="relative" ref={profileMenuRef}>
             {currentUser ? (
               <button 
@@ -293,33 +358,235 @@ export const Header: React.FC = () => {
                 onClick={() => setProfileMenuOpen(prev => !prev)}
                 aria-expanded={isProfileMenuOpen}
                 aria-haspopup="true"
-                className="rounded-full focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ring-offset-background"
+                className="relative rounded-full focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ring-offset-background cursor-pointer"
               >
                 <Avatar user={currentUser} size="md" />
+                <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white dark:bg-slate-900 p-0.5 shadow-xs">
+                  <StatusDynamicIcon status={myStatus} className="w-2.5 h-2.5" />
+                </span>
               </button>
             ) : (
               <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center ${darkMode ? 'bg-slate-700/70 text-slate-400' : 'bg-slate-300/70 text-slate-500'} border ${darkMode ? 'border-slate-600' : 'border-slate-400'}`} title="Not logged in">
                 <ICON_MAP.UserCircleIcon className="w-5 h-5" />
               </div>
             )}
+
             {isProfileMenuOpen && currentUser && (
               <div 
-                className={`absolute right-0 mt-2 w-52 rounded-xl shadow-glass-lg py-1 z-30
-                           border ${darkMode ? 'bg-slate-800/95 border-slate-700' : 'bg-white/95 border-slate-300'} backdrop-blur-md`}
+                className={`absolute right-0 mt-2.5 w-72 rounded-2xl shadow-2xl py-2 z-50 border backdrop-blur-xl animate-fadeIn ${
+                  darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
+                }`}
               >
-                <div className={`px-4 py-2.5 border-b ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
-                    <p className={`text-xs font-semibold truncate ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>{currentUser.full_name || currentUser.email}</p>
-                    <p className={`text-[11px] truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{currentUser.email}</p>
+                {/* User Identity Header */}
+                <div className={`px-4 py-3 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar user={currentUser} size="md" />
+                      <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white dark:bg-slate-900 p-0.5">
+                        <StatusDynamicIcon status={myStatus} className="w-3 h-3" />
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate">{currentUser.full_name || currentUser.email}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                          {normalizedRole.replace(/_/g, ' ')}
+                        </span>
+                        {currentOrganization?.name && (
+                          <span className="text-[10px] text-slate-400 truncate">• {currentOrganization.name}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className={`w-full flex items-center space-x-2 px-4 py-2 text-xs font-medium 
-                             ${darkMode ? 'text-status-error hover:bg-status-error/20' : 'text-status-error hover:bg-status-error/10'} 
-                             transition-colors`}
-                >
-                  <LogoutIcon className="w-3.5 h-3.5" />
-                  <span>Logout</span>
-                </button>
+
+                {/* Dynamic Status Selector inside Profile Menu */}
+                <div className={`px-3 py-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Status</span>
+                    <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
+                      <StatusDynamicIcon status={myStatus} className="w-3 h-3" />
+                      {statusLabelText}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {(['available', 'away', 'busy'] as const).map((st) => {
+                      const active = myStatus === st;
+                      const label = st === 'available' ? 'Online' : st === 'away' ? 'Away' : 'Busy';
+                      return (
+                        <button
+                          key={st}
+                          onClick={() => handleStatusChange(st)}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
+                            active
+                              ? darkMode
+                                ? 'bg-indigo-500/20 border-indigo-500/50 text-white shadow-xs'
+                                : 'bg-indigo-50 border-indigo-300 text-indigo-800 shadow-xs'
+                              : darkMode
+                                ? 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200'
+                                : 'bg-slate-50 border-slate-200/70 text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <StatusDynamicIcon status={st} className="w-3.5 h-3.5" />
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Navigation & Quick Workspace Links */}
+                <div className="py-1 px-1.5 space-y-0.5">
+                  <button
+                    onClick={() => {
+                      setActiveView('profile_settings');
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-indigo-400" />
+                      <span>Profile & Workspace Settings</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">⚙️</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveView('my_tasks_view');
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ICON_MAP.ClipboardListIcon className="w-4 h-4 text-emerald-400" />
+                      <span>My Assigned Tasks</span>
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveView('ai_copilot_view');
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ICON_MAP.SparklesIcon className="w-4 h-4 text-purple-400" />
+                      <span>AI Co-Pilot & Virtual PM</span>
+                    </span>
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400">AI</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveView('team_management');
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ICON_MAP.UserGroupIcon className="w-4 h-4 text-sky-400" />
+                      <span>Team & RBAC Directory</span>
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveView('inbox_view');
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <BellIcon className="w-4 h-4 text-amber-400" />
+                      <span>Inbox & Notifications</span>
+                    </span>
+                    {unreadCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Preferences & Utilities */}
+                <div className={`py-1 px-1.5 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'} space-y-0.5`}>
+                  <button
+                    onClick={() => {
+                      toggleDarkMode();
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      {darkMode ? <SunIcon className="w-4 h-4 text-amber-400" /> : <MoonIcon className="w-4 h-4 text-indigo-500" />}
+                      <span>Appearance Mode</span>
+                    </span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                      darkMode ? 'bg-slate-800 border-slate-700 text-amber-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                    }`}>
+                      {darkMode ? 'Dark' : 'Light'}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      openCommandPalette();
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ICON_MAP.SearchIcon className="w-4 h-4 text-slate-400" />
+                      <span>AI Command Centre</span>
+                    </span>
+                    <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800/50 text-slate-400 border border-slate-700/50">⌘K</kbd>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      openShortcutsModal();
+                      setProfileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ICON_MAP.KeyboardIcon className="w-4 h-4 text-slate-400" />
+                      <span>Keyboard Shortcuts</span>
+                    </span>
+                    <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800/50 text-slate-400 border border-slate-700/50">?</kbd>
+                  </button>
+                </div>
+
+                {/* Sign out */}
+                <div className={`pt-1 px-1.5 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                  <button
+                    onClick={handleLogout}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
+                      darkMode ? 'text-rose-400 hover:bg-rose-500/15' : 'text-rose-600 hover:bg-rose-50'
+                    } transition-colors`}
+                  >
+                    <LogoutIcon className="w-4 h-4" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

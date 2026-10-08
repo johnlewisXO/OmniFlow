@@ -478,6 +478,16 @@ class CollabService {
         .on('broadcast', { event: 'chat_message_notification' }, ({ payload }: { payload: ChatMessage }) => {
           this.handleChatMessageNotification(payload);
         })
+        .on('broadcast', { event: 'team_member_updated' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_team_member_updated', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'team_member_removed' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_team_member_removed', { detail: payload }));
+          }
+        })
         .subscribe((status: string) => {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
           if (status === 'SUBSCRIBED') {
@@ -561,6 +571,19 @@ class CollabService {
             updates: mappedUpdates,
             actor: { id: 'remote', name: 'Teammate' }
           });
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'user_profiles' }, (payload: any) => {
+          const updatedProfile = payload.new;
+          if (!updatedProfile || !updatedProfile.id) return;
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('omni_remote_team_member_updated', {
+              detail: {
+                userId: updatedProfile.id,
+                updates: updatedProfile,
+                actor: { id: 'remote', name: 'Workspace Admin' }
+              }
+            }));
+          }
         })
         .subscribe();
     } catch (err) {
@@ -657,6 +680,14 @@ class CollabService {
       this.handleUserStatusChanged(payload);
     } else if (type === 'CHAT_NOTIFICATION' && payload) {
       this.handleChatMessageNotification(payload);
+    } else if (type === 'TEAM_MEMBER_UPDATED' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_team_member_updated', { detail: payload }));
+      }
+    } else if (type === 'TEAM_MEMBER_REMOVED' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_team_member_removed', { detail: payload }));
+      }
     }
   }
 
@@ -966,6 +997,16 @@ class CollabService {
   public broadcastChatNotification(message: ChatMessage) {
     this.emitLocalPacket('CHAT_NOTIFICATION', message);
     this.sendBroadcast('chat_message_notification', message, true);
+  }
+
+  public broadcastTeamMemberUpdated(payload: { userId: string; userName?: string; updates: Record<string, any>; actor: { id: string; name: string } }) {
+    this.emitLocalPacket('TEAM_MEMBER_UPDATED', payload);
+    this.sendBroadcast('team_member_updated', payload, true);
+  }
+
+  public broadcastTeamMemberRemoved(payload: { userId: string; userName?: string; actor: { id: string; name: string } }) {
+    this.emitLocalPacket('TEAM_MEMBER_REMOVED', payload);
+    this.sendBroadcast('team_member_removed', payload, true);
   }
 
   public onPresencesChange(callback: (presences: UserPresence[]) => void): () => void {

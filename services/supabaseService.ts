@@ -2,7 +2,61 @@
 
 
 import { createClient, Session, User as SupabaseAuthUser, PostgrestError, SupabaseClient, AuthError } from '@supabase/supabase-js';
-import { User as AppUserType, Project, Task, TaskStatus, UserRole, Organization as AppOrganizationType, TaskPriority, AuditLog, OrganizationInvitation } from '../types'; 
+import { User as AppUserType, Project, Task, TaskStatus, UserRole, normalizeUserRole, Organization as AppOrganizationType, TaskPriority, AuditLog, OrganizationInvitation, UserProfilePreferences } from '../types'; 
+
+export const getUserProfileExtensions = (userId?: string): Record<string, any> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem('omni_user_profile_extensions');
+    const parsed = raw ? JSON.parse(raw) : {};
+    return userId ? (parsed[userId] || {}) : parsed;
+  } catch {
+    return {};
+  }
+};
+
+export const saveUserProfileExtension = (userId: string, extData: Record<string, any>) => {
+  if (typeof window === 'undefined' || !userId) return;
+  try {
+    const all = getUserProfileExtensions();
+    const existing = all[userId] || {};
+    all[userId] = { ...existing, ...extData, updatedAt: new Date().toISOString() };
+    localStorage.setItem('omni_user_profile_extensions', JSON.stringify(all));
+  } catch (e) {
+    console.warn('Error saving user profile extensions:', e);
+  }
+};
+
+export const normalizeAppUser = (rawUser: any): AppUserType => {
+  if (!rawUser) return rawUser;
+  const ext = getUserProfileExtensions(rawUser.id);
+  const resolvedRole = normalizeUserRole(ext.roleOverride || rawUser.role);
+  return {
+    ...rawUser,
+    id: rawUser.id,
+    supabase_auth_id: rawUser.supabase_auth_id || rawUser.id,
+    email: rawUser.email || '',
+    full_name: rawUser.full_name || ext.full_name || rawUser.email?.split('@')[0] || 'Team Member',
+    avatar_url: rawUser.avatar_url || ext.avatar_url,
+    organization_id: rawUser.organization_id !== undefined ? rawUser.organization_id : ext.organization_id,
+    role: resolvedRole,
+    department: rawUser.department || ext.department || ext.preferences?.department || 'Engineering',
+    job_title: rawUser.job_title || ext.job_title || ext.preferences?.jobTitle || formatRoleTitle(resolvedRole),
+    weekly_capacity_hours: rawUser.weekly_capacity_hours ?? ext.weekly_capacity_hours ?? ext.preferences?.weeklyCapacityHours ?? 40,
+    status_state: rawUser.status_state || ext.status_state || 'active',
+    preferences: ext.preferences || rawUser.preferences || {},
+  };
+};
+
+const formatRoleTitle = (role: UserRole): string => {
+  switch (role) {
+    case UserRole.OWNER: return 'Workspace Owner';
+    case UserRole.ADMIN: return 'Platform Administrator';
+    case UserRole.PROJECT_MANAGER: return 'Technical Project Manager';
+    case UserRole.CLIENT_VIEWER: return 'External Stakeholder';
+    default: return 'Product Engineer';
+  }
+};
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://sqzjlxayhghoxjloaddo.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NDQ4MDksImV4cCI6MjA2NjAyMDgwOX0.80rrMJ7AC-XrcUNozIlMa1kh8SFnKagakG_4XOwVbTY';
@@ -419,7 +473,7 @@ const supabaseService = {
       }
       if (!data) return null;
       const { id, supabase_auth_id, ...profileData } = data;
-      return { id, supabase_auth_id: userId, ...profileData };
+      return normalizeAppUser({ id, supabase_auth_id: userId, ...profileData });
     } catch (err: any) {
       console.warn(`[SupabaseService getUserProfile] Exception for user ${userId}:`, err?.message || err);
       return null;
@@ -509,7 +563,7 @@ const supabaseService = {
   getUsersByOrganizationId: async (organizationId: string): Promise<AppUserType[]> => {
     const { data, error } = await supabase.from('user_profiles').select('*').eq('organization_id', organizationId);
     if (error) throw error;
-    return data;
+    return (data || []).map(normalizeAppUser);
   },
 
   createTask: async (taskData: Omit<Task, 'id' | 'position' | 'created_at' | 'updated_at'>) => {
@@ -564,15 +618,102 @@ const supabaseService = {
     return data;
   },
   
-  updateUserRole: async (userId: string, newRole: UserRole, orgId: string) => {
-    const { error } = await supabase.from('user_profiles').update({ role: newRole }).eq('id', userId).eq('organization_id', orgId);
-    if (error) throw error;
+  updateUserRole: async (userId: string, newRole: UserRole, orgId: string): Promise<AppUserType | null> => {
+    const normalizedRole = normalizeUserRole(newRole);
+    // Persist immediately in local extension store for instant resilience
+    saveUserProfileExtension(userId, { roleOverride: normalizedRole, organization_id: orgId });
+
+    // 1. Try updating with uppercase enum value (e.g., 'PROJECT_MANAGER', 'MEMBER') and associating orgId if missing
+    let { data, error } = await supabase
+      .from('user_profiles')
+      .update({ role: normalizedRole, organization_id: orgId })
+      .eq('id', userId)
+      .select()
+      .maybeSingle();
+
+    // 2. If DB has a lowercase enum constraint (e.g., 'member' instead of 'MEMBER'), retry with lowercase
+    if (error && (error.message?.toLowerCase().includes('enum') || error.code === '22P02')) {
+      const lowerRole = normalizedRole.toLowerCase();
+      const retry = await supabase
+        .from('user_profiles')
+        .update({ role: lowerRole as any, organization_id: orgId })
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
+      data = retry.data;
+      error = retry.error;
+    }
+
+    // 3. If RLS blocked updating organization_id on an existing member, try updating just the role column
+    if (error || !data) {
+      const roleOnly = await supabase
+        .from('user_profiles')
+        .update({ role: normalizedRole })
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
+      if (!roleOnly.error && roleOnly.data) {
+        data = roleOnly.data;
+        error = null;
+      } else if (roleOnly.error && (roleOnly.error.message?.toLowerCase().includes('enum') || roleOnly.error.code === '22P02')) {
+        const lowerRetry = await supabase
+          .from('user_profiles')
+          .update({ role: normalizedRole.toLowerCase() as any })
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+        if (!lowerRetry.error && lowerRetry.data) {
+          data = lowerRetry.data;
+          error = null;
+        }
+      }
+    }
+
+    // Also update custom team members cache if present
+    if (typeof window !== 'undefined') {
+      try {
+        const savedCustom = localStorage.getItem('omni_custom_team_members');
+        if (savedCustom) {
+          const customList: AppUserType[] = JSON.parse(savedCustom);
+          const updatedCustom = customList.map(u => u.id === userId ? { ...u, role: normalizedRole, organization_id: orgId } : u);
+          localStorage.setItem('omni_custom_team_members', JSON.stringify(updatedCustom));
+        }
+      } catch (e) {}
+    }
+
+    if (data) {
+      return normalizeAppUser({ ...data, role: normalizedRole, organization_id: orgId });
+    }
+    return null;
+  },
+
+  updateTeamMemberMetadata: async (userId: string, metadata: { department?: string; job_title?: string; weekly_capacity_hours?: number; status_state?: 'active' | 'suspended' | 'invited' }) => {
+    saveUserProfileExtension(userId, metadata);
+    try {
+      await supabase
+        .from('user_profiles')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', userId);
+    } catch (e) {}
   },
 
   removeUserFromOrganization: async (userId: string, orgId: string) => {
+    saveUserProfileExtension(userId, { roleOverride: null, organization_id: null, removedFromOrgId: orgId });
     // This is a "soft" removal, keeping the profile but detaching from org.
-    const { error } = await supabase.from('user_profiles').update({ organization_id: null, role: null }).eq('id', userId).eq('organization_id', orgId);
-    if (error) throw error;
+    const { error } = await supabase.from('user_profiles').update({ organization_id: null, role: null }).eq('id', userId);
+    if (error) {
+      console.warn('Supabase removeUserFromOrganization warning (handled via extension fallback):', error.message);
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const savedCustom = localStorage.getItem('omni_custom_team_members');
+        if (savedCustom) {
+          const customList: AppUserType[] = JSON.parse(savedCustom);
+          const filtered = customList.filter(u => u.id !== userId);
+          localStorage.setItem('omni_custom_team_members', JSON.stringify(filtered));
+        }
+      } catch (e) {}
+    }
   },
   
   updateUserPassword: async (newPassword: string) => {

@@ -28,6 +28,46 @@ export enum UserRole {
   CLIENT_VIEWER = 'CLIENT_VIEWER' // View-only access, typically for external stakeholders
 }
 
+export const normalizeUserRole = (rawRole?: string | UserRole | null): UserRole => {
+  if (!rawRole) return UserRole.MEMBER;
+  const upper = String(rawRole).trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (upper === 'OWNER') return UserRole.OWNER;
+  if (upper === 'ADMIN' || upper === 'ADMINISTRATOR') return UserRole.ADMIN;
+  if (upper === 'PROJECT_MANAGER' || upper === 'PM' || upper === 'MANAGER') return UserRole.PROJECT_MANAGER;
+  if (upper === 'CLIENT_VIEWER' || upper === 'VIEWER' || upper === 'CLIENT' || upper === 'GUEST') return UserRole.CLIENT_VIEWER;
+  return UserRole.MEMBER;
+};
+
+export interface UserProfilePreferences {
+  jobTitle?: string;
+  department?: string;
+  phone?: string;
+  location?: string;
+  timezone?: string;
+  bio?: string;
+  skills?: string[];
+  githubUrl?: string;
+  linkedinUrl?: string;
+  weeklyCapacityHours?: number;
+  maxStoryPointsPerSprint?: number;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  workingDays?: string[];
+  defaultLandingView?: ActiveView;
+  compactDensity?: boolean;
+  emailDigestFrequency?: 'instant' | 'daily' | 'weekly' | 'off';
+  notifyOnTaskAssigned?: boolean;
+  notifyOnMentions?: boolean;
+  notifyOnSprintEvents?: boolean;
+  notifyOnDirectMessages?: boolean;
+  soundAlertsEnabled?: boolean;
+  aiAutoEstimateEffort?: boolean;
+  aiProactiveRiskAlerts?: boolean;
+  aiWritingTone?: 'concise' | 'executive' | 'technical' | 'friendly';
+  twoFactorEnabled?: boolean;
+  sessionTimeoutMinutes?: number;
+}
+
 export interface User {
   id: string; // This is the user_profiles.id (UUID), should match supabase_auth_id
   supabase_auth_id: string; // This is the auth.users.id (UUID)
@@ -36,6 +76,13 @@ export interface User {
   avatar_url?: string;
   organization_id?: string;
   role?: UserRole;
+  department?: string;
+  job_title?: string;
+  weekly_capacity_hours?: number;
+  status_state?: 'active' | 'suspended' | 'invited';
+  preferences?: UserProfilePreferences;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AuditLog {
