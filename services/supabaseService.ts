@@ -119,6 +119,7 @@ const mapDbTaskToAppTask = (dbTask: any): Task => {
     projectId: project_id,
     priority: mapDbPriorityToAppPriority(dbPriority), 
     dueDate: due_date,
+    due_date: due_date,
     assignee_id: assignee_id,
     creator_id: creator_id,
     parent_task_id: parent_task_id,

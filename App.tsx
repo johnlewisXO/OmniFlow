@@ -495,13 +495,13 @@ function App() {
 
   // Seamlessly broadcast user's current view and project presence across the platform
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser?.id) {
       updateUserPresence(undefined, activeView, {
         projectId: activeProject?.id,
         statusAction: activeProject ? `viewing_${activeView}` : 'online'
       });
     }
-  }, [currentUser, activeProject?.id, activeView, updateUserPresence]);
+  }, [currentUser?.id, activeProject?.id, activeView, updateUserPresence]);
 
 
   useEffect(() => {
@@ -863,7 +863,7 @@ function App() {
     fetchProjects, fetchMyTasks, fetchNotifications, fetchUsersForAssignmentList,
     setProjects, setUsers, setTasks, setActiveProject,
     setProjectsError, setUsersForAssignmentError, setTasksError,
-    setActiveView, setAuthError, addNotification, currentRoute
+    setActiveView, setAuthError, addNotification
   ]);
 
    useEffect(() => {

@@ -66,6 +66,13 @@ export const TaskDetailsModal: React.FC = () => {
   const [editedTitle, setEditedTitle] = useState('');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
+  const [editedStatus, setEditedStatus] = useState<TaskStatus>(TaskStatus.TODO);
+  const [editedPriority, setEditedPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
+  const [editedSprintId, setEditedSprintId] = useState<string>('');
+  const [editedStoryPoints, setEditedStoryPoints] = useState<number | undefined>(undefined);
+  const [editedAssigneeId, setEditedAssigneeId] = useState<string>('');
+  const [editedDueDate, setEditedDueDate] = useState<string>('');
+  const [commentSortOrder, setCommentSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [recentEditingField, setRecentEditingField] = useState<string | null>(null);
   const [liveTicketBroadcast, setLiveTicketBroadcast] = useState<{ message: string; isRemote: boolean } | null>(null);
   const editFieldTimeoutRef = React.useRef<any>(null);
@@ -246,6 +253,7 @@ export const TaskDetailsModal: React.FC = () => {
   };
 
   const commentTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const commentsTopRef = React.useRef<HTMLDivElement>(null);
   const commentsEndRef = React.useRef<HTMLDivElement>(null);
 
   // Real-time comment subscriptions and focus listener
@@ -257,11 +265,8 @@ export const TaskDetailsModal: React.FC = () => {
       if (taskId === taskToView.id && comment) {
         setComments(prev => {
           if (prev.some(c => c.id === comment.id)) return prev;
-          return [...prev, comment];
+          return [comment, ...prev];
         });
-        setTimeout(() => {
-          commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
       }
     };
 
@@ -283,8 +288,8 @@ export const TaskDetailsModal: React.FC = () => {
       if (e.detail?.taskId === taskToView.id) {
         setActivityTab('comments');
         setTimeout(() => {
+          commentsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           commentTextareaRef.current?.focus();
-          commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 150);
       }
     };
@@ -406,6 +411,13 @@ export const TaskDetailsModal: React.FC = () => {
       fetchTaskDetails();
       setEditedTitle(taskToView.title);
       setEditedDescription(taskToView.description || '');
+      setEditedStatus(taskToView.status);
+      setEditedPriority(taskToView.priority);
+      setEditedSprintId(taskToView.sprintId || '');
+      setEditedStoryPoints(taskToView.story_points);
+      setEditedAssigneeId(taskToView.assignee_id || '');
+      const rawDue = taskToView.dueDate || taskToView.due_date;
+      setEditedDueDate(rawDue ? new Date(rawDue).toISOString().split('T')[0] : '');
       if (taskToView.projectId && (!activeProject || activeProject.id !== taskToView.projectId)) {
         useAppStore.getState().fetchTasksForProject(taskToView.projectId);
       }
@@ -426,15 +438,38 @@ export const TaskDetailsModal: React.FC = () => {
     }
   }, [isViewTaskModalOpen, taskToView?.id]);
 
-  // Keep local title/description synced if updated remotely while not actively typing in them
+  // Keep local fields synced if updated remotely while not actively typing in them
   useEffect(() => {
-    if (taskToView && !isEditingTitle && !isEditMode) {
+    if (!taskToView) return;
+    if (!isEditingTitle && !isEditMode) {
       setEditedTitle(taskToView.title);
     }
-    if (taskToView && !isEditingDescription && !isEditMode) {
+    if (!isEditingDescription && !isEditMode) {
       setEditedDescription(taskToView.description || '');
     }
-  }, [taskToView?.title, taskToView?.description, isEditingTitle, isEditingDescription, isEditMode]);
+    if (!isEditMode) {
+      setEditedStatus(taskToView.status);
+      setEditedPriority(taskToView.priority);
+      setEditedSprintId(taskToView.sprintId || '');
+      setEditedStoryPoints(taskToView.story_points);
+      setEditedAssigneeId(taskToView.assignee_id || '');
+      const rawDue = taskToView.dueDate || taskToView.due_date;
+      setEditedDueDate(rawDue ? new Date(rawDue).toISOString().split('T')[0] : '');
+    }
+  }, [
+    taskToView?.title,
+    taskToView?.description,
+    taskToView?.status,
+    taskToView?.priority,
+    taskToView?.sprintId,
+    taskToView?.story_points,
+    taskToView?.assignee_id,
+    taskToView?.dueDate,
+    taskToView?.due_date,
+    isEditingTitle,
+    isEditingDescription,
+    isEditMode
+  ]);
 
   useEffect(() => {
     if (isViewTaskModalOpen && taskToView) {
@@ -472,12 +507,12 @@ export const TaskDetailsModal: React.FC = () => {
   const fetchTaskDetails = async () => {
     if (!taskToView) return;
     try {
-      // Fetch comments
+      // Fetch comments (newest first by default)
       const { data: commentsData } = await supabase
         .from('task_comments')
         .select('*, user:user_profiles(*)')
         .eq('task_id', taskToView.id)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
       if (commentsData) setComments(commentsData as any);
 
       // Fetch attachments
@@ -542,7 +577,7 @@ export const TaskDetailsModal: React.FC = () => {
         
       if (error) throw error;
       if (data) {
-        setComments([...comments, data as any]);
+        setComments(prev => [data as any, ...prev.filter(c => c.id !== (data as any).id)]);
         
         // Find mentioned users (match full name, first name, email, or email username)
         const mentionedUsers = users.filter(u => {
@@ -626,10 +661,6 @@ export const TaskDetailsModal: React.FC = () => {
           assigneeId: taskToView.assignee_id,
         });
 
-        setTimeout(() => {
-          commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-
         setNewComment('');
         setIsTypingComment(false);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -710,16 +741,8 @@ export const TaskDetailsModal: React.FC = () => {
 
       if (uploadError) throw uploadError;
 
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('task-attachments')
-        .createSignedUrl(filePath, 3600);
-        
-      let signedUrl = signedUrlData?.signedUrl;
-      if (signedUrlError || !signedUrl) {
-        console.warn("Could not generate signed URL on upload, falling back to public URL:", signedUrlError);
-        const { data: publicData } = supabase.storage.from('task-attachments').getPublicUrl(filePath);
-        signedUrl = publicData.publicUrl;
-      }
+      const { data: publicData } = supabase.storage.from('task-attachments').getPublicUrl(filePath);
+      const signedUrl = publicData?.publicUrl || '';
 
       const { data, error: dbError } = await supabase
         .from('task_attachments')
@@ -963,6 +986,336 @@ export const TaskDetailsModal: React.FC = () => {
   const completedChecklistCount = checklistItems.filter(item => item.completed).length;
   const checklistPercent = checklistItems.length > 0 ? Math.round((completedChecklistCount / checklistItems.length) * 100) : 0;
 
+  const sortedComments = [...comments].sort((a, b) => {
+    const timeA = new Date(a.created_at).getTime();
+    const timeB = new Date(b.created_at).getTime();
+    return commentSortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+  });
+
+  const renderTicketPropertiesPanel = (isMobilePlacement: boolean) => {
+    const currentDueDateValue = isEditMode
+      ? editedDueDate
+      : (taskToView.dueDate || taskToView.due_date)
+        ? new Date((taskToView.dueDate || taskToView.due_date) as string).toISOString().split('T')[0]
+        : '';
+
+    return (
+      <div className="flex flex-col gap-4">
+        {isEditMode && (
+          <div className="px-3.5 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-indigo-700 dark:text-indigo-300">
+              <ICON_MAP.PencilIcon className="w-3.5 h-3.5 flex-shrink-0 text-indigo-500" />
+              <span>Edit Ticket Active — All fields below can be updated</span>
+            </div>
+          </div>
+        )}
+
+        {/* Status & Actions */}
+        <div className="flex items-center gap-2">
+          <select
+            value={isEditMode ? editedStatus : taskToView.status}
+            onChange={(e) => {
+              const nextStatus = e.target.value as TaskStatus;
+              setEditedStatus(nextStatus);
+              handleStatusChange(nextStatus);
+            }}
+            className={`flex-1 appearance-none px-3 py-2 rounded-xl text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-accent transition-all cursor-pointer ${
+              (isEditMode ? editedStatus : taskToView.status) === TaskStatus.DONE
+                ? 'bg-emerald-600 text-white border-emerald-700'
+                : (isEditMode ? editedStatus : taskToView.status) === TaskStatus.IN_PROGRESS
+                  ? 'bg-blue-600 text-white border-blue-700'
+                  : 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-700 dark:text-white dark:border-slate-600'
+            } ${isEditMode ? 'ring-2 ring-indigo-500/40' : ''}`}
+          >
+            {Object.values(TaskStatus).map(s => (
+              <option key={s} value={s}>{formatEnumForDisplay(s)}</option>
+            ))}
+          </select>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsActionsOpen(!isActionsOpen)}
+              className={`px-3.5 py-2 rounded-xl text-sm border transition-colors ${
+                darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'
+              }`}
+            >
+              Actions <ICON_MAP.ChevronDownIcon className="w-4 h-4 inline ml-1" />
+            </button>
+            {isActionsOpen && (
+              <div className={`absolute right-0 mt-1 w-48 rounded-xl shadow-lg z-50 border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const myId = currentUser?.id || '';
+                      setEditedAssigneeId(myId);
+                      handleUpdateTask({ assignee_id: currentUser?.id });
+                      setIsActionsOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    Assign to me
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                      setIsActionsOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    Copy link
+                  </button>
+                  <div className={`my-1 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeleteTask();
+                      setIsActionsOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pinned Fields & Details Grid on mobile/tablet for compact top view, stacked on desktop sidebar */}
+        <div className={isMobilePlacement ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'flex flex-col gap-4'}>
+          {/* Pinned Fields */}
+          <div className={`rounded-xl border transition-all ${
+            isEditMode
+              ? 'border-indigo-500/50 ring-1 ring-indigo-500/20 bg-indigo-500/[0.03]'
+              : darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'
+          }`}>
+            <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Pinned fields</h3>
+              <ICON_MAP.ChevronDownIcon className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="p-3.5 space-y-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400">Priority</span>
+                <div className="w-2/3">
+                  <select
+                    value={isEditMode ? editedPriority : taskToView.priority}
+                    onChange={(e) => {
+                      const nextPriority = e.target.value as TaskPriority;
+                      setEditedPriority(nextPriority);
+                      handleUpdateTask({ priority: nextPriority });
+                    }}
+                    className={`w-full appearance-none px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                      isEditMode
+                        ? 'border-indigo-500/40 bg-white dark:bg-slate-800'
+                        : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
+                    } ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  >
+                    {Object.values(TaskPriority).map(p => (
+                      <option key={p} value={p}>{formatEnumForDisplay(p)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Sprint Allocation */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400">Sprint</span>
+                <div className="w-2/3">
+                  <select
+                    value={isEditMode ? editedSprintId : (taskToView.sprintId || '')}
+                    onChange={(e) => {
+                      const nextSprint = e.target.value;
+                      setEditedSprintId(nextSprint);
+                      handleUpdateTask({ sprintId: nextSprint || undefined });
+                    }}
+                    className={`w-full appearance-none px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
+                      isEditMode
+                        ? 'border-indigo-500/40 bg-white dark:bg-slate-800'
+                        : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
+                    } ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  >
+                    <option value="">Product Backlog (No Sprint)</option>
+                    {projectSprints.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.status.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Story Points */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400">Points</span>
+                <div className="w-2/3 flex items-center gap-1 flex-wrap">
+                  {[1, 2, 3, 5, 8, 13].map(pts => {
+                    const activePts = isEditMode ? editedStoryPoints : taskToView.story_points;
+                    return (
+                      <button
+                        key={pts}
+                        type="button"
+                        onClick={() => {
+                          const nextPts = activePts === pts ? undefined : pts;
+                          setEditedStoryPoints(nextPts);
+                          handleUpdateTask({ story_points: nextPts });
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                          activePts === pts
+                            ? 'bg-purple-600 text-white shadow-xs ring-1 ring-purple-400'
+                            : darkMode
+                              ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
+                        }`}
+                      >
+                        {pts}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className={`rounded-xl border transition-all ${
+            isEditMode
+              ? 'border-indigo-500/50 ring-1 ring-indigo-500/20 bg-indigo-500/[0.03]'
+              : darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'
+          }`}>
+            <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Details</h3>
+              <ICON_MAP.ChevronDownIcon className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="p-3.5 space-y-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400">Assignee</span>
+                <div className="w-2/3">
+                  <select
+                    value={isEditMode ? editedAssigneeId : (taskToView.assignee_id || '')}
+                    onChange={(e) => {
+                      const nextAssignee = e.target.value;
+                      setEditedAssigneeId(nextAssignee);
+                      handleUpdateTask({ assignee_id: nextAssignee || undefined });
+                    }}
+                    className={`w-full appearance-none px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
+                      isEditMode
+                        ? 'border-indigo-500/40 bg-white dark:bg-slate-800'
+                        : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
+                    } ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400">Reporter</span>
+                <div className="w-2/3 flex items-center gap-2 text-xs text-slate-900 dark:text-white truncate">
+                  <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {users.find(u => u.id === taskToView.creator_id)?.avatar_url ? (
+                      <img src={users.find(u => u.id === taskToView.creator_id)?.avatar_url} alt="Reporter" className="w-full h-full object-cover" />
+                    ) : (
+                      <ICON_MAP.UserCircleIcon className="w-3.5 h-3.5 text-slate-500" />
+                    )}
+                  </div>
+                  <span className="truncate">{users.find(u => u.id === taskToView.creator_id)?.full_name || 'Unknown'}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400">Due Date</span>
+                <div className="w-2/3">
+                  <input
+                    type="date"
+                    value={currentDueDateValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditedDueDate(val);
+                      const isoDate = val ? new Date(val).toISOString() : undefined;
+                      handleUpdateTask({ dueDate: isoDate, due_date: isoDate });
+                    }}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
+                      isEditMode
+                        ? 'border-indigo-500/40 bg-white dark:bg-slate-800'
+                        : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
+                    } ${darkMode ? 'text-white' : 'text-slate-900'}`}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-start justify-between gap-2">
+                <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">Collaborators</span>
+                <div className="w-2/3 flex flex-wrap gap-1">
+                  {users.find(u => u.id === taskToView.assignee_id) && (
+                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-accent" title={`Assignee: ${users.find(u => u.id === taskToView.assignee_id)?.full_name}`}>
+                      {users.find(u => u.id === taskToView.assignee_id)?.avatar_url ? (
+                        <img src={users.find(u => u.id === taskToView.assignee_id)?.avatar_url} alt="Assignee" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-medium">{users.find(u => u.id === taskToView.assignee_id)?.full_name?.charAt(0)}</span>
+                      )}
+                    </div>
+                  )}
+                  {collaborators.map(collab => {
+                    const user = users.find(u => u.id === collab.user_id);
+                    if (!user || user.id === taskToView.assignee_id) return null;
+                    return (
+                      <div key={collab.user_id} className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-white dark:border-slate-800" title={`${collab.role}: ${user.full_name}`}>
+                        {user.avatar_url ? (
+                          <img src={user.avatar_url} alt="Collaborator" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{user.full_name?.charAt(0) || '?'}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCollaborator(!isAddingCollaborator)}
+                    className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                    title="Add Collaborator"
+                  >
+                    <ICON_MAP.PlusIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {isAddingCollaborator && (
+                <div className="flex items-center gap-2 mt-2">
+                  <select
+                    value={selectedCollaboratorId}
+                    onChange={(e) => setSelectedCollaboratorId(e.target.value)}
+                    className={`flex-1 p-1.5 rounded-md border text-xs focus:ring-2 focus:ring-accent focus:border-transparent ${
+                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  >
+                    <option value="">Select user...</option>
+                    {users.filter(u => u.id !== taskToView.assignee_id && !collaborators.some(c => c.user_id === u.id)).map(user => (
+                      <option key={user.id} value={user.id}>{user.full_name || user.email}</option>
+                    ))}
+                  </select>
+                  <Button onClick={handleAddCollaborator} disabled={!selectedCollaboratorId} size="sm">Add</Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Metadata */}
+        {!isMobilePlacement && (
+          <div className="text-xs text-slate-500 space-y-1 px-1">
+            <p>Created {taskToView.created_at ? new Date(taskToView.created_at).toLocaleString() : 'Unknown'}</p>
+            <p>Updated {taskToView.updated_at ? new Date(taskToView.updated_at).toLocaleString() : 'Unknown'}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const modalTitle = (
     <div className="flex items-center justify-between w-full pr-8">
       <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 font-normal truncate">
@@ -1101,6 +1454,28 @@ export const TaskDetailsModal: React.FC = () => {
                   if (editedDescription !== (taskToView.description || '')) {
                     updates.description = editedDescription;
                   }
+                  if (editedStatus !== taskToView.status) {
+                    updates.status = editedStatus;
+                  }
+                  if (editedPriority !== taskToView.priority) {
+                    updates.priority = editedPriority;
+                  }
+                  if ((editedSprintId || undefined) !== (taskToView.sprintId || undefined)) {
+                    updates.sprintId = editedSprintId || undefined;
+                  }
+                  if (editedStoryPoints !== taskToView.story_points) {
+                    updates.story_points = editedStoryPoints;
+                  }
+                  if ((editedAssigneeId || undefined) !== (taskToView.assignee_id || undefined)) {
+                    updates.assignee_id = editedAssigneeId || undefined;
+                  }
+                  const currentIsoDate = editedDueDate ? new Date(editedDueDate).toISOString() : undefined;
+                  const origRawDue = taskToView.dueDate || taskToView.due_date;
+                  const origDateStr = origRawDue ? new Date(origRawDue).toISOString().split('T')[0] : '';
+                  if (editedDueDate !== origDateStr) {
+                    updates.dueDate = currentIsoDate;
+                    updates.due_date = currentIsoDate;
+                  }
                   if (Object.keys(updates).length > 0) {
                     await handleUpdateTask(updates);
                   }
@@ -1113,10 +1488,17 @@ export const TaskDetailsModal: React.FC = () => {
                   setActiveTab('general');
                   setEditedTitle(taskToView.title);
                   setEditedDescription(taskToView.description || '');
+                  setEditedStatus(taskToView.status);
+                  setEditedPriority(taskToView.priority);
+                  setEditedSprintId(taskToView.sprintId || '');
+                  setEditedStoryPoints(taskToView.story_points);
+                  setEditedAssigneeId(taskToView.assignee_id || '');
+                  const rawDue = taskToView.dueDate || taskToView.due_date;
+                  setEditedDueDate(rawDue ? new Date(rawDue).toISOString().split('T')[0] : '');
                   markEditingField('details');
                 }
               }}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
                 isEditMode
                   ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
                   : darkMode
@@ -1134,12 +1516,19 @@ export const TaskDetailsModal: React.FC = () => {
                 onClick={() => {
                   setEditedTitle(taskToView.title);
                   setEditedDescription(taskToView.description || '');
+                  setEditedStatus(taskToView.status);
+                  setEditedPriority(taskToView.priority);
+                  setEditedSprintId(taskToView.sprintId || '');
+                  setEditedStoryPoints(taskToView.story_points);
+                  setEditedAssigneeId(taskToView.assignee_id || '');
+                  const rawDue = taskToView.dueDate || taskToView.due_date;
+                  setEditedDueDate(rawDue ? new Date(rawDue).toISOString().split('T')[0] : '');
                   setIsEditMode(false);
                   setIsEditingTitle(false);
                   setIsEditingDescription(false);
                   setRecentEditingField(null);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
                   darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
                 }`}
               >
@@ -1153,11 +1542,11 @@ export const TaskDetailsModal: React.FC = () => {
                 setActiveTab('general');
                 setActivityTab('comments');
                 setTimeout(() => {
+                  commentsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   commentTextareaRef.current?.focus();
-                  commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
                 }, 100);
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
             >
               <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 text-indigo-500" />
               <span>Comments ({comments.length})</span>
@@ -1165,7 +1554,7 @@ export const TaskDetailsModal: React.FC = () => {
 
             <label className="cursor-pointer relative group">
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/jpeg,image/png,image/gif,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {isUploading ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <ICON_MAP.PaperClipIcon className="w-3.5 h-3.5 text-emerald-500" />}
                 <span>Attach ({attachments.length})</span>
               </div>
@@ -1176,11 +1565,16 @@ export const TaskDetailsModal: React.FC = () => {
               onClick={() => {
                 openModal(taskToView.id);
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
             >
               <ICON_MAP.PlusIcon className="w-3.5 h-3.5 text-amber-500" />
               <span>Add Subtask ({subtasks.length})</span>
             </button>
+          </div>
+
+          {/* Mobile & Tablet Top Placement for Ticket Status, Pinned Fields & Details */}
+          <div className="block lg:hidden mb-6">
+            {renderTicketPropertiesPanel(true)}
           </div>
 
           {/* Clean Section Navigation Tabs */}
@@ -1604,17 +1998,18 @@ export const TaskDetailsModal: React.FC = () => {
             </div>
 
             {/* Activity */}
-            <div>
+            <div ref={commentsTopRef} className="pb-6">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Activity</h3>
               
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-slate-500">Show:</span>
                   {['Comments', 'History', 'Work log'].map(tab => (
                     <button
                       key={tab}
+                      type="button"
                       onClick={() => setActivityTab(tab.toLowerCase().replace(' ', '') as any)}
-                      className={`px-3 py-1 rounded-full transition-colors ${
+                      className={`px-3 py-1 rounded-full transition-colors cursor-pointer ${
                         activityTab === tab.toLowerCase().replace(' ', '')
                           ? 'bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200 font-medium'
                           : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -1624,16 +2019,24 @@ export const TaskDetailsModal: React.FC = () => {
                     </button>
                   ))}
                 </div>
-                <button className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">
-                  Oldest first <ICON_MAP.ChevronDownIcon className="w-3 h-3" />
-                </button>
+                {activityTab === 'comments' && (
+                  <button
+                    type="button"
+                    onClick={() => setCommentSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                    className="text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 transition-colors cursor-pointer"
+                    title="Toggle comment sort order"
+                  >
+                    <span>{commentSortOrder === 'newest' ? 'Newest first' : 'Oldest first'}</span>
+                    <ICON_MAP.ChevronDownIcon className={`w-3 h-3 transition-transform ${commentSortOrder === 'oldest' ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
               </div>
 
               {activityTab === 'comments' && (
-                <div className="space-y-6">
+                <div className="space-y-5">
                   {/* Live Typing Indicator for Comments */}
                   {activeViewers.some(v => v.isTypingComment) && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-xs text-purple-700 dark:text-purple-300 font-semibold animate-pulse">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-xs text-purple-700 dark:text-purple-300 font-medium animate-pulse">
                       <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />
                       <span>
                         {activeViewers.filter(v => v.isTypingComment).map(v => v.userName).join(', ')}{' '}
@@ -1642,7 +2045,7 @@ export const TaskDetailsModal: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Comment Input */}
+                  {/* Comment Input at the top so user can post & immediately see latest comments right below */}
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {currentUser?.avatar_url ? (
@@ -1690,75 +2093,104 @@ export const TaskDetailsModal: React.FC = () => {
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-slate-500">Pro tip: press <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">M</kbd> to comment</span>
                         <Button onClick={handleAddComment} disabled={!newComment.trim() || isSubmittingComment} size="sm">
-                          {isSubmittingComment ? 'Saving...' : 'Save'}
+                          {isSubmittingComment ? 'Saving...' : 'Post Comment'}
                         </Button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Comments List */}
-                  {comments.map(comment => (
-                    <div key={comment.id} className="flex gap-3 group">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {comment.user?.avatar_url ? (
-                          <img src={comment.user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-slate-600 dark:text-slate-300 font-medium text-sm">
-                            {comment.user?.full_name?.charAt(0) || comment.user?.email?.charAt(0) || '?'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-baseline gap-2 mb-1">
-                          <span className="font-medium text-sm text-slate-900 dark:text-white">
-                            {comment.user?.full_name || comment.user?.email || 'Unknown User'}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {new Date(comment.created_at).toLocaleString()}
-                          </span>
-                          {currentUser?.id === comment.user_id && editingCommentId !== comment.id && (
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 ml-2">
-                              <button 
-                                onClick={() => {
-                                  setEditingCommentId(comment.id);
-                                  setEditCommentContent(comment.content);
-                                }}
-                                className="text-xs text-slate-500 hover:text-accent"
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => setCommentToDelete(comment.id)}
-                                className="text-xs text-slate-500 hover:text-red-500"
-                              >
-                                Delete
-                              </button>
+                  {/* Comments List (Sorted Newest First by default so the latest comment is prominently visible at the top) */}
+                  <div className="space-y-3 pt-1">
+                    {sortedComments.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic py-2">No comments yet. Start the discussion above.</p>
+                    ) : (
+                      sortedComments.map((comment, idx) => {
+                        const isLatest = (commentSortOrder === 'newest' && idx === 0) || (commentSortOrder === 'oldest' && idx === sortedComments.length - 1);
+                        return (
+                          <div
+                            key={comment.id}
+                            className={`flex gap-3 group p-3.5 rounded-xl border transition-all ${
+                              isLatest
+                                ? darkMode
+                                  ? 'bg-slate-800/70 border-indigo-500/30 shadow-xs'
+                                  : 'bg-indigo-50/30 border-indigo-200/80 shadow-xs'
+                                : darkMode
+                                  ? 'bg-slate-800/30 border-slate-700/60'
+                                  : 'bg-white border-slate-200/70'
+                            }`}
+                          >
+                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden mt-0.5">
+                              {comment.user?.avatar_url ? (
+                                <img src={comment.user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-slate-600 dark:text-slate-300 font-medium text-sm">
+                                  {comment.user?.full_name?.charAt(0) || comment.user?.email?.charAt(0) || '?'}
+                                </span>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        {editingCommentId === comment.id ? (
-                          <div className="mt-2">
-                            <textarea
-                              value={editCommentContent}
-                              onChange={(e) => setEditCommentContent(e.target.value)}
-                              className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-accent focus:border-transparent resize-none ${
-                                darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                              }`}
-                              rows={3}
-                            />
-                            <div className="flex justify-end gap-2 mt-2">
-                              <Button variant="outline" size="sm" onClick={() => setEditingCommentId(null)}>Cancel</Button>
-                              <Button size="sm" onClick={() => handleSaveEditComment(comment.id)} disabled={!editCommentContent.trim()}>Save</Button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-sm text-slate-900 dark:text-white">
+                                    {comment.user?.full_name || comment.user?.email || 'Unknown User'}
+                                  </span>
+                                  {isLatest && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/25">
+                                      Latest
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                                    {new Date(comment.created_at).toLocaleString()}
+                                  </span>
+                                </div>
+                                {currentUser?.id === comment.user_id && editingCommentId !== comment.id && (
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingCommentId(comment.id);
+                                        setEditCommentContent(comment.content);
+                                      }}
+                                      className="text-xs text-slate-500 hover:text-accent cursor-pointer"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      onClick={() => setCommentToDelete(comment.id)}
+                                      className="text-xs text-slate-500 hover:text-red-500 cursor-pointer"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {editingCommentId === comment.id ? (
+                                <div className="mt-2">
+                                  <textarea
+                                    value={editCommentContent}
+                                    onChange={(e) => setEditCommentContent(e.target.value)}
+                                    className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-accent focus:border-transparent resize-none ${
+                                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                                    }`}
+                                    rows={3}
+                                  />
+                                  <div className="flex justify-end gap-2 mt-2">
+                                    <Button variant="outline" size="sm" onClick={() => setEditingCommentId(null)}>Cancel</Button>
+                                    <Button size="sm" onClick={() => handleSaveEditComment(comment.id)} disabled={!editCommentContent.trim()}>Save</Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words leading-relaxed">
+                                  {renderCommentContent(comment.content)}
+                                </div>
+                              )}
                             </div>
                           </div>
-                        ) : (
-                          <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                            {renderCommentContent(comment.content)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                        );
+                      })
+                    )}
+                  </div>
                   <div ref={commentsEndRef} />
                 </div>
               )}
@@ -1856,224 +2288,9 @@ export const TaskDetailsModal: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Sidebar Details */}
-        <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-5">
-          
-          {/* Status & Actions */}
-          <div className="flex items-center gap-2">
-            <select
-              value={taskToView.status}
-              onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
-              className={`flex-1 appearance-none px-3 py-2 rounded-md text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-accent ${
-                taskToView.status === TaskStatus.DONE ? 'bg-green-600 text-white border-green-700' :
-                taskToView.status === TaskStatus.IN_PROGRESS ? 'bg-blue-600 text-white border-blue-700' :
-                'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-700 dark:text-white dark:border-slate-600'
-              }`}
-            >
-              {Object.values(TaskStatus).map(s => <option key={s} value={s}>{formatEnumForDisplay(s)}</option>)}
-            </select>
-            <div className="relative">
-              <button 
-                onClick={() => setIsActionsOpen(!isActionsOpen)}
-                className={`px-3 py-2 rounded-md border ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-700'}`}
-              >
-                Actions <ICON_MAP.ChevronDownIcon className="w-4 h-4 inline ml-1" />
-              </button>
-              {isActionsOpen && (
-                <div className={`absolute right-0 mt-1 w-48 rounded-md shadow-lg z-50 border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                  <div className="py-1">
-                    <button onClick={() => { handleUpdateTask({ assignee_id: currentUser?.id }); setIsActionsOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Assign to me</button>
-                    <button onClick={() => { 
-                      navigator.clipboard.writeText(window.location.href); 
-                      alert('Link copied to clipboard');
-                      setIsActionsOpen(false); 
-                    }} className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}>Copy link</button>
-                    <div className={`my-1 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}></div>
-                    <button onClick={() => { handleDeleteTask(); setIsActionsOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20`}>Delete</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Pinned Fields */}
-          <div className={`rounded-lg border ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'}`}>
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Pinned fields</h3>
-              <ICON_MAP.ChevronDownIcon className="w-4 h-4 text-slate-500" />
-            </div>
-            <div className="p-4 space-y-4">
-              <div className="flex items-center">
-                <span className="w-1/3 text-sm text-slate-500">Priority</span>
-                <div className="w-2/3">
-                  <select
-                    value={taskToView.priority}
-                    onChange={(e) => handleUpdateTask({ priority: e.target.value as TaskPriority })}
-                    className={`w-full appearance-none px-2 py-1 rounded-md text-sm font-medium border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
-                  >
-                    {Object.values(TaskPriority).map(p => (
-                      <option key={p} value={p}>{formatEnumForDisplay(p)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Sprint Allocation */}
-              <div className="flex items-center">
-                <span className="w-1/3 text-sm text-slate-500">Sprint</span>
-                <div className="w-2/3">
-                  <select
-                    value={taskToView.sprintId || ''}
-                    onChange={(e) => handleUpdateTask({ sprintId: e.target.value || undefined })}
-                    className={`w-full appearance-none px-2 py-1 rounded-md text-sm border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
-                  >
-                    <option value="">Product Backlog (No Sprint)</option>
-                    {projectSprints.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.status.toUpperCase()})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Story Points */}
-              <div className="flex items-center">
-                <span className="w-1/3 text-sm text-slate-500">Points</span>
-                <div className="w-2/3 flex items-center gap-1">
-                  {[1, 2, 3, 5, 8, 13].map(pts => (
-                    <button
-                      key={pts}
-                      type="button"
-                      onClick={() => handleUpdateTask({ story_points: taskToView.story_points === pts ? undefined : pts })}
-                      className={`px-2 py-0.5 rounded text-xs font-semibold transition-all ${
-                        taskToView.story_points === pts
-                          ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400'
-                          : darkMode
-                          ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
-                      }`}
-                    >
-                      {pts}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Details */}
-          <div className={`rounded-lg border ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'}`}>
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Details</h3>
-              <ICON_MAP.ChevronDownIcon className="w-4 h-4 text-slate-500" />
-            </div>
-            <div className="p-4 space-y-4">
-              <div className="flex items-center">
-                <span className="w-1/3 text-sm text-slate-500">Assignee</span>
-                <div className="w-2/3">
-                  <select
-                    value={taskToView.assignee_id || ''}
-                    onChange={(e) => handleUpdateTask({ assignee_id: e.target.value || undefined })}
-                    className={`w-full appearance-none px-2 py-1 rounded-md text-sm border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
-                  >
-                    <option value="">Unassigned</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="flex items-center">
-                <span className="w-1/3 text-sm text-slate-500">Reporter</span>
-                <div className="w-2/3 flex items-center gap-2 text-sm text-slate-900 dark:text-white">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden">
-                    {users.find(u => u.id === taskToView.creator_id)?.avatar_url ? (
-                      <img src={users.find(u => u.id === taskToView.creator_id)?.avatar_url} alt="Reporter" className="w-full h-full object-cover" />
-                    ) : (
-                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-slate-500" />
-                    )}
-                  </div>
-                  {users.find(u => u.id === taskToView.creator_id)?.full_name || 'Unknown'}
-                </div>
-              </div>
-
-              <div className="flex items-center">
-                <span className="w-1/3 text-sm text-slate-500">Due Date</span>
-                <div className="w-2/3">
-                  <input
-                    type="date"
-                    value={taskToView.dueDate ? new Date(taskToView.dueDate).toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleUpdateTask({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-                    className={`w-full px-2 py-1 rounded-md text-sm border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:ring-1 focus:ring-accent bg-transparent cursor-pointer ${darkMode ? 'text-white' : 'text-slate-900'}`}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-start">
-                <span className="w-1/3 text-sm text-slate-500 mt-1">Collaborators</span>
-                <div className="w-2/3 flex flex-wrap gap-1">
-                  {/* Main Assignee */}
-                  {users.find(u => u.id === taskToView.assignee_id) && (
-                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-accent" title={`Assignee: ${users.find(u => u.id === taskToView.assignee_id)?.full_name}`}>
-                      {users.find(u => u.id === taskToView.assignee_id)?.avatar_url ? (
-                        <img src={users.find(u => u.id === taskToView.assignee_id)?.avatar_url} alt="Assignee" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-xs font-medium">{users.find(u => u.id === taskToView.assignee_id)?.full_name?.charAt(0)}</span>
-                      )}
-                    </div>
-                  )}
-                  {/* Other Collaborators */}
-                  {collaborators.map(collab => {
-                    const user = users.find(u => u.id === collab.user_id);
-                    if (!user || user.id === taskToView.assignee_id) return null;
-                    return (
-                      <div key={collab.user_id} className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-white dark:border-slate-800" title={`${collab.role}: ${user.full_name}`}>
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt="Collaborator" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{user.full_name?.charAt(0) || '?'}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <button 
-                    onClick={() => setIsAddingCollaborator(!isAddingCollaborator)}
-                    className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors" 
-                    title="Add Collaborator"
-                  >
-                    <ICON_MAP.PlusIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-              
-              {isAddingCollaborator && (
-                <div className="flex items-center gap-2 mt-2">
-                  <select
-                    value={selectedCollaboratorId}
-                    onChange={(e) => setSelectedCollaboratorId(e.target.value)}
-                    className={`flex-1 p-1.5 rounded-md border text-sm focus:ring-2 focus:ring-accent focus:border-transparent ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                    }`}
-                  >
-                    <option value="">Select user...</option>
-                    {users.filter(u => u.id !== taskToView.assignee_id && !collaborators.some(c => c.user_id === u.id)).map(user => (
-                      <option key={user.id} value={user.id}>{user.full_name || user.email}</option>
-                    ))}
-                  </select>
-                  <Button onClick={handleAddCollaborator} disabled={!selectedCollaboratorId} size="sm">Add</Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Metadata */}
-          <div className="text-xs text-slate-500 space-y-1">
-            <p>Created {taskToView.created_at ? new Date(taskToView.created_at).toLocaleString() : 'Unknown'}</p>
-            <p>Updated {taskToView.updated_at ? new Date(taskToView.updated_at).toLocaleString() : 'Unknown'}</p>
-          </div>
-
+        {/* Right Column: Sidebar Details (Desktop) */}
+        <div className="hidden lg:flex w-full lg:w-80 flex-shrink-0 flex-col gap-5">
+          {renderTicketPropertiesPanel(false)}
         </div>
       </div>
 

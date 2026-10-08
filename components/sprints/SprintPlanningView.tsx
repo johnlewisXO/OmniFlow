@@ -3,6 +3,8 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { Sprint, Task, TaskStatus, TaskPriority } from '../../types';
 import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
+import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
+import { collabService } from '../../services/collabService';
 
 export const SprintPlanningView: React.FC = () => {
   const {
@@ -378,12 +380,25 @@ export const SprintPlanningView: React.FC = () => {
                       <div className="space-y-2 pr-1">
                         {stats.tasks.map(task => {
                           const taskAssignee = users.find(u => u.id === task.assignee_id);
+                          const activeParticipants = presences.filter(
+                            p => p.currentTaskId === task.id && p.userId !== currentUser?.id && (!p.sessionId || p.sessionId !== collabService.sessionId)
+                          );
+                          const isBeingEdited = activeParticipants.some(p => p.isEditing);
+                          const isBeingCommented = activeParticipants.some(p => p.isTypingComment);
                           return (
                             <div
                               key={task.id}
-                              className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80 hover:shadow-xs transition-all"
+                              className={`flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border transition-all ${
+                                isBeingEdited
+                                  ? 'border-blue-500/50 ring-1 ring-blue-500/20'
+                                  : isBeingCommented
+                                    ? 'border-purple-500/50 ring-1 ring-purple-500/20'
+                                    : activeParticipants.length > 0
+                                      ? 'border-emerald-500/50 ring-1 ring-emerald-500/15'
+                                      : 'border-slate-200/80 dark:border-slate-700/80 hover:shadow-xs'
+                              }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap">
                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                   task.status === TaskStatus.DONE ? 'bg-emerald-500' :
                                   task.status === TaskStatus.IN_PROGRESS ? 'bg-blue-500' :
@@ -391,10 +406,11 @@ export const SprintPlanningView: React.FC = () => {
                                 }`} />
                                 <span
                                   onClick={() => openViewTaskModal(task.id)}
-                                  className="text-xs font-bold text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 truncate cursor-pointer"
+                                  className="text-xs font-medium text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 truncate cursor-pointer"
                                 >
                                   {task.title}
                                 </span>
+                                <TaskLivePresenceBadge taskId={task.id} compact />
                               </div>
 
                               <div className="flex items-center gap-3 ml-3 flex-shrink-0">
@@ -502,12 +518,15 @@ export const SprintPlanningView: React.FC = () => {
                             key={t.id}
                             className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/60 text-xs border border-slate-200/50 dark:border-slate-700/50"
                           >
-                            <span
-                              onClick={() => openViewTaskModal(t.id)}
-                              className="font-medium text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 truncate cursor-pointer flex-1"
-                            >
-                              {t.title}
-                            </span>
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span
+                                onClick={() => openViewTaskModal(t.id)}
+                                className="font-medium text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 truncate cursor-pointer"
+                              >
+                                {t.title}
+                              </span>
+                              <TaskLivePresenceBadge taskId={t.id} compact />
+                            </div>
                             <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                               <span className="font-bold text-slate-500">{t.story_points || 1} pts</span>
                               <button
@@ -655,12 +674,15 @@ export const SprintPlanningView: React.FC = () => {
                             className="mt-0.5 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                           />
                           <div className="min-w-0 flex-1">
-                            <span
-                              onClick={() => openViewTaskModal(task.id)}
-                              className="text-xs font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 leading-snug cursor-pointer line-clamp-2"
-                            >
-                              {task.title}
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                onClick={() => openViewTaskModal(task.id)}
+                                className="text-xs font-medium text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 leading-snug cursor-pointer line-clamp-2"
+                              >
+                                {task.title}
+                              </span>
+                              <TaskLivePresenceBadge taskId={task.id} compact />
+                            </div>
                             {task.description && (
                               <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
                                 {task.description}

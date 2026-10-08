@@ -14,8 +14,8 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"SF Pro"', '"Inter"', '"Plus Jakarta Sans"', 'Helvetica', 'Arial', 'sans-serif'],
-              display: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"SF Pro"', '"Inter"', 'sans-serif'], 
+              sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Segoe UI Variable Text"', '"Segoe UI"', '"Plus Jakarta Sans"', '"Inter"', 'Helvetica Neue', 'Arial', 'sans-serif'],
+              display: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI Variable Display"', '"Segoe UI"', '"Plus Jakarta Sans"', '"Inter"', 'sans-serif'], 
             },
             colors: {
               primary: {
@@ -231,14 +231,27 @@
           background-size: 160% 160%;
           background-attachment: fixed;
           animation: animateBackgroundMesh 30s ease-in-out infinite;
-          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter", "Plus Jakarta Sans", sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable Text", "Segoe UI", "Plus Jakarta Sans", "Inter", sans-serif;
+          font-weight: 300;
+          font-feature-settings: "cv02", "cv03", "cv04", "cv11";
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
           text-rendering: optimizeLegibility;
-          letter-spacing: -0.011em;
+          letter-spacing: -0.008em;
           line-height: 1.6;
           transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
         }
+
+        h1, h2, h3, h4, h5, h6 {
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", "Plus Jakarta Sans", "Inter", sans-serif;
+          font-weight: 400 !important;
+          letter-spacing: -0.022em;
+        }
+
+        .font-normal { font-weight: 300 !important; }
+        .font-medium { font-weight: 400 !important; }
+        .font-semibold { font-weight: 400 !important; }
+        .font-bold, .font-extrabold, .font-black { font-weight: 500 !important; letter-spacing: -0.015em; }
 
         html.dark body {
           color: #F8FAFC;
@@ -391,7 +404,7 @@
           border-radius: 9999px !important;
         }
 
-        label { @apply text-sm font-medium tracking-wide; color: #1F2937; }
+        label { @apply text-sm font-normal tracking-wide; color: #1F2937; }
         html.dark label { color: #CBD5E1; }
       }
       
@@ -409,7 +422,7 @@
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600&family=Plus+Jakarta+Sans:wght@200;300;400;500;600&display=swap" rel="stylesheet">
   <script type="importmap">
 {
   "imports": {

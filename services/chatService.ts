@@ -137,6 +137,7 @@ class ChatService {
   private personAddedListeners = new Set<(user: User) => void>();
   private keyCache = new Map<string, CryptoKey>();
   private decryptedPlaintextCache = new Map<string, string>();
+  private lastTypingBroadcastMap = new Map<string, { isTyping: boolean; ts: number }>();
 
   constructor() {
     this.initBroadcastChannel();
@@ -379,34 +380,9 @@ class ChatService {
           if (!payload || !payload.id) return;
           this.handleIncomingPersonAdded(payload);
         })
-        .on('broadcast', { event: 'collab_presence' }, ({ payload }: any) => {
-          collabService.ingestRemoteEventFromBridge('collab_presence', payload);
-        })
-        .on('broadcast', { event: 'collab_presence_request' }, ({ payload }: any) => {
-          collabService.ingestRemoteEventFromBridge('collab_presence_request', payload);
-        })
-        .on('broadcast', { event: 'user_status_changed' }, ({ payload }: any) => {
-          collabService.ingestRemoteEventFromBridge('user_status_changed', payload);
-        })
-        .on('broadcast', { event: 'task_updated' }, ({ payload }: any) => {
-          collabService.ingestRemoteEventFromBridge('task_updated', payload);
-        })
-        .on('broadcast', { event: 'task_comment_added' }, ({ payload }: any) => {
-          collabService.ingestRemoteEventFromBridge('task_comment_added', payload);
-        })
         .subscribe((status: string) => {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
-          if (status === 'SUBSCRIBED') {
-            collabService.requestRemotePresences();
-          }
         });
-
-      window.addEventListener('omni_collab_bridge_out', ((e: CustomEvent) => {
-        const { event, payload } = e.detail || {};
-        if (event && payload) {
-          this.sendBroadcast(event, payload, true);
-        }
-      }) as EventListener);
     } catch (err) {
       console.warn('Failed to initialize Supabase Realtime chat:', err);
     }
@@ -631,9 +607,6 @@ class ChatService {
       } catch (e) {}
     }
 
-    // Keep sender registered as active
-    collabService.updatePresence(undefined, 'team_chat_view', { statusAction: 'chatting' });
-
     // 4. Audit log (never log plaintext content)
     try {
       if (params.sender.organization_id) {
@@ -704,16 +677,28 @@ class ChatService {
     this.messageListeners.forEach(listener => listener(message));
   }
 
-  // Broadcast typing indicator
+  // Broadcast typing indicator (throttled to avoid flooding WebSocket frames on every keystroke)
   broadcastTyping(targetId: string, user: User, isTyping: boolean, isDirect = false): void {
+    if (!targetId || !user?.id) return;
+    const now = Date.now();
+    const prev = this.lastTypingBroadcastMap.get(targetId);
+
     if (isTyping) {
-      collabService.updatePresence(undefined, 'team_chat_view', { statusAction: 'typing' });
+      if (prev && prev.isTyping && now - prev.ts < 2000) {
+        return;
+      }
+      this.lastTypingBroadcastMap.set(targetId, { isTyping: true, ts: now });
+    } else {
+      if (!prev || !prev.isTyping) {
+        return;
+      }
+      this.lastTypingBroadcastMap.set(targetId, { isTyping: false, ts: now });
     }
 
     const payload = { targetId, user, isTyping, isDirect, clientId: this.clientId };
 
-    // 1. Send via Supabase Realtime
-    this.sendBroadcast('typing_status', payload, true);
+    // 1. Send via Supabase Realtime (WebSocket only, never HTTP fallback for ephemeral typing state)
+    this.sendBroadcast('typing_status', payload, false);
 
     // 2. Send via local BroadcastChannel
     if (this.broadcastChannel) {

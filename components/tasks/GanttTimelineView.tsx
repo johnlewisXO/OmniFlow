@@ -5,6 +5,8 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { format, addDays, differenceInDays, isBefore, isAfter, startOfDay } from 'date-fns';
 import { processTaskAutomationRules } from '../../services/automationEngine';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
+import { collabService } from '../../services/collabService';
 
 interface GanttTimelineViewProps {
   tasks: Task[];
@@ -19,7 +21,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
   darkMode,
   onTaskClick,
 }) => {
-  const { updateTask, addToast, projects, openCreateTaskModal } = useAppStore();
+  const { updateTask, addToast, projects, openCreateTaskModal, presences, currentUser } = useAppStore();
 
   const [viewScale, setViewScale] = useState<'days' | 'weeks' | 'months'>('days');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -141,7 +143,8 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
 
     allFlatFiltered.forEach((task) => {
       const created = task.created_at ? startOfDay(new Date(task.created_at)) : today;
-      const due = task.due_date ? startOfDay(new Date(task.due_date)) : addDays(created, 5);
+      const rawDue = task.due_date || task.dueDate;
+      const due = rawDue ? startOfDay(new Date(rawDue)) : addDays(created, 5);
 
       if (isBefore(created, minDate)) minDate = created;
       if (isAfter(due, maxDate)) maxDate = due;
@@ -219,7 +222,8 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
 
   const renderTimelineRow = (task: Task, isSubtask = false) => {
     const created = task.created_at ? startOfDay(new Date(task.created_at)) : startDate;
-    const due = task.due_date ? startOfDay(new Date(task.due_date)) : addDays(created, 4);
+    const rawDue = task.due_date || task.dueDate;
+    const due = rawDue ? startOfDay(new Date(rawDue)) : addDays(created, 4);
 
     const startOffsetDays = Math.max(0, differenceInDays(created, startDate));
     const durationDays = Math.max(1, differenceInDays(due, created) + 1);
@@ -234,6 +238,20 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
     const isExpanded = !!expandedTaskIds[task.id];
 
     const isShortBar = widthPx < 90;
+
+    const activeRowViewers = (presences || []).filter(
+      p => p.currentTaskId === task.id && (!currentUser || p.userId !== currentUser.id) && (!p.sessionId || p.sessionId !== collabService.sessionId)
+    );
+    const hasRowEditor = activeRowViewers.some(p => p.isEditing);
+    const hasRowTyper = activeRowViewers.some(p => p.isTypingComment);
+    const hasRowViewer = activeRowViewers.length > 0;
+    const barRingClass = hasRowEditor
+      ? 'ring-2 ring-blue-400 shadow-lg shadow-blue-500/30'
+      : hasRowTyper
+        ? 'ring-2 ring-purple-400 shadow-lg shadow-purple-500/30'
+        : hasRowViewer
+          ? 'ring-2 ring-emerald-400 shadow-md shadow-emerald-500/20'
+          : '';
 
     return (
       <React.Fragment key={task.id}>
@@ -278,6 +296,8 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                     {subList.length}
                   </span>
                 )}
+
+                <TaskLivePresenceBadge taskId={task.id} compact={true} showBroadcastFlash={false} />
               </div>
 
               {/* Status Move Selector right in Left Bar */}
@@ -325,13 +345,27 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
               }}
               className={`absolute h-8 rounded-xl border text-xs font-bold flex items-center justify-between px-2.5 shadow-xs transition-all hover:shadow-md hover:scale-[1.01] ${
                 isSubtask ? 'opacity-90 border-dashed' : ''
-              } ${getStatusColor(task.status)}`}
+              } ${getStatusColor(task.status)} ${barRingClass}`}
             >
               {/* Task Title preview inside bar */}
               <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0 pr-1">
                 <span className="truncate text-xs font-extrabold text-white drop-shadow-xs">
                   {task.title}
                 </span>
+                {hasRowViewer && (
+                  <div className="flex -space-x-1 flex-shrink-0">
+                    {activeRowViewers.slice(0, 3).map(v => (
+                      <span
+                        key={v.userId}
+                        style={{ backgroundColor: v.color || '#10b981' }}
+                        title={`${v.userName}: ${v.isEditing ? 'Editing' : v.isTypingComment ? 'Commenting' : 'Viewing'}`}
+                        className="w-4 h-4 rounded-full ring-1 ring-white text-[8px] font-bold text-white flex items-center justify-center overflow-hidden"
+                      >
+                        {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : (v.userName || 'U').charAt(0).toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Quick Status Dropdown inside bar */}
@@ -702,9 +736,12 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           darkMode ? 'bg-slate-900/95 border-slate-700 text-white' : 'bg-white/95 border-slate-200 text-slate-900'
         }`}>
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${getStatusBadgeStyle(hoveredTask.status)}`}>
-              {formatStatusText(hoveredTask.status)}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${getStatusBadgeStyle(hoveredTask.status)}`}>
+                {formatStatusText(hoveredTask.status)}
+              </span>
+              <TaskLivePresenceBadge taskId={hoveredTask.id} />
+            </div>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPriorityBadge(hoveredTask.priority)}`}>
               {hoveredTask.priority.toUpperCase()} PRIORITY
             </span>

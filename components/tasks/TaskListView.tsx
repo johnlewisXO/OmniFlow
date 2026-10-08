@@ -4,6 +4,8 @@ import { ICON_MAP } from '../../constants';
 import { useAppStore } from '../../hooks/useAppStore';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { processTaskAutomationRules } from '../../services/automationEngine';
+import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
+import { collabService } from '../../services/collabService';
 
 interface TaskListViewProps {
   tasks: Task[];
@@ -23,7 +25,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     updateTask,
     openModal,
     deleteTask,
-    addToast
+    addToast,
+    presences,
+    currentUser
   } = useAppStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -205,10 +209,25 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     const isDone = task.status === TaskStatus.DONE;
     const isBeingDragged = draggedTaskId === task.id;
 
+    const taskDueDate = task.due_date || task.dueDate;
     const isOverdue =
-      task.due_date &&
+      taskDueDate &&
       !isDone &&
-      isBefore(startOfDay(new Date(task.due_date)), startOfDay(new Date()));
+      isBefore(startOfDay(new Date(taskDueDate)), startOfDay(new Date()));
+
+    const activeRowViewers = (presences || []).filter(
+      p => p.currentTaskId === task.id && (!currentUser || p.userId !== currentUser.id) && (!p.sessionId || p.sessionId !== collabService.sessionId)
+    );
+    const hasRowEditor = activeRowViewers.some(p => p.isEditing);
+    const hasRowTyper = activeRowViewers.some(p => p.isTypingComment);
+    const hasRowViewer = activeRowViewers.length > 0;
+    const presenceRowClass = hasRowEditor
+      ? 'ring-1 ring-inset ring-blue-500/40 bg-blue-500/5'
+      : hasRowTyper
+        ? 'ring-1 ring-inset ring-purple-500/40 bg-purple-500/5'
+        : hasRowViewer
+          ? 'ring-1 ring-inset ring-emerald-500/30 bg-emerald-500/5'
+          : '';
 
     const GripIcon = ICON_MAP.GripVerticalIcon || ICON_MAP.Bars3Icon;
 
@@ -227,7 +246,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               : 'border-slate-200/80 hover:bg-slate-50'
           } ${isSubtask ? (darkMode ? 'bg-slate-950/40 pl-8 md:pl-10' : 'bg-slate-50/70 pl-8 md:pl-10') : ''} ${
             isBeingDragged ? 'opacity-40 bg-accent/10 border-dashed border-accent' : ''
-          }`}
+          } ${presenceRowClass}`}
         >
           {/* Main Title & Checkbox Area */}
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -288,6 +307,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                     {subList.filter((s) => s.status === TaskStatus.DONE).length}/{subList.length} subtasks
                   </span>
                 )}
+
+                <TaskLivePresenceBadge taskId={task.id} />
               </div>
 
               {task.description && (
@@ -351,7 +372,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
             {/* Due Date */}
             <div className="flex items-center gap-1 text-xs min-w-[90px]">
-              {task.due_date ? (
+              {taskDueDate ? (
                 <span
                   className={`flex items-center gap-1 font-medium ${
                     isOverdue
@@ -362,7 +383,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                   }`}
                 >
                   <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />
-                  {format(new Date(task.due_date), 'MMM d')}
+                  {format(new Date(taskDueDate), 'MMM d')}
                 </span>
               ) : (
                 <span className="text-slate-400 text-[11px]">-</span>

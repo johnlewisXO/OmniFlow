@@ -4,6 +4,7 @@ import { ICON_MAP } from '../../constants';
 import { Task, TaskPriority, TaskStatus } from '../../types';
 import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
 import { generateTaskSummary } from '../../services/aiService';
+import { TaskLivePresenceBadge, useTaskPresenceHighlight } from '../shared/TaskLivePresenceBadge';
 
 export const MyTasksPage: React.FC = () => {
   const { myTasks, currentUser, darkMode, isLoadingTasks, tasksError, projects, openViewTaskModal } = useAppStore();
@@ -288,16 +289,19 @@ export const MyTasksPage: React.FC = () => {
               >
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 truncate max-w-[160px]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 truncate max-w-[140px]">
                       {getProjectName(task.projectId)}
                     </span>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                      task.priority === TaskPriority.CRITICAL ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
-                      task.priority === TaskPriority.HIGH ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
-                      'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                    }`}>
-                      {task.priority}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <TaskLivePresenceBadge taskId={task.id} compact={true} />
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                        task.priority === TaskPriority.CRITICAL ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+                        task.priority === TaskPriority.HIGH ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+                        'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                      }`}>
+                        {task.priority}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug mb-1.5">
