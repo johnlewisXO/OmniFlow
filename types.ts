@@ -227,7 +227,8 @@ export type ActiveView =
   | 'user_logs_view'
   | 'profile_settings'
   | 'task_automations'
-  | 'task_automations_view';
+  | 'task_automations_view'
+  | 'ai_copilot_view';
 
 export interface ChatMessage {
   id: string;

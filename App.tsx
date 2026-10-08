@@ -37,6 +37,8 @@ import { SprintPlanningView } from './components/sprints/SprintPlanningView';
 import { TeamsChatPage } from './components/chat/TeamsChatPage';
 import { CommandPalette } from './components/layout/CommandPalette'; 
 import { KeyboardShortcutsModal } from './components/layout/KeyboardShortcutsModal'; 
+import { AIProjectManagerStudio } from './components/ai/AIProjectManagerStudio';
+import { FloatingAICopilotButton } from './components/ai/FloatingAICopilotButton';
 
 const ToastContainer: React.FC = () => {
   const {
@@ -358,7 +360,10 @@ const MainAppLayout: React.FC = () => {
       case 'team_management':
         return <TeamManagementPage />; 
       case 'task_automations':
+      case 'task_automations_view':
         return <TaskAutomationsDashboard />;
+      case 'ai_copilot_view':
+        return <AIProjectManagerStudio />;
       case 'admin_settings':
         if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.OWNER) {
           return <AdminDashboard />;
@@ -407,6 +412,7 @@ const MainAppLayout: React.FC = () => {
         isOpen={isCommandPaletteOpen}
         onClose={closeCommandPalette}
       />
+      <FloatingAICopilotButton />
       <KeyboardShortcutsModal />
     </div>
   );

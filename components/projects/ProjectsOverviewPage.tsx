@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
+import { AIInsightsEngineWidget } from '../ai/AIInsightsEngineWidget';
 
 export const ProjectsOverviewPage: React.FC = () => {
   const { 
@@ -10,6 +11,7 @@ export const ProjectsOverviewPage: React.FC = () => {
     isLoadingProjects, 
     projectsError, 
     setActiveProject, 
+    setActiveView,
     openCreateProjectModal, 
     darkMode,
     currentOrganization 
@@ -75,7 +77,14 @@ export const ProjectsOverviewPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setActiveView('ai_copilot_view')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold transition-all cursor-pointer"
+            >
+              <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
+              <span>AI Blueprint Architect</span>
+            </button>
             <button
               onClick={openCreateProjectModal}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
@@ -136,6 +145,9 @@ export const ProjectsOverviewPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Portfolio AI Insights Engine */}
+      <AIInsightsEngineWidget compact />
 
       {/* 2. Controls & Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-xs">

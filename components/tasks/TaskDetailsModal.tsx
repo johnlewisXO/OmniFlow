@@ -8,6 +8,7 @@ import { ICON_MAP } from '../../constants';
 import supabaseService, { supabase } from '../../services/supabaseService';
 import collabService from '../../services/collabService';
 import geminiService from '../../services/geminiService';
+import { TaskAICopilotPanel } from '../ai/TaskAICopilotPanel';
 
 const formatEnumForDisplay = (enumValue: string): string => {
   if (!enumValue) return '';
@@ -1601,6 +1602,28 @@ export const TaskDetailsModal: React.FC = () => {
           <div className="space-y-8">
             {activeTab === 'general' && (
               <>
+            {/* Embedded Context-Aware Task AI Co-Pilot */}
+            <TaskAICopilotPanel
+              task={taskToView}
+              onUpdateTask={async (updates) => {
+                await handleUpdateTask(updates);
+                if (updates.description !== undefined) {
+                  setEditedDescription(updates.description);
+                }
+              }}
+              onCreateSubtask={async (subTitle, subPriority) => {
+                await useAppStore.getState().createTask({
+                  title: subTitle,
+                  description: `AI Co-Pilot subtask for: ${taskToView.title}`,
+                  priority: subPriority,
+                  status: TaskStatus.TODO,
+                  projectId: taskToView.projectId,
+                  parent_task_id: taskToView.id,
+                });
+              }}
+              onLinkBlocker={handleAddBlocker}
+            />
+
             {/* Description */}
             <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Description</h3>

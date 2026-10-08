@@ -24,7 +24,8 @@ export const ALL_ACTIVE_VIEWS: ActiveView[] = [
   'user_logs_view',
   'profile_settings',
   'task_automations',
-  'task_automations_view'
+  'task_automations_view',
+  'ai_copilot_view'
 ];
 
 export const APP_TITLE = "Omni Flow";
@@ -111,6 +112,7 @@ export const SIDENAV_ITEMS: {
   roles?: UserRole[];
 }[] = [
   { id: 'overview', label: 'Overview', icon: 'HomeIcon', path: '#', roles: Object.values(UserRole) },
+  { id: 'ai_copilot_view', label: 'AI Co-Pilot & PM', icon: 'SparklesIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'projects_overview', label: 'Projects', icon: 'FolderIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'sprints_view', label: 'Sprints', icon: 'RocketLaunchIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'my_tasks_view', label: 'My Tasks', icon: 'ClipboardListIcon', path: '#', roles: Object.values(UserRole) },

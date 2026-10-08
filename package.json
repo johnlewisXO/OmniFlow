@@ -4,21 +4,25 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server.ts",
     "build": "vite build",
+    "start": "node server.ts",
     "lint": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@types/express": "^5.0.6",
     "@types/lodash": "^4.17.24",
     "date-fns": "^4.1.0",
+    "express": "^5.2.1",
     "lodash": "^4.17.23",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-mentions": "^4.4.10",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

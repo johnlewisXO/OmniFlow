@@ -7,6 +7,7 @@ import geminiService from '../../services/geminiService';
 import { Button } from '../shared/Button';
 import { TeamWorkloadWidget } from '../overview/TeamWorkloadWidget';
 import { KeyMilestonesWidget } from '../overview/KeyMilestonesWidget';
+import { AIInsightsEngineWidget } from '../ai/AIInsightsEngineWidget';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line
@@ -323,6 +324,9 @@ export const ReportsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Insights & Predictive Forecasting */}
+      <AIInsightsEngineWidget projectIdFilter={selectedProjectId} />
 
       {/* Filters */}
       <div className={`p-4 rounded-xl mb-6 border ${bgColor} ${borderColor} shadow-sm flex flex-wrap gap-4 items-center`}>

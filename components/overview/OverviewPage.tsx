@@ -4,6 +4,7 @@ import { MyTasksWidget } from './MyTasksWidget';
 import { ProjectStatusWidget } from './ProjectStatusWidget';
 import { TeamWorkloadWidget } from './TeamWorkloadWidget';
 import { KeyMilestonesWidget } from './KeyMilestonesWidget';
+import { AIInsightsEngineWidget } from '../ai/AIInsightsEngineWidget';
 import { ICON_MAP } from '../../constants';
 import { TaskStatus } from '../../types';
 
@@ -117,6 +118,9 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ showWelcomeMessage =
           </div>
         </div>
       </div>
+
+      {/* AI Insights Engine */}
+      <AIInsightsEngineWidget />
 
       {/* Row 1: My Tasks & Project Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 flex-shrink-0">
