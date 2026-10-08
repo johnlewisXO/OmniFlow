@@ -501,27 +501,34 @@ const supabaseService = {
     return data ? mapDbTaskToAppTask(data) : null;
   },
 
-  getMyTasks: async (): Promise<Task[]> => {
-    const { data: authUser } = await supabase.auth.getUser();
-    if (!authUser.user) throw new Error("User not authenticated");
+  getMyTasks: async (userId?: string): Promise<Task[]> => {
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      targetUserId = sessionData?.session?.user?.id;
+    }
+    if (!targetUserId) return [];
     
     // Fetch tasks where assigned_to (assignee_id) is the current user
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
-      .eq('assignee_id', authUser.user.id);
+      .eq('assignee_id', targetUserId);
       
     if (error) throw error;
-    return data.map(mapDbTaskToAppTask);
+    return (data || []).map(mapDbTaskToAppTask);
   },
 
-  getNotifications: async (): Promise<any[]> => {
-    const { data: authUser } = await supabase.auth.getUser();
-    if (!authUser.user) return [];
-    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', authUser.user.id).order('created_at', { ascending: false });
+  getNotifications: async (userId?: string): Promise<any[]> => {
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      targetUserId = sessionData?.session?.user?.id;
+    }
+    if (!targetUserId) return [];
+    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false });
     if (error) {
-      console.warn("Notifications table might not exist:", error);
-      throw error;
+      return [];
     }
     
     // Map database fields to frontend expected fields

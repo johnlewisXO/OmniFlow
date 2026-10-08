@@ -275,7 +275,120 @@ export type ActiveView =
   | 'profile_settings'
   | 'task_automations'
   | 'task_automations_view'
-  | 'ai_copilot_view';
+  | 'ai_copilot_view'
+  | 'calendar_view';
+
+export type CalendarEventCategory =
+  | 'sprint_planning'
+  | 'sprint_retro'
+  | 'project_update'
+  | 'daily_standup'
+  | 'one_on_one'
+  | 'team_workshop';
+
+export type RsvpStatus = 'going' | 'maybe' | 'declined' | 'pending';
+
+export interface CalendarAttendee {
+  userId: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  role?: UserRole;
+  rsvp: RsvpStatus;
+  rsvpNote?: string;
+  respondedAt?: string;
+}
+
+export interface MeetingAgendaItem {
+  id: string;
+  title: string;
+  durationMinutes: number;
+  completed: boolean;
+  presenterId?: string;
+  presenterName?: string;
+  linkedTaskId?: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  category: CalendarEventCategory;
+  startTime: string;
+  endTime: string;
+  organizerId: string;
+  organizerName: string;
+  organizerEmail: string;
+  organizerAvatar?: string;
+  organizationId?: string;
+  projectId?: string;
+  sprintId?: string;
+  channelId?: string;
+  directUserId?: string;
+  meetingCode: string;
+  attendees: CalendarAttendee[];
+  agenda: MeetingAgendaItem[];
+  prepNotes?: string;
+  linkedTaskIds?: string[];
+  recurrence?: 'none' | 'daily' | 'weekly' | 'biweekly';
+  created_at: string;
+}
+
+export interface VideoCallParticipant {
+  userId: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+  role?: UserRole;
+  isMicMuted: boolean;
+  isCameraOff: boolean;
+  isScreenSharing: boolean;
+  isHandRaised: boolean;
+  isSpeaking: boolean;
+  joinedAt: string;
+  connectionState: 'connected' | 'ringing' | 'invited';
+  backgroundMode?: 'none' | 'blur' | 'studio' | 'midnight';
+}
+
+export interface VideoCallSession {
+  id: string;
+  meetingCode: string;
+  title: string;
+  type: 'direct' | 'channel' | 'scheduled';
+  channelId?: string;
+  directUserId?: string;
+  calendarEventId?: string;
+  projectId?: string;
+  sprintId?: string;
+  hostId: string;
+  hostName: string;
+  organizationId?: string;
+  startedAt: string;
+  participants: VideoCallParticipant[];
+  sharedNotes: string;
+  actionItems: {
+    id: string;
+    text: string;
+    assigneeId?: string;
+    assigneeName?: string;
+    completed: boolean;
+    convertedTaskId?: string;
+  }[];
+  chatMessages: {
+    id: string;
+    senderId: string;
+    senderName: string;
+    senderAvatar?: string;
+    text: string;
+    timestamp: string;
+  }[];
+  transcript: {
+    id: string;
+    speakerName: string;
+    text: string;
+    timestamp: string;
+  }[];
+}
 
 export interface ChatMessage {
   id: string;

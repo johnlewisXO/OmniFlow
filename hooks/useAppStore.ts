@@ -5,6 +5,7 @@ import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, norm
 import { ICON_MAP } from '../constants';
 import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions } from '../services/supabaseService';
 import collabService from '../services/collabService';
+import emailNotificationService from '../services/emailNotificationService';
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
 
@@ -379,6 +380,42 @@ const appActionsCreator = (
 
       if (notification) {
         selfActions.addNotification(notification);
+        const targetRecipient =
+          get().users.find(u => u.id === notification!.user_id) ||
+          (currentUser.id === notification.user_id ? currentUser : null);
+        if (targetRecipient && targetRecipient.email) {
+          if (eventType === 'TASK_ASSIGNED') {
+            emailNotificationService.sendImportantUpdateEmail({
+              recipient: targetRecipient,
+              category: 'TASK_ASSIGNED',
+              subject: `New Task Assigned: ${payload.task?.title || 'Task'}`,
+              heading: '📋 You have been assigned a task',
+              details: `${currentUser.full_name || currentUser.email} assigned you to "${payload.task?.title || 'Task'}".`,
+              ctaLabel: 'Open Task in Workspace',
+              ctaAction: { type: 'open_task', targetId: payload.task?.id },
+            });
+          } else if (eventType === 'TASK_DUE_SOON' || eventType === 'TASK_OVERDUE') {
+            emailNotificationService.sendImportantUpdateEmail({
+              recipient: targetRecipient,
+              category: 'TASK_DUE_ALERT',
+              subject: `${eventType === 'TASK_OVERDUE' ? 'Overdue' : 'Due Today'}: ${payload.task?.title || 'Task'}`,
+              heading: eventType === 'TASK_OVERDUE' ? '🚨 Task Overdue Alert' : '⏰ Task Due Today',
+              details: `Your task "${payload.task?.title || 'Task'}" is ${eventType === 'TASK_OVERDUE' ? 'overdue' : 'due today'}.`,
+              ctaLabel: 'Review Task Now',
+              ctaAction: { type: 'open_task', targetId: payload.task?.id },
+            });
+          } else if (eventType === 'USER_ROLE_UPDATED') {
+            emailNotificationService.sendImportantUpdateEmail({
+              recipient: targetRecipient,
+              category: 'ROLE_UPDATED',
+              subject: `Workspace Role Updated to ${payload.newRole}`,
+              heading: '🛡️ Your Organization Role Was Updated',
+              details: `Your role in the workspace has been updated to ${String(payload.newRole).replace(/_/g, ' ')}.`,
+              ctaLabel: 'View Team Directory',
+              ctaAction: { type: 'open_view', view: 'team_management' },
+            });
+          }
+        }
       }
     },
     addToast: (
@@ -562,11 +599,17 @@ const appActionsCreator = (
       if (!currentUser) return;
       updateState(s => ({ ...s, isLoadingTasks: true, tasksError: null }));
       try {
-        const myTasks = await withTimeout(
-          supabaseService.getMyTasks(),
-          10000,
-          "My tasks fetch timeout"
-        );
+        let myTasks: Task[] = [];
+        try {
+          myTasks = await withTimeout(
+            supabaseService.getMyTasks(currentUser.id),
+            8000,
+            "My tasks fetch timeout"
+          );
+        } catch (_err) {
+          // Graceful fallback to locally loaded project tasks assigned to current user
+          myTasks = get().tasks.filter(t => t.assignee_id === currentUser.id);
+        }
         
         // Check for due tasks
         const today = startOfDay(new Date());
@@ -591,13 +634,17 @@ const appActionsCreator = (
 
         updateState(s => ({ ...s, myTasks, isLoadingTasks: false }));
       } catch (error: any) {
-        console.error("Failed to fetch my tasks:", error);
-        updateState(s => ({ ...s, isLoadingTasks: false, tasksError: parseErrorMessage(error, "Failed to fetch my tasks.") }));
+        updateState(s => ({ ...s, isLoadingTasks: false }));
       }
     },
     fetchNotifications: async () => {
       try {
-        const dbNotifications = await supabaseService.getNotifications();
+        const currentUserId = get().currentUser?.id;
+        const dbNotifications = await withTimeout(
+          supabaseService.getNotifications(currentUserId),
+          6000,
+          "Notifications fetch timeout"
+        ).catch(() => []);
         updateState(s => {
           // Merge dbNotifications with local notifications
           const merged = [...dbNotifications];
@@ -614,8 +661,8 @@ const appActionsCreator = (
           }
           return { ...s, notifications: merged };
         });
-      } catch (error: any) {
-        console.error("Failed to fetch notifications:", error);
+      } catch (_error: any) {
+        // Keep local notifications on transient network error
       }
     },
     setActiveProject: (projectOrId: string | Project | null) => {
@@ -676,39 +723,49 @@ const appActionsCreator = (
         updateState(s => ({ ...s, isLoadingUsersForAssignment: true, usersForAssignmentError: null }));
         try {
           let fetchedUsers: User[] = [];
-          if (currentUser.organization_id) {
-            try {
-              fetchedUsers = await withTimeout(
+
+          const orgPromise = currentUser.organization_id
+            ? withTimeout(
                 supabaseService.getUsersByOrganizationId(currentUser.organization_id),
-                10000,
+                7000,
                 "Users fetch timeout"
-              );
-            } catch (orgErr) {
-              console.warn('[useAppStore] Org users fetch fallback:', orgErr);
-            }
+              ).catch(() => [] as User[])
+            : Promise.resolve([] as User[]);
+
+          const allProfilesPromise = withTimeout(
+            Promise.resolve(supabase.from('user_profiles').select('*').limit(50)).then(res => res.data || []),
+            7000,
+            "All profiles timeout"
+          ).catch(() => [] as any[]);
+
+          const [orgUsers, allProfiles] = await Promise.all([orgPromise, allProfilesPromise]);
+
+          if (Array.isArray(orgUsers)) {
+            fetchedUsers = [...orgUsers];
           }
 
-          // Also fetch other user_profiles on the platform so teammates can discover & add each other
-          try {
-            const { data: allProfiles } = await supabase.from('user_profiles').select('*').limit(50);
-            if (Array.isArray(allProfiles)) {
-              allProfiles.forEach((p: any) => {
-                if (p && p.id) {
-                  const ext = getUserProfileExtensions(p.id);
-                  if (ext.removedFromOrgId && ext.removedFromOrgId === currentUser.organization_id) {
-                    return;
-                  }
-                  const normalized = normalizeAppUser(p);
-                  const existingIdx = fetchedUsers.findIndex(u => u.id === p.id);
-                  if (existingIdx >= 0) {
-                    fetchedUsers[existingIdx] = normalized;
-                  } else {
-                    fetchedUsers.push(normalized);
-                  }
+          if (Array.isArray(allProfiles)) {
+            allProfiles.forEach((p: any) => {
+              if (p && p.id) {
+                const ext = getUserProfileExtensions(p.id);
+                if (ext.removedFromOrgId && ext.removedFromOrgId === currentUser.organization_id) {
+                  return;
                 }
-              });
-            }
-          } catch (e) {}
+                const normalized = normalizeAppUser(p);
+                const existingIdx = fetchedUsers.findIndex(u => u.id === p.id);
+                if (existingIdx >= 0) {
+                  fetchedUsers[existingIdx] = normalized;
+                } else {
+                  fetchedUsers.push(normalized);
+                }
+              }
+            });
+          }
+
+          // Always ensure currentUser is present in the directory
+          if (currentUser.id && !fetchedUsers.some(u => u.id === currentUser.id)) {
+            fetchedUsers.unshift(normalizeAppUser(currentUser));
+          }
 
           // Merge any custom added people from localStorage
           if (typeof window !== 'undefined') {
@@ -732,7 +789,6 @@ const appActionsCreator = (
           updateState(s => ({ ...s, users: fetchedUsers.map(normalizeAppUser), isLoadingUsersForAssignment: false }));
         } catch (error: any) {
           const message = parseErrorMessage(error, 'Failed to fetch users for organization.');
-          console.error(`[useAppStore] fetchUsersForAssignmentList: Error - ${message}`);
           updateState(s => ({ ...s, isLoadingUsersForAssignment: false, usersForAssignmentError: message }));
         }
       },

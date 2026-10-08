@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { ActiveView } from '../../types';
@@ -12,6 +12,17 @@ interface AIBotFaceProps {
   className?: string;
   interactive?: boolean;
 }
+
+const isSameRect = (a: DOMRect | null, b: DOMRect | null): boolean => {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return (
+    Math.abs(a.top - b.top) < 1 &&
+    Math.abs(a.left - b.left) < 1 &&
+    Math.abs(a.width - b.width) < 1 &&
+    Math.abs(a.height - b.height) < 1
+  );
+};
 
 export const AIBotFace: React.FC<AIBotFaceProps> = ({
   mood = 'idle',
@@ -225,106 +236,111 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
   const [isSpatialGuideActive, setIsSpatialGuideActive] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
-  const guideSteps: AuthGuideStep[] =
-    mode === 'signup'
-      ? [
-          {
-            targetSelector: '[data-auth-tour-id="auth-fullname"]',
-            inputId: 'full-name',
-            title: 'Step 1 · Your Full Name',
-            tip: 'Enter your display name so teammates and live presence cursors can identify you across boards.',
-          },
-          {
-            targetSelector: '[data-auth-tour-id="auth-email"]',
-            inputId: 'email',
-            title: 'Step 2 · Work Email & E2EE Identity',
-            tip: 'Use your work email. Omni Flow automatically binds your AES-256-GCM direct messaging keypair.',
-          },
-          {
-            targetSelector: '[data-auth-tour-id="auth-password"]',
-            inputId: 'password',
-            title: 'Step 3 · Security Password',
-            tip: 'Create a strong password (minimum 6 characters) to protect your workspace credentials.',
-          },
-          {
-            targetSelector: '[data-auth-tour-id="auth-submit"]',
-            title: 'Step 4 · Launch Workspace',
-            tip: 'Click Create Account to provision your new organization or accept a pending team invite link.',
-          },
-        ]
-      : mode === 'reset'
-      ? [
-          {
-            targetSelector: '[data-auth-tour-id="auth-email"]',
-            inputId: 'email',
-            title: 'Account Recovery Email',
-            tip: 'Enter your registered email address and click Send Password Reset Link to receive a recovery token.',
-          },
-        ]
-      : [
-          {
-            targetSelector: '[data-auth-tour-id="auth-email"]',
-            inputId: 'email',
-            title: 'Step 1 · Work Email',
-            tip: emailValue
-              ? `Signing in as ${emailValue}. Continue to your password below.`
-              : 'Enter your registered email address to connect to your organization.',
-          },
-          {
-            targetSelector: '[data-auth-tour-id="auth-password"]',
-            inputId: 'password',
-            title: 'Step 2 · Account Password',
-            tip: 'Enter your password to unlock your live projects, sprints, and E2EE channels.',
-          },
-          {
-            targetSelector: '[data-auth-tour-id="auth-submit"]',
-            title: 'Step 3 · Resume Workspace',
-            tip: 'Click Sign In to enter your role-adaptive dashboard immediately.',
-          },
-          {
-            targetSelector: '[data-auth-tour-id="auth-switch"]',
-            title: 'New to Omni Flow?',
-            tip: 'Click Sign Up below if you need to create a new account or organization.',
-          },
-        ];
+  const guideSteps: AuthGuideStep[] = useMemo(() => {
+    if (mode === 'signup') {
+      return [
+        {
+          targetSelector: '[data-auth-tour-id="auth-fullname"]',
+          inputId: 'full-name',
+          title: 'Step 1 · Your Full Name',
+          tip: 'Enter your display name so teammates and live presence cursors can identify you across boards.',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-email"]',
+          inputId: 'email',
+          title: 'Step 2 · Work Email & E2EE Identity',
+          tip: 'Use your work email. Omni Flow automatically binds your AES-256-GCM direct messaging keypair.',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-password"]',
+          inputId: 'password',
+          title: 'Step 3 · Security Password',
+          tip: 'Create a strong password (minimum 6 characters) to protect your workspace credentials.',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-submit"]',
+          title: 'Step 4 · Launch Workspace',
+          tip: 'Click Create Account (or Continue with Google) to provision your organization.',
+        },
+      ];
+    }
+    if (mode === 'reset') {
+      return [
+        {
+          targetSelector: '[data-auth-tour-id="auth-email"]',
+          inputId: 'email',
+          title: 'Account Recovery Email',
+          tip: 'Enter your registered email address and click Send Password Reset Link to receive a recovery token.',
+        },
+      ];
+    }
+    return [
+      {
+        targetSelector: '[data-auth-tour-id="auth-email"]',
+        inputId: 'email',
+        title: 'Step 1 · Work Email or Google SSO',
+        tip: emailValue
+          ? `Signing in as ${emailValue}. Continue to your password below.`
+          : 'Enter your registered email address or use 1-click Google SSO below.',
+      },
+      {
+        targetSelector: '[data-auth-tour-id="auth-password"]',
+        inputId: 'password',
+        title: 'Step 2 · Account Password',
+        tip: 'Enter your password to unlock your live projects, sprints, and E2EE channels.',
+      },
+      {
+        targetSelector: '[data-auth-tour-id="auth-submit"]',
+        title: 'Step 3 · Resume Workspace',
+        tip: 'Click Sign In to enter your role-adaptive dashboard immediately.',
+      },
+      {
+        targetSelector: '[data-auth-tour-id="auth-switch"]',
+        title: 'New to Omni Flow?',
+        tip: 'Click Sign Up below if you need to create a new account or organization.',
+      },
+    ];
+  }, [mode, emailValue]);
 
   useEffect(() => {
     setStepIdx(0);
   }, [mode]);
 
   const currentTip = guideSteps[stepIdx % guideSteps.length] || guideSteps[0];
+  const activeSelector = currentTip?.targetSelector || '';
 
   const updateAuthTargetRect = useCallback(() => {
-    if (!isSpatialGuideActive || !currentTip?.targetSelector) {
-      setTargetRect(null);
+    if (!isSpatialGuideActive || !activeSelector) {
+      setTargetRect(prev => (prev === null ? prev : null));
       return;
     }
-    const el = document.querySelector(currentTip.targetSelector);
+    const el = document.querySelector(activeSelector);
     if (el) {
-      setTargetRect(el.getBoundingClientRect());
+      const nextRect = el.getBoundingClientRect();
+      setTargetRect(prev => (isSameRect(prev, nextRect) ? prev : nextRect));
     } else {
-      setTargetRect(null);
+      setTargetRect(prev => (prev === null ? prev : null));
     }
-  }, [isSpatialGuideActive, currentTip]);
+  }, [isSpatialGuideActive, activeSelector]);
 
   useEffect(() => {
     updateAuthTargetRect();
+    if (!isSpatialGuideActive) return;
     window.addEventListener('resize', updateAuthTargetRect);
     window.addEventListener('scroll', updateAuthTargetRect, true);
     return () => {
       window.removeEventListener('resize', updateAuthTargetRect);
       window.removeEventListener('scroll', updateAuthTargetRect, true);
     };
-  }, [updateAuthTargetRect]);
+  }, [isSpatialGuideActive, updateAuthTargetRect]);
 
-  // Listen to user focusing inputs directly so the AI Bot glides to whichever field the user clicks
   useEffect(() => {
     const handleFocusIn = (e: FocusEvent) => {
       const target = e.target as HTMLElement | null;
-      if (!target) return;
+      if (!target || !target.id) return;
       const idx = guideSteps.findIndex(s => s.inputId && target.id === s.inputId);
       if (idx !== -1) {
-        setStepIdx(idx);
+        setStepIdx(prev => (prev === idx ? prev : idx));
       }
     };
     window.addEventListener('focusin', handleFocusIn);
@@ -338,7 +354,6 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
     }
   };
 
-  // Compute floating companion coordinates next to the active auth form field
   const getFloatingBotStyle = (): React.CSSProperties => {
     if (!targetRect || typeof window === 'undefined') {
       return { top: 24, right: 24 };
@@ -346,12 +361,10 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const cardWidth = 290;
-    // Prefer placing the bot companion to the right of the input field on desktop
     let left = targetRect.right + 18;
     let top = targetRect.top - 8;
 
     if (left + cardWidth > vw - 16) {
-      // Fallback above or below field on narrow screens
       left = Math.max(16, Math.min(vw - cardWidth - 16, targetRect.left));
       top = Math.max(16, targetRect.top - 125);
     }
@@ -368,7 +381,6 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
 
   return (
     <>
-      {/* Compact Inline Assistant Bar */}
       <div className="mb-4 p-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/20 transition-all duration-300">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -431,7 +443,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
               }}
               className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
             >
-              Next Step ({((stepIdx % guideSteps.length) + 1)}/{guideSteps.length}) →
+              Next Step ({(stepIdx % guideSteps.length) + 1}/{guideSteps.length}) →
             </button>
             <span className="text-slate-400">·</span>
             {mode === 'login' ? (
@@ -455,10 +467,8 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
         </div>
       </div>
 
-      {/* Spatial Moving Bot Callout & Spotlight Ring on Auth Page (Zero Background Blur) */}
       {isSpatialGuideActive && targetRect && (
         <div className="fixed inset-0 z-50 pointer-events-none">
-          {/* Glowing Focus Ring around the active Auth Input / Button */}
           <div
             className="fixed rounded-2xl tour-spotlight-ring pointer-events-none"
             style={{
@@ -470,7 +480,6 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
             }}
           />
 
-          {/* Moving Bot Companion Card */}
           <div
             style={getFloatingBotStyle()}
             className="pointer-events-auto p-3.5 rounded-2xl bg-slate-900/95 text-white border border-indigo-500/40 shadow-2xl animate-popup-in"
@@ -652,7 +661,7 @@ const PLATFORM_TOUR_STEPS: PlatformTourStep[] = [
     view: 'team_chat_view',
     summary: 'Collaborate across channels or 1:1 End-to-End Encrypted (AES-256-GCM) Direct Messages.',
     highlights: [
-      'Start a Direct Message with any teammate or add members to channels in real time.',
+      'Start a Direct Message with any org teammate or generate an invite link for external users.',
       'Verify cryptographic key fingerprints and react with live emojis.',
     ],
     waypoints: [
@@ -665,7 +674,7 @@ const PLATFORM_TOUR_STEPS: PlatformTourStep[] = [
       {
         selector: '[data-main-scroll-view="true"]',
         label: 'Workspace · Channels & Direct Messages',
-        caption: 'Use the + buttons to start a DM with any colleague or manage channel members.',
+        caption: 'Use the + buttons to start a DM with any org member or invite external people.',
         preferredPlacement: 'top-right',
       },
     ],
@@ -726,7 +735,7 @@ export const AIPlatformGuideModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
-  const { activeView, setActiveView, currentUser, openCommandPalette, darkMode } = useAppStore();
+  const { activeView, setActiveView, darkMode } = useAppStore();
   const { shouldRender, isClosing } = useAnimatedMount(isOpen, 200);
 
   const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -737,31 +746,32 @@ export const AIPlatformGuideModal: React.FC<{
   const currentStep = PLATFORM_TOUR_STEPS[activeStepIndex] || PLATFORM_TOUR_STEPS[0];
   const currentWaypoint =
     currentStep.waypoints[waypointIndex % currentStep.waypoints.length] || currentStep.waypoints[0];
+  const currentSelector = currentWaypoint?.selector || '';
 
-  // Measure the target DOM element so the spotlight ring and AI Bot glide smoothly to it
   const measureTarget = useCallback(() => {
-    if (!isOpen || !currentWaypoint?.selector) {
-      setTargetRect(null);
+    if (!isOpen || !currentSelector) {
+      setTargetRect(prev => (prev === null ? prev : null));
       return;
     }
-    const el = document.querySelector(currentWaypoint.selector);
+    const el = document.querySelector(currentSelector);
     if (el) {
       const rect = el.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
-        setTargetRect(rect);
+        setTargetRect(prev => (isSameRect(prev, rect) ? prev : rect));
         return;
       }
     }
-    setTargetRect(null);
-  }, [isOpen, currentWaypoint]);
+    setTargetRect(prev => (prev === null ? prev : null));
+  }, [isOpen, currentSelector]);
 
   useEffect(() => {
     if (!isOpen) {
       setIsAutoPlaying(false);
       return;
     }
-    const t1 = setTimeout(measureTarget, 60);
-    const t2 = setTimeout(measureTarget, 260);
+    measureTarget();
+    const t1 = setTimeout(measureTarget, 80);
+    const t2 = setTimeout(measureTarget, 280);
     window.addEventListener('resize', measureTarget);
     window.addEventListener('scroll', measureTarget, true);
     return () => {
@@ -772,7 +782,6 @@ export const AIPlatformGuideModal: React.FC<{
     };
   }, [isOpen, activeStepIndex, waypointIndex, activeView, measureTarget]);
 
-  // Auto-play timer that moves the bot across waypoints and views automatically
   useEffect(() => {
     if (!isOpen || !isAutoPlaying) return;
     const timer = setInterval(() => {
@@ -791,6 +800,43 @@ export const AIPlatformGuideModal: React.FC<{
     return () => clearInterval(timer);
   }, [isOpen, isAutoPlaying, activeStepIndex, waypointIndex, setActiveView]);
 
+  const handleSelectStep = useCallback(
+    (index: number) => {
+      const step = PLATFORM_TOUR_STEPS[index];
+      if (!step) return;
+      setActiveStepIndex(index);
+      setWaypointIndex(0);
+      if (activeView !== step.view) {
+        setActiveView(step.view);
+      }
+    },
+    [activeView, setActiveView]
+  );
+
+  const handleNextPoint = useCallback(() => {
+    if (waypointIndex < currentStep.waypoints.length - 1) {
+      setWaypointIndex(w => w + 1);
+    } else if (activeStepIndex < PLATFORM_TOUR_STEPS.length - 1) {
+      handleSelectStep(activeStepIndex + 1);
+    } else {
+      onClose();
+    }
+  }, [waypointIndex, currentStep.waypoints.length, activeStepIndex, handleSelectStep, onClose]);
+
+  const handlePrevPoint = useCallback(() => {
+    if (waypointIndex > 0) {
+      setWaypointIndex(w => w - 1);
+    } else if (activeStepIndex > 0) {
+      const prevStepIdx = activeStepIndex - 1;
+      const prevStep = PLATFORM_TOUR_STEPS[prevStepIdx];
+      setActiveStepIndex(prevStepIdx);
+      setWaypointIndex(Math.max(0, prevStep.waypoints.length - 1));
+      if (activeView !== prevStep.view) {
+        setActiveView(prevStep.view);
+      }
+    }
+  }, [waypointIndex, activeStepIndex, activeView, setActiveView]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -804,56 +850,22 @@ export const AIPlatformGuideModal: React.FC<{
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, activeStepIndex, waypointIndex]);
+  }, [isOpen, onClose, handleNextPoint, handlePrevPoint]);
 
   if (!shouldRender) return null;
 
-  const handleSelectStep = (index: number) => {
-    const step = PLATFORM_TOUR_STEPS[index];
-    if (!step) return;
-    setActiveStepIndex(index);
-    setWaypointIndex(0);
-    if (activeView !== step.view) {
-      setActiveView(step.view);
-    }
-  };
-
-  const handleNextPoint = () => {
-    if (waypointIndex < currentStep.waypoints.length - 1) {
-      setWaypointIndex(w => w + 1);
-    } else if (activeStepIndex < PLATFORM_TOUR_STEPS.length - 1) {
-      handleSelectStep(activeStepIndex + 1);
-    } else {
-      onClose();
-    }
-  };
-
-  const handlePrevPoint = () => {
-    if (waypointIndex > 0) {
-      setWaypointIndex(w => w - 1);
-    } else if (activeStepIndex > 0) {
-      const prevStepIdx = activeStepIndex - 1;
-      const prevStep = PLATFORM_TOUR_STEPS[prevStepIdx];
-      setActiveStepIndex(prevStepIdx);
-      setWaypointIndex(Math.max(0, prevStep.waypoints.length - 1));
-      if (activeView !== prevStep.view) {
-        setActiveView(prevStep.view);
-      }
-    }
-  };
-
-  // Calculate where the moving AI Bot & Guide Card should position itself so it points at the target
-  // WITHOUT covering the target or obstructing the live workspace view
+  // Compute collision-free position for the unified AI Guide Card
+  // All 7 section pills are embedded inside this single card so there is NEVER a top bar blocking the Header!
   const computeBotCardPosition = (): React.CSSProperties => {
-    const cardW = Math.min(370, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 24);
-    const cardH = 290;
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const cardW = Math.min(395, vw - 24);
+    const cardH = 335;
 
     if (!targetRect) {
       return {
-        top: `${Math.max(20, vh - cardH - 32)}px`,
-        left: `${Math.max(16, vw - cardW - 28)}px`,
+        top: `${Math.max(16, vh - cardH - 24)}px`,
+        left: `${Math.max(12, vw - cardW - 24)}px`,
         width: `${cardW}px`,
       };
     }
@@ -862,25 +874,25 @@ export const AIPlatformGuideModal: React.FC<{
     let top = 24;
     let left = 24;
 
-    if (placement === 'right') {
-      // Next to sidebar item
-      left = targetRect.right + 18;
-      top = Math.max(16, Math.min(vh - cardH - 20, targetRect.top - 12));
+    if (placement === 'bottom' || targetRect.top < 110) {
+      // Explaining a Header element: always place the card cleanly BELOW the header (never covering top bar!)
+      top = Math.min(vh - cardH - 16, Math.max(targetRect.bottom + 36, 92));
+      left = Math.max(12, Math.min(vw - cardW - 16, targetRect.right - cardW / 2));
+    } else if (placement === 'right') {
+      // Next to sidebar navigation item
+      left = targetRect.right + 20;
+      top = Math.max(84, Math.min(vh - cardH - 16, targetRect.top - 10));
       if (left + cardW > vw - 16) {
-        left = Math.max(16, vw - cardW - 16);
-        top = Math.min(vh - cardH - 20, targetRect.bottom + 14);
+        left = Math.max(12, vw - cardW - 16);
+        top = Math.min(vh - cardH - 16, Math.max(84, targetRect.bottom + 18));
       }
-    } else if (placement === 'bottom') {
-      // Below header button
-      left = Math.max(16, Math.min(vw - cardW - 16, targetRect.right - cardW + 20));
-      top = Math.min(vh - cardH - 20, targetRect.bottom + 16);
     } else if (placement === 'top-right') {
-      // Docked cleanly in the bottom-right or top-right corner of the main workspace so the entire view is visible
-      left = Math.max(16, vw - cardW - 28);
-      top = Math.max(82, vh - cardH - 72);
+      // Main workspace container: dock cleanly in bottom-right so header & main content remain unobstructed
+      left = Math.max(12, vw - cardW - 24);
+      top = Math.max(92, vh - cardH - 24);
     } else {
-      left = Math.max(16, targetRect.left - cardW - 18);
-      top = Math.max(16, Math.min(vh - cardH - 20, targetRect.top));
+      left = Math.max(12, targetRect.left - cardW - 18);
+      top = Math.max(84, Math.min(vh - cardH - 16, targetRect.top));
     }
 
     return {
@@ -890,8 +902,9 @@ export const AIPlatformGuideModal: React.FC<{
     };
   };
 
-  // Determine whether the spotlight target is a large container (like the main scroll view) or a specific control
   const isLargeContainer = Boolean(targetRect && targetRect.width > 500 && targetRect.height > 350);
+  // Flip spotlight badge below the ring when highlighting top-of-screen Header options so it never clips or covers the button
+  const isNearTopEdge = Boolean(targetRect && targetRect.top < 54);
 
   return (
     <div
@@ -899,7 +912,7 @@ export const AIPlatformGuideModal: React.FC<{
         isClosing ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      {/* Animated Spotlight Ring on Target UI Feature (Zero Blur so background is 100% visible) */}
+      {/* Animated Spotlight Ring on Target UI Feature (Zero Blur & Non-Obstructing) */}
       {targetRect && (
         <div
           className="fixed rounded-2xl tour-spotlight-ring pointer-events-none"
@@ -909,12 +922,14 @@ export const AIPlatformGuideModal: React.FC<{
             width: `${Math.round(targetRect.width + (isLargeContainer ? -8 : 10))}px`,
             height: `${Math.round(targetRect.height + (isLargeContainer ? -8 : 10))}px`,
             transition: 'all 0.52s cubic-bezier(0.22, 1, 0.36, 1)',
-            border: '2px solid rgba(56, 189, 248, 0.9)',
+            border: '2px solid rgba(56, 189, 248, 0.95)',
           }}
         >
-          {/* Floating Target Label Tag attached to the highlighted UI element */}
+          {/* Floating Target Label Tag — automatically positions BELOW header items when near top edge */}
           <div
-            className="absolute -top-7 left-2 px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5"
+            className={`absolute ${
+              isNearTopEdge ? '-bottom-7 right-0' : '-top-7 left-2'
+            } px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
             <span>{currentWaypoint?.label || currentStep.shortTitle}</span>
@@ -922,67 +937,7 @@ export const AIPlatformGuideModal: React.FC<{
         </div>
       )}
 
-      {/* Top Minimalist Interactive Tour Progress Pill (Non-blocking, allows clicking any module) */}
-      <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-auto max-w-[95vw]">
-        <div
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border shadow-xl backdrop-blur-xl ${
-            isClosing ? 'animate-popup-out' : 'animate-popup-in'
-          } ${
-            darkMode
-              ? 'bg-slate-900/95 border-indigo-500/40 text-slate-100'
-              : 'bg-white/95 border-indigo-200 text-slate-900'
-          }`}
-        >
-          <span className="text-[11px] font-bold text-indigo-500 px-1.5 whitespace-nowrap hidden sm:inline">
-            Live AI Tour
-          </span>
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
-            {PLATFORM_TOUR_STEPS.map((step, idx) => {
-              const active = idx === activeStepIndex;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => handleSelectStep(idx)}
-                  className={`px-2 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                    active
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : darkMode
-                      ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  {step.shortTitle}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsAutoPlaying(p => !p)}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
-              isAutoPlaying
-                ? 'bg-emerald-600 text-white'
-                : darkMode
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-            title="Automatically move the AI Bot across every feature on screen"
-          >
-            {isAutoPlaying ? '⏸ Pause' : '▶ Auto-Guide'}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
-            title="Exit Interactive Tour (Esc)"
-          >
-            <ICON_MAP.XMarkIcon className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Moving AI Bot & Minimalist Glass Guide Card */}
+      {/* Unified Spatial Moving AI Bot & Guide Card (Includes Integrated Module Step Strip — Never Blocks Header!) */}
       <div
         style={{
           ...computeBotCardPosition(),
@@ -997,6 +952,56 @@ export const AIPlatformGuideModal: React.FC<{
             : 'bg-white/95 border-indigo-200/90 text-slate-900 shadow-indigo-950/15'
         }`}
       >
+        {/* Integrated Horizontal Section Switcher Strip inside the Card */}
+        <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-3 border-b border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
+            {PLATFORM_TOUR_STEPS.map((step, idx) => {
+              const active = idx === activeStepIndex;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => handleSelectStep(idx)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                    active
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : darkMode
+                      ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  {step.shortTitle}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsAutoPlaying(p => !p)}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                isAutoPlaying
+                  ? 'bg-emerald-600 text-white'
+                  : darkMode
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+              title="Automatically glide the AI Bot across every feature"
+            >
+              {isAutoPlaying ? '⏸' : '▶ Auto'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+              title="Exit Interactive Tour (Esc)"
+            >
+              <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
         {/* Bot Avatar + Active Feature Header */}
         <div className="flex items-start gap-3">
           <div className="relative flex-shrink-0">
@@ -1023,18 +1028,18 @@ export const AIPlatformGuideModal: React.FC<{
 
         {/* Live Pointer Explanation */}
         <div
-          className={`mt-3 p-2.5 rounded-xl border text-xs leading-relaxed ${
+          className={`mt-2.5 p-2.5 rounded-xl border text-xs leading-relaxed ${
             darkMode
               ? 'bg-indigo-950/35 border-indigo-500/25 text-indigo-200'
               : 'bg-indigo-50/80 border-indigo-100 text-indigo-950'
           }`}
         >
-          <span className="font-semibold">📍 Right here: </span>
+          <span className="font-semibold">📍 Highlighted: </span>
           {currentWaypoint?.caption || currentStep.summary}
         </div>
 
         {/* Key Highlights for this Workspace Module */}
-        <ul className="mt-2.5 space-y-1">
+        <ul className="mt-2 space-y-1">
           {currentStep.highlights.map((h, i) => (
             <li key={i} className="flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-300">
               <ICON_MAP.CheckIcon className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
@@ -1044,7 +1049,7 @@ export const AIPlatformGuideModal: React.FC<{
         </ul>
 
         {/* Waypoint Dots & Navigation Controls */}
-        <div className="mt-3.5 pt-2.5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
+        <div className="mt-3 pt-2.5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             {currentStep.waypoints.map((wp, idx) => (
               <button

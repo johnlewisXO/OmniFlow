@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { EditTaskModal } from './components/tasks/EditTaskModal'; 
@@ -41,6 +41,10 @@ import { AIProjectManagerStudio } from './components/ai/AIProjectManagerStudio';
 import { FloatingAICopilotButton } from './components/ai/FloatingAICopilotButton';
 import logMonitorService from './services/logMonitorService';
 import { SystemLogMonitorModal } from './components/shared/SystemLogMonitorModal';
+import { EmailOutboxAndVerifyModal } from './components/shared/EmailOutboxAndVerifyModal';
+import emailNotificationService from './services/emailNotificationService';
+import { CalendarMeetingsPage } from './components/calendar/CalendarMeetingsPage';
+import { VideoCallStudioModal } from './components/chat/VideoCallStudioModal';
 
 // Initialize global exception and console log monitoring immediately
 if (typeof logMonitorService?.init === 'function') {
@@ -61,40 +65,141 @@ const ToastContainer: React.FC = () => {
     setHighlightedProjectId
   } = useAppStore();
   const [visibleToasts, setVisibleToasts] = useState<string[]>([]);
+  const seenToastIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const now = Date.now();
     const newUnread = notifications.filter(n => {
       const createdTime = new Date(n.created_at).getTime();
-      return !n.read && (now - createdTime < 7000);
+      return !n.read && now - createdTime < 7000 && !seenToastIdsRef.current.has(n.id);
     });
-    
+
     if (newUnread.length > 0) {
-      const newIds = newUnread.map(n => n.id).filter(id => !visibleToasts.includes(id));
-      if (newIds.length > 0) {
-        setVisibleToasts(prev => [...prev, ...newIds]);
-        
-        newIds.forEach(id => {
-          setTimeout(() => {
-            setVisibleToasts(prev => prev.filter(tId => tId !== id));
-          }, 5500);
-        });
-      }
+      const newIds = newUnread.map(n => n.id);
+      newIds.forEach(id => seenToastIdsRef.current.add(id));
+      setVisibleToasts(prev => Array.from(new Set([...prev, ...newIds])));
+
+      newIds.forEach(id => {
+        setTimeout(() => {
+          setVisibleToasts(prev => prev.filter(tId => tId !== id));
+        }, 5500);
+      });
     }
-  }, [notifications, visibleToasts]);
+  }, [notifications]);
+
+  const getToastActionConfig = (n: any): { isInteractive: boolean; label: string | null } => {
+    const typeStr = (n.type || '').toUpperCase();
+    const titleStr = (n.title || '').toLowerCase();
+    const entityType = n.entity_type;
+
+    // 1. ONLY show "View & reply →" for Teams Chat messages and Task Mentions / Task Comments
+    const isChatMsg =
+      (entityType === 'chat' && !titleStr.includes('updated status')) ||
+      typeStr.includes('CHAT_MESSAGE') ||
+      typeStr.includes('DIRECT_MESSAGE') ||
+      titleStr.startsWith('💬');
+
+    const isTaskMentionOrComment =
+      typeStr === 'MENTION' ||
+      typeStr.includes('COMMENT') ||
+      Boolean(n.metadata?.isComment) ||
+      titleStr.includes('mentioned by') ||
+      titleStr.includes('new comment on');
+
+    if (isChatMsg || isTaskMentionOrComment) {
+      return { isInteractive: true, label: 'View & reply →' };
+    }
+
+    // 2. Teammate status update in chat
+    if (entityType === 'chat' && titleStr.includes('updated status')) {
+      return { isInteractive: true, label: 'Open Direct Message →' };
+    }
+
+    // 3. Task Deleted
+    if (typeStr === 'TASK_DELETED') {
+      return { isInteractive: true, label: 'View project board →' };
+    }
+
+    // 4. Other Task Updates (Assigned, Created, Status Changed, Due Soon, Overdue)
+    if (entityType === 'task' || typeStr.includes('TASK')) {
+      return { isInteractive: true, label: 'Open task details →' };
+    }
+
+    // 5. Project Updates
+    if (entityType === 'project' || typeStr.includes('PROJECT')) {
+      return { isInteractive: true, label: 'Open project board →' };
+    }
+
+    // 6. Team / Role / Organization Invites
+    if (
+      entityType === 'user' ||
+      typeStr.includes('ROLE') ||
+      typeStr.includes('INVITE') ||
+      titleStr.includes('role updated')
+    ) {
+      return { isInteractive: true, label: 'View team directory →' };
+    }
+
+    // 7. Calendar & RSVP notifications
+    if (
+      entityType === 'calendar' ||
+      typeStr.includes('CALENDAR') ||
+      typeStr.includes('RSVP') ||
+      titleStr.startsWith('📅')
+    ) {
+      return { isInteractive: true, label: 'Open Calendar & RSVP →' };
+    }
+
+    // 8. Incoming Video Call notifications
+    if (typeStr.includes('VIDEO_CALL') || titleStr.startsWith('📹')) {
+      return { isInteractive: true, label: 'Join Video Call →' };
+    }
+
+    // 9. Sprint updates
+    if (typeStr.includes('SPRINT') || titleStr.includes('sprint ')) {
+      return { isInteractive: true, label: 'View sprint board →' };
+    }
+
+    // 10. Email / Verification updates
+    if (titleStr.includes('email') || titleStr.includes('verification')) {
+      return { isInteractive: true, label: 'Open Email Center →' };
+    }
+
+    return { isInteractive: false, label: null };
+  };
 
   const handleToastClick = async (n: any) => {
     markNotificationAsRead(n.id);
     setVisibleToasts(prev => prev.filter(id => id !== n.id));
 
     const typeStr = (n.type || '').toUpperCase();
+    const titleStr = (n.title || '').toLowerCase();
     const entityType =
       n.entity_type ||
-      (typeStr.includes('CHAT') ? 'chat' : typeStr.includes('TASK') || typeStr === 'MENTION' ? 'task' : typeStr.includes('PROJECT') ? 'project' : undefined);
+      (typeStr.includes('CALENDAR') || typeStr.includes('RSVP')
+        ? 'calendar'
+        : typeStr.includes('CHAT')
+        ? 'chat'
+        : typeStr.includes('TASK') || typeStr === 'MENTION'
+        ? 'task'
+        : typeStr.includes('PROJECT')
+        ? 'project'
+        : undefined);
     const targetId = n.entity_id || n.reference_id;
 
+    // 0. Calendar or RSVP notification -> open Calendar & Meetings
+    if (
+      entityType === 'calendar' ||
+      typeStr.includes('CALENDAR') ||
+      typeStr.includes('RSVP') ||
+      titleStr.startsWith('📅')
+    ) {
+      setActiveView('calendar_view');
+      return;
+    }
+
     // 1. Direct message or chat notification
-    if (entityType === 'chat' || typeStr.includes('CHAT')) {
+    if (entityType === 'chat' || typeStr.includes('CHAT') || titleStr.startsWith('💬')) {
       setActiveView('team_chat_view');
       if (targetId) {
         setTimeout(() => {
@@ -104,7 +209,13 @@ const ToastContainer: React.FC = () => {
       return;
     }
 
-    // 2. Task comment, mention, or task update
+    // 2. Task Deleted -> go to Kanban board
+    if (typeStr === 'TASK_DELETED') {
+      setActiveView('kanban');
+      return;
+    }
+
+    // 3. Task comment, mention, or task update
     if (entityType === 'task' || typeStr === 'MENTION' || typeStr.includes('TASK')) {
       let targetTask = tasks.find(t => t.id === targetId);
       if (!targetTask && targetId) {
@@ -125,25 +236,47 @@ const ToastContainer: React.FC = () => {
         setHighlightedTaskId(targetTask.id);
         openViewTaskModal(targetTask);
 
-        // Focus last comment/update in the task modal
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('omni_focus_task_comments', {
-            detail: { taskId: targetTask!.id, commentId: n.metadata?.commentId }
-          }));
-        }, 150);
+        if (typeStr === 'MENTION' || n.metadata?.isComment) {
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent('omni_focus_task_comments', {
+                detail: { taskId: targetTask!.id, commentId: n.metadata?.commentId },
+              })
+            );
+          }, 150);
+        }
       }
       return;
     }
 
-    // 3. Project update
+    // 4. Project update
     if (entityType === 'project' || typeStr.includes('PROJECT')) {
       const proj = projects.find(p => p.id === targetId);
       if (proj) {
         setActiveProject(proj);
         setHighlightedProjectId(proj.id);
         setActiveView('kanban');
+      } else {
+        setActiveView('projects_overview');
       }
       return;
+    }
+
+    // 5. Team / Role / User update
+    if (entityType === 'user' || typeStr.includes('ROLE') || typeStr.includes('INVITE') || titleStr.includes('role updated')) {
+      setActiveView('team_management');
+      return;
+    }
+
+    // 6. Sprint update
+    if (typeStr.includes('SPRINT') || titleStr.includes('sprint ')) {
+      setActiveView('sprints_view');
+      return;
+    }
+
+    // 7. Email / Verification center
+    if (titleStr.includes('email') || titleStr.includes('verification')) {
+      window.dispatchEvent(new CustomEvent('omni_open_email_center', { detail: { tab: 'outbox' } }));
     }
   };
 
@@ -155,7 +288,7 @@ const ToastContainer: React.FC = () => {
     <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
       {toastsToShow.map(n => {
         const type = n.toastType || (n.type === 'TASK_DELETED' || n.type === 'USER_REMOVED_FROM_ORG' ? 'error' : 'success');
-        const isInteractive = !!(n.entity_type || n.entity_id || n.reference_id || n.type === 'MENTION' || (n.type && (n.type.includes('TASK') || n.type.includes('CHAT') || n.type.includes('PROJECT'))));
+        const { isInteractive, label: actionLabel } = getToastActionConfig(n);
         
         let iconEl = <ICON_MAP.CheckIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />;
         let borderClass = 'border-emerald-500/30 dark:border-emerald-500/40';
@@ -199,9 +332,9 @@ const ToastContainer: React.FC = () => {
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 break-words">
                 {n.message || n.content}
               </p>
-              {isInteractive && (
+              {isInteractive && actionLabel && (
                 <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                  Click to view & reply →
+                  {actionLabel}
                 </span>
               )}
             </div>
@@ -249,12 +382,26 @@ const MainAppLayout: React.FC = () => {
 
   const ExclamationIcon = ICON_MAP.ExclamationIcon;
   const [isSystemLogMonitorOpen, setIsSystemLogMonitorOpen] = useState(false);
+  const [isEmailCenterOpen, setIsEmailCenterOpen] = useState(false);
+  const [emailCenterInitialTab, setEmailCenterInitialTab] = useState<'verify' | 'outbox'>('verify');
   const [scrollBounceState, setScrollBounceState] = useState<'none' | 'top' | 'bottom'>('none');
 
   useEffect(() => {
     const handleOpenLogMonitor = () => setIsSystemLogMonitorOpen(true);
+    const handleOpenEmailCenter = (e: any) => {
+      if (e?.detail?.tab) {
+        setEmailCenterInitialTab(e.detail.tab);
+      } else {
+        setEmailCenterInitialTab('verify');
+      }
+      setIsEmailCenterOpen(true);
+    };
     window.addEventListener('omni_open_system_log_monitor', handleOpenLogMonitor);
-    return () => window.removeEventListener('omni_open_system_log_monitor', handleOpenLogMonitor);
+    window.addEventListener('omni_open_email_center', handleOpenEmailCenter as EventListener);
+    return () => {
+      window.removeEventListener('omni_open_system_log_monitor', handleOpenLogMonitor);
+      window.removeEventListener('omni_open_email_center', handleOpenEmailCenter as EventListener);
+    };
   }, []);
 
   // Subtle elastic bubble-stretch effect when reaching scroll boundaries on views or scrollable components
@@ -421,6 +568,8 @@ const MainAppLayout: React.FC = () => {
         return <TaskAutomationsDashboard />;
       case 'ai_copilot_view':
         return <AIProjectManagerStudio />;
+      case 'calendar_view':
+        return <CalendarMeetingsPage />;
       case 'admin_settings':
         if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.OWNER) {
           return <AdminDashboard />;
@@ -484,6 +633,12 @@ const MainAppLayout: React.FC = () => {
         isOpen={isSystemLogMonitorOpen}
         onClose={() => setIsSystemLogMonitorOpen(false)}
       />
+      <EmailOutboxAndVerifyModal
+        isOpen={isEmailCenterOpen}
+        onClose={() => setIsEmailCenterOpen(false)}
+        initialTab={emailCenterInitialTab}
+      />
+      <VideoCallStudioModal />
     </div>
   );
 };
@@ -832,26 +987,28 @@ function App() {
 
     // 2. Listen for future auth state changes
     const { data: authListener } = supabaseService.onAuthStateChange(
-      async (_event, session) => {
-        console.log(`[App.tsx AuthEffect] onAuthStateChange event: ${_event}`);
-        
+      (_event, session) => {
         if (!mounted) return;
 
-        if (_event === 'SIGNED_OUT') {
-          console.log(`[App.tsx AuthEffect] User signed out.`);
-          await handleSession(null);
-          return;
-        }
+        // Defer async Supabase DB queries outside the synchronous onAuthStateChange callback
+        // so the internal Supabase GoTrue lock is released immediately.
+        setTimeout(() => {
+          if (!mounted) return;
+          if (_event === 'SIGNED_OUT') {
+            handleSession(null);
+            return;
+          }
 
-        const currentStoreUser = useAppStore.getState().currentUser;
-        const newUserId = session?.user?.id;
-        const currentUserId = currentStoreUser?.supabase_auth_id;
+          const currentStoreUser = useAppStore.getState().currentUser;
+          const newUserId = session?.user?.id;
+          const currentUserId = currentStoreUser?.supabase_auth_id;
 
-        if ((newUserId && newUserId !== currentUserId) || (!newUserId && currentUserId) || !currentStoreUser) {
-          await handleSession(session);
-        } else {
-          finishInitialLoad();
-        }
+          if ((newUserId && newUserId !== currentUserId) || (!newUserId && currentUserId) || !currentStoreUser) {
+            handleSession(session);
+          } else {
+            finishInitialLoad();
+          }
+        }, 0);
       }
     );
 
@@ -958,21 +1115,17 @@ function App() {
   const isAppRoute = currentRoute.startsWith('#/app');
 
   if (appLoading && isAppRoute) {
-    console.log("[App.tsx Render] App is loading and on an app route. Showing GlobalSpinner.");
     return <GlobalSpinner />;
   }
 
   if (!isAppRoute) {
-    console.log(`[App.tsx Render] Current route "${currentRoute}" is not an app route. Showing LandingPage.`);
     return <LandingPage />;
   }
 
   if (!currentUser) {
-    console.log("[App.tsx Render] On app route but no current user. Showing AuthPage.");
     return <AuthPage />;
   }
 
-  console.log(`[App.tsx Render] User ${currentUser.id} (Org: ${currentUser.organization_id}, Role: ${currentUser.role}) is authenticated and on app route. Showing MainAppLayout. ActiveView: ${activeView}`);
   return (
     <div className="h-screen w-screen overflow-hidden p-2 md:p-3 animate-fadeIn"> {/* Adjusted padding */}
        <MainAppLayout />

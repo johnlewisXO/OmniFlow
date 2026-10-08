@@ -25,7 +25,8 @@ export const ALL_ACTIVE_VIEWS: ActiveView[] = [
   'profile_settings',
   'task_automations',
   'task_automations_view',
-  'ai_copilot_view'
+  'ai_copilot_view',
+  'calendar_view'
 ];
 
 export const APP_TITLE = "Omni Flow";
@@ -105,6 +106,12 @@ export const ICON_MAP = {
   TerminalIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />),
   CommandLineIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />),
   InformationCircleIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />),
+  CalendarIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />),
+  VideoCameraIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />),
+  PhoneIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />),
+  MicrophoneIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />),
+  ComputerDesktopIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />),
+  HandRaisedIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M10.05 4.575a1.575 1.575 0 10-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 013.15 0v1.5m-3.15 0l.075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 013.15 0V15M6.9 7.575a1.575 1.575 0 10-3.15 0v8.175a6.75 6.75 0 006.75 6.75h2.018a5.25 5.25 0 003.712-1.538l1.732-1.732a5.25 5.25 0 001.538-3.712l.003-2.024a.668.668 0 01.198-.471 1.575 1.575 0 10-2.228-2.228 3.818 3.818 0 00-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0116.35 15m.002 0h-.002" />),
 };
 
 export const SIDENAV_ITEMS: {
@@ -118,8 +125,9 @@ export const SIDENAV_ITEMS: {
   { id: 'ai_copilot_view', label: 'AI Co-Pilot & PM', icon: 'SparklesIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'projects_overview', label: 'Projects', icon: 'FolderIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'sprints_view', label: 'Sprints', icon: 'RocketLaunchIcon', path: '#', roles: Object.values(UserRole) },
+  { id: 'calendar_view', label: 'Calendar & Meetings', icon: 'CalendarIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'my_tasks_view', label: 'My Tasks', icon: 'ClipboardListIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'team_chat_view', label: 'Teams Chat', icon: 'ChatBubbleLeftIcon', path: '#', roles: Object.values(UserRole) },
+  { id: 'team_chat_view', label: 'Teams Chat & Meet', icon: 'ChatBubbleLeftIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'task_automations', label: 'Triggers & Rules', icon: 'BoltIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'inbox_view', label: 'Inbox', icon: 'InboxIcon', path: '#', roles: Object.values(UserRole) },
   { id: 'reports_view', label: 'Reports', icon: 'ChartBarIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER] },

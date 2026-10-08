@@ -26,6 +26,7 @@ class LogMonitorService {
   private isPaused = false;
   private isIntercepting = false;
   private internalGuard = false;
+  private notifyScheduled = false;
 
   constructor() {
     this.loadStoredLogs();
@@ -93,12 +94,17 @@ class LogMonitorService {
   }
 
   private notifyListeners() {
-    const snapshot = [...this.logs];
-    this.listeners.forEach(listener => {
-      try {
-        listener(snapshot);
-      } catch (e) {}
-    });
+    if (this.notifyScheduled) return;
+    this.notifyScheduled = true;
+    setTimeout(() => {
+      this.notifyScheduled = false;
+      const snapshot = [...this.logs];
+      this.listeners.forEach(listener => {
+        try {
+          listener(snapshot);
+        } catch (e) {}
+      });
+    }, 0);
   }
 
   private formatArgs(args: any[]): { message: string; details?: string; stack?: string } {
@@ -167,7 +173,7 @@ class LogMonitorService {
         this.internalGuard = true;
         const { message, details, stack } = this.formatArgs(args);
         // Ignore noisy browser extension or HMR websocket messages
-        if (message.includes('WebSocket') && message.includes('vite')) return;
+        if (message.includes('WebSocket') || message.includes('[vite]')) return;
         this.addEntry({
           level: stack ? 'EXCEPTION' : 'ERROR',
           source: this.inferSource(message),
@@ -222,6 +228,7 @@ class LogMonitorService {
       try {
         this.internalGuard = true;
         const { message, details } = this.formatArgs(args);
+        if (message.startsWith('[App.tsx Render]') || message.includes('[vite]')) return;
         // Capture meaningful bracket-prefixed or realtime/service logs without spamming every render log
         if (
           message.startsWith('[') ||
@@ -265,6 +272,7 @@ class LogMonitorService {
           : typeof reason === 'string'
           ? reason
           : 'Unhandled Promise Rejection';
+      if (msg.includes('WebSocket closed without opened') || msg.includes('[vite]')) return;
       this.addEntry({
         level: 'EXCEPTION',
         source: 'PromiseRejection',

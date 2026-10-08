@@ -1,10 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
-import { User, ChatMessage, ChatChannel, UserRole, normalizeUserRole, UserPresence } from '../../types';
+import {
+  User,
+  ChatMessage,
+  ChatChannel,
+  UserRole,
+  normalizeUserRole,
+  UserPresence,
+  CalendarEvent,
+  CalendarEventCategory,
+  RsvpStatus,
+  VideoCallSession,
+} from '../../types';
 import chatService, { getE2EEKeyFingerprint } from '../../services/chatService';
 import { collabService } from '../../services/collabService';
-import { supabase } from '../../services/supabaseService';
+import supabaseService, { supabase, saveUserProfileExtension } from '../../services/supabaseService';
+import emailNotificationService from '../../services/emailNotificationService';
+import meetingAndCallService from '../../services/meetingAndCallService';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
 
@@ -57,7 +70,27 @@ export const TeamsChatPage: React.FC = () => {
     updateUserPresence,
     fetchUsersForAssignmentList,
     addToast,
+    setActiveView,
   } = useAppStore();
+
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [ongoingOrgCalls, setOngoingOrgCalls] = useState<VideoCallSession[]>([]);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [schedTitle, setSchedTitle] = useState('');
+  const [schedCategory, setSchedCategory] = useState<CalendarEventCategory>('sprint_planning');
+  const [schedDate, setSchedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [schedStart, setSchedStart] = useState('14:00');
+  const [schedEnd, setSchedEnd] = useState('14:45');
+  const [schedNotes, setSchedNotes] = useState('');
+
+  useEffect(() => {
+    const unsubCal = meetingAndCallService.subscribeCalendar(evts => setCalendarEvents(evts));
+    const unsubCall = meetingAndCallService.subscribeCallState(st => setOngoingOrgCalls(st.ongoingOrgCalls));
+    return () => {
+      unsubCal();
+      unsubCall();
+    };
+  }, []);
 
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [activeChannelId, setActiveChannelId] = useState<string>('general');
@@ -92,6 +125,13 @@ export const TeamsChatPage: React.FC = () => {
   const [newPersonRole, setNewPersonRole] = useState<UserRole>(UserRole.MEMBER);
   const [directorySearch, setDirectorySearch] = useState('');
   const [customPeopleVersion, setCustomPeopleVersion] = useState(0);
+  const [generatedInviteLinkInfo, setGeneratedInviteLinkInfo] = useState<{
+    name: string;
+    email: string;
+    role: UserRole;
+    inviteUrl: string;
+    token: string;
+  } | null>(null);
   const remoteTypingTimeoutsRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   // Ensure all available users and live presences are fetched on mount
@@ -342,12 +382,17 @@ export const TeamsChatPage: React.FC = () => {
     chatService.toggleReaction(messageId, emoji, currentUser.id);
   };
 
-  // All available colleagues across organization, custom added people, and live presences
+  // Strictly organization-verified colleagues for 1:1 Direct Messages and Channels
   const directMessageUsers = useMemo(() => {
     const map = new Map<string, User>();
+    const myOrgId = currentUser?.organization_id;
+
     (users || []).forEach(u => {
       if (u && u.id && u.id !== currentUser?.id) {
-        map.set(u.id, sanitizeUserRecord(u, currentUser?.organization_id));
+        const belongsToOrg = myOrgId ? u.organization_id === myOrgId : true;
+        if (belongsToOrg) {
+          map.set(u.id, sanitizeUserRecord(u, myOrgId));
+        }
       }
     });
 
@@ -359,7 +404,10 @@ export const TeamsChatPage: React.FC = () => {
           if (Array.isArray(customList)) {
             customList.forEach(cu => {
               if (cu && cu.id && cu.id !== currentUser?.id && !map.has(cu.id)) {
-                map.set(cu.id, sanitizeUserRecord(cu, currentUser?.organization_id));
+                const belongsToOrg = myOrgId ? cu.organization_id === myOrgId : true;
+                if (belongsToOrg) {
+                  map.set(cu.id, sanitizeUserRecord(cu, myOrgId));
+                }
               }
             });
           }
@@ -371,32 +419,36 @@ export const TeamsChatPage: React.FC = () => {
       if (p && p.userId && p.userId !== currentUser?.id && !map.has(p.userId)) {
         const pEmail = (p.userEmail || '').toLowerCase();
         const pName = (p.userName || '').toLowerCase();
-        const alreadyExists = Array.from(map.values()).some(
-          existing =>
-            (pEmail && safeEmail(existing).toLowerCase() === pEmail) ||
-            (pName && safeName(existing).toLowerCase() === pName)
+        const matchingOrgUser = (users || []).find(
+          u =>
+            u.id === p.userId ||
+            (pEmail && safeEmail(u).toLowerCase() === pEmail) ||
+            (pName && safeName(u).toLowerCase() === pName)
         );
-        if (!alreadyExists) {
-          map.set(
-            p.userId,
-            sanitizeUserRecord(
-              {
-                id: p.userId,
-                supabase_auth_id: p.userId,
-                full_name: p.userName || 'Online Teammate',
-                email: p.userEmail || `${(p.userName || 'user').toLowerCase().replace(/\s+/g, '.')}@workspace.live`,
-                avatar_url: p.userAvatar,
-                role: UserRole.MEMBER,
-                organization_id: currentUser?.organization_id,
-              },
-              currentUser?.organization_id
-            )
-          );
+        if (matchingOrgUser && (!myOrgId || matchingOrgUser.organization_id === myOrgId)) {
+          map.set(matchingOrgUser.id, sanitizeUserRecord(matchingOrgUser, myOrgId));
         }
       }
     });
     return Array.from(map.values());
   }, [users, presences, currentUser, customPeopleVersion]);
+
+  // Users discovered on the platform who are NOT in the current user's organization (must receive an invite link first)
+  const externalNonOrgUsers = useMemo(() => {
+    const myOrgId = currentUser?.organization_id;
+    if (!myOrgId) return [];
+    const orgIds = new Set(directMessageUsers.map(u => u.id));
+    const orgEmails = new Set(directMessageUsers.map(u => safeEmail(u).toLowerCase()));
+    return (users || []).filter(
+      u =>
+        u &&
+        u.id &&
+        u.id !== currentUser?.id &&
+        u.organization_id !== myOrgId &&
+        !orgIds.has(u.id) &&
+        !orgEmails.has(safeEmail(u).toLowerCase())
+    );
+  }, [users, directMessageUsers, currentUser]);
 
   const handleCreateChannelSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -502,6 +554,124 @@ export const TeamsChatPage: React.FC = () => {
     }
   };
 
+  const generateInviteForNonOrgUser = async (
+    nameInput: string,
+    emailInput: string,
+    roleInput: UserRole
+  ) => {
+    if (!currentUser) return;
+    const cleanName = (nameInput || '').trim() || emailInput.split('@')[0] || 'Invitee';
+    const cleanEmail = (emailInput || '').trim()
+      ? emailInput.trim().toLowerCase()
+      : `${cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@external.org`;
+    const normalizedRole = normalizeUserRole(roleInput);
+
+    const invitation = await supabaseService.createInvitation({
+      organization_id: currentUser.organization_id || 'org-default',
+      email: cleanEmail,
+      role: normalizedRole,
+      invited_by: currentUser.id,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const orgName = useAppStore.getState().currentOrganization?.name || 'Omni Flow Workspace';
+    const { inviteUrl } = await emailNotificationService.sendOrganizationInviteEmail({
+      inviter: currentUser,
+      organizationName: orgName,
+      recipientEmail: cleanEmail,
+      recipientName: cleanName,
+      role: normalizedRole,
+      inviteToken: invitation.token,
+    });
+
+    setGeneratedInviteLinkInfo({
+      name: cleanName,
+      email: cleanEmail,
+      role: normalizedRole,
+      inviteUrl,
+      token: invitation.token,
+    });
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+      }
+    } catch (e) {}
+
+    addToast(
+      'Invite Link Generated & Sent',
+      `${cleanName} (${cleanEmail}) is outside your organization. Invite link copied & emailed!`,
+      'info'
+    );
+  };
+
+  const handleSimulateInviteAccept = (inviteInfo: {
+    name: string;
+    email: string;
+    role: UserRole;
+    inviteUrl: string;
+    token: string;
+  }) => {
+    if (!currentUser) return;
+    const newId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+
+    const joinedUser = sanitizeUserRecord(
+      {
+        id: newId,
+        full_name: inviteInfo.name,
+        email: inviteInfo.email,
+        role: inviteInfo.role,
+        organization_id: currentUser.organization_id,
+      },
+      currentUser.organization_id
+    );
+
+    saveUserProfileExtension(newId, {
+      organization_id: currentUser.organization_id,
+      roleOverride: inviteInfo.role,
+      emailVerified: true,
+    });
+
+    try {
+      const raw = localStorage.getItem('omni_custom_team_members');
+      const customList: User[] = raw ? JSON.parse(raw) : [];
+      if (!customList.some(u => safeEmail(u).toLowerCase() === inviteInfo.email.toLowerCase())) {
+        customList.push(joinedUser);
+        localStorage.setItem('omni_custom_team_members', JSON.stringify(customList));
+      }
+    } catch (e) {}
+
+    setCustomPeopleVersion(v => v + 1);
+    const latestUsers = useAppStore.getState().users || [];
+    const existingIdx = latestUsers.findIndex(
+      u => safeEmail(u).toLowerCase() === inviteInfo.email.toLowerCase()
+    );
+    if (existingIdx >= 0) {
+      const updated = [...latestUsers];
+      updated[existingIdx] = { ...updated[existingIdx], organization_id: currentUser.organization_id };
+      setUsers(updated);
+      setActiveDirectUserId(updated[existingIdx].id);
+    } else {
+      setUsers([...latestUsers, joinedUser]);
+      setActiveDirectUserId(joinedUser.id);
+    }
+
+    chatService.broadcastPersonAdded(joinedUser);
+    setActiveChannelId('');
+    setGeneratedInviteLinkInfo(null);
+    setNewPersonName('');
+    setNewPersonEmail('');
+    setIsAddPersonModalOpen(false);
+    addToast(
+      'Teammate Joined Organization!',
+      `${inviteInfo.name} accepted the invite link and is now in your E2EE Direct Messages.`,
+      'success'
+    );
+  };
+
   const addPersonRecord = async (
     nameInput: string,
     emailInput: string,
@@ -519,14 +689,14 @@ export const TeamsChatPage: React.FC = () => {
 
       const normalizedRole = normalizeUserRole(roleInput);
 
-      // 1. Check if user already exists in current list by email or name (100% null-safe)
-      const existing = directMessageUsers.find(
+      // 1. Check if user is ALREADY in our organization's Direct Message directory
+      const existingInOrg = directMessageUsers.find(
         u =>
           safeEmail(u).toLowerCase() === cleanEmail ||
           safeName(u).toLowerCase() === cleanName.toLowerCase()
       );
 
-      if (existing) {
+      if (existingInOrg) {
         if (addToChannelId) {
           const targetChan = channels.find(c => c.id === addToChannelId);
           if (targetChan) {
@@ -534,127 +704,66 @@ export const TeamsChatPage: React.FC = () => {
               targetChan.memberIds && targetChan.memberIds.length > 0
                 ? targetChan.memberIds
                 : activeChannelMembers.map(m => m.id);
-            if (!currentIds.includes(existing.id)) {
-              chatService.updateChannelMembers(addToChannelId, [...currentIds, existing.id]);
+            if (!currentIds.includes(existingInOrg.id)) {
+              chatService.updateChannelMembers(addToChannelId, [...currentIds, existingInOrg.id]);
               setChannels(chatService.getChannels());
             }
-            addToast('Added to Channel', `${safeName(existing)} is now in #${targetChan.name}.`, 'success');
+            addToast('Added to Channel', `${safeName(existingInOrg)} is now in #${targetChan.name}.`, 'success');
           }
+          setQuickChannelPersonName('');
+          setQuickChannelPersonEmail('');
           return;
         }
 
-        setActiveDirectUserId(existing.id);
+        setActiveDirectUserId(existingInOrg.id);
         setActiveChannelId('');
         if (!keepModalOpen) setIsAddPersonModalOpen(false);
         setNewPersonName('');
         setNewPersonEmail('');
-        addToast('Opened Direct Chat', `Switched to conversation with ${safeName(existing)}.`, 'info');
+        addToast('Opened Direct Chat', `Switched to conversation with ${safeName(existingInOrg)}.`, 'info');
         return;
       }
 
-      // 2. Check if user exists in Supabase user_profiles by full_name or email safely
-      let addedUser: User | null = null;
+      // 2. Check if user exists in Supabase user_profiles AND belongs to our organization
       try {
         const { data: existingProfile } = await supabase
           .from('user_profiles')
           .select('*')
-          .ilike('full_name', cleanName)
+          .or(`email.ilike.${cleanEmail},full_name.ilike.${cleanName}`)
           .maybeSingle();
 
-        if (existingProfile && existingProfile.id) {
-          addedUser = sanitizeUserRecord(
+        if (
+          existingProfile &&
+          existingProfile.id &&
+          currentUser?.organization_id &&
+          existingProfile.organization_id === currentUser.organization_id
+        ) {
+          const orgMember = sanitizeUserRecord(
             {
               ...existingProfile,
               email: existingProfile.email || cleanEmail,
               full_name: existingProfile.full_name || cleanName,
               role: normalizeUserRole(existingProfile.role || normalizedRole),
             },
-            currentUser?.organization_id
+            currentUser.organization_id
           );
-        }
-      } catch (err) {
-        // Ignore DB lookup errors and create local/realtime colleague record
-      }
-
-      if (!addedUser) {
-        const newId =
-          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-            ? crypto.randomUUID()
-            : 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-
-        addedUser = sanitizeUserRecord(
-          {
-            id: newId,
-            full_name: cleanName,
-            email: cleanEmail,
-            role: normalizedRole,
-            organization_id: currentUser?.organization_id,
-          },
-          currentUser?.organization_id
-        );
-      }
-
-      // 3. Persist in localStorage custom team members so they stay available across the app
-      try {
-        const raw = localStorage.getItem('omni_custom_team_members');
-        const customList: User[] = raw ? JSON.parse(raw) : [];
-        if (
-          !customList.some(
-            u => u && (u.id === addedUser!.id || safeEmail(u).toLowerCase() === cleanEmail)
-          )
-        ) {
-          customList.push(addedUser);
-          localStorage.setItem('omni_custom_team_members', JSON.stringify(customList));
+          const latestUsers = useAppStore.getState().users || [];
+          if (!latestUsers.some(u => u.id === orgMember.id)) {
+            setUsers([...latestUsers, orgMember]);
+          }
+          setActiveDirectUserId(orgMember.id);
+          setActiveChannelId('');
+          if (!keepModalOpen) setIsAddPersonModalOpen(false);
+          addToast('Direct Chat Ready', `Started E2EE Direct Message with ${orgMember.full_name}.`, 'success');
+          return;
         }
       } catch (err) {}
 
-      // 4. Update store users list safely
-      setCustomPeopleVersion(v => v + 1);
-      const latestUsers = useAppStore.getState().users || [];
-      if (!latestUsers.some(u => u && u.id === addedUser!.id)) {
-        setUsers([...latestUsers, addedUser]);
-      }
-
-      // 5. Broadcast person added in real time
-      chatService.broadcastPersonAdded(addedUser);
-
-      // 6. If adding directly to a channel, update channel members
-      if (addToChannelId) {
-        const targetChan = channels.find(c => c.id === addToChannelId);
-        if (targetChan) {
-          const currentIds =
-            targetChan.memberIds && targetChan.memberIds.length > 0
-              ? targetChan.memberIds
-              : activeChannelMembers.map(m => m.id);
-          chatService.updateChannelMembers(addToChannelId, [...currentIds, addedUser.id]);
-          setChannels(chatService.getChannels());
-          addToast(
-            'Person Added to Channel',
-            `${addedUser.full_name} was added to #${targetChan.name} and Direct Messages.`,
-            'success'
-          );
-        }
-        setQuickChannelPersonName('');
-        setQuickChannelPersonEmail('');
-        return;
-      }
-
-      // 7. Switch to the new 1:1 Direct Message conversation
-      setActiveDirectUserId(addedUser.id);
-      setActiveChannelId('');
-      if (!keepModalOpen) {
-        setIsAddPersonModalOpen(false);
-      }
-      setNewPersonName('');
-      setNewPersonEmail('');
-      addToast(
-        'Direct Message Started',
-        `${addedUser.full_name} has been added to your E2EE Direct Messages.`,
-        'success'
-      );
+      // 3. User is NOT part of the current organization -> Generate & Send Organization Invite Link!
+      await generateInviteForNonOrgUser(cleanName, cleanEmail, normalizedRole);
     } catch (err: any) {
-      console.error('[TeamsChatPage] Error adding person to DM:', err);
-      addToast('Could Not Add Contact', err?.message || 'An unexpected error occurred.', 'error');
+      console.error('[TeamsChatPage] Error adding/inviting person to DM:', err);
+      addToast('Could Not Process Request', err?.message || 'An unexpected error occurred.', 'error');
     }
   };
 
@@ -742,6 +851,19 @@ export const TeamsChatPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveView('calendar_view')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                  : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+              }`}
+            >
+              <ICON_MAP.CalendarIcon className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Calendar & RSVPs</span>
+            </button>
+
             {!activeDirectUserId && activeChannel && (
               <button
                 type="button"
@@ -1171,8 +1293,106 @@ export const TeamsChatPage: React.FC = () => {
               ) : null}
             </div>
 
-            {/* Header Right: Channel Member Avatars + Add People Button */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Header Right: Video Call, Audio Call, Schedule Meeting, Channel Members */}
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+              {/* Start Video Call (1:1 DM or Channel Group Call) */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!currentUser) return;
+                  window.dispatchEvent(
+                    new CustomEvent('omni_start_video_call', {
+                      detail: {
+                        title: activeDirectUser
+                          ? `1:1 Video Call with ${safeName(activeDirectUser)}`
+                          : `#${activeChannel?.name || 'general'} Team Video Huddle`,
+                        type: activeDirectUser ? 'direct' : 'channel',
+                        channelId: activeDirectUser ? undefined : activeChannel?.id,
+                        directUser: activeDirectUser || undefined,
+                        invitedUsers: activeDirectUser
+                          ? [activeDirectUser]
+                          : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                        initialVideo: true,
+                        initialAudio: true,
+                        showLobby: false,
+                      },
+                    })
+                  );
+                }}
+                title={
+                  activeDirectUser
+                    ? `Start 1:1 Video Call with ${safeName(activeDirectUser)} (can add more people mid-call)`
+                    : `Start Channel Video Call in #${activeChannel?.name}`
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                <span>{activeDirectUser ? '1:1 Video Call' : 'Meet Now'}</span>
+              </button>
+
+              {/* Audio Call Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!currentUser) return;
+                  window.dispatchEvent(
+                    new CustomEvent('omni_start_video_call', {
+                      detail: {
+                        title: activeDirectUser
+                          ? `Voice Call with ${safeName(activeDirectUser)}`
+                          : `#${activeChannel?.name || 'general'} Voice Huddle`,
+                        type: activeDirectUser ? 'direct' : 'channel',
+                        channelId: activeDirectUser ? undefined : activeChannel?.id,
+                        directUser: activeDirectUser || undefined,
+                        invitedUsers: activeDirectUser
+                          ? [activeDirectUser]
+                          : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                        initialVideo: false,
+                        initialAudio: true,
+                        showLobby: false,
+                      },
+                    })
+                  );
+                }}
+                title="Start Voice-First Call"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                }`}
+              >
+                <ICON_MAP.PhoneIcon className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Audio</span>
+              </button>
+
+              {/* Schedule Meeting & RSVP Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSchedTitle(
+                    activeDirectUser
+                      ? `1:1 Sync: ${safeName(currentUser)} & ${safeName(activeDirectUser)}`
+                      : `#${activeChannel?.name || 'team'} Sprint & Project Sync`
+                  );
+                  setSchedCategory(activeDirectUser ? 'one_on_one' : 'sprint_planning');
+                  setSchedNotes(
+                    activeDirectUser
+                      ? 'Agenda: Quick 1:1 alignment on current sprint priorities and blockers.'
+                      : 'Agenda: Review sprint progress, upcoming deliverables, and team blockers.'
+                  );
+                  setIsScheduleModalOpen(true);
+                }}
+                title="Schedule Calendar Meeting & Send RSVP Invites"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-indigo-300'
+                    : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
+                }`}
+              >
+                <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Schedule</span>
+              </button>
+
               {!activeDirectUser && activeChannel && (
                 <button
                   type="button"
@@ -1181,7 +1401,7 @@ export const TeamsChatPage: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">+ Add to #{activeChannel.name}</span>
+                  <span className="hidden xl:inline">+ Add to #{activeChannel.name}</span>
                 </button>
               )}
 
@@ -1198,6 +1418,47 @@ export const TeamsChatPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Active Video Call Banner in Current Conversation */}
+          {(() => {
+            const activeConvCall = ongoingOrgCalls.find(c =>
+              activeDirectUser
+                ? c.directUserId === activeDirectUser.id
+                : c.channelId === activeChannel?.id
+            );
+            if (!activeConvCall) return null;
+            return (
+              <div className="px-4 py-2.5 bg-emerald-600/15 border-b border-emerald-500/30 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping flex-shrink-0" />
+                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 truncate">
+                    Live Video Call: {activeConvCall.title}
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 hidden sm:inline">
+                    · {activeConvCall.participants.length} in call · {activeConvCall.meetingCode}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!currentUser) return;
+                    meetingAndCallService.startOrJoinCall({
+                      currentUser,
+                      title: activeConvCall.title,
+                      type: activeConvCall.type,
+                      meetingCode: activeConvCall.meetingCode,
+                      channelId: activeConvCall.channelId,
+                      postCallCardToChat: false,
+                    });
+                  }}
+                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+                >
+                  <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                  <span>Join Call</span>
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Messages Stream */}
           <div data-bubble-scroll="true" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 scrollbar-thin">
@@ -1262,15 +1523,215 @@ export const TeamsChatPage: React.FC = () => {
                         )}
                       </div>
 
-                      <div
-                        className={`p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-xs transition-transform duration-200 ${
-                          isMe
-                            ? 'bg-indigo-600 text-white rounded-tr-xs'
-                            : 'bg-slate-100 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 rounded-tl-xs'
-                        }`}
-                      >
-                        {msg.content}
-                      </div>
+                      {(() => {
+                        const rawContent = msg.content || '';
+                        if (rawContent.startsWith('[MEETING_INVITE:')) {
+                          const closeBracket = rawContent.indexOf(']');
+                          let parsedMeta: any = null;
+                          if (closeBracket > 0) {
+                            try {
+                              parsedMeta = JSON.parse(rawContent.slice(16, closeBracket));
+                            } catch {}
+                          }
+                          const liveEvent =
+                            (parsedMeta?.eventId &&
+                              calendarEvents.find(e => e.id === parsedMeta.eventId)) ||
+                            null;
+                          const title = liveEvent?.title || parsedMeta?.title || 'Scheduled Meeting';
+                          const startTime = liveEvent?.startTime || parsedMeta?.startTime;
+                          const meetingCode = liveEvent?.meetingCode || parsedMeta?.meetingCode || 'omni-live';
+                          const organizerName =
+                            liveEvent?.organizerName || parsedMeta?.organizerName || msg.sender_name;
+                          const myRsvp = liveEvent?.attendees.find(
+                            a => a.userId === currentUser?.id
+                          )?.rsvp;
+                          const goingCount = liveEvent
+                            ? liveEvent.attendees.filter(a => a.rsvp === 'going').length
+                            : 1;
+                          const maybeCount = liveEvent
+                            ? liveEvent.attendees.filter(a => a.rsvp === 'maybe').length
+                            : 0;
+                          const pendingCount = liveEvent
+                            ? liveEvent.attendees.filter(a => a.rsvp === 'pending').length
+                            : 0;
+
+                          return (
+                            <div
+                              className={`p-4 rounded-2xl border shadow-sm space-y-3 min-w-[270px] sm:min-w-[330px] ${
+                                darkMode
+                                  ? 'bg-slate-900/95 border-indigo-500/40 text-slate-100'
+                                  : 'bg-white border-indigo-200 text-slate-900'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-0.5">
+                                  <div className="text-[10px] font-semibold text-indigo-500">
+                                    Calendar Meeting Invite · Room {meetingCode}
+                                  </div>
+                                  <h4 className="text-sm font-bold">{title}</h4>
+                                  {startTime && (
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                      {new Date(startTime).toLocaleString([], {
+                                        weekday: 'short',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </div>
+                                  )}
+                                  <div className="text-[11px] text-slate-400">
+                                    Requested by {organizerName} · {goingCount} Going · {maybeCount} Maybe ·{' '}
+                                    {pendingCount} Pending
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!currentUser) return;
+                                    window.dispatchEvent(
+                                      new CustomEvent('omni_start_video_call', {
+                                        detail: {
+                                          title,
+                                          type: 'scheduled',
+                                          meetingCode,
+                                          calendarEvent: liveEvent || undefined,
+                                          invitedUsers: activeDirectUser
+                                            ? [activeDirectUser]
+                                            : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                                          showLobby: true,
+                                        },
+                                      })
+                                    );
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+                                >
+                                  <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                                  <span>Join Call</span>
+                                </button>
+                              </div>
+
+                              {/* Interactive RSVP Buttons inside Chat Card */}
+                              {liveEvent && currentUser && (
+                                <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-semibold text-slate-400">
+                                    Your RSVP:
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    {(
+                                      [
+                                        { id: 'going', label: '✓ Going' },
+                                        { id: 'maybe', label: '? Maybe' },
+                                        { id: 'declined', label: '✕ Decline' },
+                                      ] as const
+                                    ).map(opt => {
+                                      const active = myRsvp === opt.id;
+                                      return (
+                                        <button
+                                          key={opt.id}
+                                          type="button"
+                                          onClick={() => {
+                                            meetingAndCallService.updateRsvp(
+                                              liveEvent.id,
+                                              currentUser,
+                                              opt.id
+                                            );
+                                            addToast(
+                                              'RSVP Updated',
+                                              `Responded "${opt.label}" to "${liveEvent.title}".`,
+                                              'success'
+                                            );
+                                          }}
+                                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                            active
+                                              ? opt.id === 'going'
+                                                ? 'bg-emerald-600 text-white border-emerald-500'
+                                                : opt.id === 'maybe'
+                                                ? 'bg-amber-500 text-slate-950 border-amber-400'
+                                                : 'bg-rose-600 text-white border-rose-500'
+                                              : darkMode
+                                              ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                                              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                                          }`}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        if (rawContent.startsWith('[VIDEO_CALL:')) {
+                          const closeBracket = rawContent.indexOf(']');
+                          let parsedCall: any = null;
+                          if (closeBracket > 0) {
+                            try {
+                              parsedCall = JSON.parse(rawContent.slice(12, closeBracket));
+                            } catch {}
+                          }
+                          const callTitle = parsedCall?.title || 'Team Video Call';
+                          const meetingCode = parsedCall?.meetingCode || 'omni-live';
+
+                          return (
+                            <div
+                              className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between gap-4 min-w-[260px] ${
+                                darkMode
+                                  ? 'bg-slate-900/95 border-emerald-500/40 text-white'
+                                  : 'bg-emerald-50/60 border-emerald-200 text-slate-900'
+                              }`}
+                            >
+                              <div className="space-y-0.5">
+                                <div className="text-[10px] font-semibold text-emerald-500">
+                                  Live Video Room · {meetingCode}
+                                </div>
+                                <div className="text-xs font-bold">{callTitle}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!currentUser) return;
+                                  window.dispatchEvent(
+                                    new CustomEvent('omni_start_video_call', {
+                                      detail: {
+                                        title: callTitle,
+                                        type: activeDirectUser ? 'direct' : 'channel',
+                                        meetingCode,
+                                        channelId: activeDirectUser ? undefined : activeChannel?.id,
+                                        directUser: activeDirectUser || undefined,
+                                        invitedUsers: activeDirectUser
+                                          ? [activeDirectUser]
+                                          : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                                        postCallCardToChat: false,
+                                      },
+                                    })
+                                  );
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+                              >
+                                <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                                <span>Join Video</span>
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            className={`p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-xs transition-transform duration-200 ${
+                              isMe
+                                ? 'bg-indigo-600 text-white rounded-tr-xs'
+                                : 'bg-slate-100 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 rounded-tl-xs'
+                            }`}
+                          >
+                            {msg.content}
+                          </div>
+                        );
+                      })()}
 
                       {/* Emoji Reactions Bar */}
                       <div
@@ -1780,7 +2241,49 @@ export const TeamsChatPage: React.FC = () => {
               </div>
             )}
 
-            {/* Suggested Colleagues to Quick-Add */}
+            {/* Non-Organization Users Detected on Platform (Require Invite Link) */}
+            {externalNonOrgUsers.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Outside Your Organization · Invite Link Required ({externalNonOrgUsers.length})
+                </label>
+                <div className="max-h-28 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+                  {externalNonOrgUsers.map(extUser => (
+                    <div
+                      key={extUser.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-amber-500/5 border border-amber-500/20"
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <Avatar user={extUser} size="sm" />
+                        <div className="truncate">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {safeName(extUser)}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {safeEmail(extUser)} · Not in Organization
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          generateInviteForNonOrgUser(
+                            safeName(extUser),
+                            safeEmail(extUser),
+                            normalizeUserRole(extUser.role)
+                          )
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-bold flex-shrink-0 cursor-pointer"
+                      >
+                        Send Invite Link
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Suggested External Colleagues to Invite via Link */}
             {(() => {
               const availableSuggestions = SUGGESTED_COLLEAGUES.filter(
                 sc =>
@@ -1792,21 +2295,20 @@ export const TeamsChatPage: React.FC = () => {
               );
               if (availableSuggestions.length === 0) return null;
               return (
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 pt-1">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Quick Add Colleagues
+                    External Contacts · Click to Generate Invite Link
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {availableSuggestions.map(sc => (
                       <button
                         key={sc.id}
                         type="button"
-                        onClick={() => addPersonRecord(sc.full_name, sc.email, sc.role, true)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold transition-colors cursor-pointer"
+                        onClick={() => generateInviteForNonOrgUser(sc.full_name, sc.email, sc.role)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[11px] font-bold transition-colors cursor-pointer"
                       >
                         <ICON_MAP.PlusIcon className="w-3 h-3" />
-                        <span>{sc.full_name}</span>
-                        <span className="text-[9px] opacity-70">({sc.role.replace(/_/g, ' ')})</span>
+                        <span>Invite {sc.full_name}</span>
                       </button>
                     ))}
                   </div>
@@ -1814,13 +2316,83 @@ export const TeamsChatPage: React.FC = () => {
               );
             })()}
 
+            {/* Generated Organization Invite Link Callout */}
+            {generatedInviteLinkInfo && (
+              <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 space-y-2.5 animate-popup-in">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-300">
+                      External User · Organization Invite Link Required
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1">
+                      Invite Link Created for {generatedInviteLinkInfo.name} ({generatedInviteLinkInfo.email})
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Only organization members can join Direct Messages. Share this invite link (also emailed to them) so they can join your organization:
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGeneratedInviteLinkInfo(null)}
+                    className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    readOnly
+                    value={generatedInviteLinkInfo.inviteUrl}
+                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[10px]"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(generatedInviteLinkInfo.inviteUrl);
+                      addToast('Invite Link Copied', 'Copied organization invite URL to clipboard.', 'success');
+                    }}
+                  >
+                    Copy Link
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('omni_open_email_center', { detail: { tab: 'outbox' } }));
+                    }}
+                    className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    ✉️ View Sent Invite Email in Outbox →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateInviteAccept(generatedInviteLinkInfo)}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer"
+                  >
+                    ⚡ Simulate {generatedInviteLinkInfo.name} Accepting Invite
+                  </button>
+                </div>
+              </div>
+            )}
+
             <form
               onSubmit={handleAddPersonSubmit}
               className="space-y-3 text-xs pt-2 border-t border-slate-100 dark:border-slate-700"
             >
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Add New Person by Details
-              </p>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Find Org Member or Send External Invite Link
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  If the person is already in your organization, chat opens immediately. Otherwise, an Organization Invite Link will be generated and emailed.
+                </p>
+              </div>
               <div>
                 <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Full Name *</label>
                 <input
@@ -1835,11 +2407,12 @@ export const TeamsChatPage: React.FC = () => {
 
               <div>
                 <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
-                  Email Address <span className="text-slate-400 font-normal">(optional)</span>
+                  Email Address *
                 </label>
                 <input
                   type="email"
-                  placeholder="e.g. sarah@company.com (auto-generated if blank)"
+                  required
+                  placeholder="e.g. sarah@company.com"
                   value={newPersonEmail}
                   onChange={e => setNewPersonEmail(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
@@ -1847,7 +2420,7 @@ export const TeamsChatPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Role</label>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Role Upon Joining</label>
                 <select
                   value={newPersonRole}
                   onChange={e => setNewPersonRole(normalizeUserRole(e.target.value))}
@@ -1862,20 +2435,216 @@ export const TeamsChatPage: React.FC = () => {
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
                 <Button variant="outline" size="sm" type="button" onClick={() => setIsAddPersonModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  type="button"
-                  disabled={!newPersonName.trim()}
-                  onClick={() => addPersonRecord(newPersonName, newPersonEmail, newPersonRole, true)}
-                >
-                  + Add & Add Another
+                  Close
                 </Button>
                 <Button variant="primary" size="sm" type="submit" disabled={!newPersonName.trim()}>
-                  Add & Start Chat
+                  Start Chat or Generate Invite Link
                 </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Quick Schedule Meeting & Send RSVP Invite Modal */}
+      {isScheduleModalOpen && currentUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setIsScheduleModalOpen(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <ICON_MAP.CalendarIcon className="w-5 h-5 text-indigo-500" />
+                  <span>
+                    {activeDirectUser
+                      ? `Schedule 1:1 Meeting with ${safeName(activeDirectUser)}`
+                      : `Schedule Channel Meeting in #${activeChannel?.name || 'general'}`}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Sends Calendar + Chat invites so all attendees can RSVP (Going / Maybe / Decline)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsScheduleModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={async e => {
+                e.preventDefault();
+                if (!schedTitle.trim()) return;
+                const startIso = new Date(`${schedDate}T${schedStart}:00`).toISOString();
+                const endIso = new Date(`${schedDate}T${schedEnd}:00`).toISOString();
+                const invitees = activeDirectUser
+                  ? [activeDirectUser]
+                  : activeChannelMembers.filter(m => m.id !== currentUser.id);
+
+                const created = await meetingAndCallService.scheduleMeeting({
+                  title: schedTitle.trim(),
+                  description: schedNotes.trim(),
+                  category: schedCategory,
+                  startTime: startIso,
+                  endTime: endIso,
+                  organizer: currentUser,
+                  invitedUsers: invitees,
+                  channelId: activeDirectUser ? undefined : activeChannel?.id,
+                  directUserId: activeDirectUser?.id,
+                  prepNotes: schedNotes.trim(),
+                  agenda: [
+                    {
+                      id: `ag-${Date.now()}-1`,
+                      title: 'Kickoff & Sprint / Project Status Alignment',
+                      durationMinutes: 15,
+                      completed: false,
+                      presenterName: safeName(currentUser),
+                    },
+                    {
+                      id: `ag-${Date.now()}-2`,
+                      title: 'Blockers, Decisions & Next Steps',
+                      durationMinutes: 15,
+                      completed: false,
+                    },
+                  ],
+                  postToChat: true,
+                });
+
+                setMessages(
+                  chatService.getMessages(
+                    activeChannelId,
+                    activeDirectUserId || undefined,
+                    currentUser.id
+                  )
+                );
+                setIsScheduleModalOpen(false);
+                addToast(
+                  'Meeting Scheduled & RSVP Sent',
+                  `Invited ${invitees.length} ${
+                    invitees.length === 1 ? 'person' : 'people'
+                  } to "${created.title}".`,
+                  'success'
+                );
+              }}
+              className="space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  Meeting Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={schedTitle}
+                  onChange={e => setSchedTitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Meeting Category
+                  </label>
+                  <select
+                    value={schedCategory}
+                    onChange={e => setSchedCategory(e.target.value as CalendarEventCategory)}
+                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="sprint_planning">Sprint Planning & Prep</option>
+                    <option value="project_update">Project Update & Review</option>
+                    <option value="sprint_retro">Sprint Retrospective</option>
+                    <option value="one_on_one">1:1 Sync</option>
+                    <option value="daily_standup">Daily Standup</option>
+                    <option value="team_workshop">Architecture Workshop</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={schedDate}
+                    onChange={e => setSchedDate(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={schedStart}
+                    onChange={e => setSchedStart(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={schedEnd}
+                    onChange={e => setSchedEnd(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  Meeting Agenda & Sprint Prep Notes
+                </label>
+                <textarea
+                  rows={2}
+                  value={schedNotes}
+                  onChange={e => setSchedNotes(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsScheduleModalOpen(false);
+                    setActiveView('calendar_view');
+                  }}
+                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  Open Full Calendar View →
+                </button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => setIsScheduleModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button variant="primary" size="sm" type="submit">
+                    Send Invite & Request RSVP
+                  </Button>
+                </div>
               </div>
             </form>
           </div>
