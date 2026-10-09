@@ -110,9 +110,24 @@ class MeetingAndCallService {
     if (!userId) return false;
     if (this.localUserId && userId === this.localUserId) return true;
     const hb = this.participantHeartbeats.get(userId);
-    if (hb && Date.now() - hb < 25000) return true;
+    if (hb && Date.now() - hb < 45000) return true;
     const presences = collabService.getActivePresences();
     return presences.some(p => p.userId === userId);
+  }
+
+  public isUserActivelyOnline(userId: string): boolean {
+    return this.isUserOnlineInOrg(userId);
+  }
+
+  private formatCallDuration(startedAtIso?: string): string {
+    if (!startedAtIso) return '0m 0s';
+    const sec = Math.max(1, Math.floor((Date.now() - new Date(startedAtIso).getTime()) / 1000));
+    const hrs = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (hrs > 0) return `${hrs}h ${mins}m ${s}s`;
+    if (mins > 0) return `${mins}m ${s}s`;
+    return `${s}s`;
   }
 
   private loadStoredEvents() {
@@ -149,7 +164,8 @@ class MeetingAndCallService {
         const now = Date.now();
         if (Array.isArray(parsed)) {
           parsed.forEach(c => {
-            if (c && c.id && now - new Date(c.startedAt).getTime() < 30 * 60 * 1000) {
+            const hasConnected = Array.isArray(c?.participants) && c.participants.some(p => p.connectionState === 'connected');
+            if (c && c.id && hasConnected && now - new Date(c.startedAt).getTime() < 20 * 60 * 1000) {
               this.ongoingCalls.set(c.id, c);
             }
           });
@@ -179,7 +195,11 @@ class MeetingAndCallService {
         try {
           const list = JSON.parse(e.newValue) as VideoCallSession[];
           this.ongoingCalls.clear();
-          list.forEach(c => this.ongoingCalls.set(c.id, c));
+          list.forEach(c => {
+            if (c && c.id && c.participants?.some(p => p.connectionState === 'connected')) {
+              this.ongoingCalls.set(c.id, c);
+            }
+          });
           this.notifyCallListeners();
         } catch {}
       }
@@ -194,7 +214,7 @@ class MeetingAndCallService {
         return keep;
       });
 
-      // Broadcast active call heartbeat for local connected user & prune offline/unanswered participants
+      // Broadcast active call heartbeat for local connected user
       if (this.activeCallId && this.localUserId) {
         this.participantHeartbeats.set(this.localUserId, now);
         this.broadcastPacket('CALL_HEARTBEAT', {
@@ -207,7 +227,10 @@ class MeetingAndCallService {
         if (activeCall) {
           let participantsChanged = false;
           const nextParticipants = activeCall.participants.map(p => {
-            if (p.userId === this.localUserId) return p;
+            // Never auto-disconnect the local user; they stay on the call until they choose to leave
+            if (p.userId === this.localUserId) {
+              return p.connectionState === 'connected' ? p : { ...p, connectionState: 'connected' as const };
+            }
 
             // Timeout unanswered ringing participants after 45 seconds
             if (p.connectionState === 'ringing') {
@@ -218,13 +241,13 @@ class MeetingAndCallService {
               }
             }
 
-            // Ensure connected remote participants are actually online or sending heartbeats
+            // Keep remote connected participants on the call as long as they haven't left or gone completely offline (>75s)
             if (p.connectionState === 'connected') {
               const hb = this.participantHeartbeats.get(p.userId) || 0;
               const joinedMs = p.joinedAt ? new Date(p.joinedAt).getTime() : 0;
               const isOnlineInCollab = this.isUserOnlineInOrg(p.userId);
-              const recentlyJoined = now - joinedMs < 20000;
-              if (now - hb > 25000 && !isOnlineInCollab && !recentlyJoined) {
+              const recentlyJoined = now - joinedMs < 60000;
+              if (now - hb > 75000 && !isOnlineInCollab && !recentlyJoined) {
                 participantsChanged = true;
                 this.remoteScreenFrames.delete(p.userId);
                 this.remoteCameraFrames.delete(p.userId);
@@ -243,10 +266,27 @@ class MeetingAndCallService {
         }
       }
 
+      // Prune any orphan calls in ongoingCalls where 0 participants are connected
+      this.ongoingCalls.forEach((c, cid) => {
+        if (cid === this.activeCallId) return;
+        const connectedList = (c.participants || []).filter(p => p.connectionState === 'connected');
+        const hasAnyLiveConnected = connectedList.some(p => {
+          const hb = this.participantHeartbeats.get(p.userId) || 0;
+          const ageSinceStart = now - new Date(c.startedAt).getTime();
+          return now - hb < 75000 || this.isUserOnlineInOrg(p.userId) || ageSinceStart < 45000;
+        });
+        if (connectedList.length === 0 || !hasAnyLiveConnected) {
+          this.ongoingCalls.delete(cid);
+          const endedAt = new Date().toISOString();
+          chatService.markCallEndedInChat(c.id, c.meetingCode, endedAt, this.formatCallDuration(c.startedAt));
+          changed = true;
+        }
+      });
+
       if (changed) {
-        this.notifyCallListeners();
+        this.persistOngoingCalls();
       }
-    }, 2500);
+    }, 3000);
   }
 
   private initRealtimeChannels() {
@@ -352,7 +392,12 @@ class MeetingAndCallService {
         }
         if (callId && this.activeCallId === callId && userId && userId !== this.localUserId) {
           const call = this.ongoingCalls.get(callId);
-          if (call && !this.peerConnections.has(userId)) {
+          const existingPc = this.peerConnections.get(userId);
+          if (
+            call &&
+            (!existingPc ||
+              (existingPc.connectionState === 'failed' || existingPc.connectionState === 'closed'))
+          ) {
             this.initiateWebRTCMeshForCall(call, this.localUserId || call.hostId);
           }
         }
@@ -376,15 +421,29 @@ class MeetingAndCallService {
             this.remoteCameraFrames.delete(p.userId);
           }
         });
-        if (session.participants.filter(p => p.connectionState === 'connected' || p.connectionState === 'ringing').length === 0) {
-          this.ongoingCalls.delete(session.id);
-          if (this.activeCallId === session.id) {
+        // If I am actively in this call, ensure my participant entry stays connected even if a stale sync arrived
+        let mergedSession = session;
+        if (this.activeCallId === session.id && this.localUserId) {
+          const localCurrent = this.ongoingCalls.get(session.id)?.participants.find(p => p.userId === this.localUserId);
+          if (localCurrent && !session.participants.some(p => p.userId === this.localUserId && p.connectionState === 'connected')) {
+            mergedSession = {
+              ...session,
+              participants: [
+                ...session.participants.filter(p => p.userId !== this.localUserId),
+                { ...localCurrent, connectionState: 'connected' },
+              ],
+            };
+          }
+        }
+        if (mergedSession.participants.filter(p => p.connectionState === 'connected').length === 0) {
+          this.ongoingCalls.delete(mergedSession.id);
+          if (this.activeCallId === mergedSession.id) {
             this.cleanupLocalCallState();
           }
         } else {
-          this.ongoingCalls.set(session.id, session);
-          if (this.activeCallId === session.id && this.localUserId) {
-            this.initiateWebRTCMeshForCall(session, this.localUserId);
+          this.ongoingCalls.set(mergedSession.id, mergedSession);
+          if (this.activeCallId === mergedSession.id && this.localUserId) {
+            this.initiateWebRTCMeshForCall(mergedSession, this.localUserId);
           }
         }
         this.persistOngoingCalls();
@@ -414,6 +473,11 @@ class MeetingAndCallService {
           this.ongoingCalls.set(callId, updatedCall);
           this.persistOngoingCalls();
         }
+        window.dispatchEvent(
+          new CustomEvent('omni_call_declined', {
+            detail: { callId, userId, userName: userName || 'Teammate' },
+          })
+        );
         window.dispatchEvent(
           new CustomEvent('omni_remote_call_declined', {
             detail: { callId, userId, userName: userName || 'Teammate' },
@@ -457,8 +521,9 @@ class MeetingAndCallService {
       }
 
       case 'CALL_SESSION_ENDED': {
-        const { callId } = payload || {};
+        const { callId, meetingCode, endedAt, durationText } = payload || {};
         if (!callId) return;
+        const existing = this.ongoingCalls.get(callId);
         this.ongoingCalls.delete(callId);
         if (this.activeCallId === callId) {
           this.cleanupLocalCallState();
@@ -466,6 +531,12 @@ class MeetingAndCallService {
         if (this.incomingInvite?.callId === callId) {
           this.incomingInvite = null;
         }
+        chatService.markCallEndedInChat(
+          callId,
+          meetingCode || existing?.meetingCode || '',
+          endedAt || new Date().toISOString(),
+          durationText || (existing ? this.formatCallDuration(existing.startedAt) : undefined)
+        );
         this.persistOngoingCalls();
         break;
       }
@@ -1026,17 +1097,39 @@ class MeetingAndCallService {
     this.notifyCallListeners();
   }
 
-  public declineCall(callId: string, decliningUser: User) {
-    if (this.incomingInvite?.callId === callId) {
-      this.incomingInvite = null;
+  public declineCall(
+    callIdOrUser: string | User,
+    userOrInvite?: User | IncomingCallInvite
+  ) {
+    let callId: string | undefined;
+    let decliningUser: User | undefined;
+
+    if (typeof callIdOrUser === 'string') {
+      callId = callIdOrUser;
+      decliningUser = userOrInvite as User | undefined;
+    } else if (callIdOrUser && typeof callIdOrUser === 'object') {
+      decliningUser = callIdOrUser as User;
+      const inv = (userOrInvite as IncomingCallInvite | undefined) || this.incomingInvite || undefined;
+      callId = inv?.callId;
     }
+
+    if (!callId && this.incomingInvite?.callId) {
+      callId = this.incomingInvite.callId;
+    }
+    this.incomingInvite = null;
+
+    if (!callId || !decliningUser) {
+      this.notifyCallListeners();
+      return;
+    }
+
     const userName = decliningUser.full_name || decliningUser.email.split('@')[0];
     const existing = this.ongoingCalls.get(callId);
     if (existing) {
-      const hasUser = existing.participants.some(p => p.userId === decliningUser.id);
+      const hasUser = existing.participants.some(p => p.userId === decliningUser!.id);
       const updatedParticipants = hasUser
         ? existing.participants.map(p =>
-            p.userId === decliningUser.id
+            p.userId === decliningUser!.id
               ? { ...p, connectionState: 'declined' as const, isSpeaking: false, isScreenSharing: false }
               : p
           )
@@ -1090,6 +1183,7 @@ class MeetingAndCallService {
   private localUserId: string | null = null;
   private selectedVideoDeviceId: string | undefined = undefined;
   private selectedAudioDeviceId: string | undefined = undefined;
+  private dspAudioContext: AudioContext | null = null;
 
   public getLiveMicLevel(): number {
     return this.liveMicLevel;
@@ -1143,6 +1237,80 @@ class MeetingAndCallService {
     }
   }
 
+  /**
+   * Passes raw microphone audio through a WebAudio DSP anti-howl & echo-suppression chain:
+   * HighPass (85Hz) -> Anti-Screech Notch/Peaking (2.9kHz -9dB) -> LowPass (6.8kHz) -> Compressor/Limiter
+   * so receiver side never experiences harsh acoustic feedback screeching.
+   */
+  private applyAntiScreechAudioDsp(rawStream: MediaStream): MediaStream {
+    const audioTracks = rawStream.getAudioTracks();
+    if (audioTracks.length === 0 || typeof window === 'undefined') return rawStream;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return rawStream;
+      if (this.dspAudioContext && this.dspAudioContext.state !== 'closed') {
+        try {
+          this.dspAudioContext.close();
+        } catch {}
+      }
+      const ctx = new AudioCtx({ latencyHint: 'interactive' });
+      this.dspAudioContext = ctx;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
+      const source = ctx.createMediaStreamSource(new MediaStream([audioTracks[0]]));
+
+      // 1. High-pass filter removes low rumble & proximity boom (< 90Hz)
+      const highPass = ctx.createBiquadFilter();
+      highPass.type = 'highpass';
+      highPass.frequency.value = 90;
+      highPass.Q.value = 0.7;
+
+      // 2. Anti-howl notch filter suppresses primary acoustic feedback screech band (2600Hz - 3400Hz)
+      const antiScreechNotch = ctx.createBiquadFilter();
+      antiScreechNotch.type = 'peaking';
+      antiScreechNotch.frequency.value = 3000;
+      antiScreechNotch.Q.value = 1.8;
+      antiScreechNotch.gain.value = -9;
+
+      // 3. Low-pass filter cuts ultrasonic/high-pitched feedback whine (> 6800Hz)
+      const lowPass = ctx.createBiquadFilter();
+      lowPass.type = 'lowpass';
+      lowPass.frequency.value = 6800;
+      lowPass.Q.value = 0.7;
+
+      // 4. Fast dynamics compressor / limiter prevents sudden gain runaway loops
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -24;
+      compressor.knee.value = 12;
+      compressor.ratio.value = 8;
+      compressor.attack.value = 0.002;
+      compressor.release.value = 0.15;
+
+      const destination = ctx.createMediaStreamDestination();
+      source.connect(highPass);
+      highPass.connect(antiScreechNotch);
+      antiScreechNotch.connect(lowPass);
+      lowPass.connect(compressor);
+      compressor.connect(destination);
+
+      const processedAudioTrack = destination.stream.getAudioTracks()[0];
+      if (!processedAudioTrack) return rawStream;
+
+      // Keep enabled state synced with original hardware track
+      const origTrack = audioTracks[0];
+      processedAudioTrack.enabled = origTrack.enabled;
+      origTrack.addEventListener('ended', () => {
+        processedAudioTrack.stop();
+      });
+
+      return new MediaStream([...rawStream.getVideoTracks(), processedAudioTrack]);
+    } catch {
+      return rawStream;
+    }
+  }
+
   public async acquireLocalMedia(withVideo = true, withAudio = true): Promise<MediaStream | null> {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       return null;
@@ -1150,21 +1318,45 @@ class MeetingAndCallService {
 
     const videoConstraint: boolean | MediaTrackConstraints = withVideo
       ? this.selectedVideoDeviceId
-        ? { deviceId: { exact: this.selectedVideoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-        : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+        ? {
+            deviceId: { exact: this.selectedVideoDeviceId },
+            width: { ideal: 960, max: 1280 },
+            height: { ideal: 540, max: 720 },
+            frameRate: { ideal: 30, max: 30 },
+          }
+        : {
+            width: { ideal: 960, max: 1280 },
+            height: { ideal: 540, max: 720 },
+            frameRate: { ideal: 30, max: 30 },
+            facingMode: 'user',
+          }
       : false;
+
+    const baseAudioConstraints: any = {
+      echoCancellation: { ideal: true },
+      noiseSuppression: { ideal: true },
+      autoGainControl: { ideal: true },
+      channelCount: { ideal: 1 },
+      sampleRate: { ideal: 48000 },
+      latency: { ideal: 0.01 },
+      googEchoCancellation: true,
+      googAutoGainControl: true,
+      googNoiseSuppression: true,
+      googHighpassFilter: true,
+    };
 
     const audioConstraint: boolean | MediaTrackConstraints = withAudio
       ? this.selectedAudioDeviceId
-        ? { deviceId: { exact: this.selectedAudioDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        ? { deviceId: { exact: this.selectedAudioDeviceId }, ...baseAudioConstraints }
+        : baseAudioConstraints
       : false;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const rawStream = await navigator.mediaDevices.getUserMedia({
         video: videoConstraint,
         audio: audioConstraint,
       });
+      const stream = withAudio ? this.applyAntiScreechAudioDsp(rawStream) : rawStream;
       if (this.localStream && this.localStream !== stream) {
         this.localStream.getTracks().forEach(t => t.stop());
       }
@@ -1177,10 +1369,11 @@ class MeetingAndCallService {
       return stream;
     } catch (_firstErr) {
       try {
-        const basicStream = await navigator.mediaDevices.getUserMedia({
+        const rawBasicStream = await navigator.mediaDevices.getUserMedia({
           video: withVideo,
-          audio: withAudio,
+          audio: withAudio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
         });
+        const basicStream = withAudio ? this.applyAntiScreechAudioDsp(rawBasicStream) : rawBasicStream;
         if (this.localStream && this.localStream !== basicStream) {
           this.localStream.getTracks().forEach(t => t.stop());
         }
@@ -1201,8 +1394,12 @@ class MeetingAndCallService {
         }
         if (withAudio) {
           try {
-            const aStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-            combinedTracks.push(...aStream.getAudioTracks());
+            const aStream = await navigator.mediaDevices.getUserMedia({
+              video: false,
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            });
+            const filteredA = this.applyAntiScreechAudioDsp(aStream);
+            combinedTracks.push(...filteredA.getAudioTracks());
           } catch {}
         }
         if (combinedTracks.length > 0) {
@@ -1223,6 +1420,17 @@ class MeetingAndCallService {
     }
   }
 
+  private hasActiveWebRTCVideoPeer(): boolean {
+    if (this.peerConnections.size === 0) return false;
+    let allConnected = true;
+    this.peerConnections.forEach(pc => {
+      if (pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
+        allConnected = false;
+      }
+    });
+    return allConnected;
+  }
+
   private startScreenFrameBroadcastLoop(presenterUserId: string) {
     if (this.screenFrameInterval) {
       clearInterval(this.screenFrameInterval);
@@ -1241,7 +1449,7 @@ class MeetingAndCallService {
     offscreenVideo.play().catch(() => {});
 
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
 
     this.screenFrameInterval = setInterval(() => {
       if (!this.activeCallId || !this.screenStream || !ctx) {
@@ -1258,7 +1466,7 @@ class MeetingAndCallService {
       const vh = offscreenVideo.videoHeight || 720;
       if (vw === 0 || vh === 0) return;
 
-      const targetW = Math.min(1280, vw);
+      const targetW = Math.min(960, vw);
       const targetH = Math.round((targetW / vw) * vh);
       if (canvas.width !== targetW) canvas.width = targetW;
       if (canvas.height !== targetH) canvas.height = targetH;
@@ -1266,8 +1474,8 @@ class MeetingAndCallService {
       try {
         ctx.drawImage(offscreenVideo, 0, 0, targetW, targetH);
         const now = Date.now();
-        const sendToSupabase = now - this.lastSupabaseScreenBroadcast >= 850;
-        const frame = canvas.toDataURL('image/jpeg', sendToSupabase ? 0.58 : 0.68);
+        const sendToSupabase = now - this.lastSupabaseScreenBroadcast >= 650;
+        const frame = canvas.toDataURL('image/jpeg', sendToSupabase ? 0.5 : 0.62);
         if (sendToSupabase) {
           this.lastSupabaseScreenBroadcast = now;
         }
@@ -1281,7 +1489,7 @@ class MeetingAndCallService {
           !sendToSupabase
         );
       } catch {}
-    }, 320);
+    }, 220);
   }
 
   private startCameraFrameBroadcastLoop(userId: string) {
@@ -1302,9 +1510,9 @@ class MeetingAndCallService {
     offscreenVideo.play().catch(() => {});
 
     const canvas = document.createElement('canvas');
-    canvas.width = 420;
-    canvas.height = 236;
-    const ctx = canvas.getContext('2d');
+    canvas.width = 320;
+    canvas.height = 180;
+    const ctx = canvas.getContext('2d', { alpha: false });
 
     this.cameraFrameInterval = setInterval(() => {
       if (!this.activeCallId || !this.localStream || !ctx) {
@@ -1314,6 +1522,9 @@ class MeetingAndCallService {
         }
         return;
       }
+      // If WebRTC media peer is already directly streaming video, skip heavy base64 fallback frames
+      if (this.hasActiveWebRTCVideoPeer()) return;
+
       const track = this.localStream.getVideoTracks()[0];
       if (!track || track.readyState !== 'live' || !track.enabled) return;
 
@@ -1322,8 +1533,8 @@ class MeetingAndCallService {
       try {
         ctx.drawImage(offscreenVideo, 0, 0, canvas.width, canvas.height);
         const now = Date.now();
-        const sendToSupabase = now - this.lastSupabaseCameraBroadcast >= 1100;
-        const frame = canvas.toDataURL('image/jpeg', 0.55);
+        const sendToSupabase = now - this.lastSupabaseCameraBroadcast >= 750;
+        const frame = canvas.toDataURL('image/jpeg', 0.45);
         if (sendToSupabase) {
           this.lastSupabaseCameraBroadcast = now;
         }
@@ -1337,7 +1548,7 @@ class MeetingAndCallService {
           !sendToSupabase
         );
       } catch {}
-    }, 450);
+    }, 260);
   }
 
   private startAudioActivityMonitor(stream: MediaStream) {
@@ -2143,13 +2354,22 @@ class MeetingAndCallService {
 
     if (call) {
       const remaining = call.participants.filter(p => p.userId !== currentUserId);
-      const anyConnectedOrRinging = remaining.some(
-        p => p.connectionState === 'connected' || p.connectionState === 'ringing'
-      );
-      if (!anyConnectedOrRinging) {
+      const remainingConnected = remaining.filter(p => p.connectionState === 'connected');
+
+      // If no actively connected participants remain in the call, end the call session for everyone
+      if (remainingConnected.length === 0) {
+        const endedAt = new Date().toISOString();
+        const durationText = this.formatCallDuration(call.startedAt);
         this.ongoingCalls.delete(callId);
-        this.broadcastPacket('CALL_SESSION_ENDED', { callId });
+        chatService.markCallEndedInChat(callId, call.meetingCode, endedAt, durationText);
+        this.broadcastPacket('CALL_SESSION_ENDED', {
+          callId,
+          meetingCode: call.meetingCode,
+          endedAt,
+          durationText,
+        });
       } else {
+        // Other participants are still connected -> keep the session alive so the user who left can rejoin from the channel banner
         const updatedCall = { ...call, participants: remaining };
         this.ongoingCalls.set(callId, updatedCall);
         this.broadcastPacket('CALL_SESSION_SYNC', updatedCall);
@@ -2161,10 +2381,20 @@ class MeetingAndCallService {
   public endCallForAll() {
     if (!this.activeCallId) return;
     const callId = this.activeCallId;
+    const call = this.ongoingCalls.get(callId);
+    const endedAt = new Date().toISOString();
+    const durationText = call ? this.formatCallDuration(call.startedAt) : undefined;
+    const meetingCode = call?.meetingCode || '';
     this.cleanupLocalCallState();
     this.ongoingCalls.delete(callId);
+    chatService.markCallEndedInChat(callId, meetingCode, endedAt, durationText);
     this.persistOngoingCalls();
-    this.broadcastPacket('CALL_SESSION_ENDED', { callId });
+    this.broadcastPacket('CALL_SESSION_ENDED', {
+      callId,
+      meetingCode,
+      endedAt,
+      durationText,
+    });
   }
 
   private cleanupLocalCallState() {
@@ -2190,6 +2420,12 @@ class MeetingAndCallService {
       this.screenStream.getTracks().forEach(t => t.stop());
       this.screenStream = null;
     }
+    if (this.dspAudioContext && this.dspAudioContext.state !== 'closed') {
+      try {
+        this.dspAudioContext.close();
+      } catch {}
+      this.dspAudioContext = null;
+    }
     this.peerConnections.forEach(pc => {
       try {
         pc.close();
@@ -2203,17 +2439,51 @@ class MeetingAndCallService {
   }
 
   // ============================================================================
-  // WEBRTC MESH PEER CONNECTION SIGNALING
+  // WEBRTC MESH PEER CONNECTION SIGNALING (LOW-LATENCY, GLARE-FREE)
   // ============================================================================
+
+  private tunePeerSenderBitrate(pc: RTCPeerConnection) {
+    try {
+      pc.getSenders().forEach(sender => {
+        if (!sender.track || typeof sender.getParameters !== 'function') return;
+        const params = sender.getParameters();
+        if (!params.encodings || params.encodings.length === 0) {
+          params.encodings = [{}];
+        }
+        if (sender.track.kind === 'video') {
+          params.encodings[0].maxBitrate = 950_000;
+          params.encodings[0].maxFramerate = 30;
+          (params as any).degradationPreference = 'maintain-framerate';
+        } else if (sender.track.kind === 'audio') {
+          params.encodings[0].maxBitrate = 64_000;
+          (params.encodings[0] as any).priority = 'high';
+          (params.encodings[0] as any).networkPriority = 'high';
+        }
+        sender.setParameters(params).catch(() => {});
+      });
+    } catch {}
+  }
 
   private getOrCreatePeerConnection(remoteUserId: string, callId: string, myUserId: string): RTCPeerConnection | null {
     if (typeof RTCPeerConnection === 'undefined') return null;
     const existing = this.peerConnections.get(remoteUserId);
-    if (existing) return existing;
+    if (existing && existing.connectionState !== 'closed' && existing.connectionState !== 'failed') {
+      return existing;
+    }
+    if (existing) {
+      try {
+        existing.close();
+      } catch {}
+      this.peerConnections.delete(remoteUserId);
+    }
 
     try {
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ],
+        bundlePolicy: 'max-bundle',
       });
 
       if (this.localStream) {
@@ -2232,6 +2502,8 @@ class MeetingAndCallService {
           }
         }
       }
+
+      this.tunePeerSenderBitrate(pc);
 
       pc.onicecandidate = event => {
         if (event.candidate) {
@@ -2262,11 +2534,28 @@ class MeetingAndCallService {
   private async initiateWebRTCMeshForCall(call: VideoCallSession, myUserId: string) {
     for (const p of call.participants) {
       if (p.userId !== myUserId && p.connectionState === 'connected') {
+        const existing = this.peerConnections.get(p.userId);
+        // Never re-offer if the peer connection is already connected, connecting, or negotiating
+        if (
+          existing &&
+          (existing.connectionState === 'connected' ||
+            existing.connectionState === 'connecting' ||
+            existing.iceConnectionState === 'connected' ||
+            existing.iceConnectionState === 'completed' ||
+            existing.signalingState !== 'stable')
+        ) {
+          continue;
+        }
+
         const pc = this.getOrCreatePeerConnection(p.userId, call.id, myUserId);
-        if (pc) {
+        if (pc && pc.signalingState === 'stable') {
           try {
-            const offer = await pc.createOffer();
+            const offer = await pc.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true,
+            });
             await pc.setLocalDescription(offer);
+            this.tunePeerSenderBitrate(pc);
             this.broadcastPacket('WEBRTC_SIGNAL', {
               callId: call.id,
               fromUserId: myUserId,
@@ -2286,26 +2575,39 @@ class MeetingAndCallService {
     if (!call) return;
 
     const { fromUserId, toUserId, signalType, sdp, candidate } = payload;
+    const myId = this.localUserId || toUserId;
     if (this.localUserId && toUserId && toUserId !== this.localUserId) return;
-    const pc = this.getOrCreatePeerConnection(fromUserId, this.activeCallId, this.localUserId || toUserId);
+    const pc = this.getOrCreatePeerConnection(fromUserId, this.activeCallId, myId);
     if (!pc) return;
 
     try {
       if (signalType === 'offer' && sdp) {
+        // Resolve glare politely: if we also have a local offer pending and our ID > remote ID, ignore duplicate offer
+        if (pc.signalingState !== 'stable') {
+          const isPolite = String(myId) < String(fromUserId);
+          if (!isPolite) return;
+          await pc.setLocalDescription({ type: 'rollback' } as any).catch(() => {});
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        this.tunePeerSenderBitrate(pc);
         this.broadcastPacket('WEBRTC_SIGNAL', {
           callId: this.activeCallId,
-          fromUserId: this.localUserId || toUserId,
+          fromUserId: myId,
           toUserId: fromUserId,
           signalType: 'answer',
           sdp: answer,
         });
       } else if (signalType === 'answer' && sdp) {
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+          this.tunePeerSenderBitrate(pc);
+        }
       } else if (signalType === 'ice-candidate' && candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        }
       }
     } catch (e) {}
   }

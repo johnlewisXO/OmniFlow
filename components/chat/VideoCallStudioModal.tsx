@@ -18,7 +18,7 @@ import chatService from '../../services/chatService';
 const CALL_REACTION_EMOJIS = ['👍', '❤️', '🎉', '👏', '🔥', '🚀'];
 
 /**
- * Reliable WebRTC Video Element that binds srcObject and forces .play()
+ * Reliable WebRTC Video Element that binds video tracks only (always muted on <video> to prevent double-playback echo with RemoteAudioPlayer)
  */
 const VideoStreamTile: React.FC<{
   stream: MediaStream | null;
@@ -26,7 +26,7 @@ const VideoStreamTile: React.FC<{
   mirror?: boolean;
   fit?: 'cover' | 'contain';
   className?: string;
-}> = ({ stream, muted = false, mirror = false, fit = 'cover', className = '' }) => {
+}> = ({ stream, mirror = false, fit = 'cover', className = '' }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const trackCount = stream ? stream.getVideoTracks().length : 0;
   const firstTrackId = stream?.getVideoTracks()?.[0]?.id || '';
@@ -38,11 +38,11 @@ const VideoStreamTile: React.FC<{
         if (el.srcObject !== stream) {
           el.srcObject = stream;
         }
-        el.muted = Boolean(muted);
+        el.muted = true;
         el.play().catch(() => {});
       }
     },
-    [stream, muted]
+    [stream]
   );
 
   useEffect(() => {
@@ -51,10 +51,10 @@ const VideoStreamTile: React.FC<{
       if (el.srcObject !== stream) {
         el.srcObject = stream;
       }
-      el.muted = Boolean(muted);
+      el.muted = true;
       el.play().catch(() => {});
     }
-  }, [stream, muted, trackCount, firstTrackId]);
+  }, [stream, trackCount, firstTrackId]);
 
   if (!stream || trackCount === 0) return null;
 
@@ -63,7 +63,7 @@ const VideoStreamTile: React.FC<{
       ref={bindStream}
       autoPlay
       playsInline
-      muted={muted}
+      muted
       className={`w-full h-full ${fit === 'contain' ? 'object-contain bg-black' : 'object-cover'} ${
         mirror ? 'scale-x-[-1]' : ''
       } ${className}`}
@@ -72,18 +72,34 @@ const VideoStreamTile: React.FC<{
 };
 
 /**
- * Hidden Audio Player so remote participants' audio always plays even if their camera is off
+ * Dedicated Audio Player for remote WebRTC participants with automatic acoustic echo-ducking
+ * when local user is speaking into the microphone (prevents speaker-to-mic screeching feedback loop)
  */
-const RemoteAudioPlayer: React.FC<{ stream: MediaStream }> = ({ stream }) => {
+const RemoteAudioPlayer: React.FC<{
+  stream: MediaStream;
+  isLocalSpeaking?: boolean;
+}> = ({ stream, isLocalSpeaking = false }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioTrackId = stream?.getAudioTracks()?.[0]?.id || '';
+
   useEffect(() => {
-    if (audioRef.current && stream) {
-      if (audioRef.current.srcObject !== stream) {
-        audioRef.current.srcObject = stream;
-      }
-      audioRef.current.play().catch(() => {});
+    const el = audioRef.current;
+    if (!el || !stream) return;
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) return;
+    const audioOnlyStream = new MediaStream(audioTracks);
+    el.srcObject = audioOnlyStream;
+    el.volume = 0.85;
+    el.play().catch(() => {});
+  }, [stream, audioTrackId]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      // Echo-ducking: attenuate remote speaker gain while local user is actively speaking into mic
+      audioRef.current.volume = isLocalSpeaking ? 0.18 : 0.85;
     }
-  }, [stream]);
+  }, [isLocalSpeaking]);
+
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
 };
 
@@ -158,7 +174,7 @@ const DockIconButton: React.FC<{
   );
 };
 
-export const GlobalVideoCallManager: React.FC = () => {
+const GlobalVideoCallManagerInner: React.FC = () => {
   const {
     currentUser,
     users,
@@ -457,9 +473,20 @@ export const GlobalVideoCallManager: React.FC = () => {
   const isTeammateOnline = useCallback(
     (userId: string) => {
       if (userId === currentUser?.id) return true;
-      if (meetingAndCallService.isUserActivelyOnline(userId)) return true;
+      if (
+        typeof meetingAndCallService.isUserActivelyOnline === 'function' &&
+        meetingAndCallService.isUserActivelyOnline(userId)
+      ) {
+        return true;
+      }
+      if (
+        typeof meetingAndCallService.isUserOnlineInOrg === 'function' &&
+        meetingAndCallService.isUserOnlineInOrg(userId)
+      ) {
+        return true;
+      }
       return (presences || []).some(
-        p => p.userId === userId && Date.now() - (p.lastSeen || 0) < 120000
+        p => p.userId === userId && Date.now() - (p.lastSeenLocally || new Date(p.lastActive || 0).getTime() || 0) < 120000
       );
     },
     [currentUser?.id, presences]
@@ -1149,7 +1176,7 @@ ${actionList}`;
         <button
           type="button"
           onClick={async () => {
-            await meetingAndCallService.toggleScreenShare(currentUser.id, false);
+            await meetingAndCallService.toggleScreenShare(currentUser.id);
           }}
           className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shadow-lg shadow-sky-500/20"
         >
@@ -1381,9 +1408,13 @@ ${actionList}`;
 
   return (
     <div className="fixed inset-0 z-[9990] bg-[#090D16] text-white flex flex-col overflow-hidden animate-fadeIn select-none">
-      {/* Mount hidden audio players for all remote WebRTC streams so remote audio always plays out loud */}
+      {/* Mount hidden audio players for all remote WebRTC streams with echo-ducking */}
       {Array.from(callState.remoteStreams.entries()).map(([peerId, rStream]) => (
-        <RemoteAudioPlayer key={peerId} stream={rStream} />
+        <RemoteAudioPlayer
+          key={peerId}
+          stream={rStream}
+          isLocalSpeaking={liveMicLevel > 22 && !myParticipant?.isMicMuted}
+        />
       ))}
 
       {/* 1. SLEEK GOOGLE MEET / MS TEAMS TOP HEADER BAR */}
@@ -2402,10 +2433,9 @@ ${actionList}`;
           {/* 8. People / Participants Drawer Toggle (Icon-only) */}
           <DockIconButton
             onClick={() => setActiveDrawerTab(prev => (prev === 'people' ? null : 'people'))}
-            tooltip="Active Participants & Invite People"
+            tooltip="Participants & Invite"
             active={activeDrawerTab === 'people'}
             badge={connectedParticipants.length}
-            className="hidden md:flex"
           >
             <ICON_MAP.UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </DockIconButton>
@@ -2457,6 +2487,60 @@ ${actionList}`;
     </div>
   );
 };
+
+class VideoCallErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; errorMessage: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMessage: error?.message || 'Unexpected call error' };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn('[VideoCallErrorBoundary] Recovered from call UI error:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed bottom-5 right-5 z-[10000] max-w-sm rounded-2xl bg-slate-900/95 border border-rose-500/40 p-4 text-white shadow-2xl backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-bold text-rose-400">Call Session Reset</h4>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                The previous call session has ended or encountered a connection interruption.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  meetingAndCallService.endCallForAll();
+                } catch {}
+                this.setState({ hasError: false, errorMessage: '' });
+              }}
+              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold cursor-pointer flex-shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export const GlobalVideoCallManager: React.FC = () => (
+  <VideoCallErrorBoundary>
+    <GlobalVideoCallManagerInner />
+  </VideoCallErrorBoundary>
+);
 
 export const VideoCallStudioModal = GlobalVideoCallManager;
 export default GlobalVideoCallManager;

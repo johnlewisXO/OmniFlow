@@ -212,110 +212,51 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-1.5 sm:space-x-2.5 flex-shrink-0">
-          {/* Live Team Presence Avatars */}
+        <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+          {/* Minimal Team Presence Avatars */}
           {uniquePresences.length > 0 && (
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
-              <span className="relative flex h-2 w-2 mr-0.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-0.5">Live:</span>
-              <div className="flex items-center gap-1">
-                {uniquePresences.slice(0, 5).map((p) => {
-                  const lsInfo = formatAccurateLastSeen(
-                    p,
-                    p.userId,
-                    p.userEmail,
-                    p.userId === currentUser?.id
-                  );
-                  const matchedOrgUser = users.find(
-                    u =>
-                      u.id === p.userId ||
-                      (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase())
-                  );
-                  return (
-                    <div
-                      key={p.userId}
-                      className="relative inline-block"
-                      title={`${p.userName} — ${lsInfo.statusLabel} (${lsInfo.lastSeenText})`}
-                    >
-                      <Avatar
-                        user={
-                          matchedOrgUser || {
-                            id: p.userId,
-                            full_name: p.userName,
-                            email: p.userEmail || '',
-                            avatar_url: p.userAvatar,
-                            organization_id: p.organizationId || currentUser?.organization_id,
-                          }
+            <div className="hidden lg:flex items-center -space-x-1.5 mr-1">
+              {uniquePresences.slice(0, 4).map((p) => {
+                const lsInfo = formatAccurateLastSeen(
+                  p,
+                  p.userId,
+                  p.userEmail,
+                  p.userId === currentUser?.id
+                );
+                const matchedOrgUser = users.find(
+                  u =>
+                    u.id === p.userId ||
+                    (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase())
+                );
+                return (
+                  <div
+                    key={p.userId}
+                    className="relative inline-block ring-2 ring-white dark:ring-slate-900 rounded-full"
+                    title={`${p.userName} • ${lsInfo.statusLabel}`}
+                  >
+                    <Avatar
+                      user={
+                        matchedOrgUser || {
+                          id: p.userId,
+                          full_name: p.userName,
+                          email: p.userEmail || '',
+                          avatar_url: p.userAvatar,
+                          organization_id: p.organizationId || currentUser?.organization_id,
                         }
-                        size="sm"
-                      />
-                      <span
-                        className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-900 pointer-events-none ${lsInfo.dotColorClass}`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Dynamic Icon Status Dropdown */}
-          {currentUser && (
-            <div className="relative" ref={statusPopoverRef} data-tour-id="tour-header-status">
-              <button
-                onClick={() => setIsStatusPopoverOpen(prev => !prev)}
-                title={`Status: ${statusLabelText} (Click to change)`}
-                aria-label={`Change availability status (Currently ${statusLabelText})`}
-                className={`p-2 rounded-xl border transition-all flex items-center justify-center cursor-pointer ${
-                  darkMode
-                    ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700'
-                    : 'bg-slate-100/90 hover:bg-slate-200/90 border-slate-200'
-                }`}
-              >
-                <StatusDynamicIcon status={myStatus} className="w-4 h-4" />
-              </button>
-
-              <AnimatedPopover
-                isOpen={isStatusPopoverOpen}
-                direction="down"
-                className={`absolute right-0 mt-2 w-48 rounded-xl shadow-2xl py-1.5 z-40 border backdrop-blur-md ${
-                  darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'
-                }`}
-              >
-                <div className="px-3 py-1.5 border-b border-slate-200/60 dark:border-slate-700/60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Availability Status</span>
-                </div>
-                {[
-                  { id: 'available', label: 'Available', desc: 'Active & receiving alerts' },
-                  { id: 'away', label: 'Away', desc: 'Stepped away briefly' },
-                  { id: 'busy', label: 'Busy / DND', desc: 'Deep focus mode' },
-                ].map((opt) => {
-                  const active = myStatus === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleStatusChange(opt.id as 'available' | 'away' | 'busy')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
-                        active
-                          ? darkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
-                          : darkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
-                      }`}
-                    >
-                      <StatusDynamicIcon status={opt.id as any} className="w-4 h-4 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-semibold flex items-center justify-between">
-                          <span>{opt.label}</span>
-                          {active && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 text-indigo-500" />}
-                        </div>
-                        <p className="text-[10px] text-slate-400 truncate">{opt.desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </AnimatedPopover>
+                      }
+                      size="sm"
+                    />
+                    <span
+                      className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-900 pointer-events-none ${lsInfo.dotColorClass}`}
+                    />
+                  </div>
+                );
+              })}
+              {uniquePresences.length > 4 && (
+                <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-bold flex items-center justify-center text-slate-600 dark:text-slate-300 ring-2 ring-white dark:ring-slate-900">
+                  +{uniquePresences.length - 4}
+                </span>
+              )}
             </div>
           )}
 

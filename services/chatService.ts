@@ -342,6 +342,8 @@ class ChatService {
             this.handleIncomingPersonAdded(payload);
           } else if (type === 'CHANNEL_UPDATED' && payload) {
             this.handleIncomingChannelUpdated(payload);
+          } else if (type === 'CALL_MESSAGE_ENDED' && payload) {
+            this.applyCallEndedToStoredMessages(payload.callId, payload.meetingCode, payload.endedAt, payload.durationText);
           }
         };
       } catch (e) {
@@ -387,11 +389,110 @@ class ChatService {
           if (!payload || !payload.id) return;
           this.handleIncomingChannelUpdated(payload);
         })
+        .on('broadcast', { event: 'call_message_ended' }, ({ payload }: any) => {
+          if (!payload) return;
+          this.applyCallEndedToStoredMessages(payload.callId, payload.meetingCode, payload.endedAt, payload.durationText);
+        })
         .subscribe((status: string) => {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
         });
     } catch (err) {
       console.warn('Failed to initialize Supabase Realtime chat:', err);
+    }
+  }
+
+  public getEndedCallMeta(callId?: string, meetingCode?: string): { endedAt: string; durationText?: string } | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('omni_ended_calls_meta');
+      if (!raw) return null;
+      const map = JSON.parse(raw);
+      if (callId && map[callId]) return map[callId];
+      if (meetingCode && map[meetingCode]) return map[meetingCode];
+    } catch {}
+    return null;
+  }
+
+  private applyCallEndedToStoredMessages(callId?: string, meetingCode?: string, endedAt?: string, durationText?: string) {
+    if (!callId && !meetingCode) return;
+    const finalEndedAt = endedAt || new Date().toISOString();
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('omni_ended_calls_meta');
+        const map = raw ? JSON.parse(raw) : {};
+        if (callId) map[callId] = { endedAt: finalEndedAt, durationText };
+        if (meetingCode) map[meetingCode] = { endedAt: finalEndedAt, durationText };
+        localStorage.setItem('omni_ended_calls_meta', JSON.stringify(map));
+      } catch {}
+    }
+
+    const all = this.getAllMessages();
+    let updatedMsg: ChatMessage | null = null;
+
+    const tryUpdateContent = (rawContent: string): string | null => {
+      if (!rawContent || !rawContent.startsWith('[VIDEO_CALL:')) return null;
+      const closeBracket = rawContent.indexOf(']');
+      if (closeBracket <= 0) return null;
+      try {
+        const meta = JSON.parse(rawContent.slice(12, closeBracket));
+        if ((callId && meta.callId === callId) || (meetingCode && meta.meetingCode === meetingCode)) {
+          const nextMeta = {
+            ...meta,
+            ended: true,
+            endedAt: finalEndedAt,
+            durationText: durationText || meta.durationText,
+          };
+          const timeStr = new Date(nextMeta.endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return `[VIDEO_CALL:${JSON.stringify(nextMeta)}] Call ended at ${timeStr}${durationText ? ` (${durationText})` : ''}`;
+        }
+      } catch {}
+      return null;
+    };
+
+    const nextAll = all.map(m => {
+      const updatedPlain = tryUpdateContent(m.content);
+      if (updatedPlain) {
+        updatedMsg = { ...m, content: updatedPlain };
+        return updatedMsg;
+      }
+      // Also check cached decrypted content for 1:1 DMs
+      for (const [k, cachedVal] of this.decryptedPlaintextCache.entries()) {
+        if (k.startsWith(`${m.id}::`)) {
+          const updatedDecrypted = tryUpdateContent(cachedVal);
+          if (updatedDecrypted) {
+            this.decryptedPlaintextCache.set(k, updatedDecrypted);
+            updatedMsg = { ...m, content: updatedDecrypted };
+          }
+        }
+      }
+      return m;
+    });
+
+    if (updatedMsg && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(nextAll));
+      } catch {}
+      this.messageListeners.forEach(listener => listener(updatedMsg!));
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('omni_call_message_ended', {
+          detail: { callId, meetingCode, endedAt: finalEndedAt, durationText },
+        })
+      );
+    }
+  }
+
+  public markCallEndedInChat(callId: string, meetingCode: string, endedAt: string, durationText?: string) {
+    this.applyCallEndedToStoredMessages(callId, meetingCode, endedAt, durationText);
+    const payload = { callId, meetingCode, endedAt, durationText };
+    this.sendBroadcast('call_message_ended', payload, true);
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({ type: 'CALL_MESSAGE_ENDED', payload });
+      } catch {}
     }
   }
 
@@ -636,7 +737,7 @@ class ChatService {
     content: string;
     channelId?: string;
     recipientId?: string;
-    attachments?: { name: string; url: string; type: string }[];
+    attachments?: { name: string; url: string; type: string; size?: number; durationSec?: number }[];
   }): Promise<ChatMessage> {
     const cleanPlaintext = params.content.trim();
     const isDirect = Boolean(params.recipientId && !params.channelId);
@@ -695,27 +796,6 @@ class ChatService {
         collabService.broadcastChatNotification(wireMessage);
       } catch (e) {}
     }
-
-    // 4. Audit log (never log plaintext content)
-    try {
-      if (params.sender.organization_id) {
-        Promise.resolve(
-          supabase.from('audit_logs').insert({
-            id: crypto.randomUUID(),
-            organization_id: params.sender.organization_id,
-            actor_id: params.sender.id,
-            actor_name: params.sender.full_name || params.sender.email,
-            actor_email: params.sender.email,
-            action: params.channelId ? 'chat_channel_message' : 'chat_direct_message_e2ee',
-            target_type: 'organization',
-            target_id: params.channelId || params.recipientId,
-            target_name: params.channelId ? `#${params.channelId}` : 'Direct Message (E2EE)',
-            details: { encrypted: isDirect, channel_id: params.channelId },
-            created_at: wireMessage.created_at
-          })
-        ).catch(() => {});
-      }
-    } catch (e) {}
 
     const decryptedForSender: ChatMessage = {
       ...wireMessage,

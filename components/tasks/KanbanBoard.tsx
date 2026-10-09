@@ -58,9 +58,17 @@ export const KanbanBoard: React.FC = () => {
     }
   };
 
-  // Active teammates online across the platform
+  // Active teammates online in the same organization (deduplicated)
   const activeCollabs = useMemo(() => {
-    return presences.filter(p => p.userId !== currentUser?.id);
+    const map = new Map<string, typeof presences[number]>();
+    presences.forEach(p => {
+      if (!p?.userId || p.userId === currentUser?.id) return;
+      if (currentUser?.organization_id && p.organizationId && p.organizationId !== currentUser.organization_id) {
+        return;
+      }
+      map.set(p.userId, p);
+    });
+    return Array.from(map.values());
   }, [presences, currentUser]);
 
   const toggleSwimlane = (id: string) => {
@@ -248,60 +256,66 @@ export const KanbanBoard: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1 flex-shrink-0">
         
         {/* Left: View Mode Tabs */}
-        <div className="flex items-center gap-2">
-          <div className={`flex p-1 rounded-xl border ${darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+        <div className="flex items-center gap-2 overflow-x-auto max-w-full scrollbar-none">
+          <div className={`flex p-1 rounded-xl border flex-shrink-0 ${darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
             <button
               onClick={() => setViewMode('kanban')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              title="Kanban Board"
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'kanban'
                   ? 'bg-accent text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ICON_MAP.ClipboardListIcon className="w-4 h-4" />
-              Board
+              <ICON_MAP.ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
+              <span>Board</span>
             </button>
 
             <button
               onClick={() => setViewMode('sprints')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              title="Sprints & Backlog"
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'sprints'
                   ? 'bg-accent text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ICON_MAP.RocketLaunchIcon className="w-4 h-4" />
-              Sprints & Backlog
+              <ICON_MAP.RocketLaunchIcon className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Sprints & Backlog</span>
+              <span className="sm:hidden">Sprints</span>
             </button>
 
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              title="List View"
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'list'
                   ? 'bg-accent text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ICON_MAP.DocumentTextIcon className="w-4 h-4" />
-              List
+              <ICON_MAP.DocumentTextIcon className="w-4 h-4 flex-shrink-0" />
+              <span>List</span>
             </button>
 
             <button
               onClick={() => setViewMode('gantt')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              title="Gantt / Timeline"
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'gantt'
                   ? 'bg-accent text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ICON_MAP.ClockIcon className="w-4 h-4" />
-              Gantt / Timeline
+              <ICON_MAP.ClockIcon className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Gantt / Timeline</span>
+              <span className="sm:hidden">Timeline</span>
             </button>
           </div>
 
           {/* Swimlane Dropdown (only on Kanban mode) */}
           {viewMode === 'kanban' && (
-            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium ${
+            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium flex-shrink-0 ${
               darkMode ? 'bg-slate-800/80 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
             }`}>
               <span className="text-slate-400">Swimlanes:</span>
@@ -320,53 +334,26 @@ export const KanbanBoard: React.FC = () => {
           )}
         </div>
 
-        {/* Center / Inline: Active Teammates on Project */}
+        {/* Simple Minimal Avatars for Active Teammates on Board */}
         {activeCollabs.length > 0 && (
-          <div className={`hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs ${
-            darkMode ? 'bg-slate-800/80 border-slate-700/80 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-          }`}>
-            <span className="relative flex h-2 w-2 items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-            </span>
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              Active:
-            </span>
-            <div className="flex -space-x-1.5 items-center">
-              {activeCollabs.slice(0, 5).map(collab => {
-                const viewingTask = collab.currentTaskId ? tasks.find(t => t.id === collab.currentTaskId) : null;
-                const statusDesc = collab.isEditing
-                  ? `Editing ${collab.editingField || 'task'}`
-                  : collab.isTypingComment
-                    ? 'Typing comment...'
-                    : viewingTask
-                      ? `Viewing "${viewingTask.title}"`
-                      : 'Viewing board';
-
-                return (
-                  <div
-                    key={collab.userId}
-                    title={`${collab.userName} (${statusDesc})`}
-                    className="relative group cursor-pointer"
-                  >
-                    <div
-                      style={{ borderColor: collab.color || '#6366f1' }}
-                      className="w-6 h-6 rounded-full border-2 ring-1 ring-white dark:ring-slate-800 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600 hover:scale-110 transition-transform shadow-xs"
-                    >
-                      {collab.userAvatar ? (
-                        <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
-                      ) : (
-                        collab.userName.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-800" />
-                  </div>
-                );
-              })}
-            </div>
-            {activeCollabs.length > 5 && (
-              <span className="text-[10px] text-slate-400 font-bold ml-0.5">
-                +{activeCollabs.length - 5}
+          <div className="hidden md:flex items-center -space-x-1.5">
+            {activeCollabs.slice(0, 4).map(collab => (
+              <div
+                key={collab.userId}
+                title={`${collab.userName} · Online`}
+                className="relative w-6 h-6 rounded-full ring-2 ring-white dark:ring-slate-900 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600"
+              >
+                {collab.userAvatar ? (
+                  <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
+                ) : (
+                  collab.userName.charAt(0).toUpperCase()
+                )}
+                <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900" />
+              </div>
+            ))}
+            {activeCollabs.length > 4 && (
+              <span className="pl-2 text-[10px] text-slate-400 font-semibold">
+                +{activeCollabs.length - 4}
               </span>
             )}
           </div>

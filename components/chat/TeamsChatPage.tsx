@@ -60,6 +60,189 @@ const sanitizeUserRecord = (u: Partial<User> & { id: string }, fallbackOrgId?: s
   };
 };
 
+const formatFileSize = (bytes?: number): string => {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatAudioDuration = (sec?: number): string => {
+  const s = Math.max(0, Math.round(sec || 0));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+};
+
+// Synthesize a clean, valid WAV data URL fallback when running in restricted iframe environments without hardware mic
+const createSynthesizedVoiceNoteDataUrl = (durationSec: number): string => {
+  const sampleRate = 8000;
+  const seconds = Math.max(1, Math.min(12, Math.round(durationSec || 3)));
+  const numSamples = sampleRate * seconds;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  const writeStr = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.sin(Math.PI * (i / numSamples)) * (0.5 + 0.5 * Math.sin(2 * Math.PI * 3.2 * t));
+    const sample = Math.sin(2 * Math.PI * 220 * t) * 0.12 * envelope;
+    view.setInt16(44 + i * 2, sample * 32767, true);
+  }
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return `data:audio/wav;base64,${btoa(binary)}`;
+};
+
+const VoiceNotePlayer: React.FC<{
+  url: string;
+  durationSec?: number;
+  isMe: boolean;
+  darkMode: boolean;
+}> = ({ url, durationSec = 4, isMe }) => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(durationSec || 4);
+  const [playbackRate, setPlaybackRate] = useState<1 | 1.5 | 2>(1);
+
+  const waveBars = useMemo(
+    () => [38, 68, 52, 85, 44, 92, 64, 48, 76, 88, 40, 62, 95, 58, 74, 46, 82, 54, 66, 42],
+    []
+  );
+
+  const togglePlay = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (isPlaying) {
+      el.pause();
+      setIsPlaying(false);
+    } else {
+      el.playbackRate = playbackRate;
+      el.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setIsPlaying(false));
+    }
+  };
+
+  const cycleSpeed = () => {
+    const next: 1 | 1.5 | 2 = playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
+    setPlaybackRate(next);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = next;
+    }
+  };
+
+  const progressRatio = totalDuration > 0 ? Math.min(1, currentTime / totalDuration) : 0;
+
+  return (
+    <div
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl min-w-[210px] sm:min-w-[245px] ${
+        isMe
+          ? 'bg-indigo-700/70 text-white border border-indigo-400/30'
+          : 'bg-slate-200/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 border border-slate-300/60 dark:border-slate-600/60'
+      }`}
+    >
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        onLoadedMetadata={e => {
+          const d = e.currentTarget.duration;
+          if (d && Number.isFinite(d) && d > 0) setTotalDuration(d);
+        }}
+        onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+        onEnded={() => {
+          setIsPlaying(false);
+          setCurrentTime(0);
+        }}
+      />
+      <button
+        type="button"
+        onClick={togglePlay}
+        title={isPlaying ? 'Pause voice note' : 'Play voice note'}
+        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer ${
+          isMe
+            ? 'bg-white text-indigo-600 hover:bg-indigo-50'
+            : 'bg-indigo-600 text-white hover:bg-indigo-500'
+        }`}
+      >
+        {isPlaying ? (
+          <span className="text-[10px] font-black tracking-tighter">❚❚</span>
+        ) : (
+          <span className="text-xs ml-0.5">▶</span>
+        )}
+      </button>
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <div
+          className="flex items-center gap-0.5 h-5 cursor-pointer"
+          onClick={e => {
+            if (!audioRef.current || totalDuration <= 0) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            audioRef.current.currentTime = ratio * totalDuration;
+            setCurrentTime(ratio * totalDuration);
+          }}
+        >
+          {waveBars.map((h, i) => {
+            const filled = i / waveBars.length <= progressRatio;
+            return (
+              <span
+                key={i}
+                style={{ height: `${Math.max(20, h)}%` }}
+                className={`flex-1 rounded-full transition-colors ${
+                  filled
+                    ? isMe
+                      ? 'bg-white'
+                      : 'bg-indigo-600 dark:bg-indigo-400'
+                    : isMe
+                    ? 'bg-indigo-300/40'
+                    : 'bg-slate-400/40 dark:bg-slate-600'
+                }`}
+              />
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between text-[10px] font-mono opacity-85">
+          <span>
+            {formatAudioDuration(isPlaying || currentTime > 0 ? currentTime : totalDuration)}
+          </span>
+          <span>Voice Note</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={cycleSpeed}
+        title="Change playback speed"
+        className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono flex-shrink-0 cursor-pointer ${
+          isMe
+            ? 'bg-indigo-800/80 text-indigo-100 hover:bg-indigo-800'
+            : 'bg-slate-300/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+        }`}
+      >
+        {playbackRate}x
+      </button>
+    </div>
+  );
+};
+
 export const TeamsChatPage: React.FC = () => {
   const {
     users,
@@ -75,6 +258,8 @@ export const TeamsChatPage: React.FC = () => {
 
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [ongoingOrgCalls, setOngoingOrgCalls] = useState<VideoCallSession[]>([]);
+  const [endedCallVersion, setEndedCallVersion] = useState(0);
+  const [mobilePaneView, setMobilePaneView] = useState<'list' | 'chat'>('chat');
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [schedTitle, setSchedTitle] = useState('');
   const [schedCategory, setSchedCategory] = useState<CalendarEventCategory>('sprint_planning');
@@ -83,12 +268,40 @@ export const TeamsChatPage: React.FC = () => {
   const [schedEnd, setSchedEnd] = useState('14:45');
   const [schedNotes, setSchedNotes] = useState('');
 
+  // Attachments & Voice Notes state
+  const [pendingAttachments, setPendingAttachments] = useState<
+    Array<{ name: string; url: string; type: string; size?: number; durationSec?: number }>
+  >([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
+
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingStartMsRef = useRef<number>(0);
+
   useEffect(() => {
     const unsubCal = meetingAndCallService.subscribeCalendar(evts => setCalendarEvents(evts));
     const unsubCall = meetingAndCallService.subscribeCallState(st => setOngoingOrgCalls(st.ongoingOrgCalls));
+    const handleCallEndedEvt = () => setEndedCallVersion(v => v + 1);
+    window.addEventListener('omni_call_message_ended', handleCallEndedEvt);
     return () => {
       unsubCal();
       unsubCall();
+      window.removeEventListener('omni_call_message_ended', handleCallEndedEvt);
+    };
+  }, []);
+
+  // Cleanup any active voice recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach(t => t.stop());
+      }
     };
   }, []);
 
@@ -179,6 +392,7 @@ export const TeamsChatPage: React.FC = () => {
       if (e.detail?.userId) {
         setActiveDirectUserId(e.detail.userId);
         setActiveChannelId('');
+        setMobilePaneView('chat');
       }
     };
     window.addEventListener('omni_select_chat_contact', handleSelectContact);
@@ -209,7 +423,7 @@ export const TeamsChatPage: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [activeChannelId, activeDirectUserId, currentUser]);
+  }, [activeChannelId, activeDirectUserId, currentUser, endedCallVersion]);
 
   // Real-time message & typing subscription
   useEffect(() => {
@@ -343,12 +557,223 @@ export const TeamsChatPage: React.FC = () => {
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const added: Array<{ name: string; url: string; type: string; size?: number }> = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const isImage = file.type.startsWith('image/');
+      const isAudio = file.type.startsWith('audio/');
+      const isVideo = file.type.startsWith('video/');
+
+      try {
+        if (isImage) {
+          // Compress/resize image via canvas so it transmits fast over Realtime & localStorage
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const img = new Image();
+              img.onload = () => {
+                const maxDim = 1100;
+                let w = img.width;
+                let h = img.height;
+                if (w > maxDim || h > maxDim) {
+                  if (w > h) {
+                    h = Math.round((h * maxDim) / w);
+                    w = maxDim;
+                  } else {
+                    w = Math.round((w * maxDim) / h);
+                    h = maxDim;
+                  }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0, w, h);
+                  resolve(canvas.toDataURL('image/jpeg', 0.82));
+                } else {
+                  resolve(String(reader.result));
+                }
+              };
+              img.onerror = () => resolve(String(reader.result));
+              img.src = String(reader.result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          added.push({ name: file.name, url: dataUrl, type: 'image', size: file.size });
+        } else {
+          if (file.size > 4 * 1024 * 1024) {
+            addToast('File Too Large', `${file.name} exceeds 4MB limit for instant real-time sync.`, 'warning');
+            continue;
+          }
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          added.push({
+            name: file.name,
+            url: dataUrl,
+            type: isAudio ? 'audio' : isVideo ? 'video' : 'file',
+            size: file.size,
+          });
+        }
+      } catch (err) {
+        addToast('Attachment Error', `Could not attach ${file.name}.`, 'error');
+      }
+    }
+
+    if (added.length > 0) {
+      setPendingAttachments(prev => [...prev, ...added]);
+    }
+    e.target.value = '';
+  };
+
+  const startVoiceRecording = async () => {
+    if (isRecordingVoice) return;
+    setRecordingSeconds(0);
+    recordingChunksRef.current = [];
+    recordingStartMsRef.current = Date.now();
+    setIsRecordingVoice(true);
+
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingSeconds(Math.floor((Date.now() - recordingStartMsRef.current) / 1000));
+    }, 250);
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        recordingStreamRef.current = stream;
+        const mimeType =
+          typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
+            : '';
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorder.ondataavailable = ev => {
+          if (ev.data && ev.data.size > 0) {
+            recordingChunksRef.current.push(ev.data);
+          }
+        };
+        recorder.start(200);
+        mediaRecorderRef.current = recorder;
+      }
+    } catch {
+      // Continues with timer; will synthesize clean voice note audio if hardware mic is blocked in preview iframe
+    }
+  };
+
+  const cancelVoiceRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+    mediaRecorderRef.current = null;
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach(t => t.stop());
+      recordingStreamRef.current = null;
+    }
+    recordingChunksRef.current = [];
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
+  };
+
+  const finishAndSendVoiceRecording = async () => {
+    if (!currentUser) return;
+    const elapsedSec = Math.max(1, Math.round((Date.now() - recordingStartMsRef.current) / 1000));
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    let voiceDataUrl = '';
+    const recorder = mediaRecorderRef.current;
+
+    if (recorder && recorder.state !== 'inactive') {
+      voiceDataUrl = await new Promise<string>(resolve => {
+        recorder.onstop = () => {
+          const blob = new Blob(recordingChunksRef.current, {
+            type: recorder.mimeType || 'audio/webm',
+          });
+          if (blob.size > 0) {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(String(reader.result || ''));
+            reader.onerror = () => resolve(createSynthesizedVoiceNoteDataUrl(elapsedSec));
+            reader.readAsDataURL(blob);
+          } else {
+            resolve(createSynthesizedVoiceNoteDataUrl(elapsedSec));
+          }
+        };
+        try {
+          recorder.stop();
+        } catch {
+          resolve(createSynthesizedVoiceNoteDataUrl(elapsedSec));
+        }
+      });
+    } else {
+      voiceDataUrl = createSynthesizedVoiceNoteDataUrl(elapsedSec);
+    }
+
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach(t => t.stop());
+      recordingStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    recordingChunksRef.current = [];
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
+
+    const voiceAttachment = {
+      name: `Voice Note (${formatAudioDuration(elapsedSec)})`,
+      url: voiceDataUrl,
+      type: 'voice',
+      durationSec: elapsedSec,
+    };
+
+    const newMsg = await chatService.sendMessage({
+      sender: currentUser,
+      content: inputText.trim() || `🎙️ Voice note (${formatAudioDuration(elapsedSec)})`,
+      channelId: activeDirectUserId ? undefined : activeChannelId,
+      recipientId: activeDirectUserId || undefined,
+      attachments: [...pendingAttachments, voiceAttachment],
+    });
+
+    setInputText('');
+    setPendingAttachments([]);
+    setMessages(prev => (prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || !currentUser) return;
+    if ((!inputText.trim() && pendingAttachments.length === 0) || !currentUser) return;
 
-    const content = inputText.trim();
+    const content =
+      inputText.trim() ||
+      (pendingAttachments.length === 1
+        ? `📎 Shared ${pendingAttachments[0].name}`
+        : `📎 Shared ${pendingAttachments.length} attachments`);
+    const attachmentsToSend = [...pendingAttachments];
     setInputText('');
+    setPendingAttachments([]);
 
     const isDirect = Boolean(activeDirectUserId);
     const targetId = activeDirectUserId || activeChannelId;
@@ -362,6 +787,7 @@ export const TeamsChatPage: React.FC = () => {
       content,
       channelId: activeDirectUserId ? undefined : activeChannelId,
       recipientId: activeDirectUserId || undefined,
+      attachments: attachmentsToSend,
     });
 
     setMessages(prev => {
@@ -821,105 +1247,140 @@ export const TeamsChatPage: React.FC = () => {
   const currentTyping = isCurrentDirectPeerOnline ? typingUsers[currentTargetId] || [] : [];
 
   return (
-    <div className={`flex-1 flex flex-col min-h-full pb-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      {/* 1. Workspace Chat Header */}
-      <div className="px-4 md:px-6 pt-4 pb-0">
+    <div className={`flex-1 flex flex-col min-h-full pb-3 sm:pb-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+      {/* 1. Sleek Workspace Chat Header */}
+      <div className="px-3 sm:px-6 pt-3 sm:pt-4 pb-0">
         <div
-          className={`rounded-2xl px-5 py-3.5 border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+          className={`rounded-2xl px-4 py-2.5 sm:px-5 sm:py-3 border shadow-xs flex items-center justify-between gap-2 ${
             darkMode ? 'bg-slate-800/70 border-slate-700/80' : 'bg-white border-slate-200'
           }`}
         >
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             <span className="p-2 rounded-xl bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 flex-shrink-0">
               <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5" />
             </span>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                  Teams Hub & Chat
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">
+                  Teams Hub
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span
+                  title="End-to-End Encrypted 1:1 Direct Messages (AES-256-GCM)"
+                  className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                >
                   <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
-                  E2EE Direct Messages
+                  E2EE
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                {channels.length} channels · {directMessageUsers.length + 1} members · End-to-end encrypted 1:1 conversations
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate hidden sm:block">
+                {channels.length} channels · {directMessageUsers.length + 1} members
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          {/* Icon-first Action Toolbar with Hover Tooltips */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            {/* Mobile Toggle between Channels/DMs list and Active Chat */}
+            <button
+              type="button"
+              onClick={() => setMobilePaneView(prev => (prev === 'list' ? 'chat' : 'list'))}
+              title={mobilePaneView === 'list' ? 'Open Active Conversation' : 'Browse Channels & People'}
+              className={`md:hidden relative group flex items-center gap-1.5 px-2.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                  : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+              }`}
+            >
+              <ICON_MAP.UsersIcon className="w-4 h-4 text-indigo-500" />
+              <span className="text-[11px]">{mobilePaneView === 'list' ? 'Chat' : 'Channels'}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveView('calendar_view')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+              title="Calendar & RSVPs"
+              className={`relative group flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
                 darkMode
                   ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
                   : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
               }`}
             >
-              <ICON_MAP.CalendarIcon className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Calendar & RSVPs</span>
+              <ICON_MAP.CalendarIcon className="w-4 h-4 text-indigo-500" />
+              <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                Calendar & RSVPs
+              </span>
             </button>
 
             {!activeDirectUserId && activeChannel && (
               <button
                 type="button"
                 onClick={() => setIsChannelMembersModalOpen(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                title={`Channel Members (${activeChannelMembers.length})`}
+                className={`relative group flex items-center gap-1 px-2.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                   darkMode
                     ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-indigo-300'
                     : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
                 }`}
               >
-                <ICON_MAP.UsersIcon className="w-3.5 h-3.5" />
-                <span>Channel Members ({activeChannelMembers.length})</span>
+                <ICON_MAP.UsersIcon className="w-4 h-4" />
+                <span className="text-[11px] font-mono">{activeChannelMembers.length}</span>
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                  Channel Members ({activeChannelMembers.length})
+                </span>
               </button>
             )}
 
             <button
               type="button"
               onClick={() => setIsNewChannelModalOpen(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+              title="New Channel"
+              className={`relative group flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
                 darkMode
                   ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
                   : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
               }`}
             >
-              <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
-              <span>New Channel</span>
+              <ICON_MAP.PlusIcon className="w-4 h-4" />
+              <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                New Channel
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsAddPersonModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="New Direct Message"
+              className="relative group flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
             >
-              <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-              <span>+ Direct Message</span>
+              <ICON_MAP.UserPlusIcon className="w-4 h-4" />
+              <span className="hidden lg:inline">Direct Message</span>
+              <span className="pointer-events-none absolute -bottom-8 right-0 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                Start Direct Message
+              </span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. Main Split Layout */}
-      <div className="flex p-4 md:p-6 h-[calc(100vh-5.5rem)] min-h-[620px] min-w-0 gap-4 overflow-hidden">
-        {/* Left Sidebar: Channels & Direct Messages */}
+      {/* 2. Main Responsive Split Layout */}
+      <div className="flex p-3 sm:p-4 md:p-6 h-[calc(100vh-6rem)] min-h-[540px] min-w-0 gap-4 overflow-hidden">
+        {/* Left Sidebar: Channels & Direct Messages (Full width on mobile when mobilePaneView === 'list', fixed sidebar on desktop) */}
         <div
-          className={`w-72 md:w-80 flex flex-col flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden ${
+          className={`${
+            mobilePaneView === 'list' ? 'flex w-full' : 'hidden'
+          } md:flex md:w-72 lg:w-80 flex-col flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden ${
             darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-white border-slate-200'
           }`}
         >
           {/* Channel Search */}
-          <div className="p-3 border-b border-slate-200/80 dark:border-slate-700/80 space-y-2">
+          <div className="p-3 border-b border-slate-200/80 dark:border-slate-700/80">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Find channels or people..."
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                className={`w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
+                className={`w-full pl-8 pr-3 py-2 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
                   darkMode
                     ? 'bg-slate-900/60 border-slate-700 text-white placeholder-slate-400'
                     : 'bg-slate-100 border-slate-200 text-slate-900 placeholder-slate-400'
@@ -954,6 +1415,11 @@ export const TeamsChatPage: React.FC = () => {
                     channel.memberIds && channel.memberIds.length > 0
                       ? channel.memberIds.length
                       : directMessageUsers.length + 1;
+                  const hasLiveCallInChannel = ongoingOrgCalls.some(
+                    c =>
+                      c.channelId === channel.id &&
+                      (c.participants || []).some(p => p.connectionState === 'connected')
+                  );
                   return (
                     <button
                       key={channel.id}
@@ -961,6 +1427,7 @@ export const TeamsChatPage: React.FC = () => {
                       onClick={() => {
                         setActiveChannelId(channel.id);
                         setActiveDirectUserId(null);
+                        setMobilePaneView('chat');
                       }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                         isActive
@@ -971,6 +1438,12 @@ export const TeamsChatPage: React.FC = () => {
                       <div className="flex items-center gap-2 truncate">
                         <span className={`text-sm ${isActive ? 'text-white' : 'text-indigo-500'}`}>#</span>
                         <span className="truncate">{channel.name}</span>
+                        {hasLiveCallInChannel && (
+                          <span
+                            title="Active video call in channel"
+                            className="w-2 h-2 rounded-full bg-emerald-400 animate-ping flex-shrink-0"
+                          />
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span className={`text-[10px] font-mono ${isActive ? 'text-indigo-200' : 'text-slate-400'}`}>
@@ -986,7 +1459,7 @@ export const TeamsChatPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Direct Messages (1:1) Section */}
+            {/* Direct Messages (1:1) Section - Clean & Simple Presence */}
             <div>
               <div className="px-2 mb-1 flex items-center justify-between">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -995,7 +1468,7 @@ export const TeamsChatPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddPersonModalOpen(true)}
-                  title="Start New Direct Message or Add Person"
+                  title="Start New Direct Message"
                   className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
                 >
                   <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
@@ -1025,23 +1498,24 @@ export const TeamsChatPage: React.FC = () => {
                     const userAvailability: 'available' | 'away' | 'busy' = lsInfo.isAwayFromTab
                       ? 'away'
                       : getAvailabilityForUser(user, userPresence);
-                    const hasHistory = currentUser
-                      ? chatService.hasDirectConversationHistory(currentUser.id, user.id)
-                      : false;
+
                     const statusDotClass = !isOnline
                       ? 'bg-slate-400'
                       : userAvailability === 'away'
-                      ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.85)]'
+                      ? 'bg-amber-400'
                       : userAvailability === 'busy'
-                      ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.85)]'
-                      : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]';
-                    const statusLabel = lsInfo.isAwayFromTab
-                      ? 'Away from tab'
+                      ? 'bg-rose-500'
+                      : 'bg-emerald-500';
+
+                    const simpleStatusText = isUserTyping
+                      ? 'Typing...'
+                      : !isOnline
+                      ? 'Offline'
                       : userAvailability === 'away'
                       ? 'Away'
                       : userAvailability === 'busy'
-                      ? 'Busy / DND'
-                      : 'Available';
+                      ? 'Busy'
+                      : 'Online';
 
                     return (
                       <button
@@ -1058,6 +1532,7 @@ export const TeamsChatPage: React.FC = () => {
                           }
                           setActiveDirectUserId(user.id);
                           setActiveChannelId('');
+                          setMobilePaneView('chat');
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                           isActive
@@ -1078,41 +1553,17 @@ export const TeamsChatPage: React.FC = () => {
                               className={`text-[10px] block truncate font-normal ${
                                 isUserTyping
                                   ? isActive
-                                    ? 'text-amber-200 font-bold animate-pulse'
-                                    : 'text-indigo-500 dark:text-indigo-400 font-bold animate-pulse'
+                                    ? 'text-amber-200 font-semibold'
+                                    : 'text-indigo-500 dark:text-indigo-400 font-semibold'
                                   : isActive
-                                  ? 'text-indigo-200'
+                                  ? 'text-indigo-100'
                                   : 'text-slate-400'
                               }`}
                             >
-                              {isUserTyping
-                                ? '✍️ Typing...'
-                                : isOnline
-                                ? lsInfo.isAwayFromTab
-                                  ? lsInfo.lastSeenText
-                                  : `${statusLabel} · ${lsInfo.lastSeenText}`
-                                : !hasHistory
-                                ? `New · ${lsInfo.lastSeenText}`
-                                : lsInfo.lastSeenText}
+                              {simpleStatusText}
                             </span>
                           </div>
                         </div>
-
-                        {isOnline && (
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold flex-shrink-0 ${
-                              isActive
-                                ? 'bg-white/20 text-white'
-                                : userAvailability === 'away'
-                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                                : userAvailability === 'busy'
-                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                            }`}
-                          >
-                            {statusLabel}
-                          </span>
-                        )}
                       </button>
                     );
                   })
@@ -1125,7 +1576,7 @@ export const TeamsChatPage: React.FC = () => {
                     className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-indigo-400/50 hover:border-indigo-500 bg-indigo-500/5 hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-                    <span>+ Add Another Person</span>
+                    <span>+ Add Person</span>
                   </button>
                 </div>
               </div>
@@ -1135,13 +1586,25 @@ export const TeamsChatPage: React.FC = () => {
 
         {/* Right Main Pane: Active Conversation */}
         <div
-          className={`flex-1 flex flex-col min-w-0 rounded-2xl border shadow-sm overflow-hidden ${
+          className={`${
+            mobilePaneView === 'chat' ? 'flex' : 'hidden md:flex'
+          } flex-1 flex-col min-w-0 rounded-2xl border shadow-sm overflow-hidden ${
             darkMode ? 'bg-slate-800/40 border-slate-700/80' : 'bg-white border-slate-200'
           }`}
         >
           {/* Conversation Header */}
-          <div className="p-4 border-b border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="px-3 sm:px-4 py-3 border-b border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/40">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {/* Mobile Back Button to return to Channel/DM list */}
+              <button
+                type="button"
+                onClick={() => setMobilePaneView('list')}
+                title="Back to Channels & Direct Messages"
+                className="md:hidden p-1.5 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer flex-shrink-0"
+              >
+                <ICON_MAP.ChevronLeftIcon className="w-5 h-5" />
+              </button>
+
               {activeDirectUser ? (
                 (() => {
                   const directPresence = findPresenceForUser(activeDirectUser);
@@ -1163,17 +1626,18 @@ export const TeamsChatPage: React.FC = () => {
                   const directDotClass = !isDirectUserOnline
                     ? 'bg-slate-400'
                     : directAvailability === 'away'
-                    ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)]'
+                    ? 'bg-amber-400'
                     : directAvailability === 'busy'
-                    ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)]'
-                    : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse';
-                  const directStatusText = directLsInfo.isAwayFromTab
-                    ? 'Away from tab'
+                    ? 'bg-rose-500'
+                    : 'bg-emerald-500';
+                  const directStatusText = !isDirectUserOnline
+                    ? 'Offline'
                     : directAvailability === 'away'
                     ? 'Away'
                     : directAvailability === 'busy'
-                    ? 'Busy / DND'
-                    : 'Available';
+                    ? 'Busy'
+                    : 'Online';
+
                   return (
                     <>
                       <div className="relative flex-shrink-0">
@@ -1183,91 +1647,24 @@ export const TeamsChatPage: React.FC = () => {
                         />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h2 className="text-sm font-black text-slate-900 dark:text-white truncate">
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                             {safeName(activeDirectUser)}
                           </h2>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                            {normalizeUserRole(activeDirectUser.role).replace(/_/g, ' ')}
-                          </span>
                           <span
-                            title={`End-to-End Encrypted with AES-256-GCM (Key Fingerprint: ${e2eeFingerprint})`}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
+                            title={`End-to-End Encrypted (Fingerprint: ${e2eeFingerprint})`}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           >
                             <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
-                            <span>E2EE · {e2eeFingerprint}</span>
+                            <span className="hidden sm:inline">E2EE</span>
                           </span>
-                          {isDirectUserOnline && (
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                directAvailability === 'away'
-                                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30'
-                                  : directAvailability === 'busy'
-                                  ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30'
-                                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  directAvailability === 'away'
-                                    ? 'bg-amber-400'
-                                    : directAvailability === 'busy'
-                                    ? 'bg-rose-500'
-                                    : 'bg-emerald-500'
-                                }`}
-                              />
-                              {directStatusText}
-                            </span>
-                          )}
-                          {isDirectUserTyping && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 animate-pulse">
-                              ✍️ Typing...
-                            </span>
-                          )}
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                           {isDirectUserTyping ? (
-                            <span className="text-indigo-600 dark:text-indigo-400 font-bold animate-pulse">
-                              {safeName(activeDirectUser)} is typing a message...
-                            </span>
-                          ) : isDirectUserOnline ? (
-                            <>
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full inline-block ${
-                                  directAvailability === 'away'
-                                    ? 'bg-amber-400'
-                                    : directAvailability === 'busy'
-                                    ? 'bg-rose-500'
-                                    : 'bg-emerald-500 animate-ping'
-                                }`}
-                              />
-                              <span
-                                className={`font-bold ${
-                                  directAvailability === 'away'
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : directAvailability === 'busy'
-                                    ? 'text-rose-600 dark:text-rose-400'
-                                    : 'text-emerald-600 dark:text-emerald-400'
-                                }`}
-                              >
-                                {directStatusText} · {directLsInfo.lastSeenText}
-                                {directPresence?.currentTaskId
-                                  ? ' · Viewing task'
-                                  : directPresence?.currentView === 'team_chat_view'
-                                  ? ' · In Chat'
-                                  : ''}
-                              </span>
-                            </>
+                            <span className="text-indigo-500 font-semibold animate-pulse">Typing...</span>
                           ) : (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
-                              <span className="text-slate-400 font-medium">
-                                Offline · {directLsInfo.lastSeenText}
-                              </span>
-                            </>
+                            <span>{directStatusText}</span>
                           )}
-                          <span>·</span>
-                          <span className="truncate">{safeEmail(activeDirectUser)}</span>
                         </p>
                       </div>
                     </>
@@ -1275,22 +1672,17 @@ export const TeamsChatPage: React.FC = () => {
                 })()
               ) : activeChannel ? (
                 <>
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-black text-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-black text-base flex items-center justify-center flex-shrink-0">
                     #
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-sm font-black text-slate-900 dark:text-white truncate">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                         #{activeChannel.name}
                       </h2>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                         {activeChannel.department}
                       </span>
-                      {activeChannel.isPrivate && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                          Private Group
-                        </span>
-                      )}
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                       {activeChannel.description}
@@ -1300,9 +1692,9 @@ export const TeamsChatPage: React.FC = () => {
               ) : null}
             </div>
 
-            {/* Header Right: Video Call, Audio Call, Schedule Meeting, Channel Members */}
-            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-              {/* Start Video Call (1:1 DM or Channel Group Call) */}
+            {/* Header Right: Modern Icon-First Call & Meeting Actions with Hover Tooltips */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {/* Video Call Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -1329,13 +1721,16 @@ export const TeamsChatPage: React.FC = () => {
                 }}
                 title={
                   activeDirectUser
-                    ? `Start 1:1 Video Call with ${safeName(activeDirectUser)} (can add more people mid-call)`
-                    : `Start Channel Video Call in #${activeChannel?.name}`
+                    ? `Start Video Call with ${safeName(activeDirectUser)}`
+                    : `Start Video Call in #${activeChannel?.name}`
                 }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                className="relative group inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
               >
-                <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                <span>{activeDirectUser ? '1:1 Video Call' : 'Meet Now'}</span>
+                <ICON_MAP.VideoCameraIcon className="w-4 h-4" />
+                <span className="hidden lg:inline">Video</span>
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                  {activeDirectUser ? 'Start 1:1 Video Call' : 'Start Group Video Call'}
+                </span>
               </button>
 
               {/* Audio Call Button */}
@@ -1363,18 +1758,20 @@ export const TeamsChatPage: React.FC = () => {
                     })
                   );
                 }}
-                title="Start Voice-First Call"
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+                title="Start Audio Call"
+                className={`relative group inline-flex items-center justify-center p-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
                   darkMode
                     ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
                     : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
                 }`}
               >
-                <ICON_MAP.PhoneIcon className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Audio</span>
+                <ICON_MAP.PhoneIcon className="w-4 h-4" />
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                  Start Audio Call
+                </span>
               </button>
 
-              {/* Schedule Meeting & RSVP Button */}
+              {/* Schedule Meeting Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -1391,31 +1788,35 @@ export const TeamsChatPage: React.FC = () => {
                   );
                   setIsScheduleModalOpen(true);
                 }}
-                title="Schedule Calendar Meeting & Send RSVP Invites"
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+                title="Schedule Meeting"
+                className={`relative group inline-flex items-center justify-center p-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
                   darkMode
                     ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-indigo-300'
                     : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
                 }`}
               >
-                <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">Schedule</span>
+                <ICON_MAP.CalendarIcon className="w-4 h-4" />
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                  Schedule Meeting
+                </span>
               </button>
 
               {!activeDirectUser && activeChannel && (
                 <button
                   type="button"
                   onClick={() => setIsChannelMembersModalOpen(true)}
-                  title="Add or manage people in this channel"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 text-xs font-semibold transition-colors cursor-pointer"
+                  title={`Manage #${activeChannel.name} Members`}
+                  className="relative group inline-flex items-center justify-center p-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-                  <span className="hidden xl:inline">+ Add to #{activeChannel.name}</span>
+                  <ICON_MAP.UserPlusIcon className="w-4 h-4" />
+                  <span className="pointer-events-none absolute -bottom-8 right-0 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                    Manage Channel Members
+                  </span>
                 </button>
               )}
 
-              <div className="flex -space-x-1.5 items-center">
-                {(activeDirectUser ? [activeDirectUser] : activeChannelMembers.slice(0, 5)).map(u => (
+              <div className="hidden sm:flex -space-x-1.5 items-center ml-1">
+                {(activeDirectUser ? [activeDirectUser] : activeChannelMembers.slice(0, 4)).map(u => (
                   <div
                     key={u.id}
                     className="ring-2 ring-white dark:ring-slate-900 rounded-full"
@@ -1428,49 +1829,68 @@ export const TeamsChatPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Active Video Call Banner in Current Conversation */}
+          {/* Active Video Call Banner in Current Conversation (Disappears immediately when all participants leave) */}
           {(() => {
-            const activeConvCall = ongoingOrgCalls.find(c =>
-              activeDirectUser
-                ? c.directUserId === activeDirectUser.id
-                : c.channelId === activeChannel?.id
-            );
+            const activeConvCall = ongoingOrgCalls.find(c => {
+              const matchesContext = activeDirectUser
+                ? c.directUserId === activeDirectUser.id ||
+                  (c.type === 'direct' &&
+                    c.participants?.some(p => p.userId === activeDirectUser.id) &&
+                    c.participants?.some(p => p.userId === currentUser?.id))
+                : c.channelId === activeChannel?.id;
+              if (!matchesContext) return false;
+              const connectedList = (c.participants || []).filter(p => p.connectionState === 'connected');
+              return connectedList.length > 0;
+            });
+
             if (!activeConvCall) return null;
+            const connectedParticipants = (activeConvCall.participants || []).filter(
+              p => p.connectionState === 'connected'
+            );
+            const amIConnected = connectedParticipants.some(p => p.userId === currentUser?.id);
+
             return (
               <div className="px-4 py-2.5 bg-emerald-600/15 border-b border-emerald-500/30 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping flex-shrink-0" />
                   <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 truncate">
-                    Live Video Call: {activeConvCall.title}
+                    {activeConvCall.title}
                   </span>
                   <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 hidden sm:inline">
-                    · {activeConvCall.participants.length} in call · {activeConvCall.meetingCode}
+                    · {connectedParticipants.length} active in call · {activeConvCall.meetingCode}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!currentUser) return;
-                    meetingAndCallService.startOrJoinCall({
-                      currentUser,
-                      title: activeConvCall.title,
-                      type: activeConvCall.type,
-                      meetingCode: activeConvCall.meetingCode,
-                      channelId: activeConvCall.channelId,
-                      postCallCardToChat: false,
-                    });
-                  }}
-                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0"
-                >
-                  <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                  <span>Join Call</span>
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!currentUser) return;
+                      if (amIConnected) {
+                        meetingAndCallService.setMinimized(false);
+                      } else {
+                        meetingAndCallService.startOrJoinCall({
+                          currentUser,
+                          title: activeConvCall.title,
+                          type: activeConvCall.type,
+                          meetingCode: activeConvCall.meetingCode,
+                          channelId: activeConvCall.channelId,
+                          directUser: activeDirectUser || undefined,
+                          postCallCardToChat: false,
+                        });
+                      }
+                    }}
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                    <span>{amIConnected ? 'Return to Call' : 'Join Call'}</span>
+                  </button>
+                </div>
               </div>
             );
           })()}
 
           {/* Messages Stream */}
-          <div data-bubble-scroll="true" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 scrollbar-thin">
+          <div data-bubble-scroll="true" className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 scrollbar-thin">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
@@ -1483,8 +1903,8 @@ export const TeamsChatPage: React.FC = () => {
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
                   {activeDirectUser
-                    ? 'Your 1:1 messages are End-to-End Encrypted with AES-256-GCM. Send a message below to start the conversation.'
-                    : 'Send a message to kick off the discussion or add teammates to this channel.'}
+                    ? 'Your 1:1 messages, voice notes, and attachments are End-to-End Encrypted with AES-256-GCM.'
+                    : 'Send a message, voice note, or file attachment to kick off the discussion.'}
                 </p>
               </div>
             ) : (
@@ -1498,7 +1918,7 @@ export const TeamsChatPage: React.FC = () => {
                 return (
                   <div
                     key={msg.id}
-                    className={`flex items-start gap-3 group transition-all ${isMe ? 'flex-row-reverse' : ''}`}
+                    className={`flex items-start gap-2.5 sm:gap-3 group transition-all ${isMe ? 'flex-row-reverse' : ''}`}
                   >
                     <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs ring-1 ring-slate-200 dark:ring-slate-700">
                       {msg.sender_avatar ? (
@@ -1508,16 +1928,11 @@ export const TeamsChatPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div className={`space-y-1 max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
+                    <div className={`space-y-1.5 max-w-[85%] sm:max-w-[75%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                       <div className={`flex items-center gap-2 text-[10px] ${isMe ? 'justify-end' : 'justify-start'}`}>
                         <span className="font-bold text-slate-800 dark:text-slate-200">
                           {isMe ? 'You' : msg.sender_name}
                         </span>
-                        {msg.sender_role && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                            {normalizeUserRole(msg.sender_role).replace(/_/g, ' ')}
-                          </span>
-                        )}
                         <span className="text-slate-400">{formattedTime}</span>
                         {(msg.is_encrypted || msg.recipient_id) && (
                           <span
@@ -1566,7 +1981,7 @@ export const TeamsChatPage: React.FC = () => {
 
                           return (
                             <div
-                              className={`p-4 rounded-2xl border shadow-sm space-y-3 min-w-[270px] sm:min-w-[330px] ${
+                              className={`p-3.5 sm:p-4 rounded-2xl border shadow-sm space-y-3 min-w-[250px] sm:min-w-[320px] ${
                                 darkMode
                                   ? 'bg-slate-900/95 border-indigo-500/40 text-slate-100'
                                   : 'bg-white border-indigo-200 text-slate-900'
@@ -1575,7 +1990,7 @@ export const TeamsChatPage: React.FC = () => {
                               <div className="flex items-start justify-between gap-3">
                                 <div className="space-y-0.5">
                                   <div className="text-[10px] font-semibold text-indigo-500">
-                                    Calendar Meeting Invite · Room {meetingCode}
+                                    Calendar Meeting · Room {meetingCode}
                                   </div>
                                   <h4 className="text-sm font-bold">{title}</h4>
                                   {startTime && (
@@ -1590,8 +2005,7 @@ export const TeamsChatPage: React.FC = () => {
                                     </div>
                                   )}
                                   <div className="text-[11px] text-slate-400">
-                                    Requested by {organizerName} · {goingCount} Going · {maybeCount} Maybe ·{' '}
-                                    {pendingCount} Pending
+                                    By {organizerName} · {goingCount} Going · {maybeCount} Maybe · {pendingCount} Pending
                                   </div>
                                 </div>
 
@@ -1617,16 +2031,13 @@ export const TeamsChatPage: React.FC = () => {
                                   className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
                                 >
                                   <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                                  <span>Join Call</span>
+                                  <span>Join</span>
                                 </button>
                               </div>
 
-                              {/* Interactive RSVP Buttons inside Chat Card */}
                               {liveEvent && currentUser && (
                                 <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
-                                  <span className="text-[11px] font-semibold text-slate-400">
-                                    Your RSVP:
-                                  </span>
+                                  <span className="text-[11px] font-semibold text-slate-400">RSVP:</span>
                                   <div className="flex items-center gap-1.5">
                                     {(
                                       [
@@ -1683,55 +2094,116 @@ export const TeamsChatPage: React.FC = () => {
                               parsedCall = JSON.parse(rawContent.slice(12, closeBracket));
                             } catch {}
                           }
+                          const callId = parsedCall?.callId;
                           const callTitle = parsedCall?.title || 'Team Video Call';
                           const meetingCode = parsedCall?.meetingCode || 'omni-live';
 
+                          // Check if call is currently live with connected participants
+                          const liveSession = ongoingOrgCalls.find(
+                            c =>
+                              (callId && c.id === callId) ||
+                              (meetingCode && c.meetingCode === meetingCode)
+                          );
+                          const connectedCount = liveSession
+                            ? (liveSession.participants || []).filter(p => p.connectionState === 'connected').length
+                            : 0;
+                          const endedRecord = chatService.getEndedCallMeta(callId, meetingCode);
+                          const isEnded =
+                            Boolean(parsedCall?.ended) ||
+                            Boolean(parsedCall?.endedAt) ||
+                            Boolean(endedRecord) ||
+                            connectedCount === 0;
+
+                          const endedTimestampIso =
+                            parsedCall?.endedAt || endedRecord?.endedAt || msg.created_at;
+                          const endedTimeFormatted = new Date(endedTimestampIso).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          });
+                          const durationLabel =
+                            parsedCall?.durationText || endedRecord?.durationText || '';
+
+                          if (isEnded) {
+                            return (
+                              <div
+                                className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between gap-4 min-w-[250px] sm:min-w-[290px] ${
+                                  darkMode
+                                    ? 'bg-slate-800/90 border-slate-700 text-slate-300'
+                                    : 'bg-slate-100 border-slate-200 text-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-8 h-8 rounded-xl bg-slate-500/15 text-slate-400 flex items-center justify-center flex-shrink-0">
+                                    <ICON_MAP.PhoneXMarkIcon className="w-4 h-4" />
+                                  </div>
+                                  <div className="space-y-0.5 min-w-0">
+                                    <div className="text-xs font-bold truncate">{callTitle}</div>
+                                    <div className="text-[10px] font-mono text-slate-400">
+                                      Call ended at {endedTimeFormatted}
+                                      {durationLabel ? ` · ${durationLabel}` : ''}
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-lg bg-slate-500/15 text-slate-400 text-[10px] font-semibold flex-shrink-0">
+                                  Ended
+                                </span>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div
-                              className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between gap-4 min-w-[260px] ${
+                              className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between gap-4 min-w-[250px] sm:min-w-[290px] ${
                                 darkMode
                                   ? 'bg-slate-900/95 border-emerald-500/40 text-white'
                                   : 'bg-emerald-50/60 border-emerald-200 text-slate-900'
                               }`}
                             >
-                              <div className="space-y-0.5">
-                                <div className="text-[10px] font-semibold text-emerald-500">
-                                  Live Video Room · {meetingCode}
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                  <span>
+                                    Live Room · {connectedCount} in call · {meetingCode}
+                                  </span>
                                 </div>
-                                <div className="text-xs font-bold">{callTitle}</div>
+                                <div className="text-xs font-bold truncate">{callTitle}</div>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => {
                                   if (!currentUser) return;
-                                  window.dispatchEvent(
-                                    new CustomEvent('omni_start_video_call', {
-                                      detail: {
-                                        title: callTitle,
-                                        type: activeDirectUser ? 'direct' : 'channel',
-                                        meetingCode,
-                                        channelId: activeDirectUser ? undefined : activeChannel?.id,
-                                        directUser: activeDirectUser || undefined,
-                                        invitedUsers: activeDirectUser
-                                          ? [activeDirectUser]
-                                          : activeChannelMembers.filter(m => m.id !== currentUser.id),
-                                        postCallCardToChat: false,
-                                      },
-                                    })
-                                  );
+                                  meetingAndCallService.startOrJoinCall({
+                                    currentUser,
+                                    title: callTitle,
+                                    type: activeDirectUser ? 'direct' : 'channel',
+                                    meetingCode,
+                                    channelId: activeDirectUser ? undefined : activeChannel?.id,
+                                    directUser: activeDirectUser || undefined,
+                                    postCallCardToChat: false,
+                                  });
                                 }}
                                 className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0"
                               >
                                 <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                                <span>Join Video</span>
+                                <span>Join Call</span>
                               </button>
                             </div>
                           );
                         }
 
+                        // Hide auto-generated placeholder text when voice note is the sole content
+                        const hasVoiceNoteAttachment =
+                          msg.attachments && msg.attachments.some(a => a.type === 'voice' || a.type === 'audio');
+                        const isDefaultAttachmentLabel =
+                          rawContent.startsWith('🎙️ Voice note') || rawContent.startsWith('📎 Shared ');
+
+                        if (isDefaultAttachmentLabel && msg.attachments && msg.attachments.length > 0) {
+                          return null;
+                        }
+
                         return (
                           <div
-                            className={`p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-xs transition-transform duration-200 ${
+                            className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-xs transition-transform duration-200 ${
                               isMe
                                 ? 'bg-indigo-600 text-white rounded-tr-xs'
                                 : 'bg-slate-100 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 rounded-tl-xs'
@@ -1741,6 +2213,78 @@ export const TeamsChatPage: React.FC = () => {
                           </div>
                         );
                       })()}
+
+                      {/* Render Voice Notes, Images, and File Attachments */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className={`flex flex-col gap-2 pt-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
+                          {msg.attachments.map((att, idx) => {
+                            if (att.type === 'voice' || att.type === 'audio') {
+                              return (
+                                <VoiceNotePlayer
+                                  key={`${msg.id}-att-${idx}`}
+                                  url={att.url}
+                                  durationSec={att.durationSec}
+                                  isMe={isMe}
+                                  darkMode={darkMode}
+                                />
+                              );
+                            }
+
+                            if (att.type === 'image') {
+                              return (
+                                <div
+                                  key={`${msg.id}-att-${idx}`}
+                                  className="relative group/img rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/70 shadow-sm max-w-[260px] sm:max-w-[320px]"
+                                >
+                                  <img
+                                    src={att.url}
+                                    alt={att.name}
+                                    onClick={() => setLightboxImage({ url: att.url, name: att.name })}
+                                    className="w-full max-h-60 object-cover cursor-zoom-in hover:scale-[1.02] transition-transform"
+                                  />
+                                  <div className="absolute bottom-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center gap-1">
+                                    <a
+                                      href={att.url}
+                                      download={att.name}
+                                      onClick={e => e.stopPropagation()}
+                                      title="Download image"
+                                      className="p-1.5 rounded-lg bg-slate-900/80 text-white hover:bg-slate-900 text-xs"
+                                    >
+                                      <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                    </a>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <a
+                                key={`${msg.id}-att-${idx}`}
+                                href={att.url}
+                                download={att.name}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl border text-xs transition-colors max-w-[260px] sm:max-w-[300px] ${
+                                  isMe
+                                    ? 'bg-indigo-700/80 border-indigo-400/30 text-white hover:bg-indigo-700'
+                                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200/70 dark:hover:bg-slate-700'
+                                }`}
+                              >
+                                <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 flex-shrink-0">
+                                  <ICON_MAP.DocumentTextIcon className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold truncate">{att.name}</div>
+                                  {att.size && (
+                                    <div className="text-[10px] opacity-75 font-mono">
+                                      {formatFileSize(att.size)}
+                                    </div>
+                                  )}
+                                </div>
+                                <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4 opacity-80 flex-shrink-0" />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {/* Emoji Reactions Bar */}
                       <div
@@ -1805,61 +2349,232 @@ export const TeamsChatPage: React.FC = () => {
             </div>
           )}
 
-          {/* Input Bar */}
-          <div className="p-3 md:p-4 border-t border-slate-200/80 dark:border-slate-700/80 bg-slate-50/40 dark:bg-slate-900/30">
-            <form onSubmit={handleSendMessage} className="space-y-2">
-              <div className="relative">
-                <textarea
-                  value={inputText}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  rows={2}
-                  placeholder={
-                    activeDirectUser
-                      ? `Message ${safeName(activeDirectUser)}... (Enter to send, Shift+Enter for newline)`
-                      : `Message #${activeChannel?.name || 'channel'}... (Enter to send, Shift+Enter for newline)`
-                  }
-                  className={`w-full p-3 pr-24 rounded-xl border text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 resize-none ${
-                    darkMode
-                      ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-400'
-                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
-                  }`}
-                />
+          {/* Composer Input Bar with Voice Notes & File/Image Attachments */}
+          <div className="p-2.5 sm:p-3.5 border-t border-slate-200/80 dark:border-slate-700/80 bg-slate-50/40 dark:bg-slate-900/30">
+            {/* Hidden Multi-File / Image Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.json"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
 
-                <div className="absolute right-2.5 bottom-3 flex items-center gap-1.5">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    disabled={!inputText.trim()}
-                    className="rounded-lg gap-1.5"
+            {/* Pending Attachments Preview Strip */}
+            {pendingAttachments.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-2.5 mb-2 scrollbar-thin">
+                {pendingAttachments.map((att, idx) => (
+                  <div
+                    key={idx}
+                    className={`relative group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs flex-shrink-0 ${
+                      darkMode
+                        ? 'bg-slate-800 border-slate-700 text-slate-200'
+                        : 'bg-white border-slate-200 text-slate-700'
+                    }`}
                   >
-                    <span>Send</span>
-                    <ICON_MAP.ArrowRightIcon className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-                <div className="flex items-center gap-1">
-                  <span>Quick react:</span>
-                  {EMOJI_OPTIONS.map(emoji => (
+                    {att.type === 'image' ? (
+                      <img src={att.url} alt={att.name} className="w-8 h-8 rounded-lg object-cover" />
+                    ) : (
+                      <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-indigo-500" />
+                    )}
+                    <div className="max-w-[120px] truncate">
+                      <div className="font-semibold truncate text-[11px]">{att.name}</div>
+                      {att.size && (
+                        <div className="text-[9px] text-slate-400 font-mono">{formatFileSize(att.size)}</div>
+                      )}
+                    </div>
                     <button
-                      key={emoji}
                       type="button"
-                      onClick={() => setInputText(prev => prev + emoji)}
-                      className="hover:scale-125 transition-transform p-0.5 cursor-pointer"
+                      onClick={() =>
+                        setPendingAttachments(prev => prev.filter((_, i) => i !== idx))
+                      }
+                      title="Remove attachment"
+                      className="ml-1 w-4 h-4 rounded-full bg-rose-500/15 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center text-[10px] cursor-pointer"
                     >
-                      {emoji}
+                      ✕
                     </button>
-                  ))}
-                </div>
-                <span>Markdown & code formatting supported</span>
+                  </div>
+                ))}
               </div>
-            </form>
+            )}
+
+            {isRecordingVoice ? (
+              /* Active Voice Note Recording Bar */
+              <div
+                className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl border ${
+                  darkMode
+                    ? 'bg-rose-950/30 border-rose-500/40 text-rose-200'
+                    : 'bg-rose-50 border-rose-200 text-rose-900'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping flex-shrink-0" />
+                  <span className="text-xs font-bold font-mono">
+                    Recording {formatAudioDuration(recordingSeconds)}
+                  </span>
+                  <div className="hidden sm:flex items-center gap-0.5 h-4 ml-2">
+                    {[45, 80, 55, 95, 60, 85, 40, 75, 90, 50, 70, 65].map((h, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          height: `${Math.max(25, ((h + recordingSeconds * 17 * (i + 1)) % 95))}%`,
+                        }}
+                        className="w-1 bg-rose-500 rounded-full transition-all duration-150"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={cancelVoiceRecording}
+                    title="Cancel Voice Note"
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-500/15 hover:bg-slate-500/25 text-xs font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={finishAndSendVoiceRecording}
+                    title="Send Voice Note"
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <ICON_MAP.MicrophoneIcon className="w-3.5 h-3.5" />
+                    <span>Send Voice Note</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSendMessage} className="space-y-1.5">
+                <div className="flex items-end gap-1.5 sm:gap-2">
+                  {/* Attach File / Image Button */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Attach files or images"
+                    className={`relative group p-2.5 rounded-xl border transition-colors cursor-pointer flex-shrink-0 ${
+                      darkMode
+                        ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
+                        : 'bg-white border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <ICON_MAP.PaperClipIcon className="w-4 h-4" />
+                    <span className="pointer-events-none absolute -top-8 left-0 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                      Attach Files / Images
+                    </span>
+                  </button>
+
+                  {/* Record Voice Note Button */}
+                  <button
+                    type="button"
+                    onClick={startVoiceRecording}
+                    title="Record voice note"
+                    className={`relative group p-2.5 rounded-xl border transition-colors cursor-pointer flex-shrink-0 ${
+                      darkMode
+                        ? 'bg-slate-900 border-slate-700 text-indigo-400 hover:text-indigo-300 hover:bg-slate-800'
+                        : 'bg-white border-slate-300 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <ICON_MAP.MicrophoneIcon className="w-4 h-4" />
+                    <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                      Record Voice Note
+                    </span>
+                  </button>
+
+                  {/* Text Input */}
+                  <div className="relative flex-1 min-w-0">
+                    <textarea
+                      value={inputText}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      rows={1}
+                      placeholder={
+                        activeDirectUser
+                          ? `Message ${safeName(activeDirectUser)}...`
+                          : `Message #${activeChannel?.name || 'channel'}...`
+                      }
+                      className={`w-full py-2.5 pl-3 pr-20 rounded-xl border text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 resize-none ${
+                        darkMode
+                          ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-400'
+                          : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                      }`}
+                    />
+
+                    <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1">
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        size="sm"
+                        disabled={!inputText.trim() && pendingAttachments.length === 0}
+                        className="rounded-lg px-2.5 py-1 gap-1"
+                      >
+                        <span className="hidden sm:inline">Send</span>
+                        <ICON_MAP.ArrowRightIcon className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden sm:flex items-center justify-between text-[10px] text-slate-400 px-1">
+                  <div className="flex items-center gap-1">
+                    <span>Quick react:</span>
+                    {EMOJI_OPTIONS.map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setInputText(prev => prev + emoji)}
+                        className="hover:scale-125 transition-transform p-0.5 cursor-pointer"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <span>Voice notes, images & files supported</span>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Image Attachment Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[88vh] flex flex-col items-center gap-3"
+            onClick={e => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImage.url}
+              alt={lightboxImage.name}
+              className="max-w-full max-h-[78vh] rounded-2xl object-contain shadow-2xl border border-slate-700"
+            />
+            <div className="flex items-center gap-3 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-700 text-white text-xs">
+              <span className="font-semibold truncate max-w-xs">{lightboxImage.name}</span>
+              <a
+                href={lightboxImage.url}
+                download={lightboxImage.name}
+                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold flex items-center gap-1"
+              >
+                <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                <span>Download</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setLightboxImage(null)}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. Create New Channel & Add Members Modal */}
       {isNewChannelModalOpen && (

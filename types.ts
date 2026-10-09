@@ -368,7 +368,7 @@ export interface VideoCallParticipant {
   isHandRaised: boolean;
   isSpeaking: boolean;
   joinedAt: string;
-  connectionState: 'connected' | 'ringing' | 'invited';
+  connectionState: 'connected' | 'ringing' | 'invited' | 'declined' | 'left';
   backgroundMode?: 'none' | 'blur' | 'studio' | 'midnight';
 }
 
@@ -426,7 +426,7 @@ export interface ChatMessage {
   iv?: string;
   key_fingerprint?: string;
   reactions?: Record<string, string[]>; // emoji -> array of userIds
-  attachments?: { name: string; url: string; type: string }[];
+  attachments?: { name: string; url: string; type: string; size?: number; durationSec?: number }[];
   created_at: string;
 }
 

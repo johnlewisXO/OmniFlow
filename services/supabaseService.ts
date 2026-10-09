@@ -372,33 +372,32 @@ const supabaseService = {
       }
     });
 
-    // 3. Check audit_logs for organization names & IDs
-    try {
-      const { data: auditRows } = await supabase
-        .from('audit_logs')
-        .select('organization_id, target_type, target_name, details')
-        .not('organization_id', 'is', null)
-        .limit(100);
-      if (Array.isArray(auditRows)) {
-        auditRows.forEach((row: any) => {
-          const orgId = row?.organization_id;
-          if (!orgId || resultsMap.has(orgId)) return;
-          let orgName = row.target_type === 'organization' ? row.target_name : undefined;
-          if (!orgName && row.details) {
-            try {
-              const parsed = typeof row.details === 'string' ? JSON.parse(row.details) : row.details;
-              orgName = parsed?.organizationName || parsed?.joinRequest?.organization_name;
-            } catch {}
-          }
-          if (orgName && typeof orgName === 'string') {
-            const slug = supabaseService.generateSlug(orgName);
-            const entry = { id: orgId, name: orgName, slug };
-            cacheKnownOrganization(entry);
-            resultsMap.set(orgId, entry);
-          }
-        });
-      }
-    } catch {}
+    // 3. Check local audit_logs cache for organization names & IDs (avoids 42P01 on unprovisioned audit_logs table)
+    if (typeof window !== 'undefined') {
+      try {
+        const rawAudit = localStorage.getItem('app_audit_logs');
+        const auditRows = rawAudit ? JSON.parse(rawAudit) : [];
+        if (Array.isArray(auditRows)) {
+          auditRows.forEach((row: any) => {
+            const orgId = row?.organization_id;
+            if (!orgId || resultsMap.has(orgId)) return;
+            let orgName = row.target_type === 'organization' ? row.target_name : undefined;
+            if (!orgName && row.details) {
+              try {
+                const parsed = typeof row.details === 'string' ? JSON.parse(row.details) : row.details;
+                orgName = parsed?.organizationName || parsed?.joinRequest?.organization_name;
+              } catch {}
+            }
+            if (orgName && typeof orgName === 'string') {
+              const slug = supabaseService.generateSlug(orgName);
+              const entry = { id: orgId, name: orgName, slug };
+              cacheKnownOrganization(entry);
+              resultsMap.set(orgId, entry);
+            }
+          });
+        }
+      } catch {}
+    }
 
     // 4. Query user_profiles to count members AND discover organizations that RLS on `organizations` might hide from unjoined users
     try {
@@ -1011,7 +1010,7 @@ const supabaseService = {
     return { redirectTo };
   },
 
-  // Audit Logs Service
+  // Audit Logs Service (uses persistent local store + cross-tab BroadcastChannel to avoid 42P01 on unprovisioned audit_logs table)
   logAuditEvent: async (event: Omit<AuditLog, 'id' | 'created_at'>): Promise<AuditLog> => {
     const newLog: AuditLog = {
       id: crypto.randomUUID(),
@@ -1020,37 +1019,15 @@ const supabaseService = {
     };
 
     try {
-      // Try pushing to Supabase DB audit_logs table
-      const { data, error } = await supabase.from('audit_logs').insert({
-        id: newLog.id,
-        organization_id: newLog.organization_id,
-        actor_id: newLog.actor_id,
-        actor_name: newLog.actor_name,
-        actor_email: newLog.actor_email,
-        action: newLog.action,
-        target_type: newLog.target_type,
-        target_id: newLog.target_id,
-        target_name: newLog.target_name,
-        details: typeof newLog.details === 'object' ? JSON.stringify(newLog.details) : newLog.details,
-        created_at: newLog.created_at
-      }).select().single();
-
-      if (!error && data) {
-        return {
-          ...data,
-          details: data.details ? (typeof data.details === 'string' ? JSON.parse(data.details) : data.details) : undefined
-        };
-      }
-    } catch (err) {
-      console.warn('Supabase audit_logs table query failed, saving to local store fallback:', err);
-    }
-
-    // Local Storage Fallback
-    try {
       const existingStr = localStorage.getItem('app_audit_logs');
       const existing: AuditLog[] = existingStr ? JSON.parse(existingStr) : [];
       const updated = [newLog, ...existing].slice(0, 500);
       localStorage.setItem('app_audit_logs', JSON.stringify(updated));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('omni_collab_sync');
+        bc.postMessage({ type: 'AUDIT_LOG_CREATED', payload: newLog });
+        bc.close();
+      }
     } catch (e) {
       console.error('Failed to write to local audit log cache:', e);
     }
@@ -1059,23 +1036,6 @@ const supabaseService = {
   },
 
   getAuditLogs: async (organizationId?: string, limit = 200): Promise<AuditLog[]> => {
-    let dbLogs: AuditLog[] = [];
-    try {
-      let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(limit);
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId);
-      }
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        dbLogs = data.map(item => ({
-          ...item,
-          details: item.details && typeof item.details === 'string' ? JSON.parse(item.details) : item.details
-        }));
-      }
-    } catch (err) {
-      console.warn('Audit logs DB fetch fallback to local storage:', err);
-    }
-
     let localLogs: AuditLog[] = [];
     try {
       const existingStr = localStorage.getItem('app_audit_logs');
@@ -1091,20 +1051,16 @@ const supabaseService = {
       console.error('Failed reading local audit logs cache:', e);
     }
 
-    const mergedMap = new Map<string, AuditLog>();
-    [...localLogs, ...dbLogs].forEach(item => {
-      if (item && item.id) mergedMap.set(item.id, item);
-    });
-    return Array.from(mergedMap.values()).sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+    return localLogs
+      .slice(0, limit)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
   getOrganizationAuditLogs: async (organizationId?: string, limit = 200): Promise<AuditLog[]> => {
     return supabaseService.getAuditLogs(organizationId, limit);
   },
 
-  // Organization Invitation System
+  // Organization Invitation System (uses local store + BroadcastChannel to avoid 42P01 on unprovisioned organization_invitations table)
   createInvitation: async (invitationData: Omit<OrganizationInvitation, 'id' | 'token' | 'status' | 'created_at'>): Promise<OrganizationInvitation> => {
     const token = 'inv_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
     const newInvitation: OrganizationInvitation = {
@@ -1116,19 +1072,14 @@ const supabaseService = {
     };
 
     try {
-      const { data, error } = await supabase.from('organization_invitations').insert(newInvitation).select().single();
-      if (!error && data) {
-        return data as OrganizationInvitation;
-      }
-    } catch (err) {
-      console.warn('organization_invitations DB insert failed, using local storage fallback:', err);
-    }
-
-    // Local storage fallback
-    try {
       const existingStr = localStorage.getItem('app_org_invitations');
       const existing: OrganizationInvitation[] = existingStr ? JSON.parse(existingStr) : [];
       localStorage.setItem('app_org_invitations', JSON.stringify([newInvitation, ...existing]));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('omni_collab_sync');
+        bc.postMessage({ type: 'ORG_INVITATION_UPSERT', payload: newInvitation });
+        bc.close();
+      }
     } catch (e) {
       console.error('Failed to store local invitation:', e);
     }
@@ -1138,23 +1089,12 @@ const supabaseService = {
 
   getInvitations: async (organizationId: string): Promise<OrganizationInvitation[]> => {
     try {
-      const { data, error } = await supabase.from('organization_invitations')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        return data as OrganizationInvitation[];
-      }
-    } catch (err) {
-      console.warn('organization_invitations DB fetch fallback:', err);
-    }
-
-    // Local storage fallback
-    try {
       const existingStr = localStorage.getItem('app_org_invitations');
       if (existingStr) {
         const all: OrganizationInvitation[] = JSON.parse(existingStr);
-        return all.filter(inv => inv.organization_id === organizationId);
+        return all
+          .filter(inv => inv.organization_id === organizationId)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
     } catch (e) {
       console.error('Error reading local invitations:', e);
@@ -1163,18 +1103,6 @@ const supabaseService = {
   },
 
   getInvitationByToken: async (token: string): Promise<OrganizationInvitation | null> => {
-    try {
-      const { data, error } = await supabase.from('organization_invitations')
-        .select('*')
-        .eq('token', token)
-        .single();
-      if (!error && data) {
-        return data as OrganizationInvitation;
-      }
-    } catch (err) {
-      console.warn('Error fetching token from DB, checking local storage:', err);
-    }
-
     try {
       const existingStr = localStorage.getItem('app_org_invitations');
       if (existingStr) {
@@ -1264,7 +1192,7 @@ const supabaseService = {
       } catch {}
     }
 
-    // 2. Also store in Supabase audit_logs so every Project Manager / Owner across any browser device sees it
+    // 2. Also store in local audit_logs
     try {
       await supabaseService.logAuditEvent({
         organization_id: organizationId,
@@ -1338,7 +1266,7 @@ const supabaseService = {
       } catch {}
     }
 
-    // 2. Also reconstruct from Supabase audit_logs so requests made on other devices are always visible
+    // 2. Also reconstruct from audit logs cache
     try {
       const logs = await supabaseService.getAuditLogs(organizationId, 150);
       logs.forEach(log => {
@@ -1410,24 +1338,6 @@ const supabaseService = {
         if (match) return match;
       } catch {}
     }
-
-    try {
-      const { data: logs } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('actor_id', userId)
-        .eq('action', 'organization_join_requested')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (logs && logs[0]) {
-        const detailsObj =
-          typeof logs[0].details === 'string' ? JSON.parse(logs[0].details) : logs[0].details;
-        if (detailsObj?.joinRequest) {
-          return detailsObj.joinRequest as OrganizationJoinRequest;
-        }
-      }
-    } catch {}
 
     return null;
   },
@@ -1622,12 +1532,6 @@ const supabaseService = {
   },
 
   revokeInvitation: async (invitationId: string): Promise<void> => {
-    try {
-      await supabase.from('organization_invitations').update({ status: 'revoked' }).eq('id', invitationId);
-    } catch (err) {
-      console.warn('Failed DB revoke, updating local storage:', err);
-    }
-
     try {
       const existingStr = localStorage.getItem('app_org_invitations');
       if (existingStr) {
