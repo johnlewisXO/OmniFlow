@@ -24,8 +24,9 @@ const VideoStreamTile: React.FC<{
   stream: MediaStream | null;
   muted?: boolean;
   mirror?: boolean;
+  fit?: 'cover' | 'contain';
   className?: string;
-}> = ({ stream, muted = false, mirror = false, className = '' }) => {
+}> = ({ stream, muted = false, mirror = false, fit = 'cover', className = '' }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const trackCount = stream ? stream.getVideoTracks().length : 0;
   const firstTrackId = stream?.getVideoTracks()?.[0]?.id || '';
@@ -63,7 +64,9 @@ const VideoStreamTile: React.FC<{
       autoPlay
       playsInline
       muted={muted}
-      className={`w-full h-full object-cover ${mirror ? 'scale-x-[-1]' : ''} ${className}`}
+      className={`w-full h-full ${fit === 'contain' ? 'object-contain bg-black' : 'object-cover'} ${
+        mirror ? 'scale-x-[-1]' : ''
+      } ${className}`}
     />
   );
 };
@@ -969,20 +972,44 @@ ${actionList}`;
   }
 
   // ==========================================================================
-  // 4. FULL GOOGLE MEET / MS TEAMS VIDEO CALL STUDIO
+  // 4. FULL GOOGLE MEET / MS TEAMS / ZOOM VIDEO CALL STUDIO
   // ==========================================================================
   const participants = activeCall.participants;
+  const connectedParticipants = participants.filter(p => p.connectionState === 'connected');
+  const ringingParticipants = participants.filter(p => p.connectionState === 'ringing');
+  const activeStageParticipants =
+    connectedParticipants.length > 0 ? connectedParticipants : [myParticipant].filter(Boolean);
+
   const spotlightParticipant =
-    participants.find(p => p.userId === pinnedUserId) ||
-    participants.find(p => p.isSpeaking) ||
-    participants[0];
+    activeStageParticipants.find(p => p.userId === pinnedUserId) ||
+    activeStageParticipants.find(p => p.isSpeaking) ||
+    activeStageParticipants[0];
+
+  // Determine the live screen share stream or broadcast frame for 1:1 and team calls
+  const isLocalPresenting = Boolean(
+    myParticipant?.isScreenSharing &&
+      callState.screenStream &&
+      callState.screenStream.getVideoTracks().length > 0
+  );
+  const remotePresenterStream =
+    screenSharer && screenSharer.userId !== currentUser.id
+      ? callState.remoteStreams.get(screenSharer.userId) || null
+      : null;
+  const hasRemotePresenterVideoTrack = Boolean(
+    remotePresenterStream &&
+      remotePresenterStream.getVideoTracks().some(t => t.enabled && t.readyState === 'live')
+  );
+  const liveRemoteScreenFrame =
+    callState.remoteScreenFrame && callState.remoteScreenFrame.callId === activeCall.id
+      ? callState.remoteScreenFrame
+      : null;
 
   const getTileBgClass = (p: VideoCallParticipant) => {
     const mode = p.userId === currentUser.id ? bgMode : p.backgroundMode || 'studio';
-    if (mode === 'blur') return 'bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-950/80';
-    if (mode === 'studio') return 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900';
-    if (mode === 'midnight') return 'bg-slate-950';
-    return 'bg-slate-900';
+    if (mode === 'blur') return 'bg-gradient-to-br from-slate-800/95 via-slate-900 to-indigo-950/80';
+    if (mode === 'studio') return 'bg-gradient-to-br from-[#131824] via-[#0f1420] to-[#171d2e]';
+    if (mode === 'midnight') return 'bg-[#090d16]';
+    return 'bg-[#111622]';
   };
 
   const renderParticipantTile = (p: VideoCallParticipant, isLargeStage = false) => {
@@ -994,37 +1021,37 @@ ${actionList}`;
         streamToRender.getVideoTracks().some(t => t.enabled && t.readyState === 'live')
     );
     const showLiveVideo = !p.isCameraOff && hasVideoTracks;
-    const isRinging = p.connectionState === 'ringing';
+    const isOnlineNow = isMe || meetingAndCallService.isUserCurrentlyOnline(p.userId);
 
     return (
       <div
         key={p.userId}
         onClick={() => setPinnedUserId(prev => (prev === p.userId ? null : p.userId))}
-        className={`relative rounded-2xl overflow-hidden border transition-all select-none cursor-pointer flex items-center justify-center group ${getTileBgClass(
+        className={`relative rounded-2xl overflow-hidden border transition-all duration-200 select-none cursor-pointer flex items-center justify-center group shadow-xl ${getTileBgClass(
           p
         )} ${
           p.isSpeaking && !p.isMicMuted
-            ? 'border-emerald-400 ring-2 ring-emerald-500/40'
+            ? 'border-emerald-400 ring-2 ring-emerald-500/50 shadow-emerald-500/10'
             : pinnedUserId === p.userId
-            ? 'border-indigo-400 ring-2 ring-indigo-500/30'
-            : 'border-slate-800/90 hover:border-slate-700'
-        } ${isLargeStage ? 'h-full min-h-[260px] sm:min-h-[340px]' : 'min-h-[170px] sm:min-h-[210px] h-full'}`}
+            ? 'border-indigo-400 ring-2 ring-indigo-500/40'
+            : 'border-white/10 hover:border-white/20'
+        } ${isLargeStage ? 'h-full min-h-[260px] sm:min-h-[360px]' : 'min-h-[175px] sm:min-h-[220px] h-full'}`}
       >
         {showLiveVideo ? (
-          <VideoStreamTile stream={streamToRender} muted={isMe} mirror={isMe} />
+          <VideoStreamTile stream={streamToRender} muted={isMe} mirror={isMe} fit="cover" />
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 p-4 text-center">
             <div className="relative">
               <div
                 className={`${
-                  isLargeStage ? 'w-20 h-20 sm:w-24 sm:h-24 text-2xl sm:text-3xl' : 'w-14 h-14 sm:w-16 sm:h-16 text-lg sm:text-xl'
-                } rounded-full bg-slate-800 border-2 ${
+                  isLargeStage
+                    ? 'w-20 h-20 sm:w-24 sm:h-24 text-2xl sm:text-3xl'
+                    : 'w-14 h-14 sm:w-16 sm:h-16 text-lg sm:text-xl'
+                } rounded-full bg-slate-800/90 border-2 ${
                   p.isSpeaking && !p.isMicMuted
-                    ? 'border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.45)]'
-                    : isRinging
-                    ? 'border-amber-400 animate-pulse'
-                    : 'border-slate-700'
-                } flex items-center justify-center font-bold text-white overflow-hidden`}
+                    ? 'border-emerald-400 shadow-[0_0_28px_rgba(16,185,129,0.45)]'
+                    : 'border-white/15'
+                } flex items-center justify-center font-bold text-white overflow-hidden shadow-2xl`}
               >
                 {p.avatar ? (
                   <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
@@ -1032,6 +1059,14 @@ ${actionList}`;
                   (p.name || 'U').charAt(0).toUpperCase()
                 )}
               </div>
+
+              {/* Real-time Authenticated Online Presence Dot */}
+              <span
+                title={isOnlineNow ? 'Authenticated & Active in Call' : 'Away'}
+                className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-slate-950 ${
+                  isOnlineNow ? 'bg-emerald-400' : 'bg-amber-400'
+                }`}
+              />
 
               {p.isHandRaised && (
                 <span
@@ -1043,11 +1078,7 @@ ${actionList}`;
               )}
             </div>
 
-            {isRinging ? (
-              <span className="text-xs font-medium text-amber-300 animate-pulse">
-                Ringing {p.name}...
-              </span>
-            ) : isMe && (p.isCameraOff || !hasVideoTracks) ? (
+            {isMe && (p.isCameraOff || !hasVideoTracks) ? (
               <button
                 type="button"
                 onClick={e => {
@@ -1058,15 +1089,15 @@ ${actionList}`;
                     meetingAndCallService.acquireLocalMedia(true, !p.isMicMuted);
                   }
                 }}
-                className="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-indigo-600 text-slate-200 hover:text-white border border-slate-700 text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-indigo-600 text-slate-100 hover:text-white border border-white/15 text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md"
               >
                 <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                <span>Start Camera Preview</span>
+                <span>Turn On Camera</span>
               </button>
-            ) : !p.isCameraOff && !isMe ? (
-              <span className="text-[11px] text-emerald-400/90 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                Connected · HD Audio
+            ) : !isMe ? (
+              <span className="text-[11px] text-emerald-400/90 font-medium flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Active in Call
               </span>
             ) : null}
           </div>
@@ -1075,25 +1106,31 @@ ${actionList}`;
         {/* Top-Right Status Badges */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5">
           {p.isHandRaised && (
-            <span className="px-2 py-0.5 rounded-full bg-amber-500/95 text-slate-950 text-[10px] font-bold">
-              ✋
+            <span className="px-2 py-0.5 rounded-full bg-amber-500/95 text-slate-950 text-[10px] font-bold shadow">
+              ✋ Hand Raised
             </span>
           )}
           {pinnedUserId === p.userId && (
-            <span className="px-2 py-0.5 rounded-full bg-indigo-600/90 text-white text-[10px] font-semibold">
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-semibold">
               Pinned
             </span>
           )}
           {p.isScreenSharing && (
-            <span className="px-2 py-0.5 rounded-full bg-sky-500/90 text-white text-[10px] font-semibold">
+            <span className="px-2.5 py-0.5 rounded-full bg-sky-500/90 backdrop-blur-md text-white text-[10px] font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
               Presenting
             </span>
           )}
         </div>
 
-        {/* Bottom Scrim & Participant Label */}
-        <div className="absolute inset-x-0 bottom-0 p-2.5 sm:p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* Sleek Frosted Pill Participant Label & Live Audio Equalizer */}
+        <div className="absolute inset-x-0 bottom-0 p-2.5 sm:p-3 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 px-2.5 py-1 rounded-lg bg-black/55 backdrop-blur-md border border-white/10">
+            <span
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                isOnlineNow ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}
+            />
             <span className="text-xs font-semibold text-white truncate">
               {p.name} {isMe ? '(You)' : ''}
             </span>
@@ -1108,14 +1145,14 @@ ${actionList}`;
             {p.isMicMuted ? (
               <span
                 title="Microphone Muted"
-                className="w-6 h-6 rounded-full bg-rose-600/90 text-white flex items-center justify-center"
+                className="w-7 h-7 rounded-full bg-rose-600/90 text-white flex items-center justify-center shadow"
               >
-                <ICON_MAP.MicrophoneIcon className="w-3 h-3" />
+                <ICON_MAP.MicrophoneIcon className="w-3.5 h-3.5" />
               </span>
             ) : (
               <span
                 title="Microphone Active"
-                className="px-1.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center gap-0.5"
+                className="px-2 py-1 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/40 flex items-center gap-0.5"
               >
                 <span
                   className="w-1 bg-emerald-400 rounded-full transition-all duration-100"
@@ -1144,14 +1181,14 @@ ${actionList}`;
   };
 
   return (
-    <div className="fixed inset-0 z-[9990] bg-slate-950 text-white flex flex-col overflow-hidden animate-fadeIn">
+    <div className="fixed inset-0 z-[9990] bg-[#090d16] text-white flex flex-col overflow-hidden animate-fadeIn">
       {/* Mount hidden audio players for all remote WebRTC streams so remote audio always plays out loud */}
       {Array.from(callState.remoteStreams.entries()).map(([peerId, rStream]) => (
         <RemoteAudioPlayer key={peerId} stream={rStream} />
       ))}
 
-      {/* 1. MINIMALIST GOOGLE MEET / MS TEAMS TOP HEADER BAR */}
-      <div className="h-14 px-3 sm:px-5 border-b border-slate-800/80 bg-slate-900/85 backdrop-blur-md flex items-center justify-between gap-2 flex-shrink-0">
+      {/* 1. SLEEK GOOGLE MEET / MS TEAMS / ZOOM TOP BAR */}
+      <div className="h-14 px-3 sm:px-5 border-b border-white/10 bg-[#0d121f]/90 backdrop-blur-xl flex items-center justify-between gap-2 flex-shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono tabular-nums">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -1178,17 +1215,23 @@ ${actionList}`;
               · {activeCall.meetingCode}
             </button>
           </div>
+
+          <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[11px] text-slate-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            {connectedParticipants.length}{' '}
+            {connectedParticipants.length === 1 ? 'participant connected' : 'participants connected'}
+          </span>
         </div>
 
         {/* Top-Right Compact Icon Controls (Layout, Add People, Minimize PiP) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Layout Switcher Icons */}
-          <div className="hidden sm:flex items-center gap-1 p-1 rounded-full bg-slate-800/90 border border-slate-700/70">
+          <div className="hidden sm:flex items-center gap-1 p-1 rounded-full bg-white/5 border border-white/10">
             {(
               [
-                { id: 'grid', label: 'Grid View', icon: ICON_MAP.Squares2X2Icon },
+                { id: 'grid', label: 'Gallery Grid View', icon: ICON_MAP.Squares2X2Icon },
                 { id: 'spotlight', label: 'Speaker Spotlight', icon: ICON_MAP.UserCircleIcon },
-                { id: 'presentation', label: 'Presentation Stage', icon: ICON_MAP.ComputerDesktopIcon },
+                { id: 'presentation', label: 'Screen Share Stage', icon: ICON_MAP.ComputerDesktopIcon },
               ] as const
             ).map(mode => {
               const IconComp = mode.icon;
@@ -1200,7 +1243,7 @@ ${actionList}`;
                   title={mode.label}
                   className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
                     callLayout === mode.id
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-indigo-600 text-white shadow'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -1210,19 +1253,19 @@ ${actionList}`;
             })}
           </div>
 
-          {/* Add People Icon Button */}
+          {/* Add People Icon Button (Shows ONLY actually connected count) */}
           <button
             type="button"
             onClick={() => setActiveDrawerTab(prev => (prev === 'people' ? null : 'people'))}
-            title={`Participants & Add Teammates (${participants.length})`}
-            className={`h-8 px-2.5 rounded-full border flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+            title={`Active Participants (${connectedParticipants.length}) & Invite Teammates`}
+            className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeDrawerTab === 'people'
                 ? 'bg-indigo-600 border-indigo-500 text-white'
-                : 'bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-slate-200'
+                : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
             }`}
           >
             <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-mono">{participants.length}</span>
+            <span className="text-[11px] font-mono">{connectedParticipants.length}</span>
           </button>
 
           {/* Picture-in-Picture Minimize Icon Button */}
@@ -1230,7 +1273,7 @@ ${actionList}`;
             type="button"
             onClick={() => meetingAndCallService.setMinimized(true)}
             title="Minimize to Picture-in-Picture"
-            className="w-8 h-8 rounded-full bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
           >
             <ICON_MAP.ArrowsPointingInIcon className="w-4 h-4" />
           </button>
@@ -1241,118 +1284,116 @@ ${actionList}`;
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* Video Stage Area */}
         <div className="flex-1 flex flex-col p-2.5 sm:p-4 pb-24 sm:pb-24 min-w-0 min-h-0 relative overflow-hidden">
-          {callLayout === 'presentation' ? (
+          {/* Floating Ringing Status Bar (When inviting online teammates who haven't answered yet) */}
+          {ringingParticipants.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center justify-center gap-2 z-20">
+              {ringingParticipants.map(rp => (
+                <div
+                  key={rp.userId}
+                  className="px-3.5 py-1.5 rounded-full bg-indigo-950/90 border border-indigo-500/40 backdrop-blur-md shadow-lg flex items-center gap-2.5 text-xs"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <span className="font-semibold text-white">Ringing {rp.name}...</span>
+                  <span className="text-[10px] text-indigo-300">Waiting to join</span>
+                  <button
+                    type="button"
+                    onClick={() => meetingAndCallService.cancelRingingParticipant(rp.userId)}
+                    className="ml-1 px-2 py-0.5 rounded-full bg-white/10 hover:bg-rose-600 text-[10px] font-semibold text-slate-200 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {callLayout === 'presentation' || screenSharer ? (
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 min-h-0">
-              {/* Primary Presentation / Screen Share Stage */}
-              <div className="lg:col-span-9 rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex flex-col relative min-h-[240px]">
-                <div className="px-4 py-2 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between text-xs">
+              {/* Primary Presentation / Screen Share Stage (True Live Video / Broadcast Frame) */}
+              <div className="lg:col-span-9 rounded-2xl bg-black border border-white/10 overflow-hidden flex flex-col relative min-h-[260px] shadow-2xl">
+                <div className="px-4 py-2.5 bg-[#0d121f]/95 border-b border-white/10 flex items-center justify-between text-xs">
                   <span className="font-semibold text-sky-400 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
                     <ICON_MAP.ComputerDesktopIcon className="w-4 h-4" />
                     {screenSharer
-                      ? `${screenSharer.name} is presenting their screen`
-                      : 'Live Screen Presentation Stage'}
+                      ? `${screenSharer.name} ${
+                          screenSharer.userId === currentUser.id ? '(You) are' : 'is'
+                        } presenting screen`
+                      : liveRemoteScreenFrame
+                      ? `${liveRemoteScreenFrame.presenterName} is presenting screen`
+                      : 'Screen Presentation Stage'}
                   </span>
-                  {callState.screenStream && (
-                    <button
-                      type="button"
-                      onClick={() => meetingAndCallService.toggleScreenShare(currentUser.id)}
-                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold cursor-pointer"
-                    >
-                      Stop Presenting
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isLocalPresenting && (
+                      <button
+                        type="button"
+                        onClick={() => meetingAndCallService.toggleScreenShare(currentUser.id)}
+                        className="px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold transition-colors cursor-pointer shadow"
+                      >
+                        Stop Presenting
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex-1 flex items-center justify-center p-2 sm:p-4 overflow-auto bg-black">
-                  {callState.screenStream &&
-                  callState.screenStream.getVideoTracks().length > 0 ? (
-                    <VideoStreamTile stream={callState.screenStream} muted />
+                <div className="flex-1 flex items-center justify-center overflow-hidden bg-black relative">
+                  {isLocalPresenting && callState.screenStream ? (
+                    <VideoStreamTile stream={callState.screenStream} muted fit="contain" />
+                  ) : hasRemotePresenterVideoTrack && remotePresenterStream ? (
+                    <VideoStreamTile stream={remotePresenterStream} muted fit="contain" />
+                  ) : liveRemoteScreenFrame ? (
+                    <img
+                      src={liveRemoteScreenFrame.frameDataUrl}
+                      alt={`${liveRemoteScreenFrame.presenterName}'s shared screen`}
+                      className="w-full h-full object-contain select-none"
+                    />
                   ) : (
-                    /* Interactive Live Workspace Sprint / Project Board Presentation Preview */
-                    <div className="w-full h-full rounded-xl bg-slate-950/90 border border-slate-800 p-4 sm:p-5 flex flex-col justify-between space-y-4 overflow-y-auto">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                        <div>
-                          <div className="text-xs text-indigo-400 font-semibold">
-                            Shared Workspace Board
-                          </div>
-                          <h3 className="text-sm sm:text-base font-bold text-white">
-                            {activeProject?.name || projects[0]?.name || activeCall.title} — Sprint & Task Board
-                          </h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await meetingAndCallService.toggleScreenShare(currentUser.id);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors cursor-pointer"
-                          >
-                            Share Window / Tab / Screen
-                          </button>
-                        </div>
+                    /* Clean Empty Presentation Stage when no one is actively sharing screen */
+                    <div className="flex flex-col items-center justify-center text-center p-8 max-w-md space-y-4">
+                      <div className="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-inner">
+                        <ICON_MAP.ComputerDesktopIcon className="w-8 h-8" />
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-                        {(['todo', 'in_progress', 'done'] as const).map(colStatus => {
-                          const colTasks = tasks.filter(t => t.status === colStatus).slice(0, 3);
-                          const colLabel =
-                            colStatus === 'todo'
-                              ? 'To Do'
-                              : colStatus === 'in_progress'
-                              ? 'In Progress'
-                              : 'Completed';
-                          return (
-                            <div
-                              key={colStatus}
-                              className="rounded-xl bg-slate-900/90 border border-slate-800 p-3 space-y-2"
-                            >
-                              <div className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                                <span>{colLabel}</span>
-                                <span className="font-mono text-slate-400">{colTasks.length}</span>
-                              </div>
-                              {colTasks.length === 0 ? (
-                                <div className="text-[11px] text-slate-500 py-4 text-center">
-                                  No tasks in column
-                                </div>
-                              ) : (
-                                colTasks.map(t => (
-                                  <div
-                                    key={t.id}
-                                    className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/70 text-xs space-y-1"
-                                  >
-                                    <div className="font-semibold text-white truncate">{t.title}</div>
-                                    <div className="text-[10px] text-slate-400">
-                                      Priority: {t.priority}{' '}
-                                      {t.story_points ? `· ${t.story_points} pts` : ''}
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          );
-                        })}
+                      <div className="space-y-1.5">
+                        <h3 className="text-base font-bold text-white">
+                          {screenSharer
+                            ? `Connecting to ${screenSharer.name}'s screen stream...`
+                            : 'Ready to Present Your Screen'}
+                        </h3>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Share your entire screen, an application window, or a browser tab in real time with everyone in the call.
+                        </p>
                       </div>
+                      {!screenSharer && (
+                        <button
+                          type="button"
+                          onClick={() => meetingAndCallService.toggleScreenShare(currentUser.id)}
+                          className="px-4 py-2.5 rounded-full bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow-lg shadow-sky-600/25 flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          <ICON_MAP.ComputerDesktopIcon className="w-4 h-4" />
+                          <span>Share Screen, Window, or Tab</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Right Filmstrip of Participants */}
+              {/* Right Filmstrip of Active Connected Participants */}
               <div className="lg:col-span-3 flex lg:flex-col gap-3 overflow-auto">
-                {participants.map(p => (
+                {activeStageParticipants.map(p => (
                   <div key={p.userId} className="w-48 lg:w-full h-36 sm:h-44 flex-shrink-0">
                     {renderParticipantTile(p, false)}
                   </div>
                 ))}
               </div>
             </div>
-          ) : callLayout === 'spotlight' && participants.length > 1 ? (
+          ) : callLayout === 'spotlight' && activeStageParticipants.length > 1 ? (
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 min-h-0">
               <div className="lg:col-span-9 min-h-0">
                 {renderParticipantTile(spotlightParticipant, true)}
               </div>
               <div className="lg:col-span-3 flex lg:flex-col gap-3 overflow-auto">
-                {participants
+                {activeStageParticipants
                   .filter(p => p.userId !== spotlightParticipant.userId)
                   .map(p => (
                     <div key={p.userId} className="w-48 lg:w-full h-36 sm:h-44 flex-shrink-0">
@@ -1362,19 +1403,21 @@ ${actionList}`;
               </div>
             </div>
           ) : (
-            /* Dynamic Responsive Auto-Grid across Mobile, Tablet, and Desktop */
+            /* Dynamic Responsive Auto-Grid across Mobile, Tablet, and Desktop (Only Connected Users) */
             <div
               className={`flex-1 grid gap-3 sm:gap-4 min-h-0 overflow-y-auto ${
-                participants.length === 1
-                  ? 'grid-cols-1 max-w-4xl mx-auto w-full'
-                  : participants.length === 2
-                  ? 'grid-cols-1 md:grid-cols-2'
-                  : participants.length <= 4
+                activeStageParticipants.length === 1
+                  ? 'grid-cols-1 max-w-5xl mx-auto w-full'
+                  : activeStageParticipants.length === 2
+                  ? 'grid-cols-1 md:grid-cols-2 max-w-6xl mx-auto w-full'
+                  : activeStageParticipants.length <= 4
                   ? 'grid-cols-1 sm:grid-cols-2'
                   : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
               }`}
             >
-              {participants.map(p => renderParticipantTile(p, participants.length <= 2))}
+              {activeStageParticipants.map(p =>
+                renderParticipantTile(p, activeStageParticipants.length <= 2)
+              )}
             </div>
           )}
 
@@ -1452,34 +1495,42 @@ ${actionList}`;
             {/* TAB 1: PEOPLE & ADD TEAMMATES */}
             {activeDrawerTab === 'people' && (
               <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin">
+                {/* Active Connected Participants in Call */}
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold text-slate-400">
-                    In this meeting ({participants.length})
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                      Connected in Call ({connectedParticipants.length})
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">Live Session</span>
                   </div>
                   <div className="space-y-1.5">
-                    {participants.map(p => (
+                    {connectedParticipants.map(p => (
                       <div
                         key={p.userId}
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/60 border border-slate-800"
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/80"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs font-bold text-white overflow-hidden flex-shrink-0">
+                          <div className="relative w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs font-bold text-white overflow-hidden flex-shrink-0">
                             {p.avatar ? (
                               <img src={p.avatar} alt="" className="w-full h-full object-cover" />
                             ) : (
                               p.name.charAt(0).toUpperCase()
                             )}
+                            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-semibold text-white truncate">
                               {p.name} {p.userId === currentUser.id ? '(You)' : ''}
                             </div>
-                            <div className="text-[10px] text-slate-400">
-                              {p.connectionState === 'ringing'
-                                ? 'Ringing...'
-                                : p.userId === activeCall.hostId
-                                ? 'Meeting Host'
-                                : 'Connected'}
+                            <div className="text-[10px] text-emerald-400 flex items-center gap-1">
+                              <span>
+                                {p.userId === activeCall.hostId ? 'Meeting Host · Active' : 'Connected · Live'}
+                              </span>
+                              {p.isScreenSharing && (
+                                <span className="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-semibold">
+                                  Presenting
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1502,30 +1553,73 @@ ${actionList}`;
                   </div>
                 </div>
 
+                {/* Ringing / Invited Online Teammates (Not Yet Connected) */}
+                {ringingParticipants.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                      Ringing Now ({ringingParticipants.length})
+                    </div>
+                    <div className="space-y-1.5">
+                      {ringingParticipants.map(p => (
+                        <div
+                          key={p.userId}
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/30"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xs font-bold text-amber-200 overflow-hidden flex-shrink-0">
+                              {p.avatar ? (
+                                <img src={p.avatar} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                p.name.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-amber-100 truncate">
+                                {p.name}
+                              </div>
+                              <div className="text-[10px] text-amber-400 animate-pulse">
+                                Ringing · Waiting for answer...
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Add People from Organization to Call */}
                 <div className="space-y-2.5 pt-3 border-t border-slate-800">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-300">
-                      Add Teammates to Call
+                      Organization Directory
                     </span>
                     <button
                       type="button"
                       onClick={() => {
-                        const notInCall = orgTeammates.filter(
-                          u => !participants.some(p => p.userId === u.id)
+                        const onlineNotInCall = orgTeammates.filter(
+                          u =>
+                            !participants.some(p => p.userId === u.id) &&
+                            meetingAndCallService.isUserCurrentlyOnline(u.id)
                         );
-                        if (notInCall.length > 0) {
-                          meetingAndCallService.inviteTeammatesToActiveCall(notInCall, currentUser);
+                        if (onlineNotInCall.length > 0) {
+                          meetingAndCallService.inviteTeammatesToActiveCall(onlineNotInCall, currentUser);
                           addToast(
-                            'Ringing Teammates',
-                            `Invited ${notInCall.length} teammates to join the active video call.`,
+                            'Ringing Online Teammates',
+                            `Ringing ${onlineNotInCall.length} online teammate(s) to join the call.`,
+                            'info'
+                          );
+                        } else {
+                          addToast(
+                            'No Other Teammates Online',
+                            'No other teammates are currently online. Use Invite to send them a chat & email link.',
                             'info'
                           );
                         }
                       }}
                       className="text-[11px] font-semibold text-indigo-400 hover:underline cursor-pointer"
                     >
-                      Ring All Available
+                      Ring All Online
                     </button>
                   </div>
 
@@ -1539,27 +1633,48 @@ ${actionList}`;
 
                   <div className="space-y-1.5 max-h-64 overflow-y-auto">
                     {invitableTeammates.map(u => {
-                      const alreadyInCall = participants.some(p => p.userId === u.id);
+                      const inCallParticipant = participants.find(p => p.userId === u.id);
+                      const isConnectedInCall = inCallParticipant?.connectionState === 'connected';
+                      const isRingingInCall = inCallParticipant?.connectionState === 'ringing';
+                      const isOnlineNow = meetingAndCallService.isUserCurrentlyOnline(u.id);
                       return (
                         <div
                           key={u.id}
                           className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800/80"
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <Avatar user={u} size="sm" />
+                            <div className="relative flex-shrink-0">
+                              <Avatar user={u} size="sm" disableHoverCard />
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-slate-950 ${
+                                  isOnlineNow ? 'bg-emerald-400' : 'bg-slate-600'
+                                }`}
+                                title={isOnlineNow ? 'Online now' : 'Offline'}
+                              />
+                            </div>
                             <div className="min-w-0">
                               <div className="text-xs font-semibold text-slate-200 truncate">
                                 {u.full_name || u.email.split('@')[0]}
                               </div>
-                              <div className="text-[10px] text-slate-500 truncate">
-                                {normalizeUserRole(u.role).replace(/_/g, ' ')}
+                              <div className="text-[10px] flex items-center gap-1.5 truncate">
+                                <span className={isOnlineNow ? 'text-emerald-400 font-medium' : 'text-slate-500'}>
+                                  {isOnlineNow ? '● Online' : '○ Offline'}
+                                </span>
+                                <span className="text-slate-600">·</span>
+                                <span className="text-slate-500 truncate">
+                                  {normalizeUserRole(u.role).replace(/_/g, ' ')}
+                                </span>
                               </div>
                             </div>
                           </div>
 
-                          {alreadyInCall ? (
-                            <span className="text-[11px] text-emerald-400 font-medium px-2">
-                              In Call
+                          {isConnectedInCall ? (
+                            <span className="text-[11px] text-emerald-400 font-semibold px-2">
+                              Connected
+                            </span>
+                          ) : isRingingInCall ? (
+                            <span className="text-[11px] text-amber-400 font-semibold px-2 animate-pulse">
+                              Ringing...
                             </span>
                           ) : (
                             <button
@@ -1567,15 +1682,26 @@ ${actionList}`;
                               onClick={() => {
                                 meetingAndCallService.inviteTeammatesToActiveCall([u], currentUser);
                                 addToast(
-                                  'Ringing Teammate',
-                                  `Calling ${u.full_name || u.email} to join "${activeCall.title}"...`,
+                                  isOnlineNow ? 'Ringing Teammate' : 'Meeting Invite Sent',
+                                  isOnlineNow
+                                    ? `Ringing ${u.full_name || u.email} live...`
+                                    : `${u.full_name || u.email} is currently offline. Sent a meeting link to their Chat & Email Outbox.`,
                                   'info'
                                 );
                               }}
-                              title="Call teammate into meeting"
-                              className="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition-colors cursor-pointer"
+                              title={
+                                isOnlineNow
+                                  ? 'Ring online teammate now'
+                                  : 'Teammate is offline — send meeting invite to Chat & Email'
+                              }
+                              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                                isOnlineNow
+                                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                              }`}
                             >
                               <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
+                              <span>{isOnlineNow ? 'Ring' : 'Invite'}</span>
                             </button>
                           )}
                         </div>
@@ -2159,7 +2285,7 @@ ${actionList}`;
             onClick={() => setActiveDrawerTab(prev => (prev === 'people' ? null : 'people'))}
             tooltip="Participants & Add People"
             active={activeDrawerTab === 'people'}
-            badge={participants.length}
+            badge={connectedParticipants.length}
             className="hidden md:flex"
           >
             <ICON_MAP.UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2213,5 +2339,51 @@ ${actionList}`;
   );
 };
 
-export const VideoCallStudioModal = GlobalVideoCallManager;
-export default GlobalVideoCallManager;
+class VideoCallErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    console.error('[VideoCallErrorBoundary] Caught error in video studio:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed bottom-4 right-4 z-[9999] p-4 rounded-2xl bg-slate-900 border border-rose-500/40 text-white shadow-2xl flex items-center gap-3">
+          <span className="text-xs">Video call UI encountered an error.</span>
+          <button
+            type="button"
+            onClick={() => {
+              this.setState({ hasError: false });
+              const uid = useAppStore.getState().currentUser?.id;
+              if (uid) meetingAndCallService.leaveCall(uid);
+            }}
+            className="px-3 py-1 rounded-lg bg-rose-600 text-xs font-semibold cursor-pointer"
+          >
+            Reset Call
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export const SafeGlobalVideoCallManager: React.FC = () => (
+  <VideoCallErrorBoundary>
+    <GlobalVideoCallManager />
+  </VideoCallErrorBoundary>
+);
+
+export const VideoCallStudioModal = SafeGlobalVideoCallManager;
+export default SafeGlobalVideoCallManager;

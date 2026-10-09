@@ -15,6 +15,7 @@ import {
 import { supabase } from './supabaseService';
 import chatService from './chatService';
 import emailNotificationService from './emailNotificationService';
+import { collabService } from './collabService';
 
 const STORAGE_KEY_CALENDAR_EVENTS = 'omni_calendar_events_v2';
 const STORAGE_KEY_ACTIVE_CALLS = 'omni_active_video_calls_v2';
@@ -44,6 +45,16 @@ export interface LiveCallReaction {
   timestamp: number;
 }
 
+export interface RemoteScreenFramePayload {
+  callId: string;
+  presenterId: string;
+  presenterName: string;
+  frameDataUrl: string;
+  width?: number;
+  height?: number;
+  timestamp: number;
+}
+
 type CalendarListener = (events: CalendarEvent[]) => void;
 type CallStateListener = (state: {
   activeCall: VideoCallSession | null;
@@ -53,6 +64,7 @@ type CallStateListener = (state: {
   localStream: MediaStream | null;
   screenStream: MediaStream | null;
   remoteStreams: Map<string, MediaStream>;
+  remoteScreenFrame: RemoteScreenFramePayload | null;
   reactions: LiveCallReaction[];
 }) => void;
 
@@ -83,11 +95,15 @@ class MeetingAndCallService {
   private localStream: MediaStream | null = null;
   private screenStream: MediaStream | null = null;
   private remoteStreams = new Map<string, MediaStream>();
+  private remoteScreenFrame: RemoteScreenFramePayload | null = null;
   private peerConnections = new Map<string, RTCPeerConnection>();
+  private participantHeartbeats = new Map<string, number>();
   private reactions: LiveCallReaction[] = [];
   private audioContext: AudioContext | null = null;
   private audioMonitorInterval: ReturnType<typeof setInterval> | null = null;
+  private screenBroadcastInterval: ReturnType<typeof setInterval> | null = null;
   private callCleanupInterval: ReturnType<typeof setInterval> | null = null;
+  private callHeartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.loadStoredEvents();
@@ -118,6 +134,20 @@ class MeetingAndCallService {
     window.dispatchEvent(new CustomEvent('omni_calendar_events_updated', { detail: this.events }));
   }
 
+  public isUserCurrentlyOnline(userId: string): boolean {
+    if (!userId) return false;
+    if (this.localUserId && userId === this.localUserId) return true;
+    try {
+      const onlineList = collabService.getOnlineUsers() || [];
+      const found = onlineList.find(u => u.userId === userId);
+      if (!found) return false;
+      const ageMs = Date.now() - (found.lastActiveAt || 0);
+      return (found.status === 'online' || found.status === 'away') && ageMs < 5 * 60 * 1000;
+    } catch {
+      return false;
+    }
+  }
+
   private loadStoredOngoingCalls() {
     if (typeof window === 'undefined') return;
     try {
@@ -127,8 +157,17 @@ class MeetingAndCallService {
         const now = Date.now();
         if (Array.isArray(parsed)) {
           parsed.forEach(c => {
-            if (c && c.id && now - new Date(c.startedAt).getTime() < 4 * 3600 * 1000) {
-              this.ongoingCalls.set(c.id, c);
+            // Only keep recent active calls (< 45 mins old) and strip stale ringing entries
+            if (c && c.id && now - new Date(c.startedAt).getTime() < 45 * 60 * 1000) {
+              const activeParticipants = (c.participants || []).filter(
+                p => p.connectionState === 'connected'
+              );
+              if (activeParticipants.length > 0) {
+                this.ongoingCalls.set(c.id, { ...c, participants: activeParticipants });
+                activeParticipants.forEach(p => {
+                  this.participantHeartbeats.set(`${c.id}:${p.userId}`, now);
+                });
+              }
             }
           });
         }
@@ -157,11 +196,38 @@ class MeetingAndCallService {
         try {
           const list = JSON.parse(e.newValue) as VideoCallSession[];
           this.ongoingCalls.clear();
-          list.forEach(c => this.ongoingCalls.set(c.id, c));
+          list.forEach(c => {
+            if (c && c.id && c.participants?.length > 0) {
+              this.ongoingCalls.set(c.id, c);
+            }
+          });
           this.notifyCallListeners();
         } catch {}
       }
     });
+
+    // Cleanly remove local participant if tab is closed or refreshed
+    const handleUnload = () => {
+      if (this.activeCallId && this.localUserId) {
+        this.leaveCall(this.localUserId);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+
+    // Broadcast active call heartbeat every 3.5 seconds while in a call
+    this.callHeartbeatInterval = setInterval(() => {
+      if (!this.activeCallId || !this.localUserId) return;
+      const call = this.ongoingCalls.get(this.activeCallId);
+      if (!call) return;
+      const now = Date.now();
+      this.participantHeartbeats.set(`${this.activeCallId}:${this.localUserId}`, now);
+      this.broadcastPacket('CALL_PARTICIPANT_HEARTBEAT', {
+        callId: this.activeCallId,
+        userId: this.localUserId,
+        timestamp: now,
+      });
+    }, 3500);
 
     this.callCleanupInterval = setInterval(() => {
       const now = Date.now();
@@ -171,10 +237,48 @@ class MeetingAndCallService {
         if (!keep) changed = true;
         return keep;
       });
-      if (changed) {
-        this.notifyCallListeners();
+
+      // Prune expired ringing invites (> 32s) and stale disconnected participants (> 22s without heartbeat and offline)
+      this.ongoingCalls.forEach((call, callId) => {
+        const filtered = call.participants.filter(p => {
+          if (p.userId === this.localUserId) return true;
+          if (p.connectionState === 'ringing') {
+            const ringAge = now - new Date(p.joinedAt || call.startedAt).getTime();
+            return ringAge < 32000 && this.isUserCurrentlyOnline(p.userId);
+          }
+          const lastBeat = this.participantHeartbeats.get(`${callId}:${p.userId}`);
+          if (lastBeat && now - lastBeat > 22000 && !this.isUserCurrentlyOnline(p.userId)) {
+            return false;
+          }
+          return true;
+        });
+
+        if (filtered.length !== call.participants.length) {
+          changed = true;
+          if (filtered.length === 0) {
+            this.ongoingCalls.delete(callId);
+          } else {
+            this.ongoingCalls.set(callId, { ...call, participants: filtered });
+          }
+        }
+      });
+
+      // Clear stale remote screen frame if presenter stopped sharing
+      if (this.remoteScreenFrame && this.activeCallId === this.remoteScreenFrame.callId) {
+        const activeCall = this.ongoingCalls.get(this.activeCallId);
+        const presenterStillSharing = activeCall?.participants.some(
+          p => p.userId === this.remoteScreenFrame?.presenterId && p.isScreenSharing
+        );
+        if (!presenterStillSharing || now - this.remoteScreenFrame.timestamp > 8000) {
+          this.remoteScreenFrame = null;
+          changed = true;
+        }
       }
-    }, 1000);
+
+      if (changed) {
+        this.persistOngoingCalls();
+      }
+    }, 1500);
   }
 
   private initRealtimeChannels() {
@@ -274,6 +378,12 @@ class MeetingAndCallService {
       case 'CALL_SESSION_SYNC': {
         const session = payload as VideoCallSession;
         if (!session || !session.id) return;
+        const now = Date.now();
+        session.participants.forEach(p => {
+          if (p.connectionState === 'connected') {
+            this.participantHeartbeats.set(`${session.id}:${p.userId}`, now);
+          }
+        });
         if (session.participants.length === 0) {
           this.ongoingCalls.delete(session.id);
           if (this.activeCallId === session.id) {
@@ -281,8 +391,55 @@ class MeetingAndCallService {
           }
         } else {
           this.ongoingCalls.set(session.id, session);
+          if (this.activeCallId === session.id && this.localUserId) {
+            // Ensure WebRTC peer connections exist for any newly connected participants
+            session.participants.forEach(p => {
+              if (
+                p.userId !== this.localUserId &&
+                p.connectionState === 'connected' &&
+                !this.peerConnections.has(p.userId)
+              ) {
+                this.initiateWebRTCMeshForCall(session, this.localUserId!);
+              }
+            });
+          }
         }
         this.persistOngoingCalls();
+        break;
+      }
+
+      case 'CALL_PARTICIPANT_HEARTBEAT': {
+        const { callId, userId, timestamp } = payload || {};
+        if (!callId || !userId) return;
+        this.participantHeartbeats.set(`${callId}:${userId}`, timestamp || Date.now());
+        if (this.activeCallId === callId && this.localUserId && userId !== this.localUserId) {
+          const call = this.ongoingCalls.get(callId);
+          if (call && !this.peerConnections.has(userId)) {
+            this.initiateWebRTCMeshForCall(call, this.localUserId);
+          }
+        }
+        break;
+      }
+
+      case 'CALL_SCREEN_FRAME': {
+        const frame = payload as RemoteScreenFramePayload;
+        if (!frame || !frame.callId || frame.callId !== this.activeCallId) return;
+        if (frame.presenterId === this.localUserId) return;
+        this.remoteScreenFrame = frame;
+        this.notifyCallListeners();
+        break;
+      }
+
+      case 'CALL_SCREEN_STOPPED': {
+        const { callId, presenterId } = payload || {};
+        if (
+          this.remoteScreenFrame &&
+          (!callId || this.remoteScreenFrame.callId === callId) &&
+          (!presenterId || this.remoteScreenFrame.presenterId === presenterId)
+        ) {
+          this.remoteScreenFrame = null;
+          this.notifyCallListeners();
+        }
         break;
       }
 
@@ -654,23 +811,32 @@ class MeetingAndCallService {
     // Dispatch email invitations to all invited teammates
     invitedUsers.forEach(invitee => {
       if (invitee.id !== organizer.id && invitee.email) {
-        emailNotificationService
-          .sendImportantUpdateEmail({
-            recipient: invitee,
-            category: 'SPRINT_ALERT',
-            subject: `Meeting Invitation: ${newEvent.title} (${new Date(newEvent.startTime).toLocaleDateString()})`,
-            heading: `📅 ${organizer.full_name || organizer.email} invited you to a meeting`,
-            details: `"${newEvent.title}" is scheduled for ${new Date(newEvent.startTime).toLocaleString([], {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}. Video Room: ${newEvent.meetingCode}. Please RSVP (Going / Maybe / Decline) in Calendar or Teams Chat.`,
-            ctaLabel: 'Review Agenda & RSVP',
-            ctaAction: { type: 'open_view', view: 'calendar_view' },
-          })
-          .catch(() => {});
+        try {
+          Promise.resolve(
+            emailNotificationService.sendImportantUpdateEmail({
+              recipient: invitee,
+              category: 'CALENDAR_INVITE',
+              subject: `Meeting Invitation: ${newEvent.title} (${new Date(newEvent.startTime).toLocaleDateString()})`,
+              heading: `📅 ${organizer.full_name || organizer.email} invited you to a meeting`,
+              details: `"${newEvent.title}" is scheduled for ${new Date(newEvent.startTime).toLocaleString([], {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}. Video Room: ${newEvent.meetingCode}. Please RSVP (Going / Maybe / Decline) in Calendar or Teams Chat.`,
+              ctaLabel: 'Review Agenda & RSVP',
+              ctaAction: { type: 'open_view', view: 'calendar_view', targetId: newEvent.id },
+              metadata: {
+                eventId: newEvent.id,
+                meetingCode: newEvent.meetingCode,
+                startTime: newEvent.startTime,
+                endTime: newEvent.endTime,
+                organizerEmail: organizer.email,
+              },
+            })
+          ).catch(() => {});
+        } catch (e) {}
       }
     });
 
@@ -714,6 +880,25 @@ class MeetingAndCallService {
       attendee: updatedAttendee,
     });
 
+    if (target.organizerEmail && target.organizerId !== user.id) {
+      try {
+        const statusLabel =
+          rsvp === 'going' ? 'Accepted (Going)' : rsvp === 'maybe' ? 'Tentative (Maybe)' : 'Declined';
+        Promise.resolve(
+          emailNotificationService.sendImportantUpdateEmail({
+            recipientEmail: target.organizerEmail,
+            recipientName: target.organizerName,
+            category: 'MEETING_RSVP',
+            subject: `RSVP Update: ${updatedAttendee.name} responded "${statusLabel}" to ${target.title}`,
+            heading: `📬 ${updatedAttendee.name} updated their RSVP for "${target.title}"`,
+            details: `Response: ${statusLabel}${updatedAttendee.rsvpNote ? ` — "${updatedAttendee.rsvpNote}"` : ''}. Meeting Room: ${target.meetingCode}.`,
+            ctaLabel: 'View Attendee List',
+            ctaAction: { type: 'open_view', view: 'calendar_view', targetId: target.id },
+          })
+        ).catch(() => {});
+      } catch (e) {}
+    }
+
     return target;
   }
 
@@ -734,17 +919,19 @@ class MeetingAndCallService {
         });
 
         if (u.email) {
-          emailNotificationService
-            .sendImportantUpdateEmail({
-              recipient: u,
-              category: 'SPRINT_ALERT',
-              subject: `Meeting Invitation: ${target.title}`,
-              heading: `📅 ${inviter.full_name || inviter.email} added you to "${target.title}"`,
-              details: `Scheduled for ${new Date(target.startTime).toLocaleString()}. Video Room: ${target.meetingCode}. Please RSVP in Calendar or Teams Chat.`,
-              ctaLabel: 'Open Calendar & RSVP',
-              ctaAction: { type: 'open_view', view: 'calendar_view' },
-            })
-            .catch(() => {});
+          try {
+            Promise.resolve(
+              emailNotificationService.sendImportantUpdateEmail({
+                recipient: u,
+                category: 'CALENDAR_INVITE',
+                subject: `Meeting Invitation: ${target.title}`,
+                heading: `📅 ${inviter.full_name || inviter.email} added you to "${target.title}"`,
+                details: `Scheduled for ${new Date(target.startTime).toLocaleString()}. Video Room: ${target.meetingCode}. Please RSVP in Calendar or Teams Chat.`,
+                ctaLabel: 'Open Calendar & RSVP',
+                ctaAction: { type: 'open_view', view: 'calendar_view', targetId: target.id },
+              })
+            ).catch(() => {});
+          } catch (e) {}
         }
       }
     });
@@ -828,6 +1015,7 @@ class MeetingAndCallService {
       localStream: this.localStream,
       screenStream: this.screenStream,
       remoteStreams: new Map(this.remoteStreams),
+      remoteScreenFrame: this.remoteScreenFrame,
       reactions: [...this.reactions],
     };
   }
@@ -1077,7 +1265,11 @@ class MeetingAndCallService {
         (meetingCode && c.meetingCode === meetingCode) ||
         (calendarEvent && c.calendarEventId === calendarEvent.id) ||
         (type === 'channel' && channelId && c.channelId === channelId) ||
-        (type === 'direct' && directUser && c.directUserId === directUser.id)
+        (type === 'direct' &&
+          directUser &&
+          ((c.hostId === currentUser.id && c.directUserId === directUser.id) ||
+            (c.hostId === directUser.id && c.directUserId === currentUser.id) ||
+            c.directUserId === directUser.id))
       ) {
         existingCall = c;
       }
@@ -1126,6 +1318,7 @@ class MeetingAndCallService {
         ...existingCall,
         participants: updatedParticipants,
       };
+      this.participantHeartbeats.set(`${updatedCall.id}:${currentUser.id}`, Date.now());
       this.ongoingCalls.set(updatedCall.id, updatedCall);
       this.activeCallId = updatedCall.id;
       this.isMinimized = false;
@@ -1136,7 +1329,9 @@ class MeetingAndCallService {
       return updatedCall;
     }
 
-    // Create new call session
+    // Create new call session: ONLY add the authenticated caller as 'connected'.
+    // Invited users who are genuinely online right now are marked 'ringing' (and NEVER auto-connected unless they join).
+    // Invited users who are offline are NOT added to session.participants — they receive a chat/email invite instead.
     const targetsMap = new Map<string, User>();
     if (directUser && directUser.id !== currentUser.id) {
       targetsMap.set(directUser.id, directUser);
@@ -1149,21 +1344,23 @@ class MeetingAndCallService {
 
     const initialParticipants: VideoCallParticipant[] = [selfParticipant];
     targetsMap.forEach(u => {
-      initialParticipants.push({
-        userId: u.id,
-        name: u.full_name || u.email.split('@')[0],
-        email: u.email,
-        avatar: u.avatar_url,
-        role: u.role,
-        isMicMuted: false,
-        isCameraOff: false,
-        isScreenSharing: false,
-        isHandRaised: false,
-        isSpeaking: false,
-        joinedAt: new Date().toISOString(),
-        connectionState: 'ringing',
-        backgroundMode: 'studio',
-      });
+      if (this.isUserCurrentlyOnline(u.id)) {
+        initialParticipants.push({
+          userId: u.id,
+          name: u.full_name || u.email.split('@')[0],
+          email: u.email,
+          avatar: u.avatar_url,
+          role: u.role,
+          isMicMuted: true,
+          isCameraOff: true,
+          isScreenSharing: false,
+          isHandRaised: false,
+          isSpeaking: false,
+          joinedAt: new Date().toISOString(),
+          connectionState: 'ringing',
+          backgroundMode: 'studio',
+        });
+      }
     });
 
     const initialNotes = calendarEvent?.prepNotes
@@ -1214,6 +1411,7 @@ class MeetingAndCallService {
       ],
     };
 
+    this.participantHeartbeats.set(`${newSession.id}:${currentUser.id}`, Date.now());
     this.ongoingCalls.set(newSession.id, newSession);
     this.activeCallId = newSession.id;
     this.isMinimized = false;
@@ -1221,7 +1419,7 @@ class MeetingAndCallService {
     this.persistOngoingCalls();
     this.broadcastPacket('CALL_SESSION_SYNC', newSession);
 
-    // Ring target teammates across tabs / Realtime
+    // Ring target teammates across tabs / Realtime (without fake auto-connecting them)
     if (targetsMap.size > 0) {
       const invitePayload: IncomingCallInvite = {
         callId: newSession.id,
@@ -1239,10 +1437,6 @@ class MeetingAndCallService {
         timestamp: new Date().toISOString(),
       };
       this.broadcastPacket('CALL_INVITE_RINGING', invitePayload);
-
-      // Connect ringing teammates smoothly after 2.2s if they are not on a separate tab declining,
-      // so 1:1 DM calls and team meetings feel responsive and interactive immediately
-      this.scheduleParticipantConnect(newSession.id, Array.from(targetsMap.keys()));
     }
 
     // Post interactive Call Card to Teams Chat
@@ -1270,29 +1464,20 @@ class MeetingAndCallService {
     return newSession;
   }
 
-  private scheduleParticipantConnect(callId: string, userIds: string[]) {
-    userIds.forEach((uid, index) => {
-      setTimeout(() => {
-        const call = this.ongoingCalls.get(callId);
-        if (!call) return;
-        const pIdx = call.participants.findIndex(p => p.userId === uid);
-        if (pIdx >= 0 && call.participants[pIdx].connectionState === 'ringing') {
-          const updatedParticipants = [...call.participants];
-          updatedParticipants[pIdx] = {
-            ...updatedParticipants[pIdx],
-            connectionState: 'connected',
-            joinedAt: new Date().toISOString(),
-          };
-          const updatedCall: VideoCallSession = {
-            ...call,
-            participants: updatedParticipants,
-          };
-          this.ongoingCalls.set(callId, updatedCall);
-          this.persistOngoingCalls();
-          this.broadcastPacket('CALL_SESSION_SYNC', updatedCall);
-        }
-      }, 1800 + index * 900);
-    });
+  public cancelRingingParticipant(userId: string) {
+    if (!this.activeCallId) return;
+    const call = this.ongoingCalls.get(this.activeCallId);
+    if (!call) return;
+    const updatedParticipants = call.participants.filter(
+      p => !(p.userId === userId && p.connectionState === 'ringing')
+    );
+    const updatedCall: VideoCallSession = {
+      ...call,
+      participants: updatedParticipants,
+    };
+    this.ongoingCalls.set(call.id, updatedCall);
+    this.persistOngoingCalls();
+    this.broadcastPacket('CALL_SESSION_SYNC', updatedCall);
   }
 
   public inviteTeammatesToActiveCall(teammates: User[], inviter: User): VideoCallSession | null {
@@ -1305,30 +1490,49 @@ class MeetingAndCallService {
 
     teammates.forEach(u => {
       if (!u || !u.id) return;
+      newlyInvitedIds.push(u.id);
+      const isOnline = this.isUserCurrentlyOnline(u.id);
       const existingIdx = updatedParticipants.findIndex(p => p.userId === u.id);
-      if (existingIdx < 0) {
-        newlyInvitedIds.push(u.id);
-        updatedParticipants.push({
-          userId: u.id,
-          name: u.full_name || u.email.split('@')[0],
-          email: u.email,
-          avatar: u.avatar_url,
-          role: u.role,
-          isMicMuted: false,
-          isCameraOff: false,
-          isScreenSharing: false,
-          isHandRaised: false,
-          isSpeaking: false,
-          joinedAt: new Date().toISOString(),
-          connectionState: 'ringing',
-          backgroundMode: 'studio',
-        });
-      } else if (updatedParticipants[existingIdx].connectionState !== 'connected') {
-        newlyInvitedIds.push(u.id);
-        updatedParticipants[existingIdx] = {
-          ...updatedParticipants[existingIdx],
-          connectionState: 'ringing',
-        };
+
+      // Only add to ringing participants if the user is genuinely signed in and online right now
+      if (isOnline) {
+        if (existingIdx < 0) {
+          updatedParticipants.push({
+            userId: u.id,
+            name: u.full_name || u.email.split('@')[0],
+            email: u.email,
+            avatar: u.avatar_url,
+            role: u.role,
+            isMicMuted: true,
+            isCameraOff: true,
+            isScreenSharing: false,
+            isHandRaised: false,
+            isSpeaking: false,
+            joinedAt: new Date().toISOString(),
+            connectionState: 'ringing',
+            backgroundMode: 'studio',
+          });
+        } else if (updatedParticipants[existingIdx].connectionState !== 'connected') {
+          updatedParticipants[existingIdx] = {
+            ...updatedParticipants[existingIdx],
+            connectionState: 'ringing',
+            joinedAt: new Date().toISOString(),
+          };
+        }
+      }
+
+      if (u.email) {
+        emailNotificationService
+          .sendImportantUpdateEmail({
+            recipient: u,
+            category: 'CALENDAR_INVITE',
+            subject: `Live Call Invite: ${call.title}`,
+            heading: `📹 ${inviter.full_name || inviter.email} is inviting you to join a live video call`,
+            details: `Meeting "${call.title}" is happening right now (Room: ${call.meetingCode}). Open Teams Chat or Calendar to join immediately.`,
+            ctaLabel: 'Join Live Video Call',
+            ctaAction: { type: 'open_view', view: 'team_chat_view' },
+          })
+          .catch(() => {});
       }
     });
 
@@ -1370,7 +1574,6 @@ class MeetingAndCallService {
     };
     this.broadcastPacket('CALL_INVITE_RINGING', invitePayload);
 
-    this.scheduleParticipantConnect(updatedCall.id, newlyInvitedIds);
     return updatedCall;
   }
 
@@ -1496,7 +1699,98 @@ class MeetingAndCallService {
     return nextCameraOff;
   }
 
-  public async toggleScreenShare(currentUserId: string, forceBoardFallback = false): Promise<boolean> {
+  private startScreenFrameBroadcast(
+    callId: string,
+    presenterId: string,
+    presenterName: string,
+    stream: MediaStream
+  ) {
+    this.stopScreenFrameBroadcast(callId, presenterId, false);
+    if (typeof document === 'undefined') return;
+
+    const videoEl = document.createElement('video');
+    videoEl.srcObject = stream;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.play().catch(() => {});
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const captureAndSend = () => {
+      if (!this.screenStream || !this.activeCallId || this.activeCallId !== callId) {
+        this.stopScreenFrameBroadcast(callId, presenterId, false);
+        return;
+      }
+      const track = this.screenStream.getVideoTracks()[0];
+      if (!track || track.readyState !== 'live') {
+        return;
+      }
+      const vw = videoEl.videoWidth || 1280;
+      const vh = videoEl.videoHeight || 720;
+      if (vw === 0 || vh === 0 || !ctx) return;
+
+      const maxDim = 1280;
+      const scale = Math.min(1, maxDim / Math.max(vw, vh));
+      const targetW = Math.max(320, Math.round(vw * scale));
+      const targetH = Math.max(180, Math.round(vh * scale));
+
+      if (canvas.width !== targetW) canvas.width = targetW;
+      if (canvas.height !== targetH) canvas.height = targetH;
+
+      try {
+        ctx.drawImage(videoEl, 0, 0, targetW, targetH);
+        const frameDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+        const framePayload: RemoteScreenFramePayload = {
+          callId,
+          presenterId,
+          presenterName,
+          frameDataUrl,
+          width: targetW,
+          height: targetH,
+          timestamp: Date.now(),
+        };
+        this.broadcastPacket('CALL_SCREEN_FRAME', framePayload);
+      } catch {}
+    };
+
+    // Initial capture once video metadata loads
+    videoEl.onloadeddata = () => {
+      captureAndSend();
+    };
+    this.screenBroadcastInterval = setInterval(captureAndSend, 380);
+  }
+
+  private stopScreenFrameBroadcast(callId?: string, presenterId?: string, notifyRemote = true) {
+    if (this.screenBroadcastInterval) {
+      clearInterval(this.screenBroadcastInterval);
+      this.screenBroadcastInterval = null;
+    }
+    if (notifyRemote && (callId || this.activeCallId)) {
+      this.broadcastPacket('CALL_SCREEN_STOPPED', {
+        callId: callId || this.activeCallId,
+        presenterId: presenterId || this.localUserId,
+      });
+    }
+  }
+
+  private async renegotiateAllPeerConnections(callId: string, myUserId: string) {
+    for (const [remoteUserId, pc] of this.peerConnections.entries()) {
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        this.broadcastPacket('WEBRTC_SIGNAL', {
+          callId,
+          fromUserId: myUserId,
+          toUserId: remoteUserId,
+          signalType: 'offer',
+          sdp: offer,
+        });
+      } catch {}
+    }
+  }
+
+  public async toggleScreenShare(currentUserId: string, _forceBoardFallback = false): Promise<boolean> {
     if (!this.activeCallId) return false;
     const call = this.ongoingCalls.get(this.activeCallId);
     if (!call) return false;
@@ -1505,66 +1799,73 @@ class MeetingAndCallService {
     const currentlySharing = Boolean(me?.isScreenSharing);
 
     if (currentlySharing) {
-      if (this.screenStream) {
-        this.screenStream.getTracks().forEach(t => t.stop());
-        this.screenStream = null;
-      }
-      const updatedParticipants = call.participants.map(p =>
-        p.userId === currentUserId ? { ...p, isScreenSharing: false } : p
-      );
-      const updatedCall = { ...call, participants: updatedParticipants };
-      this.ongoingCalls.set(call.id, updatedCall);
-      this.persistOngoingCalls();
-      this.broadcastPacket('CALL_SESSION_SYNC', updatedCall);
+      this.stopScreenShare(currentUserId);
       return false;
     } else {
-      if (!forceBoardFallback) {
-        try {
-          if (navigator.mediaDevices?.getDisplayMedia) {
-            let displayStream: MediaStream;
-            try {
-              // Standard getDisplayMedia call that prompts the browser to choose Tab, Window, or Entire Screen
-              displayStream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                  cursor: 'always',
-                  displaySurface: 'monitor',
-                } as any,
-                audio: true,
-              });
-            } catch (firstErr: any) {
-              // If user explicitly cancelled the native browser picker, abort without turning on screen share
-              if (firstErr?.name === 'NotAllowedError' || firstErr?.name === 'AbortError') {
-                return false;
-              }
-              // Retry with video-only if audio: true was rejected by OS
-              displayStream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
-              });
-            }
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        return false;
+      }
 
-            this.screenStream = displayStream;
-            const screenTrack = displayStream.getVideoTracks()[0];
-            if (screenTrack) {
-              screenTrack.addEventListener('ended', () => {
-                this.stopScreenShare(currentUserId);
-              });
-              // Stream screen track to WebRTC peers
-              this.peerConnections.forEach(pc => {
-                const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-                if (sender) {
-                  sender.replaceTrack(screenTrack).catch(() => {});
-                }
-              });
-            }
-          }
-        } catch (err: any) {
-          // If user dismissed the dialog, do not enter screen share state
-          if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+      let displayStream: MediaStream;
+      try {
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              cursor: 'always',
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              frameRate: { ideal: 30 },
+            } as any,
+            audio: true,
+          });
+        } catch (firstErr: any) {
+          if (firstErr?.name === 'NotAllowedError' || firstErr?.name === 'AbortError') {
             return false;
           }
-          console.warn('getDisplayMedia error, falling back to interactive board presenter:', err);
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+          });
+        }
+      } catch (err: any) {
+        if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+          return false;
+        }
+        console.warn('getDisplayMedia error:', err);
+        return false;
+      }
+
+      this.screenStream = displayStream;
+      const screenTrack = displayStream.getVideoTracks()[0];
+      if (!screenTrack) {
+        return false;
+      }
+
+      screenTrack.addEventListener('ended', () => {
+        this.stopScreenShare(currentUserId);
+      });
+
+      // 1. Transmit screen video track over WebRTC peer connections & renegotiate if needed
+      let needsRenegotiation = false;
+      for (const pc of this.peerConnections.values()) {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(screenTrack).catch(() => {});
+        } else {
+          pc.addTrack(screenTrack, displayStream);
+          needsRenegotiation = true;
         }
       }
+      if (needsRenegotiation) {
+        this.renegotiateAllPeerConnections(call.id, currentUserId);
+      }
+
+      // 2. Start real-time live screen frame relay so all 1:1 and team participants see the exact shared screen
+      this.startScreenFrameBroadcast(
+        call.id,
+        currentUserId,
+        me?.name || 'Presenter',
+        displayStream
+      );
 
       const updatedParticipants = call.participants.map(p =>
         p.userId === currentUserId ? { ...p, isScreenSharing: true } : { ...p, isScreenSharing: false }
@@ -1578,10 +1879,21 @@ class MeetingAndCallService {
   }
 
   private stopScreenShare(currentUserId: string) {
+    this.stopScreenFrameBroadcast(this.activeCallId || undefined, currentUserId, true);
     if (this.screenStream) {
       this.screenStream.getTracks().forEach(t => t.stop());
       this.screenStream = null;
     }
+
+    // Restore camera video track to WebRTC peer connections if camera is on
+    const camTrack = this.localStream?.getVideoTracks().find(t => t.readyState === 'live') || null;
+    this.peerConnections.forEach(pc => {
+      const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+      if (sender) {
+        sender.replaceTrack(camTrack).catch(() => {});
+      }
+    });
+
     if (!this.activeCallId) return;
     const call = this.ongoingCalls.get(this.activeCallId);
     if (!call) return;
@@ -1768,8 +2080,10 @@ class MeetingAndCallService {
   }
 
   private cleanupLocalCallState() {
+    this.stopScreenFrameBroadcast(this.activeCallId || undefined, this.localUserId || undefined, false);
     this.activeCallId = null;
     this.isMinimized = false;
+    this.remoteScreenFrame = null;
     if (this.audioMonitorInterval) {
       clearInterval(this.audioMonitorInterval);
       this.audioMonitorInterval = null;
@@ -1803,11 +2117,24 @@ class MeetingAndCallService {
 
     try {
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ],
       });
 
       if (this.localStream) {
-        this.localStream.getTracks().forEach(track => {
+        this.localStream.getAudioTracks().forEach(track => {
+          pc.addTrack(track, this.localStream!);
+        });
+      }
+
+      // If currently sharing screen, send the screen video track; otherwise send camera video track
+      const activeScreenTrack = this.screenStream?.getVideoTracks()[0];
+      if (activeScreenTrack && activeScreenTrack.readyState === 'live') {
+        pc.addTrack(activeScreenTrack, this.localStream || this.screenStream!);
+      } else if (this.localStream) {
+        this.localStream.getVideoTracks().forEach(track => {
           pc.addTrack(track, this.localStream!);
         });
       }
@@ -1826,7 +2153,15 @@ class MeetingAndCallService {
 
       pc.ontrack = event => {
         if (event.streams && event.streams[0]) {
-          this.remoteStreams.set(remoteUserId, event.streams[0]);
+          // Clone MediaStream so React detects track changes immediately
+          this.remoteStreams.set(remoteUserId, new MediaStream(event.streams[0].getTracks()));
+          this.notifyCallListeners();
+        } else if (event.track) {
+          const prev = this.remoteStreams.get(remoteUserId);
+          const nextTracks = prev
+            ? [...prev.getTracks().filter(t => t.kind !== event.track.kind), event.track]
+            : [event.track];
+          this.remoteStreams.set(remoteUserId, new MediaStream(nextTracks));
           this.notifyCallListeners();
         }
       };
@@ -1865,8 +2200,13 @@ class MeetingAndCallService {
     if (!call) return;
 
     const { fromUserId, toUserId, signalType, sdp, candidate } = payload;
-    // Check if toUserId is in this session
-    const pc = this.getOrCreatePeerConnection(fromUserId, this.activeCallId, toUserId);
+    if (!fromUserId || fromUserId === this.localUserId) return;
+    if (toUserId && this.localUserId && toUserId !== this.localUserId) return;
+
+    const myId = this.localUserId || toUserId;
+    if (!myId) return;
+
+    const pc = this.getOrCreatePeerConnection(fromUserId, this.activeCallId, myId);
     if (!pc) return;
 
     try {
@@ -1876,7 +2216,7 @@ class MeetingAndCallService {
         await pc.setLocalDescription(answer);
         this.broadcastPacket('WEBRTC_SIGNAL', {
           callId: this.activeCallId,
-          fromUserId: toUserId,
+          fromUserId: myId,
           toUserId: fromUserId,
           signalType: 'answer',
           sdp: answer,

@@ -10,6 +10,8 @@ export type EmailCategory =
   | 'TASK_DUE_ALERT'
   | 'ROLE_UPDATED'
   | 'DIRECT_MESSAGE'
+  | 'CALENDAR_INVITE'
+  | 'MEETING_RSVP'
   | 'SECURITY_ALERT';
 
 export interface OutboxEmailItem {
@@ -322,38 +324,111 @@ export const emailNotificationService = {
   },
 
   sendImportantUpdateEmail: (params: {
-    recipient: User;
-    category: EmailCategory;
+    recipient?: User;
+    recipientEmail?: string;
+    recipientName?: string;
+    category?: EmailCategory | string;
     subject: string;
-    heading: string;
-    details: string;
+    heading?: string;
+    details?: string;
+    body?: string;
     ctaLabel?: string;
+    actionLabel?: string;
+    actionUrl?: string;
     ctaAction?: OutboxEmailItem['ctaAction'];
-  }): OutboxEmailItem | null => {
-    const ext = getUserProfileExtensions(params.recipient.id);
-    const prefs = ext.preferences || params.recipient.preferences || {};
+    metadata?: Record<string, any>;
+  }): any => {
+    const createThenableResult = (item: OutboxEmailItem | null) => {
+      const resolved = Promise.resolve(item);
+      if (!item) {
+        return resolved;
+      }
+      return Object.assign(item, {
+        then: resolved.then.bind(resolved),
+        catch: resolved.catch.bind(resolved),
+        finally: resolved.finally.bind(resolved),
+      });
+    };
 
-    // Respect user's email notification preferences
-    if (prefs.emailDigestFrequency === 'off') return null;
-    if (params.category === 'TASK_ASSIGNED' && prefs.notifyOnTaskAssigned === false) return null;
-    if (params.category === 'MENTION' && prefs.notifyOnMentions === false) return null;
-    if (params.category === 'DIRECT_MESSAGE' && prefs.notifyOnDirectMessages === false) return null;
+    const recipientId = params.recipient?.id;
+    const toEmail = params.recipient?.email || params.recipientEmail || '';
+    const toName =
+      params.recipient?.full_name ||
+      params.recipientName ||
+      toEmail.split('@')[0] ||
+      'Team Member';
 
-    return emailNotificationService.sendEmail({
-      toEmail: params.recipient.email,
-      toName: params.recipient.full_name || params.recipient.email,
-      subject: `[Omni Flow] ${params.subject}`,
-      category: params.category,
-      preheader: params.details.slice(0, 110),
+    if (!toEmail) {
+      return createThenableResult(null);
+    }
+
+    const rawCat = String(params.category || 'TASK_ASSIGNED').toUpperCase();
+    const resolvedCategory: EmailCategory = (
+      [
+        'EMAIL_VERIFICATION',
+        'PASSWORD_RESET',
+        'ORGANIZATION_INVITE',
+        'TASK_ASSIGNED',
+        'MENTION',
+        'TASK_DUE_ALERT',
+        'ROLE_UPDATED',
+        'DIRECT_MESSAGE',
+        'CALENDAR_INVITE',
+        'MEETING_RSVP',
+        'SECURITY_ALERT',
+      ].includes(rawCat)
+        ? rawCat
+        : rawCat.includes('CALENDAR') || rawCat.includes('MEETING')
+        ? 'CALENDAR_INVITE'
+        : 'TASK_ASSIGNED'
+    ) as EmailCategory;
+
+    if (recipientId) {
+      const ext = getUserProfileExtensions(recipientId);
+      const prefs = ext.preferences || params.recipient?.preferences || {};
+      if (prefs.emailDigestFrequency === 'off') return createThenableResult(null);
+      if (resolvedCategory === 'TASK_ASSIGNED' && prefs.notifyOnTaskAssigned === false)
+        return createThenableResult(null);
+      if (resolvedCategory === 'MENTION' && prefs.notifyOnMentions === false)
+        return createThenableResult(null);
+      if (resolvedCategory === 'DIRECT_MESSAGE' && prefs.notifyOnDirectMessages === false)
+        return createThenableResult(null);
+    }
+
+    const headingText = params.heading || params.subject;
+    const bodyText = params.details || params.body || '';
+    const formattedHtml = bodyText.includes('<')
+      ? bodyText
+      : bodyText
+          .split('\n')
+          .map(line => `<p style="margin: 4px 0; font-size: 13px;">${line}</p>`)
+          .join('');
+
+    const item = emailNotificationService.sendEmail({
+      toEmail,
+      toName,
+      subject: params.subject.startsWith('[Omni Flow]')
+        ? params.subject
+        : `[Omni Flow] ${params.subject}`,
+      category: resolvedCategory,
+      preheader: bodyText.replace(/<[^>]*>?/gm, '').slice(0, 110),
       bodyHtml: `
-        <div style="font-family: Inter, sans-serif; line-height: 1.6;">
-          <p style="font-size: 14px; font-weight: 700; margin-bottom: 6px;">${params.heading}</p>
-          <p style="font-size: 13px;">${params.details}</p>
+        <div style="font-family: Plus Jakarta Sans, sans-serif; line-height: 1.6;">
+          <p style="font-size: 14px; font-weight: 700; margin-bottom: 8px;">${headingText}</p>
+          <div>${formattedHtml}</div>
         </div>
       `,
-      ctaLabel: params.ctaLabel || 'Open in Workspace',
-      ctaAction: params.ctaAction,
+      ctaLabel: params.ctaLabel || params.actionLabel || 'Open in Workspace',
+      ctaUrl: params.actionUrl,
+      ctaAction:
+        params.ctaAction ||
+        (resolvedCategory === 'CALENDAR_INVITE' || resolvedCategory === 'MEETING_RSVP'
+          ? { type: 'open_view', view: 'calendar_view' }
+          : undefined),
+      metadata: params.metadata,
     });
+
+    return createThenableResult(item);
   },
 
   sendEmail: (payload: Omit<OutboxEmailItem, 'id' | 'status' | 'createdAt'>): OutboxEmailItem => {

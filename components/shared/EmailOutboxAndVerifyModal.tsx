@@ -10,7 +10,7 @@ import { UserRole } from '../../types';
 interface EmailOutboxAndVerifyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'verify' | 'outbox';
+  initialTab?: 'verify' | 'outbox' | 'setup_guide';
 }
 
 export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps> = ({
@@ -29,7 +29,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
     setUsers,
   } = useAppStore();
 
-  const [activeTab, setActiveTab] = useState<'verify' | 'outbox'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'verify' | 'outbox' | 'setup_guide'>(initialTab);
   const [emails, setEmails] = useState<OutboxEmailItem[]>([]);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState('');
@@ -247,6 +247,18 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
             >
               <ICON_MAP.InboxIcon className="w-3.5 h-3.5" />
               <span>Live Email Outbox ({emails.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('setup_guide')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'setup_guide'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <ICON_MAP.CogIcon className="w-3.5 h-3.5" />
+              <span>Supabase & Google SSO Guide</span>
             </button>
           </div>
 
@@ -501,6 +513,112 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                   Select an email on the left to preview its content and test its action link.
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'setup_guide' && (
+          <div className="space-y-4 max-h-[440px] overflow-y-auto pr-1 scrollbar-thin">
+            <div
+              className={`p-4 rounded-2xl border space-y-2.5 ${
+                darkMode ? 'bg-slate-900/70 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                1. Fix Production Links in Supabase Auth Emails (Stop localhost:3000 Redirects)
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                In your Supabase Dashboard (<strong>Authentication → URL Configuration</strong>), replace{' '}
+                <code>http://localhost:3000</code> with your live production URL so Password Reset, Magic Links, and Email Confirmations always point to production:
+              </p>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 font-mono text-[11px]">
+                  <span className="truncate">
+                    Site URL: {typeof window !== 'undefined' ? window.location.origin : 'https://ais-pre-ifrhce76mi5e2hi5jqoeac-559987343079.europe-west2.run.app'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(window.location.origin);
+                      addToast('Copied Site URL', 'Paste this into Supabase → Authentication → URL Configuration → Site URL', 'success');
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 font-mono text-[11px]">
+                  <span className="truncate">
+                    Redirect URLs: {typeof window !== 'undefined' ? `${window.location.origin}/**` : 'https://ais-pre-ifrhce76mi5e2hi5jqoeac-559987343079.europe-west2.run.app/**'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(`${window.location.origin}/**`);
+                      addToast('Copied Redirect Wildcard', 'Add this to Supabase → Authentication → URL Configuration → Redirect URLs', 'success');
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`p-4 rounded-2xl border space-y-2.5 ${
+                darkMode ? 'bg-slate-900/70 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                2. Configure Google SSO in Supabase & Google Cloud Console
+              </h4>
+              <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                <li>
+                  Open <strong>Google Cloud Console → APIs &amp; Services → Credentials → Create OAuth 2.0 Client ID</strong> (Web Application).
+                </li>
+                <li>
+                  Add this exact <strong>Authorized Redirect URI</strong> to your Google OAuth Client:
+                </li>
+              </ol>
+              <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 font-mono text-[11px]">
+                <span className="truncate">https://sqzjlxayhghoxjloaddo.supabase.co/auth/v1/callback</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText('https://sqzjlxayhghoxjloaddo.supabase.co/auth/v1/callback');
+                    addToast('Copied Callback URI', 'Paste into Google Cloud Console → Authorized redirect URIs', 'success');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0"
+                >
+                  Copy
+                </button>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                3. Copy the resulting <strong>Client ID</strong> and <strong>Client Secret</strong> into{' '}
+                <strong>Supabase Dashboard → Authentication → Providers → Google</strong> and toggle <strong>Enable Sign in with Google</strong> ON.
+              </p>
+            </div>
+
+            <div
+              className={`p-4 rounded-2xl border space-y-2 ${
+                darkMode ? 'bg-slate-900/70 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                3. Configure Custom SMTP for Unlimited Transactional &amp; Invite Emails
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                By default, Supabase's built-in email server has a 3-emails/hour rate limit. For production delivery:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                <li>
+                  Go to <strong>Supabase Dashboard → Project Settings → Authentication → SMTP Settings</strong> and enable <strong>Custom SMTP</strong> (e.g. Resend <code>smtp.resend.com</code> port <code>465</code>, SendGrid, or AWS SES).
+                </li>
+                <li>
+                  For instant in-app testing without external SMTP rate limits, every Calendar Invite, RSVP, Task Alert, and Organization Invite is also delivered immediately to the <strong>Live Email Outbox</strong> tab above.
+                </li>
+              </ul>
             </div>
           </div>
         )}
