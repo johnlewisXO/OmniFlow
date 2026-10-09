@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { ActiveView } from '../../types';
@@ -217,12 +218,13 @@ export const AIBotFace: React.FC<AIBotFaceProps> = ({
 interface AuthGuideStep {
   targetSelector: string;
   inputId?: string;
+  shortTitle: string;
   title: string;
   tip: string;
 }
 
 interface AIGuidedAuthAssistantProps {
-  mode: 'login' | 'signup' | 'reset';
+  mode: 'login' | 'signup' | 'reset' | 'forgot_password' | 'reset_password';
   onSwitchMode: (mode: 'login' | 'signup' | 'reset') => void;
   emailValue?: string;
 }
@@ -232,9 +234,12 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
   onSwitchMode,
   emailValue = '',
 }) => {
+  const { darkMode } = useAppStore();
   const [stepIdx, setStepIdx] = useState(0);
   const [isSpatialGuideActive, setIsSpatialGuideActive] = useState(false);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [panelRect, setPanelRect] = useState<DOMRect | null>(null);
 
   const guideSteps: AuthGuideStep[] = useMemo(() => {
     if (mode === 'signup') {
@@ -242,35 +247,82 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
         {
           targetSelector: '[data-auth-tour-id="auth-fullname"]',
           inputId: 'full-name',
+          shortTitle: '1. Full Name',
           title: 'Step 1 · Your Full Name',
           tip: 'Enter your display name so teammates and live presence cursors can identify you across boards.',
         },
         {
           targetSelector: '[data-auth-tour-id="auth-email"]',
           inputId: 'email',
+          shortTitle: '2. Work Email',
           title: 'Step 2 · Work Email & E2EE Identity',
           tip: 'Use your work email. Omni Flow automatically binds your AES-256-GCM direct messaging keypair.',
         },
         {
           targetSelector: '[data-auth-tour-id="auth-password"]',
           inputId: 'password',
+          shortTitle: '3. Password',
           title: 'Step 3 · Security Password',
           tip: 'Create a strong password (minimum 6 characters) to protect your workspace credentials.',
         },
         {
           targetSelector: '[data-auth-tour-id="auth-submit"]',
-          title: 'Step 4 · Launch Workspace',
-          tip: 'Click Create Account (or Continue with Google) to provision your organization.',
+          shortTitle: '4. Create Account',
+          title: 'Step 4 · Create Account & Request Org Access',
+          tip: 'Click Create Account to register. Next, you can search & request to join an existing organization (for PM approval) or launch a new workspace.',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-google-sso"]',
+          shortTitle: '5. Google SSO',
+          title: 'Step 5 · 1-Click Google SSO',
+          tip: 'Or sign up immediately with a verified Google Workspace account in one click.',
         },
       ];
     }
-    if (mode === 'reset') {
+    if (mode === 'reset_password') {
+      return [
+        {
+          targetSelector: '[data-auth-tour-id="auth-password"]',
+          inputId: 'password',
+          shortTitle: '1. New Password',
+          title: 'Step 1 · Enter New Password',
+          tip: 'Enter your new account password (at least 6 characters).',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-confirm-password"]',
+          inputId: 'confirm-password',
+          shortTitle: '2. Confirm',
+          title: 'Step 2 · Confirm New Password',
+          tip: 'Re-enter your new password to confirm and verify.',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-submit"]',
+          shortTitle: '3. Save Password',
+          title: 'Step 3 · Save New Password',
+          tip: 'Click Set New Password to complete account recovery and sign in.',
+        },
+      ];
+    }
+    if (mode === 'reset' || mode === 'forgot_password') {
       return [
         {
           targetSelector: '[data-auth-tour-id="auth-email"]',
           inputId: 'email',
-          title: 'Account Recovery Email',
-          tip: 'Enter your registered email address and click Send Password Reset Link to receive a recovery token.',
+          shortTitle: '1. Recovery Email',
+          title: 'Step 1 · Account Recovery Email',
+          tip: 'Enter your registered email address to generate a production recovery link & 6-digit code.',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-submit"]',
+          shortTitle: '2. Send Reset Link',
+          title: 'Step 2 · Send Production Reset Link',
+          tip: 'Click Send Password Reset Link to dispatch your production recovery URL and code.',
+        },
+        {
+          targetSelector: '[data-auth-tour-id="auth-recovery-box"]',
+          shortTitle: '3. Convert / Verify',
+          title: 'Step 3 · Production Link & Code Verifier',
+          tip: 'Paste a 6-digit code or any localhost:3000 email link here to convert it to production immediately.',
         },
       ];
     }
@@ -278,26 +330,36 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
       {
         targetSelector: '[data-auth-tour-id="auth-email"]',
         inputId: 'email',
-        title: 'Step 1 · Work Email or Google SSO',
+        shortTitle: '1. Email',
+        title: 'Step 1 · Work Email Address',
         tip: emailValue
           ? `Signing in as ${emailValue}. Continue to your password below.`
-          : 'Enter your registered email address or use 1-click Google SSO below.',
+          : 'Enter your registered email address to sign in to your organization.',
       },
       {
         targetSelector: '[data-auth-tour-id="auth-password"]',
         inputId: 'password',
+        shortTitle: '2. Password',
         title: 'Step 2 · Account Password',
         tip: 'Enter your password to unlock your live projects, sprints, and E2EE channels.',
       },
       {
         targetSelector: '[data-auth-tour-id="auth-submit"]',
-        title: 'Step 3 · Resume Workspace',
+        shortTitle: '3. Sign In',
+        title: 'Step 3 · Sign In to Workspace',
         tip: 'Click Sign In to enter your role-adaptive dashboard immediately.',
       },
       {
+        targetSelector: '[data-auth-tour-id="auth-google-sso"]',
+        shortTitle: '4. Google SSO',
+        title: 'Step 4 · 1-Click Google SSO',
+        tip: 'Or click Continue with Google for instant verified Single Sign-On.',
+      },
+      {
         targetSelector: '[data-auth-tour-id="auth-switch"]',
-        title: 'New to Omni Flow?',
-        tip: 'Click Sign Up below if you need to create a new account or organization.',
+        shortTitle: '5. Sign Up',
+        title: 'Step 5 · New to Omni Flow?',
+        tip: 'Click Sign Up below to create an account and request access to your team organization.',
       },
     ];
   }, [mode, emailValue]);
@@ -308,31 +370,113 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
 
   const currentTip = guideSteps[stepIdx % guideSteps.length] || guideSteps[0];
   const activeSelector = currentTip?.targetSelector || '';
+  const activeInputId = currentTip?.inputId;
 
   const updateAuthTargetRect = useCallback(() => {
-    if (!isSpatialGuideActive || !activeSelector) {
+    if (!isSpatialGuideActive || (!activeSelector && !activeInputId)) {
       setTargetRect(prev => (prev === null ? prev : null));
       return;
     }
-    const el = document.querySelector(activeSelector);
+    // Always prefer the form field wrapper selector first so the spotlight ring cleanly frames the label + input/button
+    const wrapperEl = activeSelector ? (document.querySelector(activeSelector) as HTMLElement | null) : null;
+    const inputEl = activeInputId ? document.getElementById(activeInputId) : null;
+    const el = wrapperEl || inputEl;
+
+    const authPanelEl = document.querySelector('.auth-panel') as HTMLElement | null;
+    if (authPanelEl) {
+      const pRect = authPanelEl.getBoundingClientRect();
+      setPanelRect(prev => (isSameRect(prev, pRect) ? prev : pRect));
+    }
+
     if (el) {
       const nextRect = el.getBoundingClientRect();
-      setTargetRect(prev => (isSameRect(prev, nextRect) ? prev : nextRect));
-    } else {
-      setTargetRect(prev => (prev === null ? prev : null));
+      if (nextRect.width > 0 && nextRect.height > 0) {
+        setTargetRect(prev => (isSameRect(prev, nextRect) ? prev : nextRect));
+        return;
+      }
     }
-  }, [isSpatialGuideActive, activeSelector]);
+    setTargetRect(prev => (prev === null ? prev : null));
+  }, [isSpatialGuideActive, activeSelector, activeInputId]);
+
+  // Apply direct visual highlight ring on the targeted DOM node when spatial guide is active
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const allTagged = document.querySelectorAll('[data-auth-tour-id]');
+    allTagged.forEach(node => {
+      const htmlNode = node as HTMLElement;
+      htmlNode.style.outline = '';
+      htmlNode.style.outlineOffset = '';
+      htmlNode.style.borderRadius = '';
+      htmlNode.style.transition = '';
+    });
+
+    if (!isSpatialGuideActive || !activeSelector) return;
+    const targetEl = document.querySelector(activeSelector) as HTMLElement | null;
+    if (targetEl) {
+      targetEl.style.transition = 'outline 0.25s ease, box-shadow 0.25s ease';
+      targetEl.style.outline = '2px solid rgba(56, 189, 248, 0.9)';
+      targetEl.style.outlineOffset = '5px';
+      targetEl.style.borderRadius = '14px';
+      try {
+        targetEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch {}
+    }
+
+    return () => {
+      if (targetEl) {
+        targetEl.style.outline = '';
+        targetEl.style.outlineOffset = '';
+      }
+    };
+  }, [isSpatialGuideActive, activeSelector, stepIdx, mode]);
 
   useEffect(() => {
     updateAuthTargetRect();
-    if (!isSpatialGuideActive) return;
+    if (!isSpatialGuideActive) {
+      setIsAutoPlaying(false);
+      return;
+    }
+
+    let rafId: number | null = null;
+    const start = performance.now();
+    const tick = (now: number) => {
+      updateAuthTargetRect();
+      if (now - start < 900) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+
+    const intervalId = setInterval(updateAuthTargetRect, 140);
     window.addEventListener('resize', updateAuthTargetRect);
     window.addEventListener('scroll', updateAuthTargetRect, true);
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      clearInterval(intervalId);
       window.removeEventListener('resize', updateAuthTargetRect);
       window.removeEventListener('scroll', updateAuthTargetRect, true);
     };
-  }, [isSpatialGuideActive, updateAuthTargetRect]);
+  }, [isSpatialGuideActive, stepIdx, mode, updateAuthTargetRect]);
+
+  const focusStepField = useCallback((step: AuthGuideStep) => {
+    if (step?.inputId) {
+      const inputEl = document.getElementById(step.inputId) as HTMLInputElement | null;
+      inputEl?.focus();
+    }
+  }, []);
+
+  // Auto-play support just like the in-platform guide
+  useEffect(() => {
+    if (!isSpatialGuideActive || !isAutoPlaying) return;
+    const timer = setInterval(() => {
+      setStepIdx(prev => {
+        const next = (prev + 1) % guideSteps.length;
+        focusStepField(guideSteps[next]);
+        return next;
+      });
+    }, 3400);
+    return () => clearInterval(timer);
+  }, [isSpatialGuideActive, isAutoPlaying, guideSteps, focusStepField]);
 
   useEffect(() => {
     const handleFocusIn = (e: FocusEvent) => {
@@ -347,28 +491,60 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
     return () => window.removeEventListener('focusin', handleFocusIn);
   }, [guideSteps]);
 
-  const focusStepField = (step: AuthGuideStep) => {
-    if (step.inputId) {
-      const inputEl = document.getElementById(step.inputId) as HTMLInputElement | null;
-      inputEl?.focus();
-    }
-  };
-
+  // Collision-free positioning: place the floating guide card to the right of .auth-panel on desktop,
+  // or cleanly docked at bottom-right/top-right on smaller viewports so it NEVER covers the highlighted form element!
   const getFloatingBotStyle = (): React.CSSProperties => {
-    if (!targetRect || typeof window === 'undefined') {
-      return { top: 24, right: 24 };
+    if (typeof window === 'undefined') {
+      return { bottom: 20, right: 20 };
     }
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const cardWidth = 290;
-    let left = targetRect.right + 18;
-    let top = targetRect.top - 8;
+    const cardWidth = Math.min(350, vw - 24);
+    const cardHeight = 250;
 
-    if (left + cardWidth > vw - 16) {
-      left = Math.max(16, Math.min(vw - cardWidth - 16, targetRect.left));
-      top = Math.max(16, targetRect.top - 125);
+    if (!targetRect) {
+      return {
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        width: `${cardWidth}px`,
+      };
     }
-    top = Math.max(16, Math.min(vh - 150, top));
+
+    const formRightEdge = panelRect ? panelRect.right : targetRect.right + 28;
+    const formLeftEdge = panelRect ? panelRect.left : targetRect.left - 28;
+
+    // 1. Prefer placing to the right of the auth form panel (where the right column is on lg screens)
+    if (formRightEdge + cardWidth + 24 <= vw - 12) {
+      const top = Math.max(20, Math.min(vh - cardHeight - 20, targetRect.top - 24));
+      return {
+        position: 'fixed',
+        top: `${Math.round(top)}px`,
+        left: `${Math.round(formRightEdge + 20)}px`,
+        width: `${cardWidth}px`,
+        transition: 'top 0.48s cubic-bezier(0.22, 1, 0.36, 1), left 0.48s cubic-bezier(0.22, 1, 0.36, 1)',
+      };
+    }
+
+    // 2. Or to the left of the auth form panel if room exists
+    if (formLeftEdge - cardWidth - 24 >= 12) {
+      const top = Math.max(20, Math.min(vh - cardHeight - 20, targetRect.top - 24));
+      return {
+        position: 'fixed',
+        top: `${Math.round(top)}px`,
+        left: `${Math.round(formLeftEdge - cardWidth - 20)}px`,
+        width: `${cardWidth}px`,
+        transition: 'top 0.48s cubic-bezier(0.22, 1, 0.36, 1), left 0.48s cubic-bezier(0.22, 1, 0.36, 1)',
+      };
+    }
+
+    // 3. On narrower viewports, place below or above the target element with zero overlap on the highlighted field
+    const spaceBelow = vh - targetRect.bottom;
+    const top =
+      spaceBelow >= cardHeight + 24
+        ? Math.min(vh - cardHeight - 16, targetRect.bottom + 18)
+        : Math.max(16, targetRect.top - cardHeight - 18);
+    const left = Math.max(12, Math.min(vw - cardWidth - 16, vw - cardWidth - 20));
 
     return {
       position: 'fixed',
@@ -384,7 +560,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
       <div className="mb-4 p-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/20 transition-all duration-300">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <AIBotFace mood="guiding" size="sm" className="flex-shrink-0" />
+            <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="sm" className="flex-shrink-0" />
             <div className="min-w-0">
               <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 truncate">
                 {currentTip.title}
@@ -401,6 +577,9 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
               setIsSpatialGuideActive(next);
               if (next) {
                 focusStepField(currentTip);
+                setTimeout(updateAuthTargetRect, 40);
+              } else {
+                setIsAutoPlaying(false);
               }
             }}
             className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
@@ -414,25 +593,29 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
         </div>
 
         <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-indigo-500/15 text-[11px]">
-          <div className="flex items-center gap-1.5">
-            {guideSteps.map((_, idx) => (
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            {guideSteps.map((st, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => {
                   setStepIdx(idx);
+                  setIsSpatialGuideActive(true);
                   focusStepField(guideSteps[idx]);
+                  setTimeout(updateAuthTargetRect, 40);
                 }}
-                className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                title={st.title}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   idx === stepIdx % guideSteps.length
-                    ? 'w-5 bg-indigo-500'
-                    : 'w-2 bg-slate-300 dark:bg-slate-700'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-indigo-500'
                 }`}
-                aria-label={`Step ${idx + 1}`}
-              />
+              >
+                {st.shortTitle}
+              </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -440,93 +623,167 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                 setStepIdx(nextIdx);
                 setIsSpatialGuideActive(true);
                 focusStepField(guideSteps[nextIdx]);
+                setTimeout(updateAuthTargetRect, 40);
               }}
               className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
             >
-              Next Step ({(stepIdx % guideSteps.length) + 1}/{guideSteps.length}) →
+              Next ({(stepIdx % guideSteps.length) + 1}/{guideSteps.length}) →
             </button>
-            <span className="text-slate-400">·</span>
-            {mode === 'login' ? (
-              <button
-                type="button"
-                onClick={() => onSwitchMode('signup')}
-                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
-              >
-                Create Account
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onSwitchMode('login')}
-                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
-              >
-                Sign In
-              </button>
-            )}
           </div>
         </div>
       </div>
 
-      {isSpatialGuideActive && targetRect && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-          <div
-            className="fixed rounded-2xl tour-spotlight-ring pointer-events-none"
-            style={{
-              top: `${targetRect.top - 4}px`,
-              left: `${targetRect.left - 4}px`,
-              width: `${targetRect.width + 8}px`,
-              height: `${targetRect.height + 8}px`,
-              transition: 'all 0.45s cubic-bezier(0.22, 1, 0.36, 1)',
-            }}
-          />
-
-          <div
-            style={getFloatingBotStyle()}
-            className="pointer-events-auto p-3.5 rounded-2xl bg-slate-900/95 text-white border border-indigo-500/40 shadow-2xl animate-popup-in"
-          >
-            <div className="flex items-start gap-2.5">
-              <AIBotFace mood="guiding" size="sm" className="flex-shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[11px] font-bold text-indigo-300">{currentTip.title}</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsSpatialGuideActive(false)}
-                    className="text-[10px] text-slate-400 hover:text-white cursor-pointer"
-                  >
-                    ✕
-                  </button>
+      {isSpatialGuideActive &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="fixed inset-0 z-[9990] pointer-events-none">
+            {/* Animated Spotlight Ring on Target Form Element (Matches In-Platform Guide) */}
+            {targetRect && (
+              <div
+                className="fixed rounded-2xl tour-spotlight-ring pointer-events-none"
+                style={{
+                  top: `${Math.round(targetRect.top - 6)}px`,
+                  left: `${Math.round(targetRect.left - 6)}px`,
+                  width: `${Math.round(targetRect.width + 12)}px`,
+                  height: `${Math.round(targetRect.height + 12)}px`,
+                  transition: 'all 0.42s cubic-bezier(0.22, 1, 0.36, 1)',
+                  border: '2px solid rgba(56, 189, 248, 0.95)',
+                }}
+              >
+                <div className="absolute -top-7 left-2 px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
+                  <span>{currentTip.title}</span>
                 </div>
-                <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">{currentTip.tip}</p>
-                <div className="flex items-center justify-between mt-2.5 pt-1.5 border-t border-slate-800">
+              </div>
+            )}
+
+            {/* Unified Spatial Moving AI Bot Guide Card for Auth Flow */}
+            <div
+              style={getFloatingBotStyle()}
+              className={`pointer-events-auto p-4 rounded-2xl border shadow-2xl backdrop-blur-xl animate-modal-appear ${
+                darkMode
+                  ? 'bg-slate-900/95 border-indigo-500/45 text-slate-100 shadow-black/60'
+                  : 'bg-white/95 border-indigo-200/90 text-slate-900 shadow-indigo-950/15'
+              }`}
+            >
+              {/* Integrated Step Switcher Strip inside Card */}
+              <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-2.5 border-b border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
+                  {guideSteps.map((st, idx) => {
+                    const active = idx === stepIdx % guideSteps.length;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setStepIdx(idx);
+                          focusStepField(guideSteps[idx]);
+                          setTimeout(updateAuthTargetRect, 30);
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                          active
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : darkMode
+                            ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        {st.shortTitle}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     type="button"
-                    onClick={() => {
-                      const prevIdx = (stepIdx - 1 + guideSteps.length) % guideSteps.length;
-                      setStepIdx(prevIdx);
-                      focusStepField(guideSteps[prevIdx]);
-                    }}
-                    className="text-[10px] text-slate-400 hover:text-white cursor-pointer"
+                    onClick={() => setIsAutoPlaying(p => !p)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      isAutoPlaying
+                        ? 'bg-emerald-600 text-white'
+                        : darkMode
+                        ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
                   >
-                    ← Prev
+                    {isAutoPlaying ? '⏸' : '▶ Auto'}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const nextIdx = (stepIdx + 1) % guideSteps.length;
-                      setStepIdx(nextIdx);
-                      focusStepField(guideSteps[nextIdx]);
+                      setIsSpatialGuideActive(false);
+                      setIsAutoPlaying(false);
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-semibold cursor-pointer"
+                    className="p-1 rounded-lg text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                    title="Close Auth Guide"
                   >
-                    Next Field →
+                    <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
+
+              <div className="flex items-start gap-2.5">
+                <div className="relative flex-shrink-0">
+                  <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="md" />
+                  <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-indigo-600 text-[9px] font-mono font-bold text-white shadow-xs">
+                    {(stepIdx % guideSteps.length) + 1}/{guideSteps.length}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                    Auth Walkthrough · {mode.replace('_', ' ')}
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                    {currentTip.title}
+                  </h4>
+                </div>
+              </div>
+
+              <div
+                className={`mt-2.5 p-2.5 rounded-xl border text-xs leading-relaxed ${
+                  darkMode
+                    ? 'bg-indigo-950/35 border-indigo-500/25 text-indigo-200'
+                    : 'bg-indigo-50/80 border-indigo-100 text-indigo-950'
+                }`}
+              >
+                <span className="font-semibold">📍 Highlighted: </span>
+                {currentTip.tip}
+              </div>
+
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prevIdx = (stepIdx - 1 + guideSteps.length) % guideSteps.length;
+                    setStepIdx(prevIdx);
+                    focusStepField(guideSteps[prevIdx]);
+                    setTimeout(updateAuthTargetRect, 30);
+                  }}
+                  className={`px-2.5 py-1 rounded-xl border text-[11px] font-semibold transition-colors cursor-pointer ${
+                    darkMode
+                      ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  ← Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = (stepIdx + 1) % guideSteps.length;
+                    setStepIdx(nextIdx);
+                    focusStepField(guideSteps[nextIdx]);
+                    setTimeout(updateAuthTargetRect, 30);
+                  }}
+                  className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  Next Field →
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 };

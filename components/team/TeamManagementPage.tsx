@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
-import { User, UserRole, normalizeUserRole, OrganizationInvitation, AuditLog, UserPresence } from '../../types';
+import { User, UserRole, normalizeUserRole, OrganizationInvitation, OrganizationJoinRequest, AuditLog, UserPresence } from '../../types';
 import supabaseService, { normalizeAppUser } from '../../services/supabaseService';
-import { collabService } from '../../services/collabService';
+import { collabService, formatAccurateLastSeen } from '../../services/collabService';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
@@ -167,7 +167,7 @@ export const TeamManagementPage: React.FC = () => {
   const [newMemberDept, setNewMemberDept] = useState('Engineering');
   const [newMemberCapacity, setNewMemberCapacity] = useState(40);
 
-  // Invitations State
+  // Invitations & Join Requests State
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.MEMBER);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -177,6 +177,9 @@ export const TeamManagementPage: React.FC = () => {
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);
   const [isLoadingInvites, setIsLoadingInvites] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [joinRequests, setJoinRequests] = useState<OrganizationJoinRequest[]>([]);
+  const [approvalRoles, setApprovalRoles] = useState<Record<string, UserRole>>({});
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -202,9 +205,88 @@ export const TeamManagementPage: React.FC = () => {
   useEffect(() => {
     if (currentUser?.organization_id) {
       loadInvitations();
+      loadJoinRequests();
       loadAuditLogs();
     }
   }, [currentUser?.organization_id]);
+
+  useEffect(() => {
+    if (!currentUser?.organization_id) return;
+    const handleReqEvent = () => {
+      loadJoinRequests();
+    };
+    window.addEventListener('omni_org_join_request_updated', handleReqEvent);
+    let bc: BroadcastChannel | null = null;
+    if ('BroadcastChannel' in window) {
+      bc = new BroadcastChannel('omni_collab_sync');
+      bc.onmessage = ev => {
+        if (ev.data?.type === 'ORG_JOIN_REQUEST_UPSERT') {
+          loadJoinRequests();
+        }
+      };
+    }
+    return () => {
+      window.removeEventListener('omni_org_join_request_updated', handleReqEvent);
+      if (bc) bc.close();
+    };
+  }, [currentUser?.organization_id]);
+
+  const loadJoinRequests = async () => {
+    if (!currentUser?.organization_id) return;
+    try {
+      const reqs = await supabaseService.getJoinRequestsForOrganization(currentUser.organization_id);
+      setJoinRequests(reqs);
+      setApprovalRoles(prev => {
+        const next = { ...prev };
+        reqs.forEach(r => {
+          if (!next[r.id]) {
+            next[r.id] = r.requested_role === UserRole.PROJECT_MANAGER ? UserRole.PROJECT_MANAGER : UserRole.MEMBER;
+          }
+        });
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to load join requests:', err);
+    }
+  };
+
+  const handleApproveJoinRequest = async (req: OrganizationJoinRequest) => {
+    if (!currentUser) return;
+    setProcessingRequestId(req.id);
+    try {
+      const roleToGrant = approvalRoles[req.id] || req.requested_role || UserRole.MEMBER;
+      const approved = await supabaseService.approveJoinRequest(req.id, roleToGrant, currentUser);
+      if (approved) {
+        await fetchUsersForAssignmentList();
+        await loadJoinRequests();
+        await loadAuditLogs();
+        addToast(
+          'Access Request Approved',
+          `${req.requester_name} has been granted ${formatRoleForDisplay(roleToGrant)} access to the organization.`,
+          'success'
+        );
+      }
+    } catch (err: any) {
+      addToast('Approval Error', err?.message || 'Failed to approve join request.', 'error');
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const handleDeclineJoinRequest = async (req: OrganizationJoinRequest) => {
+    if (!currentUser) return;
+    setProcessingRequestId(req.id);
+    try {
+      await supabaseService.declineJoinRequest(req.id, currentUser);
+      await loadJoinRequests();
+      await loadAuditLogs();
+      addToast('Request Declined', `Declined join request from ${req.requester_name}.`, 'info');
+    } catch (err: any) {
+      addToast('Action Error', err?.message || 'Failed to decline request.', 'error');
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
 
   const loadInvitations = async () => {
     if (!currentUser?.organization_id) return;
@@ -741,6 +823,127 @@ export const TeamManagementPage: React.FC = () => {
         )}
       </div>
 
+      {/* Pending Organization Join Requests Approval Banner (Visible to OWNER, ADMIN, PROJECT_MANAGER) */}
+      {canActorManageTeam && joinRequests.filter(r => r.status === 'pending').length > 0 && (
+        <div
+          className={`p-5 rounded-2xl border shadow-lg ${
+            darkMode
+              ? 'bg-indigo-950/40 border-indigo-500/40'
+              : 'bg-indigo-50/90 border-indigo-200'
+          }`}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-indigo-400">
+                Pending Organization Access Requests ({joinRequests.filter(r => r.status === 'pending').length})
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400">
+              Select the access level (<strong>MEMBER</strong> or <strong>PROJECT_MANAGER</strong>) to grant upon approval
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {joinRequests
+              .filter(r => r.status === 'pending')
+              .map(req => {
+                const selectedGrantRole =
+                  approvalRoles[req.id] || req.requested_role || UserRole.MEMBER;
+                const isProcessing = processingRequestId === req.id;
+
+                return (
+                  <div
+                    key={req.id}
+                    className={`p-4 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                      darkMode
+                        ? 'bg-slate-900/90 border-slate-800'
+                        : 'bg-white border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Avatar
+                        user={{
+                          id: req.requester_id,
+                          full_name: req.requester_name,
+                          email: req.requester_email,
+                          avatar_url: req.requester_avatar,
+                        }}
+                        size="md"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm">{req.requester_name}</span>
+                          <span className="text-xs text-slate-400">({req.requester_email})</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                            Requested: {formatRoleForDisplay(req.requested_role)}
+                          </span>
+                        </div>
+                        {req.message && (
+                          <p className="text-xs text-slate-400 mt-1">{req.message}</p>
+                        )}
+                        <span className="text-[10px] text-slate-500 mt-1 block">
+                          Requested {new Date(req.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <div className="flex items-center gap-2">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase">
+                          Grant Role:
+                        </label>
+                        <select
+                          value={selectedGrantRole}
+                          onChange={e =>
+                            setApprovalRoles(prev => ({
+                              ...prev,
+                              [req.id]: e.target.value as UserRole,
+                            }))
+                          }
+                          disabled={isProcessing}
+                          className={`text-xs font-bold rounded-xl border px-3 py-2 ${
+                            darkMode
+                              ? 'bg-slate-800 border-slate-700 text-white'
+                              : 'bg-slate-50 border-slate-300 text-slate-900'
+                          }`}
+                        >
+                          <option value={UserRole.MEMBER}>Member (MEMBER)</option>
+                          <option value={UserRole.PROJECT_MANAGER}>
+                            Project Manager (PROJECT_MANAGER)
+                          </option>
+                        </select>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={isProcessing}
+                        onClick={() => handleApproveJoinRequest(req)}
+                        className="text-xs font-bold px-3.5 py-2"
+                      >
+                        {isProcessing ? 'Approving...' : 'Approve & Grant Access'}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={isProcessing}
+                        onClick={() => handleDeclineJoinRequest(req)}
+                        className="text-xs font-semibold px-3 py-2 text-rose-400 hover:text-rose-300"
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       {/* Navigation Sub-Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-700/80 pb-3">
         <button
@@ -905,14 +1108,17 @@ export const TeamManagementPage: React.FC = () => {
                         (uName && p.userName && p.userName.toLowerCase() === uName)
                     );
                     const isUserOnline = isCurrentUserRow || !!userPresence;
-                    const availStatus = userPresence?.availabilityStatus || 'available';
+                    const lsInfo = formatAccurateLastSeen(userPresence, user.id, user.email, isCurrentUserRow);
+                    const availStatus = lsInfo.isAwayFromTab ? 'away' : (userPresence?.availabilityStatus || 'available');
                     const statusLabel = !isUserOnline
                       ? 'Offline'
-                      : availStatus === 'away'
-                        ? 'Away'
-                        : availStatus === 'busy'
-                          ? 'Busy / DND'
-                          : 'Available';
+                      : lsInfo.isAwayFromTab
+                        ? 'Away from tab'
+                        : availStatus === 'away'
+                          ? 'Away'
+                          : availStatus === 'busy'
+                            ? 'Busy / DND'
+                            : 'Available';
                     const statusDotColor = !isUserOnline
                       ? 'bg-slate-400'
                       : availStatus === 'away'
@@ -962,20 +1168,25 @@ export const TeamManagementPage: React.FC = () => {
 
                         {/* Live Status */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
-                              !isUserOnline
-                                ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                                : availStatus === 'away'
-                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                                  : availStatus === 'busy'
-                                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
-                                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor}`} />
-                            {statusLabel}
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
+                                !isUserOnline
+                                  ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                                  : availStatus === 'away'
+                                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                    : availStatus === 'busy'
+                                      ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                                      : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor}`} />
+                              {statusLabel}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {lsInfo.lastSeenText}
+                            </span>
+                          </div>
                         </td>
 
                         {/* Department Selector */}

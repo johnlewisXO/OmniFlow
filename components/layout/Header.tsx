@@ -4,7 +4,7 @@ import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
 import { AnimatedPopover } from '../shared/Modal';
-import { collabService } from '../../services/collabService';
+import { collabService, formatAccurateLastSeen } from '../../services/collabService';
 import { UserPresence, normalizeUserRole } from '../../types';
 
 export const StatusDynamicIcon: React.FC<{ status: 'available' | 'away' | 'busy'; className?: string }> = ({ status, className = 'w-4 h-4' }) => {
@@ -48,7 +48,14 @@ export const Header: React.FC = () => {
     openCommandPalette,
     openShortcutsModal,
     presences,
+    users,
   } = useAppStore();
+
+  const [lastSeenTick, setLastSeenTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setLastSeenTick(v => v + 1), 10000);
+    return () => clearInterval(t);
+  }, []);
 
   const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
     if (typeof window !== 'undefined' && currentUser?.id) {
@@ -83,16 +90,38 @@ export const Header: React.FC = () => {
     addToast('Status Broadcast Live', `Your status is now "${label}" across all connected teammates.`, 'info');
   };
 
-  // Deduplicated presences by userId for the header bar
+  // Deduplicated presences by userId for the header bar, strictly isolated to currentUser.organization_id
   const uniquePresences = useMemo(() => {
+    const myOrgId = currentUser?.organization_id;
+    if (!currentUser || !myOrgId) return [];
+
     const map = new Map<string, UserPresence>();
     presences.forEach(p => {
+      if (!p || !p.userId) return;
+      // Enforce strict multi-tenant organization isolation
+      const isSelf = p.userId === currentUser.id;
+      const matchesOrgId = p.organizationId === myOrgId;
+      const isKnownOrgMember = users.some(
+        u =>
+          u.organization_id === myOrgId &&
+          (u.id === p.userId ||
+            (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase()))
+      );
+
+      if (!isSelf && !matchesOrgId && !isKnownOrgMember) {
+        return;
+      }
+      if (p.organizationId && p.organizationId !== myOrgId) {
+        return;
+      }
+
       const existing = map.get(p.userId);
       if (!existing) {
         map.set(p.userId, p);
       } else {
         map.set(p.userId, {
           ...existing,
+          ...p,
           availabilityStatus: p.availabilityStatus || existing.availabilityStatus,
           currentTaskId: p.currentTaskId || existing.currentTaskId,
           isEditing: Boolean(existing.isEditing || p.isEditing),
@@ -100,7 +129,7 @@ export const Header: React.FC = () => {
       }
     });
     return Array.from(map.values());
-  }, [presences]);
+  }, [presences, currentUser?.id, currentUser?.organization_id, users, lastSeenTick]);
 
   const handleAddTaskClick = () => {
     if (!activeProject) {
@@ -194,33 +223,38 @@ export const Header: React.FC = () => {
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-0.5">Live:</span>
               <div className="flex items-center gap-1">
                 {uniquePresences.slice(0, 5).map((p) => {
-                  const status = p.availabilityStatus || 'available';
-                  const dotColor =
-                    status === 'away'
-                      ? 'bg-amber-400'
-                      : status === 'busy'
-                        ? 'bg-rose-500'
-                        : 'bg-emerald-500';
-                  const statusLabel =
-                    status === 'away'
-                      ? 'Away'
-                      : status === 'busy'
-                        ? 'Busy / DND'
-                        : 'Available';
+                  const lsInfo = formatAccurateLastSeen(
+                    p,
+                    p.userId,
+                    p.userEmail,
+                    p.userId === currentUser?.id
+                  );
+                  const matchedOrgUser = users.find(
+                    u =>
+                      u.id === p.userId ||
+                      (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase())
+                  );
                   return (
                     <div
                       key={p.userId}
                       className="relative inline-block"
-                      title={`${p.userName} — ${statusLabel} (${p.currentTaskId ? 'Viewing task' : p.currentView || 'Active'})`}
+                      title={`${p.userName} — ${lsInfo.statusLabel} (${lsInfo.lastSeenText})`}
                     >
-                      <div className="h-5 w-5 rounded-full ring-1 ring-white dark:ring-slate-900 overflow-hidden bg-slate-200 dark:bg-slate-700 text-center font-bold text-[9px] leading-5 text-slate-700 dark:text-slate-200">
-                        {p.userAvatar ? (
-                          <img src={p.userAvatar} alt={p.userName} className="h-full w-full object-cover" />
-                        ) : (
-                          p.userName?.charAt(0)?.toUpperCase() || 'U'
-                        )}
-                      </div>
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-900 ${dotColor}`} />
+                      <Avatar
+                        user={
+                          matchedOrgUser || {
+                            id: p.userId,
+                            full_name: p.userName,
+                            email: p.userEmail || '',
+                            avatar_url: p.userAvatar,
+                            organization_id: p.organizationId || currentUser?.organization_id,
+                          }
+                        }
+                        size="sm"
+                      />
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-900 pointer-events-none ${lsInfo.dotColorClass}`}
+                      />
                     </div>
                   );
                 })}

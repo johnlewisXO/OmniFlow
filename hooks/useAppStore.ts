@@ -531,16 +531,19 @@ const appActionsCreator = (
     },
     fetchProjects: async () => {
       const currentUser = get().currentUser;
-      if (!currentUser) {
-        updateState(s => ({ ...s, projects: [], isLoadingProjects: false, projectsError: "Not logged in." }));
+      if (!currentUser || !currentUser.organization_id) {
+        updateState(s => ({ ...s, projects: [], activeProject: null, tasks: [], isLoadingProjects: false, isLoadingTasks: false, projectsError: null }));
         return;
       }
       updateState(s => ({ ...s, isLoadingProjects: true, projectsError: null }));
       try {
-        const projects = await withTimeout(
+        const rawProjects = await withTimeout(
           supabaseService.getProjects(),
           10000,
           "Projects fetch timeout"
+        );
+        const projects = (rawProjects || []).filter(
+          p => !p.organization_id || p.organization_id === currentUser.organization_id
         );
         
         // Restore active project if it exists in the fetched projects
@@ -720,38 +723,61 @@ const appActionsCreator = (
             updateState(s => ({ ...s, users: [], isLoadingUsersForAssignment: false, usersForAssignmentError: "Not logged in." }));
             return;
         }
+        // Security: If user has not joined or been approved into an organization yet, never expose other users
+        if (!currentUser.organization_id) {
+            updateState(s => ({
+              ...s,
+              users: [normalizeAppUser(currentUser)],
+              isLoadingUsersForAssignment: false,
+              usersForAssignmentError: null,
+            }));
+            return;
+        }
+        const targetOrgId = currentUser.organization_id;
+        supabaseService.syncOrganizationDirectory(currentUser);
         updateState(s => ({ ...s, isLoadingUsersForAssignment: true, usersForAssignmentError: null }));
         try {
           let fetchedUsers: User[] = [];
 
-          const orgPromise = currentUser.organization_id
-            ? withTimeout(
-                supabaseService.getUsersByOrganizationId(currentUser.organization_id),
-                7000,
-                "Users fetch timeout"
-              ).catch(() => [] as User[])
-            : Promise.resolve([] as User[]);
+          const orgPromise = withTimeout(
+            supabaseService.getUsersByOrganizationId(targetOrgId),
+            7000,
+            "Users fetch timeout"
+          ).catch(() => [] as User[]);
 
           const allProfilesPromise = withTimeout(
-            Promise.resolve(supabase.from('user_profiles').select('*').limit(50)).then(res => res.data || []),
+            Promise.resolve(
+              supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('organization_id', targetOrgId)
+                .limit(100)
+            ).then(res => res.data || []),
             7000,
-            "All profiles timeout"
+            "Org profiles timeout"
           ).catch(() => [] as any[]);
 
           const [orgUsers, allProfiles] = await Promise.all([orgPromise, allProfilesPromise]);
 
           if (Array.isArray(orgUsers)) {
-            fetchedUsers = [...orgUsers];
+            fetchedUsers = orgUsers.filter(u => {
+              const ext = getUserProfileExtensions(u.id);
+              const uOrg = u.organization_id || ext.organization_id;
+              return uOrg === targetOrgId;
+            });
           }
 
           if (Array.isArray(allProfiles)) {
             allProfiles.forEach((p: any) => {
               if (p && p.id) {
                 const ext = getUserProfileExtensions(p.id);
-                if (ext.removedFromOrgId && ext.removedFromOrgId === currentUser.organization_id) {
+                if (ext.removedFromOrgId && ext.removedFromOrgId === targetOrgId) {
                   return;
                 }
                 const normalized = normalizeAppUser(p);
+                if (normalized.organization_id !== targetOrgId) {
+                  return;
+                }
                 const existingIdx = fetchedUsers.findIndex(u => u.id === p.id);
                 if (existingIdx >= 0) {
                   fetchedUsers[existingIdx] = normalized;
@@ -762,12 +788,12 @@ const appActionsCreator = (
             });
           }
 
-          // Always ensure currentUser is present in the directory
+          // Always ensure currentUser is present in their organization directory
           if (currentUser.id && !fetchedUsers.some(u => u.id === currentUser.id)) {
             fetchedUsers.unshift(normalizeAppUser(currentUser));
           }
 
-          // Merge any custom added people from localStorage
+          // Merge any custom added people from localStorage ONLY if they belong to targetOrgId
           if (typeof window !== 'undefined') {
             try {
               const savedCustom = localStorage.getItem('omni_custom_team_members');
@@ -776,10 +802,13 @@ const appActionsCreator = (
                 customList.forEach(cu => {
                   if (cu && cu.id && !fetchedUsers.some(u => u.id === cu.id)) {
                     const ext = getUserProfileExtensions(cu.id);
-                    if (ext.removedFromOrgId && ext.removedFromOrgId === currentUser.organization_id) {
+                    if (ext.removedFromOrgId && ext.removedFromOrgId === targetOrgId) {
                       return;
                     }
-                    fetchedUsers.push(normalizeAppUser(cu));
+                    const normalizedCu = normalizeAppUser(cu);
+                    if (normalizedCu.organization_id === targetOrgId) {
+                      fetchedUsers.push(normalizedCu);
+                    }
                   }
                 });
               }
@@ -943,7 +972,12 @@ const appActionsCreator = (
             localStorage.setItem(`omni_user_profile_${updatedProfile.id}`, JSON.stringify(updatedProfile));
           } catch (e) {}
         }
-        updateState(s => ({ ...s, currentUser: updatedProfile, authLoading: false }));
+        get().setCurrentUser(updatedProfile);
+        setTimeout(() => {
+          selfActions.fetchCurrentOrganization();
+          selfActions.fetchUsersForAssignmentList();
+          selfActions.fetchProjects();
+        }, 50);
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to join or create organization.');
         updateState(s => ({ ...s, authLoading: false, authError: message }));
@@ -1852,8 +1886,15 @@ const appActionsCreator = (
     ) => {
       const state = get();
       const curUser = state.currentUser;
-      if (curUser && !collabService.getCurrentUser()) {
-        collabService.syncCurrentUser(curUser);
+      if (curUser) {
+        const existingCollabUser = collabService.getCurrentUser();
+        if (
+          !existingCollabUser ||
+          existingCollabUser.id !== curUser.id ||
+          existingCollabUser.organization_id !== curUser.organization_id
+        ) {
+          collabService.syncCurrentUser(curUser);
+        }
       }
       const activeTaskId = flags?.clearTask
         ? undefined

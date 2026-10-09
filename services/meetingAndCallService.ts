@@ -851,30 +851,131 @@ class MeetingAndCallService {
     this.notifyCallListeners();
   }
 
+  private liveMicLevel = 0;
+  private localUserId: string | null = null;
+  private selectedVideoDeviceId: string | undefined = undefined;
+  private selectedAudioDeviceId: string | undefined = undefined;
+
+  public getLiveMicLevel(): number {
+    return this.liveMicLevel;
+  }
+
+  public getSelectedDevices() {
+    return {
+      videoDeviceId: this.selectedVideoDeviceId,
+      audioDeviceId: this.selectedAudioDeviceId,
+    };
+  }
+
+  public async switchMediaDevices(videoDeviceId?: string, audioDeviceId?: string, currentUserId?: string): Promise<MediaStream | null> {
+    if (videoDeviceId !== undefined) this.selectedVideoDeviceId = videoDeviceId || undefined;
+    if (audioDeviceId !== undefined) this.selectedAudioDeviceId = audioDeviceId || undefined;
+
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(t => t.stop());
+      this.localStream = null;
+    }
+
+    const call = this.activeCallId ? this.ongoingCalls.get(this.activeCallId) : null;
+    const me = call?.participants.find(p => p.userId === (currentUserId || this.localUserId));
+    const wantVideo = me ? !me.isCameraOff : true;
+    const wantAudio = me ? !me.isMicMuted : true;
+
+    return this.acquireLocalMedia(wantVideo, wantAudio);
+  }
+
+  public playTestSpeakerSound(): void {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6 pleasant chord arpeggio
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.14);
+        gain.gain.setValueAtTime(0.001, ctx.currentTime + i * 0.14);
+        gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + i * 0.14 + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.14 + 0.45);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.14);
+        osc.stop(ctx.currentTime + i * 0.14 + 0.46);
+      });
+    } catch (e) {
+      console.warn('Speaker test sound error:', e);
+    }
+  }
+
   public async acquireLocalMedia(withVideo = true, withAudio = true): Promise<MediaStream | null> {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       return null;
     }
 
+    const videoConstraint: boolean | MediaTrackConstraints = withVideo
+      ? this.selectedVideoDeviceId
+        ? { deviceId: { exact: this.selectedVideoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+      : false;
+
+    const audioConstraint: boolean | MediaTrackConstraints = withAudio
+      ? this.selectedAudioDeviceId
+        ? { deviceId: { exact: this.selectedAudioDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      : false;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: withVideo ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
-        audio: withAudio ? { echoCancellation: true, noiseSuppression: true } : false,
+        video: videoConstraint,
+        audio: audioConstraint,
       });
+      if (this.localStream && this.localStream !== stream) {
+        this.localStream.getTracks().forEach(t => t.stop());
+      }
       this.localStream = stream;
       this.startAudioActivityMonitor(stream);
       this.notifyCallListeners();
       return stream;
-    } catch (_err) {
-      // Fallback: try audio-only if camera failed
-      if (withVideo && withAudio) {
-        try {
-          const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          this.localStream = audioOnlyStream;
-          this.startAudioActivityMonitor(audioOnlyStream);
+    } catch (_firstErr) {
+      // Fallback 1: Try relaxed basic constraints { video: withVideo, audio: withAudio }
+      try {
+        const basicStream = await navigator.mediaDevices.getUserMedia({
+          video: withVideo,
+          audio: withAudio,
+        });
+        if (this.localStream && this.localStream !== basicStream) {
+          this.localStream.getTracks().forEach(t => t.stop());
+        }
+        this.localStream = basicStream;
+        this.startAudioActivityMonitor(basicStream);
+        this.notifyCallListeners();
+        return basicStream;
+      } catch (_secondErr) {
+        // Fallback 2: Try acquiring video and audio tracks independently and combining them
+        const combinedTracks: MediaStreamTrack[] = [];
+        if (withVideo) {
+          try {
+            const vStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            combinedTracks.push(...vStream.getVideoTracks());
+          } catch {}
+        }
+        if (withAudio) {
+          try {
+            const aStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+            combinedTracks.push(...aStream.getAudioTracks());
+          } catch {}
+        }
+        if (combinedTracks.length > 0) {
+          const mergedStream = new MediaStream(combinedTracks);
+          if (this.localStream && this.localStream !== mergedStream) {
+            this.localStream.getTracks().forEach(t => t.stop());
+          }
+          this.localStream = mergedStream;
+          this.startAudioActivityMonitor(mergedStream);
           this.notifyCallListeners();
-          return audioOnlyStream;
-        } catch {}
+          return mergedStream;
+        }
       }
       return null;
     }
@@ -883,32 +984,58 @@ class MeetingAndCallService {
   private startAudioActivityMonitor(stream: MediaStream) {
     if (this.audioMonitorInterval) clearInterval(this.audioMonitorInterval);
     const audioTracks = stream.getAudioTracks();
-    if (audioTracks.length === 0) return;
+    if (audioTracks.length === 0) {
+      this.liveMicLevel = 0;
+      return;
+    }
 
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        try {
+          this.audioContext.close();
+        } catch {}
+      }
       this.audioContext = new AudioCtx();
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
       const source = this.audioContext.createMediaStreamSource(stream);
       const analyser = this.audioContext.createAnalyser();
       analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.65;
       source.connect(analyser);
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       this.audioMonitorInterval = setInterval(() => {
+        const activeTrack = stream.getAudioTracks()[0];
+        if (!activeTrack || !activeTrack.enabled || activeTrack.readyState !== 'live') {
+          this.liveMicLevel = 0;
+          return;
+        }
+        if (this.audioContext?.state === 'suspended') {
+          this.audioContext.resume().catch(() => {});
+        }
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        this.liveMicLevel = Math.min(100, Math.round((avg / 65) * 100));
+        const isSpeakingNow = avg > 12;
+
         if (!this.activeCallId) return;
         const call = this.ongoingCalls.get(this.activeCallId);
         if (!call) return;
-        analyser.getByteFrequencyData(dataArray);
-        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        const isSpeakingNow = avg > 18;
 
-        const me = call.participants.find(p => !p.isMicMuted && p.userId === call.hostId);
-        if (me && me.isSpeaking !== isSpeakingNow) {
-          me.isSpeaking = isSpeakingNow;
+        const targetUid = this.localUserId || call.hostId;
+        const me = call.participants.find(p => p.userId === targetUid);
+        if (me && !me.isMicMuted && me.isSpeaking !== isSpeakingNow) {
+          const updatedParticipants = call.participants.map(p =>
+            p.userId === targetUid ? { ...p, isSpeaking: isSpeakingNow } : p
+          );
+          this.ongoingCalls.set(call.id, { ...call, participants: updatedParticipants });
           this.notifyCallListeners();
         }
-      }, 350);
+      }, 180);
     } catch (e) {}
   }
 
@@ -956,8 +1083,19 @@ class MeetingAndCallService {
       }
     });
 
+    this.localUserId = currentUser.id;
     await this.acquireLocalMedia(initialVideo, initialAudio);
     const hasVideoTrack = Boolean(this.localStream && this.localStream.getVideoTracks().length > 0 && initialVideo);
+    const hasAudioTrack = Boolean(this.localStream && this.localStream.getAudioTracks().length > 0 && initialAudio);
+
+    if (this.localStream) {
+      this.localStream.getVideoTracks().forEach(t => {
+        t.enabled = Boolean(initialVideo);
+      });
+      this.localStream.getAudioTracks().forEach(t => {
+        t.enabled = Boolean(initialAudio);
+      });
+    }
 
     const selfParticipant: VideoCallParticipant = {
       userId: currentUser.id,
@@ -965,14 +1103,14 @@ class MeetingAndCallService {
       email: currentUser.email,
       avatar: currentUser.avatar_url,
       role: currentUser.role,
-      isMicMuted: !initialAudio,
+      isMicMuted: !initialAudio || !hasAudioTrack,
       isCameraOff: !initialVideo || !hasVideoTrack,
       isScreenSharing: false,
       isHandRaised: false,
       isSpeaking: false,
       joinedAt: new Date().toISOString(),
       connectionState: 'connected',
-      backgroundMode: 'blur',
+      backgroundMode: 'none',
     };
 
     if (existingCall) {
@@ -1236,25 +1374,48 @@ class MeetingAndCallService {
     return updatedCall;
   }
 
-  public toggleMic(currentUserId: string): boolean {
+  public async toggleMic(currentUserId: string): Promise<boolean> {
     if (!this.activeCallId) return false;
     const call = this.ongoingCalls.get(this.activeCallId);
     if (!call) return false;
 
-    let nextMuted = false;
-    const updatedParticipants = call.participants.map(p => {
-      if (p.userId === currentUserId) {
-        nextMuted = !p.isMicMuted;
-        return { ...p, isMicMuted: nextMuted, isSpeaking: nextMuted ? false : p.isSpeaking };
+    const me = call.participants.find(p => p.userId === currentUserId);
+    const nextMuted = me ? !me.isMicMuted : false;
+
+    if (!nextMuted && (!this.localStream || this.localStream.getAudioTracks().length === 0)) {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: this.selectedAudioDeviceId
+            ? { deviceId: { exact: this.selectedAudioDeviceId }, echoCancellation: true, noiseSuppression: true }
+            : { echoCancellation: true, noiseSuppression: true },
+          video: false,
+        });
+        if (this.localStream) {
+          audioStream.getAudioTracks().forEach(t => this.localStream!.addTrack(t));
+        } else {
+          this.localStream = audioStream;
+        }
+        this.startAudioActivityMonitor(this.localStream);
+      } catch (e) {
+        console.warn('Microphone access error:', e);
       }
-      return p;
-    });
+    }
 
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach(track => {
         track.enabled = !nextMuted;
       });
     }
+    if (nextMuted) {
+      this.liveMicLevel = 0;
+    }
+
+    const updatedParticipants = call.participants.map(p => {
+      if (p.userId === currentUserId) {
+        return { ...p, isMicMuted: nextMuted, isSpeaking: nextMuted ? false : p.isSpeaking };
+      }
+      return p;
+    });
 
     const updatedCall = { ...call, participants: updatedParticipants };
     this.ongoingCalls.set(call.id, updatedCall);
@@ -1271,11 +1432,56 @@ class MeetingAndCallService {
     const me = call.participants.find(p => p.userId === currentUserId);
     const nextCameraOff = me ? !me.isCameraOff : false;
 
-    if (!nextCameraOff && (!this.localStream || this.localStream.getVideoTracks().length === 0)) {
-      await this.acquireLocalMedia(true, !me?.isMicMuted);
+    if (!nextCameraOff) {
+      const liveVideoTracks = this.localStream
+        ? this.localStream.getVideoTracks().filter(t => t.readyState === 'live')
+        : [];
+      if (liveVideoTracks.length === 0) {
+        try {
+          const camStream = await navigator.mediaDevices.getUserMedia({
+            video: this.selectedVideoDeviceId
+              ? { deviceId: { exact: this.selectedVideoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+              : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: false,
+          });
+          if (this.localStream) {
+            this.localStream.getVideoTracks().forEach(oldT => {
+              oldT.stop();
+              this.localStream?.removeTrack(oldT);
+            });
+            camStream.getVideoTracks().forEach(newT => {
+              newT.enabled = true;
+              this.localStream!.addTrack(newT);
+            });
+            // Clone stream reference so React effects depending on stream re-bind srcObject immediately
+            this.localStream = new MediaStream(this.localStream.getTracks());
+          } else {
+            this.localStream = camStream;
+          }
+          // Replace video track on active peer connections if any
+          const newVideoTrack = camStream.getVideoTracks()[0];
+          if (newVideoTrack) {
+            this.peerConnections.forEach(pc => {
+              const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+              if (sender) {
+                sender.replaceTrack(newVideoTrack).catch(() => {});
+              } else if (this.localStream) {
+                pc.addTrack(newVideoTrack, this.localStream);
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('Camera access failed:', err);
+          return true; // remain camera off if hardware/permission unavailable
+        }
+      } else if (this.localStream) {
+        this.localStream.getVideoTracks().forEach(track => {
+          track.enabled = true;
+        });
+      }
     } else if (this.localStream) {
       this.localStream.getVideoTracks().forEach(track => {
-        track.enabled = !nextCameraOff;
+        track.enabled = false;
       });
     }
 
@@ -1290,7 +1496,7 @@ class MeetingAndCallService {
     return nextCameraOff;
   }
 
-  public async toggleScreenShare(currentUserId: string): Promise<boolean> {
+  public async toggleScreenShare(currentUserId: string, forceBoardFallback = false): Promise<boolean> {
     if (!this.activeCallId) return false;
     const call = this.ongoingCalls.get(this.activeCallId);
     if (!call) return false;
@@ -1312,19 +1518,52 @@ class MeetingAndCallService {
       this.broadcastPacket('CALL_SESSION_SYNC', updatedCall);
       return false;
     } else {
-      try {
-        if (navigator.mediaDevices?.getDisplayMedia) {
-          const displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always' } as any,
-            audio: false,
-          });
-          this.screenStream = displayStream;
-          displayStream.getVideoTracks()[0]?.addEventListener('ended', () => {
-            this.stopScreenShare(currentUserId);
-          });
+      if (!forceBoardFallback) {
+        try {
+          if (navigator.mediaDevices?.getDisplayMedia) {
+            let displayStream: MediaStream;
+            try {
+              // Standard getDisplayMedia call that prompts the browser to choose Tab, Window, or Entire Screen
+              displayStream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                  cursor: 'always',
+                  displaySurface: 'monitor',
+                } as any,
+                audio: true,
+              });
+            } catch (firstErr: any) {
+              // If user explicitly cancelled the native browser picker, abort without turning on screen share
+              if (firstErr?.name === 'NotAllowedError' || firstErr?.name === 'AbortError') {
+                return false;
+              }
+              // Retry with video-only if audio: true was rejected by OS
+              displayStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+              });
+            }
+
+            this.screenStream = displayStream;
+            const screenTrack = displayStream.getVideoTracks()[0];
+            if (screenTrack) {
+              screenTrack.addEventListener('ended', () => {
+                this.stopScreenShare(currentUserId);
+              });
+              // Stream screen track to WebRTC peers
+              this.peerConnections.forEach(pc => {
+                const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+                if (sender) {
+                  sender.replaceTrack(screenTrack).catch(() => {});
+                }
+              });
+            }
+          }
+        } catch (err: any) {
+          // If user dismissed the dialog, do not enter screen share state
+          if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+            return false;
+          }
+          console.warn('getDisplayMedia error, falling back to interactive board presenter:', err);
         }
-      } catch (_err) {
-        // If user cancels native picker or iframe blocks getDisplayMedia, still allow workspace board presentation mode
       }
 
       const updatedParticipants = call.participants.map(p =>

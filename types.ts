@@ -113,6 +113,24 @@ export interface OrganizationInvitation {
   created_at: string;
 }
 
+export interface OrganizationJoinRequest {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  requester_id: string;
+  requester_name: string;
+  requester_email: string;
+  requester_avatar?: string;
+  requested_role: UserRole;
+  approved_role?: UserRole;
+  message?: string;
+  status: 'pending' | 'approved' | 'declined';
+  reviewed_by?: string;
+  reviewer_name?: string;
+  reviewed_at?: string;
+  created_at: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -178,6 +196,7 @@ export interface Sprint {
 export interface UserPresence {
   userId: string;
   sessionId?: string;
+  organizationId?: string;
   userName: string;
   userEmail?: string;
   userAvatar?: string;
@@ -189,6 +208,9 @@ export interface UserPresence {
   isTypingComment?: boolean;
   statusAction?: string;
   availabilityStatus?: 'available' | 'away' | 'busy';
+  isTabFocused?: boolean;
+  tabHiddenSince?: string;
+  lastInteractionAt?: string;
   lastActive: string;
   color: string;
   lastSeenLocally?: number;

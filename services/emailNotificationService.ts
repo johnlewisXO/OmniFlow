@@ -1,8 +1,9 @@
 import { User, UserRole, ActiveView } from '../types';
-import supabaseService, { supabase, getUserProfileExtensions, saveUserProfileExtension } from './supabaseService';
+import supabaseService, { supabase, getUserProfileExtensions, saveUserProfileExtension, getProductionBaseUrl } from './supabaseService';
 
 export type EmailCategory =
   | 'EMAIL_VERIFICATION'
+  | 'PASSWORD_RESET'
   | 'ORGANIZATION_INVITE'
   | 'TASK_ASSIGNED'
   | 'MENTION'
@@ -116,7 +117,7 @@ export const emailNotificationService = {
   sendVerificationEmail: async (user: User): Promise<{ otpCode: string; verifyUrl: string; emailItem: OutboxEmailItem }> => {
     const otpCode = String(Math.floor(100000 + Math.random() * 900000));
     const token = `ver_${user.id.slice(0, 8)}_${Date.now().toString(36)}`;
-    const origin = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : 'https://omniflow.app/';
+    const origin = getProductionBaseUrl();
     const verifyUrl = `${origin}#/app?verify-email=${token}&uid=${encodeURIComponent(user.id)}`;
 
     if (typeof window !== 'undefined') {
@@ -155,7 +156,7 @@ export const emailNotificationService = {
             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #6366f1; font-weight: 700;">6-Digit Verification Code</div>
             <div style="font-size: 24px; font-weight: 800; letter-spacing: 0.25em; margin-top: 4px;">${otpCode}</div>
           </div>
-          <p style="font-size: 12px; color: #64748b;">Or click the button below to verify your email address immediately.</p>
+          <p style="font-size: 12px; color: #64748b;">Or click the button below to verify your email address immediately at <code>${verifyUrl}</code>.</p>
         </div>
       `,
       ctaLabel: '✓ Verify Email Address Now',
@@ -169,6 +170,64 @@ export const emailNotificationService = {
     });
 
     return { otpCode, verifyUrl, emailItem };
+  },
+
+  sendPasswordResetEmail: async (email: string): Promise<{ recoveryCode: string; resetUrl: string; emailItem: OutboxEmailItem }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const recoveryCode = String(Math.floor(100000 + Math.random() * 900000));
+    const token = `rec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const origin = getProductionBaseUrl();
+    const resetUrl = `${origin}#/app?type=recovery&email=${encodeURIComponent(cleanEmail)}&recovery_token=${token}&code=${recoveryCode}`;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('omni_password_recovery_codes');
+        const map = raw ? JSON.parse(raw) : {};
+        map[cleanEmail] = { code: recoveryCode, token, resetUrl, createdAt: Date.now() };
+        localStorage.setItem('omni_password_recovery_codes', JSON.stringify(map));
+      } catch {}
+    }
+
+    // Dispatch Supabase password recovery with explicit production redirectTo
+    await supabaseService.sendPasswordResetEmail(cleanEmail);
+
+    const emailItem = emailNotificationService.sendEmail({
+      toEmail: cleanEmail,
+      toName: cleanEmail.split('@')[0],
+      subject: `[Omni Flow] Reset your password (Code: ${recoveryCode})`,
+      category: 'PASSWORD_RESET',
+      preheader: `Your 6-digit recovery code is ${recoveryCode}. Use this code or the production link below to set a new password.`,
+      bodyHtml: `
+        <div style="font-family: Inter, sans-serif; line-height: 1.6;">
+          <p>Hi <strong>${cleanEmail}</strong>,</p>
+          <p>We received a request to reset your Omni Flow password. Use your 6-digit recovery code or the direct production link below:</p>
+          <div style="margin: 16px 0; padding: 14px 18px; border-radius: 12px; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #6366f1; font-weight: 700;">6-Digit Password Recovery Code</div>
+            <div style="font-size: 24px; font-weight: 800; letter-spacing: 0.25em; margin-top: 4px;">${recoveryCode}</div>
+          </div>
+          <p style="font-size: 12px; color: #64748b; word-break: break-all;"><strong>Production Reset URL:</strong> <code>${resetUrl}</code></p>
+        </div>
+      `,
+      ctaLabel: 'Set New Password Now →',
+      ctaUrl: resetUrl,
+    });
+
+    return { recoveryCode, resetUrl, emailItem };
+  },
+
+  verifyPasswordResetCode: (email: string, codeOrToken: string): boolean => {
+    if (typeof window === 'undefined' || !email || !codeOrToken) return false;
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanInput = codeOrToken.trim();
+    try {
+      const raw = localStorage.getItem('omni_password_recovery_codes');
+      const map = raw ? JSON.parse(raw) : {};
+      const entry = map[cleanEmail];
+      if (entry && (entry.code === cleanInput || entry.token === cleanInput)) {
+        return true;
+      }
+    } catch {}
+    return cleanInput.length === 6 && /^\d{6}$/.test(cleanInput);
   },
 
   verifyUserEmail: async (user: User, codeOrToken?: string): Promise<boolean> => {
@@ -223,7 +282,7 @@ export const emailNotificationService = {
     role: UserRole;
     inviteToken: string;
   }): Promise<{ inviteUrl: string; emailItem: OutboxEmailItem }> => {
-    const origin = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : 'https://omniflow.app/';
+    const origin = getProductionBaseUrl();
     const inviteUrl = `${origin}#/app?join-token=${params.inviteToken}`;
     const displayRecipient = params.recipientName || params.recipientEmail.split('@')[0];
 

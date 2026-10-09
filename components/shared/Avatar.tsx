@@ -5,6 +5,7 @@ import { ICON_MAP } from '../../constants';
 import { useAppStore } from '../../hooks/useAppStore';
 import { getE2EEKeyFingerprint } from '../../services/chatService';
 import { getUserProfileExtensions } from '../../services/supabaseService';
+import { formatAccurateLastSeen } from '../../services/collabService';
 
 interface AvatarProps {
   user?: User;
@@ -162,9 +163,11 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   const isMe = currentUser?.id === user.id;
   const isOnline = isMe || Boolean(presence);
+  const lastSeenInfo = formatAccurateLastSeen(presence, user.id, user.email, isMe);
 
-  let availability: 'available' | 'away' | 'busy' = presence?.availabilityStatus || 'available';
-  if (typeof window !== 'undefined') {
+  let availability: 'available' | 'away' | 'busy' =
+    lastSeenInfo.isAwayFromTab ? 'away' : (presence?.availabilityStatus || 'available');
+  if (!lastSeenInfo.isAwayFromTab && typeof window !== 'undefined') {
     try {
       const raw = localStorage.getItem('omni_team_statuses');
       const map = raw ? JSON.parse(raw) : {};
@@ -203,6 +206,8 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   const statusBadgeText = !isOnline
     ? 'Offline'
+    : lastSeenInfo.isAwayFromTab
+    ? 'Away from tab'
     : availability === 'away'
     ? 'Away'
     : availability === 'busy'
@@ -315,21 +320,34 @@ export const Avatar: React.FC<AvatarProps> = ({
               </div>
 
               {isOnline ? (
-                <div className="text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping flex-shrink-0" />
-                  <span className="truncate">
-                    {presence?.isTypingComment
-                      ? '✍️ Typing a task comment...'
-                      : presence?.isEditing
-                      ? `✏️ Editing ${presence.editingField || 'task'}...`
-                      : focusedTask
-                      ? `👁️ Viewing "${focusedTask.title}"`
-                      : `📍 Active in ${activeViewLabel}`}
-                  </span>
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                        lastSeenInfo.isAwayFromTab
+                          ? 'bg-amber-400'
+                          : 'bg-indigo-500 animate-ping'
+                      }`}
+                    />
+                    <span className="truncate">
+                      {presence?.isTypingComment
+                        ? '✍️ Typing a task comment...'
+                        : presence?.isEditing
+                        ? `✏️ Editing ${presence.editingField || 'task'}...`
+                        : focusedTask
+                        ? `👁️ Viewing "${focusedTask.title}"`
+                        : `📍 Active in ${activeViewLabel}`}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <ICON_MAP.ClockIcon className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                    <span className="truncate">{lastSeenInfo.lastSeenText}</span>
+                  </div>
                 </div>
               ) : (
-                <div className="text-[11px] text-slate-400">
-                  Currently offline · Async notifications enabled
+                <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <ICON_MAP.ClockIcon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                  <span>{lastSeenInfo.lastSeenText} · Async alerts active</span>
                 </div>
               )}
 

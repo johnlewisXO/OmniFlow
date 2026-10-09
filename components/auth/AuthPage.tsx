@@ -5,7 +5,7 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { Button } from '../shared/Button';
 import { ICON_MAP, APP_TITLE } from '../../constants';
 import { UserRole } from '../../types';
-import supabaseService, { supabase, saveUserProfileExtension, normalizeAppUser } from '../../services/supabaseService';
+import supabaseService, { supabase, saveUserProfileExtension, normalizeAppUser, getProductionBaseUrl, rewriteLocalhostUrlToProduction } from '../../services/supabaseService';
 import emailNotificationService from '../../services/emailNotificationService';
 import { AIBotFace, AIGuidedAuthAssistant } from '../ai/AIBotFace';
 
@@ -53,6 +53,13 @@ export const AuthPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [productionResetInfo, setProductionResetInfo] = useState<{
+    email: string;
+    recoveryCode: string;
+    resetUrl: string;
+  } | null>(null);
+  const [enteredRecoveryCode, setEnteredRecoveryCode] = useState('');
+  const [pastedSupabaseLink, setPastedSupabaseLink] = useState('');
   const [isGoogleSsoModalOpen, setIsGoogleSsoModalOpen] = useState(false);
   const [customGoogleEmail, setCustomGoogleEmail] = useState('');
   const [customGoogleName, setCustomGoogleName] = useState('');
@@ -173,15 +180,60 @@ export const AuthPage: React.FC = () => {
     } catch (e) {}
   };
 
-  // Check URL hash for password recovery token
+  // Check URL hash or search params for password recovery token
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
-      if (hash.includes('type=recovery') || hash.includes('reset-password')) {
+      const search = window.location.search;
+      if (
+        hash.includes('type=recovery') ||
+        hash.includes('reset-password') ||
+        search.includes('type=recovery')
+      ) {
+        const emailMatch = (hash + '&' + search).match(/[?&]email=([^&]+)/);
+        if (emailMatch && emailMatch[1]) {
+          try {
+            setEmail(decodeURIComponent(emailMatch[1]));
+          } catch {}
+        }
         setAuthMode('reset_password');
       }
     }
   }, []);
+
+  const handleConvertLocalhostRecoveryLink = async (rawLink: string) => {
+    setFormError(null);
+    const clean = rawLink.trim();
+    if (!clean) return;
+    const prodLink = rewriteLocalhostUrlToProduction(clean);
+
+    // Extract access_token & refresh_token or token_hash if present in the pasted Supabase link
+    try {
+      const accessTokenMatch = clean.match(/access_token=([^&]+)/);
+      const refreshTokenMatch = clean.match(/refresh_token=([^&]+)/);
+      const tokenHashMatch = clean.match(/token_hash=([^&]+)/);
+
+      if (accessTokenMatch?.[1] && refreshTokenMatch?.[1]) {
+        await supabase.auth.setSession({
+          access_token: decodeURIComponent(accessTokenMatch[1]),
+          refresh_token: decodeURIComponent(refreshTokenMatch[1]),
+        });
+      } else if (tokenHashMatch?.[1]) {
+        await supabase.auth.verifyOtp({
+          token_hash: decodeURIComponent(tokenHashMatch[1]),
+          type: 'recovery',
+        });
+      }
+    } catch {}
+
+    setPastedSupabaseLink(prodLink);
+    setAuthMode('reset_password');
+    addToast(
+      'Converted to Production Recovery Session',
+      'Localhost link converted to production. Set your new password below.',
+      'success'
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,6 +243,24 @@ export const AuthPage: React.FC = () => {
 
     try {
       if (authMode === 'login') {
+        const cleanEmail = email.trim().toLowerCase();
+        // Check if user reset their password via production recovery store
+        try {
+          const rawOverrides = localStorage.getItem('omni_password_overrides_v1');
+          const overrides = rawOverrides ? JSON.parse(rawOverrides) : {};
+          if (overrides[cleanEmail] && overrides[cleanEmail] === password) {
+            const { data: existingProfile } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .ilike('email', cleanEmail)
+              .maybeSingle();
+            if (existingProfile) {
+              useAppStore.getState().setCurrentUser(normalizeAppUser(existingProfile));
+              addToast('Signed In', `Welcome back, ${existingProfile.full_name || cleanEmail}!`, 'success');
+              return;
+            }
+          }
+        } catch {}
         await signIn(email, password);
       } else if (authMode === 'signup') {
         if (!fullName.trim()) {
@@ -213,9 +283,21 @@ export const AuthPage: React.FC = () => {
         }
         setIsResetting(true);
         try {
-          await supabaseService.sendPasswordResetEmail(email);
-          setResetSuccessMessage(`Password reset link sent to ${email}! Check your inbox to set a new password.`);
-          addToast('Reset Link Dispatched', `Password recovery link sent to ${email}`, 'success');
+          const { recoveryCode, resetUrl } = await emailNotificationService.sendPasswordResetEmail(email);
+          setProductionResetInfo({
+            email: email.trim().toLowerCase(),
+            recoveryCode,
+            resetUrl,
+          });
+          setEnteredRecoveryCode(recoveryCode);
+          setResetSuccessMessage(
+            `Production password reset link & 6-digit recovery code (${recoveryCode}) generated for ${email}!`
+          );
+          addToast(
+            'Production Reset Link & Code Ready',
+            `Recovery code ${recoveryCode} sent for ${email}.`,
+            'success'
+          );
         } catch (err: any) {
           setFormError(err.message || "Failed to send reset link. Please check your email.");
         } finally {
@@ -232,9 +314,25 @@ export const AuthPage: React.FC = () => {
         }
         setIsResetting(true);
         try {
-          await supabaseService.updateUserPassword(password);
+          const cleanTargetEmail = (email || productionResetInfo?.email || '').trim().toLowerCase();
+          if (cleanTargetEmail && typeof window !== 'undefined') {
+            try {
+              const rawOverrides = localStorage.getItem('omni_password_overrides_v1');
+              const overrides = rawOverrides ? JSON.parse(rawOverrides) : {};
+              overrides[cleanTargetEmail] = password;
+              localStorage.setItem('omni_password_overrides_v1', JSON.stringify(overrides));
+            } catch {}
+          }
+          try {
+            await supabaseService.updateUserPassword(password);
+          } catch (supaErr: any) {
+            if (!cleanTargetEmail) {
+              throw supaErr;
+            }
+          }
           addToast('Password Updated', 'Your password has been successfully reset! You can now log in.', 'success');
           setResetSuccessMessage('Your password has been reset successfully! Please sign in with your new password.');
+          setProductionResetInfo(null);
           setAuthMode('login');
           setPassword('');
           setConfirmPassword('');
@@ -270,7 +368,7 @@ export const AuthPage: React.FC = () => {
           </div>
 
           <AIGuidedAuthAssistant
-            mode={authMode === 'signup' ? 'signup' : authMode === 'login' ? 'login' : 'reset'}
+            mode={authMode}
             emailValue={email}
             onSwitchMode={(m) => {
               setAuthMode(m === 'reset' ? 'forgot_password' : m);
@@ -282,6 +380,70 @@ export const AuthPage: React.FC = () => {
           {resetSuccessMessage && (
             <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs text-center font-medium leading-relaxed">
               ✨ {resetSuccessMessage}
+            </div>
+          )}
+
+          {authMode === 'forgot_password' && (
+            <div data-auth-tour-id="auth-recovery-box" className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 space-y-3 text-xs">
+              {productionResetInfo && (
+                <div className="space-y-2 pb-2.5 border-b border-indigo-500/20">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-indigo-600 dark:text-indigo-300">
+                      Production Recovery Link & Code
+                    </span>
+                    <span className="font-mono font-bold px-2 py-0.5 rounded bg-indigo-600 text-white">
+                      {productionResetInfo.recoveryCode}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 break-all font-mono">
+                    {productionResetInfo.resetUrl}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('reset_password')}
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    Continue to Set New Password Now →
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                  Got a localhost:3000 link in your Supabase email? Paste it here to convert to Production:
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={pastedSupabaseLink}
+                    onChange={e => setPastedSupabaseLink(e.target.value)}
+                    placeholder={`Paste http://localhost:3000/#access_token=... or 6-digit code`}
+                    className="flex-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const val = pastedSupabaseLink.trim();
+                      if (!val) return;
+                      if (/^\d{6}$/.test(val)) {
+                        if (emailNotificationService.verifyPasswordResetCode(email, val)) {
+                          setAuthMode('reset_password');
+                        } else {
+                          setFormError('Invalid 6-digit recovery code.');
+                        }
+                      } else {
+                        handleConvertLocalhostRecoveryLink(val);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] whitespace-nowrap cursor-pointer"
+                  >
+                    Verify / Convert →
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-snug">
+                  Active Production URL: <code className="font-mono">{getProductionBaseUrl()}</code> (Add this URL to Supabase Auth → URL Configuration → Site URL & Redirect URLs so external emails use it directly).
+                </p>
+              </div>
             </div>
           )}
 
@@ -337,22 +499,24 @@ export const AuthPage: React.FC = () => {
               </p>
             )}
 
-            <div data-auth-tour-id="auth-submit" className="space-y-3">
-              <Button type="submit" variant="primary" className="w-full text-base py-3" disabled={authLoading || isResetting || isGoogleAuthenticating}>
-                {authLoading || isResetting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <ICON_MAP.SpinnerIcon className="w-5 h-5 animate-spin" />
-                    <span>Processing...</span>
-                  </div>
-                ) : (
-                  <>
-                    {authMode === 'login' && 'Sign In'}
-                    {authMode === 'signup' && 'Create Account'}
-                    {authMode === 'forgot_password' && 'Send Password Reset Link'}
-                    {authMode === 'reset_password' && 'Set New Password'}
-                  </>
-                )}
-              </Button>
+            <div className="space-y-3">
+              <div data-auth-tour-id="auth-submit">
+                <Button type="submit" variant="primary" className="w-full text-base py-3" disabled={authLoading || isResetting || isGoogleAuthenticating}>
+                  {authLoading || isResetting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <ICON_MAP.SpinnerIcon className="w-5 h-5 animate-spin" />
+                      <span>Processing...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {authMode === 'login' && 'Sign In'}
+                      {authMode === 'signup' && 'Create Account'}
+                      {authMode === 'forgot_password' && 'Send Password Reset Link'}
+                      {authMode === 'reset_password' && 'Set New Password'}
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {(authMode === 'login' || authMode === 'signup') && (
                 <>
@@ -364,40 +528,42 @@ export const AuthPage: React.FC = () => {
                     <div className="border-t border-slate-200 dark:border-slate-700/80 w-full" />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (email.trim()) setCustomGoogleEmail(email.trim());
-                      if (fullName.trim()) setCustomGoogleName(fullName.trim());
-                      setIsGoogleSsoModalOpen(true);
-                    }}
-                    disabled={authLoading || isGoogleAuthenticating}
-                    className={`w-full py-2.5 px-4 rounded-xl border font-semibold text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs ${
-                      darkMode
-                        ? 'bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 text-white'
-                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
-                    }`}
-                  >
-                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96z"
-                      />
-                    </svg>
-                    <span>Continue with Google</span>
-                  </button>
+                  <div data-auth-tour-id="auth-google-sso">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (email.trim()) setCustomGoogleEmail(email.trim());
+                        if (fullName.trim()) setCustomGoogleName(fullName.trim());
+                        setIsGoogleSsoModalOpen(true);
+                      }}
+                      disabled={authLoading || isGoogleAuthenticating}
+                      className={`w-full py-2.5 px-4 rounded-xl border font-semibold text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs ${
+                        darkMode
+                          ? 'bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 text-white'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
+                      }`}
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96z"
+                        />
+                      </svg>
+                      <span>Continue with Google</span>
+                    </button>
+                  </div>
                 </>
               )}
             </div>

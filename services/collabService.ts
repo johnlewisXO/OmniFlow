@@ -34,6 +34,136 @@ export interface CollabUserStatusPayload {
 }
 
 const ACTIVE_PRESENCES_STORAGE_KEY = 'omni_active_presences_v2';
+const LAST_SEEN_STORAGE_KEY = 'omni_user_last_seen_v1';
+
+export interface AccurateLastSeenInfo {
+  isOnline: boolean;
+  isAwayFromTab: boolean;
+  statusLabel: string;
+  lastSeenText: string;
+  dotColorClass: string;
+}
+
+export const formatRelativeDuration = (timestampMs: number, nowMs = Date.now()): string => {
+  const diffSec = Math.max(1, Math.floor((nowMs - timestampMs) / 1000));
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ${diffMin % 60}m ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  return `${diffDays}d ago`;
+};
+
+export const getStoredLastSeenForUser = (userId?: string, userEmail?: string): {
+  lastActive?: string;
+  tabHiddenSince?: string;
+  isTabFocused?: boolean;
+  organizationId?: string;
+} | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LAST_SEEN_STORAGE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw);
+    if (userId && map[userId]) return map[userId];
+    if (userEmail && map[userEmail.toLowerCase()]) return map[userEmail.toLowerCase()];
+  } catch {}
+  return null;
+};
+
+export const formatAccurateLastSeen = (
+  presence?: UserPresence | null,
+  userId?: string,
+  userEmail?: string,
+  isSelf = false
+): AccurateLastSeenInfo => {
+  const now = Date.now();
+  const stored = getStoredLastSeenForUser(userId || presence?.userId, userEmail || presence?.userEmail);
+
+  if (isSelf && !presence) {
+    return {
+      isOnline: true,
+      isAwayFromTab: false,
+      statusLabel: 'Available',
+      lastSeenText: 'Active now (This tab)',
+      dotColorClass: 'bg-emerald-500',
+    };
+  }
+
+  if (presence) {
+    const avail = presence.availabilityStatus || 'available';
+    const tabHiddenIso = presence.tabHiddenSince || (presence.isTabFocused === false ? presence.lastActive : undefined);
+    const lastInteractionIso = presence.lastInteractionAt || presence.lastActive;
+    const lastInteractionMs = lastInteractionIso ? new Date(lastInteractionIso).getTime() : now;
+    const idleSec = Math.floor((now - lastInteractionMs) / 1000);
+
+    // Check if user switched away from browser tab or has been idle on tab > 2 minutes
+    const isTabAway = presence.isTabFocused === false && Boolean(tabHiddenIso);
+    const tabAwayMs = tabHiddenIso ? new Date(tabHiddenIso).getTime() : now;
+    const tabAwaySec = Math.max(1, Math.floor((now - tabAwayMs) / 1000));
+
+    if (isTabAway && tabAwaySec >= 10) {
+      return {
+        isOnline: true,
+        isAwayFromTab: true,
+        statusLabel: 'Away from tab',
+        lastSeenText: `Away from tab • Last seen ${formatRelativeDuration(tabAwayMs, now)}`,
+        dotColorClass: 'bg-amber-400',
+      };
+    }
+
+    if (idleSec >= 120 || avail === 'away') {
+      return {
+        isOnline: true,
+        isAwayFromTab: true,
+        statusLabel: 'Away',
+        lastSeenText: `Idle • Last active ${formatRelativeDuration(lastInteractionMs, now)}`,
+        dotColorClass: 'bg-amber-400',
+      };
+    }
+
+    if (avail === 'busy') {
+      return {
+        isOnline: true,
+        isAwayFromTab: false,
+        statusLabel: 'Busy / DND',
+        lastSeenText: 'Active now • Do Not Disturb',
+        dotColorClass: 'bg-rose-500',
+      };
+    }
+
+    return {
+      isOnline: true,
+      isAwayFromTab: false,
+      statusLabel: 'Available',
+      lastSeenText: idleSec < 25 ? 'Active right now' : `Active • ${idleSec}s ago`,
+      dotColorClass: 'bg-emerald-500',
+    };
+  }
+
+  // Offline user: check stored lastSeen timestamp
+  if (stored?.lastActive) {
+    const ms = new Date(stored.lastActive).getTime();
+    if (!isNaN(ms)) {
+      return {
+        isOnline: false,
+        isAwayFromTab: false,
+        statusLabel: 'Offline',
+        lastSeenText: `Last seen ${formatRelativeDuration(ms, now)}`,
+        dotColorClass: 'bg-slate-400',
+      };
+    }
+  }
+
+  return {
+    isOnline: false,
+    isAwayFromTab: false,
+    statusLabel: 'Offline',
+    lastSeenText: 'Offline',
+    dotColorClass: 'bg-slate-400',
+  };
+};
 
 const normalizePriority = (raw?: string): string | undefined => {
   if (!raw) return undefined;
@@ -68,6 +198,10 @@ class CollabService {
 
   private lastPresenceReplyTime = 0;
   private lastRequestRemoteTime = 0;
+  private isTabFocused = true;
+  private tabHiddenSince: string | undefined = undefined;
+  private lastInteractionAt: string = new Date().toISOString();
+  private lastActivityUpdateMs = 0;
   private recentCommentIds = new Set<string>();
   private recentTaskUpdates = new Map<string, number>();
   public readonly sessionId: string =
@@ -79,8 +213,92 @@ class CollabService {
     this.hydrateStoredPresences();
     this.initBroadcastChannel();
     this.initSupabaseRealtime();
+    this.initTabAndActivityTracking();
     this.startHeartbeat();
     this.initUnloadListener();
+  }
+
+  private persistUserLastSeen(p: UserPresence) {
+    if (typeof window === 'undefined' || !p?.userId) return;
+    try {
+      const raw = localStorage.getItem(LAST_SEEN_STORAGE_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      const entry = {
+        lastActive: p.lastInteractionAt || p.lastActive || new Date().toISOString(),
+        tabHiddenSince: p.tabHiddenSince,
+        isTabFocused: p.isTabFocused ?? true,
+        organizationId: p.organizationId,
+      };
+      map[p.userId] = entry;
+      if (p.userEmail) map[p.userEmail.toLowerCase()] = entry;
+      localStorage.setItem(LAST_SEEN_STORAGE_KEY, JSON.stringify(map));
+    } catch {}
+  }
+
+  private initTabAndActivityTracking() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const handleVisibilityOrFocusChange = (focused: boolean) => {
+      const nowIso = new Date().toISOString();
+      if (!focused) {
+        if (this.isTabFocused) {
+          this.isTabFocused = false;
+          this.tabHiddenSince = nowIso;
+          if (this.currentUser) {
+            this.updatePresence();
+          }
+        }
+      } else {
+        this.isTabFocused = true;
+        this.tabHiddenSince = undefined;
+        this.lastInteractionAt = nowIso;
+        this.lastActivityUpdateMs = Date.now();
+        if (this.currentUser) {
+          this.updatePresence();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      handleVisibilityOrFocusChange(document.visibilityState === 'visible');
+    });
+
+    window.addEventListener('focus', () => handleVisibilityOrFocusChange(true));
+    window.addEventListener('blur', () => {
+      // If document is hidden or window blurred, mark tab unfocused
+      if (document.visibilityState === 'hidden') {
+        handleVisibilityOrFocusChange(false);
+      } else {
+        this.isTabFocused = false;
+        this.tabHiddenSince = new Date().toISOString();
+        if (this.currentUser) {
+          this.updatePresence();
+        }
+      }
+    });
+
+    const recordUserInteraction = () => {
+      const now = Date.now();
+      if (!this.isTabFocused) {
+        handleVisibilityOrFocusChange(true);
+        return;
+      }
+      if (now - this.lastActivityUpdateMs > 10000) {
+        this.lastActivityUpdateMs = now;
+        this.lastInteractionAt = new Date(now).toISOString();
+        if (this.currentPresence) {
+          this.currentPresence.lastInteractionAt = this.lastInteractionAt;
+          this.currentPresence.isTabFocused = true;
+          this.currentPresence.tabHiddenSince = undefined;
+          this.persistUserLastSeen(this.currentPresence);
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', recordUserInteraction, { passive: true });
+    window.addEventListener('keydown', recordUserInteraction, { passive: true });
+    window.addEventListener('mousedown', recordUserInteraction, { passive: true });
+    window.addEventListener('touchstart', recordUserInteraction, { passive: true });
   }
 
   private hydrateStoredPresences() {
@@ -173,9 +391,11 @@ class CollabService {
     if (!p) return '';
     return [
       p.userId,
+      p.organizationId || '',
       p.currentProjectId || '',
       p.currentView || '',
       p.availabilityStatus || 'available',
+      p.isTabFocused === false ? '0' : '1',
     ].join('|');
   }
 
@@ -183,12 +403,16 @@ class CollabService {
     return {
       userId: p.userId,
       sessionId: p.sessionId,
+      organizationId: p.organizationId,
       userName: p.userName,
       userEmail: p.userEmail,
       userAvatar: p.userAvatar,
       currentProjectId: p.currentProjectId,
       currentView: p.currentView,
       availabilityStatus: p.availabilityStatus,
+      isTabFocused: p.isTabFocused,
+      tabHiddenSince: p.tabHiddenSince,
+      lastInteractionAt: p.lastInteractionAt,
       color: p.color,
     };
   }
@@ -197,6 +421,7 @@ class CollabService {
     if (!p) return '';
     return [
       p.userId,
+      p.organizationId || '',
       p.currentTaskId || '',
       p.currentProjectId || '',
       p.currentView || '',
@@ -204,6 +429,8 @@ class CollabService {
       p.editingField || '',
       p.isTypingComment ? 1 : 0,
       p.availabilityStatus || 'available',
+      p.isTabFocused === false ? 0 : 1,
+      p.tabHiddenSince || '',
       p.statusAction || '',
     ].join('|');
   }
@@ -594,7 +821,9 @@ class CollabService {
   public ingestRemotePresence(payload: UserPresence) {
     if (!payload || !payload.userId || payload.sessionId === this.sessionId) return;
     const key = payload.sessionId || payload.userId;
-    this.presencesMap.set(key, { ...payload, lastSeenLocally: Date.now() });
+    const enriched: UserPresence = { ...payload, lastSeenLocally: Date.now() };
+    this.presencesMap.set(key, enriched);
+    this.persistUserLastSeen(enriched);
     this.persistActivePresencesToStorage();
     this.notifyPresencesChange();
   }
@@ -905,6 +1134,7 @@ class CollabService {
     this.currentPresence = {
       userId: this.currentUser.id,
       sessionId: this.sessionId,
+      organizationId: this.currentUser.organization_id,
       userName: this.currentUser.full_name || this.currentUser.email || 'You',
       userEmail: this.currentUser.email,
       userAvatar: this.currentUser.avatar_url,
@@ -916,6 +1146,9 @@ class CollabService {
       isTypingComment: resolvedTaskId ? (flags?.isTypingComment !== undefined ? flags.isTypingComment : (this.currentPresence?.isTypingComment || false)) : false,
       statusAction: flags?.statusAction ?? this.currentPresence?.statusAction,
       availabilityStatus: resolvedAvailability,
+      isTabFocused: this.isTabFocused,
+      tabHiddenSince: this.tabHiddenSince,
+      lastInteractionAt: this.lastInteractionAt,
       lastActive: new Date().toISOString(),
       lastSeenLocally: Date.now(),
       color: userColor,
@@ -923,6 +1156,7 @@ class CollabService {
 
     // Keep self in map under this tab's sessionId
     this.presencesMap.set(this.sessionId, this.currentPresence);
+    this.persistUserLastSeen(this.currentPresence);
     this.persistActivePresencesToStorage();
     this.notifyPresencesChange();
 
@@ -1018,12 +1252,24 @@ class CollabService {
   }
 
   public getActivePresences(): UserPresence[] {
+    // Security: If the current user is not authenticated or does not belong to an organization yet,
+    // never expose online presences of other users.
+    const myOrgId = this.currentUser?.organization_id;
+    if (!this.currentUser || !myOrgId) {
+      return this.currentPresence ? [this.currentPresence] : [];
+    }
+
     const now = Date.now();
     const active: UserPresence[] = [];
 
     this.presencesMap.forEach((p, key) => {
       if (key === this.sessionId || p.sessionId === this.sessionId) {
         active.push(p);
+        return;
+      }
+      // Enforce strict organization isolation: if the remote presence has an organizationId,
+      // it MUST match the current user's organizationId.
+      if (p.organizationId && p.organizationId !== myOrgId) {
         return;
       }
       const lastSeen = p.lastSeenLocally || (p.lastActive ? new Date(p.lastActive).getTime() : now);

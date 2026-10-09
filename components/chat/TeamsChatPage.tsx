@@ -14,7 +14,7 @@ import {
   VideoCallSession,
 } from '../../types';
 import chatService, { getE2EEKeyFingerprint } from '../../services/chatService';
-import { collabService } from '../../services/collabService';
+import { collabService, formatAccurateLastSeen } from '../../services/collabService';
 import supabaseService, { supabase, saveUserProfileExtension } from '../../services/supabaseService';
 import emailNotificationService from '../../services/emailNotificationService';
 import meetingAndCallService from '../../services/meetingAndCallService';
@@ -386,11 +386,11 @@ export const TeamsChatPage: React.FC = () => {
   const directMessageUsers = useMemo(() => {
     const map = new Map<string, User>();
     const myOrgId = currentUser?.organization_id;
+    if (!myOrgId) return [];
 
     (users || []).forEach(u => {
       if (u && u.id && u.id !== currentUser?.id) {
-        const belongsToOrg = myOrgId ? u.organization_id === myOrgId : true;
-        if (belongsToOrg) {
+        if (u.organization_id === myOrgId) {
           map.set(u.id, sanitizeUserRecord(u, myOrgId));
         }
       }
@@ -404,8 +404,7 @@ export const TeamsChatPage: React.FC = () => {
           if (Array.isArray(customList)) {
             customList.forEach(cu => {
               if (cu && cu.id && cu.id !== currentUser?.id && !map.has(cu.id)) {
-                const belongsToOrg = myOrgId ? cu.organization_id === myOrgId : true;
-                if (belongsToOrg) {
+                if (cu.organization_id === myOrgId) {
                   map.set(cu.id, sanitizeUserRecord(cu, myOrgId));
                 }
               }
@@ -425,7 +424,7 @@ export const TeamsChatPage: React.FC = () => {
             (pEmail && safeEmail(u).toLowerCase() === pEmail) ||
             (pName && safeName(u).toLowerCase() === pName)
         );
-        if (matchingOrgUser && (!myOrgId || matchingOrgUser.organization_id === myOrgId)) {
+        if (matchingOrgUser && matchingOrgUser.organization_id === myOrgId) {
           map.set(matchingOrgUser.id, sanitizeUserRecord(matchingOrgUser, myOrgId));
         }
       }
@@ -1021,8 +1020,11 @@ export const TeamsChatPage: React.FC = () => {
                     const isActive = activeDirectUserId === user.id;
                     const userPresence = findPresenceForUser(user);
                     const isOnline = Boolean(userPresence);
+                    const lsInfo = formatAccurateLastSeen(userPresence, user.id, user.email, false);
                     const isUserTyping = isOnline && Boolean(typingUsers[user.id] && typingUsers[user.id].length > 0);
-                    const userAvailability: 'available' | 'away' | 'busy' = getAvailabilityForUser(user, userPresence);
+                    const userAvailability: 'available' | 'away' | 'busy' = lsInfo.isAwayFromTab
+                      ? 'away'
+                      : getAvailabilityForUser(user, userPresence);
                     const hasHistory = currentUser
                       ? chatService.hasDirectConversationHistory(currentUser.id, user.id)
                       : false;
@@ -1033,12 +1035,13 @@ export const TeamsChatPage: React.FC = () => {
                       : userAvailability === 'busy'
                       ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.85)]'
                       : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]';
-                    const statusLabel =
-                      userAvailability === 'away'
-                        ? 'Away'
-                        : userAvailability === 'busy'
-                        ? 'Busy / DND'
-                        : 'Available';
+                    const statusLabel = lsInfo.isAwayFromTab
+                      ? 'Away from tab'
+                      : userAvailability === 'away'
+                      ? 'Away'
+                      : userAvailability === 'busy'
+                      ? 'Busy / DND'
+                      : 'Available';
 
                     return (
                       <button
@@ -1085,16 +1088,12 @@ export const TeamsChatPage: React.FC = () => {
                               {isUserTyping
                                 ? '✍️ Typing...'
                                 : isOnline
-                                ? `${statusLabel}${
-                                    userPresence?.currentTaskId
-                                      ? ' · Viewing task'
-                                      : userPresence?.currentView === 'team_chat_view'
-                                      ? ' · In chat'
-                                      : ''
-                                  }`
+                                ? lsInfo.isAwayFromTab
+                                  ? lsInfo.lastSeenText
+                                  : `${statusLabel} · ${lsInfo.lastSeenText}`
                                 : !hasHistory
-                                ? 'New · Start E2EE Chat'
-                                : normalizeUserRole(user.role).replace(/_/g, ' ')}
+                                ? `New · ${lsInfo.lastSeenText}`
+                                : lsInfo.lastSeenText}
                             </span>
                           </div>
                         </div>
@@ -1147,12 +1146,17 @@ export const TeamsChatPage: React.FC = () => {
                 (() => {
                   const directPresence = findPresenceForUser(activeDirectUser);
                   const isDirectUserOnline = Boolean(directPresence);
+                  const directLsInfo = formatAccurateLastSeen(
+                    directPresence,
+                    activeDirectUser.id,
+                    activeDirectUser.email,
+                    false
+                  );
                   const directTypingList = typingUsers[activeDirectUser.id] || [];
                   const isDirectUserTyping = isDirectUserOnline && directTypingList.length > 0;
-                  const directAvailability: 'available' | 'away' | 'busy' = getAvailabilityForUser(
-                    activeDirectUser,
-                    directPresence
-                  );
+                  const directAvailability: 'available' | 'away' | 'busy' = directLsInfo.isAwayFromTab
+                    ? 'away'
+                    : getAvailabilityForUser(activeDirectUser, directPresence);
                   const e2eeFingerprint = currentUser
                     ? getE2EEKeyFingerprint(currentUser.id, activeDirectUser.id)
                     : '';
@@ -1163,12 +1167,13 @@ export const TeamsChatPage: React.FC = () => {
                     : directAvailability === 'busy'
                     ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)]'
                     : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse';
-                  const directStatusText =
-                    directAvailability === 'away'
-                      ? 'Away'
-                      : directAvailability === 'busy'
-                      ? 'Busy / DND'
-                      : 'Available';
+                  const directStatusText = directLsInfo.isAwayFromTab
+                    ? 'Away from tab'
+                    : directAvailability === 'away'
+                    ? 'Away'
+                    : directAvailability === 'busy'
+                    ? 'Busy / DND'
+                    : 'Available';
                   return (
                     <>
                       <div className="relative flex-shrink-0">
@@ -1245,7 +1250,7 @@ export const TeamsChatPage: React.FC = () => {
                                     : 'text-emerald-600 dark:text-emerald-400'
                                 }`}
                               >
-                                {directStatusText}
+                                {directStatusText} · {directLsInfo.lastSeenText}
                                 {directPresence?.currentTaskId
                                   ? ' · Viewing task'
                                   : directPresence?.currentView === 'team_chat_view'
@@ -1256,7 +1261,9 @@ export const TeamsChatPage: React.FC = () => {
                           ) : (
                             <>
                               <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
-                              <span className="text-slate-400 font-medium">Offline</span>
+                              <span className="text-slate-400 font-medium">
+                                Offline · {directLsInfo.lastSeenText}
+                              </span>
                             </>
                           )}
                           <span>·</span>
