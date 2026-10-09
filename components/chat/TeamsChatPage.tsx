@@ -1307,6 +1307,9 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (!currentUser) return;
+                  const onlineChannelPeers = activeChannelMembers.filter(
+                    m => m.id !== currentUser.id && Boolean(findPresenceForUser(m))
+                  );
                   window.dispatchEvent(
                     new CustomEvent('omni_start_video_call', {
                       detail: {
@@ -1316,9 +1319,7 @@ export const TeamsChatPage: React.FC = () => {
                         type: activeDirectUser ? 'direct' : 'channel',
                         channelId: activeDirectUser ? undefined : activeChannel?.id,
                         directUser: activeDirectUser || undefined,
-                        invitedUsers: activeDirectUser
-                          ? [activeDirectUser]
-                          : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                        invitedUsers: activeDirectUser ? [activeDirectUser] : onlineChannelPeers,
                         initialVideo: true,
                         initialAudio: true,
                         showLobby: false,
@@ -1342,6 +1343,9 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (!currentUser) return;
+                  const onlineChannelPeers = activeChannelMembers.filter(
+                    m => m.id !== currentUser.id && Boolean(findPresenceForUser(m))
+                  );
                   window.dispatchEvent(
                     new CustomEvent('omni_start_video_call', {
                       detail: {
@@ -1351,9 +1355,7 @@ export const TeamsChatPage: React.FC = () => {
                         type: activeDirectUser ? 'direct' : 'channel',
                         channelId: activeDirectUser ? undefined : activeChannel?.id,
                         directUser: activeDirectUser || undefined,
-                        invitedUsers: activeDirectUser
-                          ? [activeDirectUser]
-                          : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                        invitedUsers: activeDirectUser ? [activeDirectUser] : onlineChannelPeers,
                         initialVideo: false,
                         initialAudio: true,
                         showLobby: false,
