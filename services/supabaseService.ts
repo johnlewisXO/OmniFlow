@@ -643,6 +643,10 @@ const supabaseService = {
     }
   },
 
+  normalizeAppUser,
+  saveUserProfileExtension,
+  getUserProfileExtensions,
+
   deterministicUuidFromEmail: (email: string): string => {
     const clean = (email || 'user@omniflow.io').trim().toLowerCase();
     let h1 = 0xdeadbeef ^ clean.length;

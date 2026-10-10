@@ -101,9 +101,9 @@ export const TeamWorkloadWidget: React.FC<TeamWorkloadWidgetProps> = ({ classNam
       </div>
 
       {/* Chart Canvas with Responsive Container */}
-      <div className="flex-1 w-full pt-2">
-        <div className="w-full h-56 sm:h-64">
-          <ResponsiveContainer width="100%" height="100%">
+      <div className="flex-1 w-full min-w-0 pt-2">
+        <div className="w-full min-w-0 h-56 sm:h-64 min-h-[224px]">
+          <ResponsiveContainer width="100%" height={224} minWidth={100} minHeight={180}>
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
               <XAxis 

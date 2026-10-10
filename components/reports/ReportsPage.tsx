@@ -372,10 +372,10 @@ export const ReportsPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Workload Chart */}
-          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm min-w-0 ${bgColor} ${borderColor}`}>
             <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Incomplete Tasks by Assignee</h3>
-            <div className="h-56 sm:h-64 md:h-72">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-56 sm:h-64 md:h-72 min-w-0 min-h-[224px]">
+              <ResponsiveContainer width="100%" height={240} minWidth={100} minHeight={180}>
                 <BarChart data={workloadData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} vertical={false} />
                   <XAxis dataKey="name" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />
@@ -391,10 +391,10 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           {/* Status Breakdown */}
-          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm min-w-0 ${bgColor} ${borderColor}`}>
             <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Task Status Distribution</h3>
-            <div className="h-56 sm:h-64 md:h-72">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-56 sm:h-64 md:h-72 min-w-0 min-h-[224px]">
+              <ResponsiveContainer width="100%" height={240} minWidth={100} minHeight={180}>
                 <PieChart>
                   <Pie
                     data={statusData}
@@ -420,10 +420,10 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           {/* Priority Chart */}
-          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm min-w-0 ${bgColor} ${borderColor}`}>
             <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Tasks by Priority</h3>
-            <div className="h-56 sm:h-64 md:h-72">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-56 sm:h-64 md:h-72 min-w-0 min-h-[224px]">
+              <ResponsiveContainer width="100%" height={240} minWidth={100} minHeight={180}>
                 <BarChart data={priorityData} layout="vertical" margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} horizontal={false} />
                   <XAxis type="number" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
@@ -443,10 +443,10 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           {/* Trend Chart */}
-          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm ${bgColor} ${borderColor}`}>
+          <div className={`p-4 sm:p-5 rounded-xl border shadow-sm min-w-0 ${bgColor} ${borderColor}`}>
             <h3 className={`text-base sm:text-lg font-medium mb-3 sm:mb-4 ${textColor}`}>Task Activity Trend</h3>
-            <div className="h-56 sm:h-64 md:h-72">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-56 sm:h-64 md:h-72 min-w-0 min-h-[224px]">
+              <ResponsiveContainer width="100%" height={240} minWidth={100} minHeight={180}>
                 <LineChart data={trendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} vertical={false} />
                   <XAxis dataKey="date" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />

@@ -10,12 +10,30 @@
     <script>
       (function () {
         var origWarn = console.warn;
+        var origError = console.error;
         console.warn = function () {
-          if (arguments[0] && typeof arguments[0] === 'string' && arguments[0].indexOf('cdn.tailwindcss.com') !== -1) {
+          var first = arguments[0] && typeof arguments[0] === 'string' ? arguments[0] : '';
+          if (
+            first.indexOf('cdn.tailwindcss.com') !== -1 ||
+            first.indexOf('width(-1) and height(-1) of chart') !== -1
+          ) {
             return;
           }
           return origWarn.apply(console, arguments);
         };
+        console.error = function () {
+          var first = arguments[0] && typeof arguments[0] === 'string' ? arguments[0] : '';
+          if (first.indexOf('[vite] failed to connect to websocket') !== -1) {
+            return;
+          }
+          return origError.apply(console, arguments);
+        };
+        window.addEventListener('unhandledrejection', function (e) {
+          var msg = e && e.reason && e.reason.message ? String(e.reason.message) : '';
+          if (msg.indexOf('WebSocket closed without opened') !== -1) {
+            e.preventDefault();
+          }
+        });
       })();
     </script>
     <script src="https://cdn.tailwindcss.com"></script>

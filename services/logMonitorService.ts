@@ -167,13 +167,12 @@ class LogMonitorService {
     const origLog = console.log.bind(console);
 
     console.error = (...args: any[]) => {
+      const { message, details, stack } = this.formatArgs(args);
+      if (message.includes('WebSocket') || message.includes('[vite]')) return;
       origError(...args);
       if (this.internalGuard || this.isPaused) return;
       try {
         this.internalGuard = true;
-        const { message, details, stack } = this.formatArgs(args);
-        // Ignore noisy browser extension or HMR websocket messages
-        if (message.includes('WebSocket') || message.includes('[vite]')) return;
         this.addEntry({
           level: stack ? 'EXCEPTION' : 'ERROR',
           source: this.inferSource(message),
@@ -187,12 +186,18 @@ class LogMonitorService {
     };
 
     console.warn = (...args: any[]) => {
+      const { message, details, stack } = this.formatArgs(args);
+      if (
+        message.includes('tailwind') ||
+        message.includes('cdn.tailwindcss.com') ||
+        message.includes('width(-1) and height(-1) of chart')
+      ) {
+        return;
+      }
       origWarn(...args);
       if (this.internalGuard || this.isPaused) return;
       try {
         this.internalGuard = true;
-        const { message, details, stack } = this.formatArgs(args);
-        if (message.includes('tailwind') || message.includes('cdn.tailwindcss.com')) return;
         this.addEntry({
           level: 'WARN',
           source: this.inferSource(message),

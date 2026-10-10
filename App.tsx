@@ -9,7 +9,7 @@ import { CreateProjectModal } from './components/projects/CreateProjectModal';
 import { CreateOrJoinOrganizationModal } from './components/auth/CreateOrJoinOrganizationModal';
 // Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from './hooks/useAppStore';
-import supabaseService, { supabase } from './services/supabaseService';
+import supabaseService, { supabase, normalizeAppUser } from './services/supabaseService';
 import { AuthPage } from './components/auth/AuthPage';
 import { User as AppUserType, Project, UserRole, ActiveView } from './types';
 
@@ -960,7 +960,7 @@ function App() {
           
           if (userProfile && mounted) {
             console.log(`[App.tsx AuthEffect] Profile fetched: ID ${userProfile.id}, Role: ${userProfile.role}, Org: ${userProfile.organization_id || 'none'}`);
-            const normalizedPayload = supabaseService.normalizeAppUser({
+            const normalizedPayload = normalizeAppUser({
               ...userProfile,
               id: userProfile.id,
               supabase_auth_id: session.user.id,
@@ -992,7 +992,7 @@ function App() {
                if (raw) cachedProfile = JSON.parse(raw);
              } catch (e) {}
              const existingStoreUser = useAppStore.getState().currentUser;
-             const fallbackUser = supabaseService.normalizeAppUser({
+             const fallbackUser = normalizeAppUser({
                id: session.user.id,
                supabase_auth_id: session.user.id,
                email: session.user.email || cachedProfile?.email || '',
@@ -1018,7 +1018,7 @@ function App() {
               if (raw) cachedProfile = JSON.parse(raw);
             } catch (e) {}
             const existingStoreUser = useAppStore.getState().currentUser;
-            const fallbackUser = supabaseService.normalizeAppUser({
+            const fallbackUser = normalizeAppUser({
               id: session.user.id,
               supabase_auth_id: session.user.id,
               email: session.user.email || cachedProfile?.email || '',

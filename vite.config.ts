@@ -9,6 +9,9 @@ export default defineConfig(() => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      build: {
+        chunkSizeWarningLimit: 3000,
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
