@@ -3,6 +3,7 @@
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
+import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { EditTaskModal } from './components/tasks/EditTaskModal'; 
 import { TaskDetailsModal } from './components/tasks/TaskDetailsModal';
 import { CreateProjectModal } from './components/projects/CreateProjectModal';
@@ -591,7 +592,7 @@ const MainAppLayout: React.FC = () => {
         <Header />
         <div
           data-main-scroll-view="true"
-          className={`flex-1 flex flex-col glass-panel rounded-2xl p-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
+          className={`flex-1 flex flex-col glass-panel rounded-2xl p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
             scrollBounceState === 'top'
               ? 'animate-bubbleStretchTop'
               : scrollBounceState === 'bottom'
@@ -612,6 +613,7 @@ const MainAppLayout: React.FC = () => {
           {renderContentByView()}
         </div>
       </div>
+      <MobileBottomNav />
       <ToastContainer />
       <EditTaskModal /> 
       <TaskDetailsModal />

@@ -30,6 +30,7 @@ export const KanbanBoard: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'sprints' | 'list' | 'gantt'>('kanban');
   const [isAutomationsOpen, setIsAutomationsOpen] = useState(false);
   const [isWipModalOpen, setIsWipModalOpen] = useState(false);
+  const [mobileActiveColumn, setMobileActiveColumn] = useState<string>('todo');
 
   // Quick Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -523,18 +524,69 @@ export const KanbanBoard: React.FC = () => {
         <SprintPlanningView />
       ) : viewMode === 'kanban' ? (
         swimlaneMode === 'none' ? (
-          /* Standard Columns */
-          <div className="flex-1 flex items-start space-x-3 md:space-x-4 overflow-x-auto pb-4 scrollbar-thin">
-            {TASK_STATUS_COLUMNS.map(column => (
-              <KanbanColumn
-                key={column.id}
-                status={column.id as TaskStatus} 
-                title={column.title}
-                colorClass={column.color}
-                tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
-                wipLimit={wipLimits[column.id]}
-              />
-            ))}
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Mobile Segmented Lane Switcher (< 768px) */}
+            <div className="md:hidden flex items-center gap-1 p-1 mb-3 rounded-xl border bg-slate-100/90 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none">
+              {TASK_STATUS_COLUMNS.map(col => {
+                const colCount = (hasActiveFilters ? filteredProjectTasks : rawProjectTasks).filter(
+                  t => t.status === col.id
+                ).length;
+                const isSelected = mobileActiveColumn === col.id;
+                return (
+                  <button
+                    key={col.id}
+                    onClick={() => setMobileActiveColumn(col.id)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all min-h-[38px] ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : darkMode
+                          ? 'text-slate-400 hover:text-slate-200'
+                          : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>{col.title}</span>
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {colCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Mobile Single-Lane View (< 768px) */}
+            <div className="md:hidden flex-1 flex flex-col pb-4">
+              {TASK_STATUS_COLUMNS.filter(col => col.id === mobileActiveColumn).map(column => (
+                <div key={column.id} className="w-full flex-1 flex flex-col [&>div]:!w-full">
+                  <KanbanColumn
+                    status={column.id as TaskStatus}
+                    title={column.title}
+                    colorClass={column.color}
+                    tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
+                    wipLimit={wipLimits[column.id]}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Multi-Column Board (>= 768px) */}
+            <div className="hidden md:flex flex-1 items-start space-x-3 md:space-x-4 overflow-x-auto pb-4 scrollbar-thin">
+              {TASK_STATUS_COLUMNS.map(column => (
+                <KanbanColumn
+                  key={column.id}
+                  status={column.id as TaskStatus} 
+                  title={column.title}
+                  colorClass={column.color}
+                  tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
+                  wipLimit={wipLimits[column.id]}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           /* Swimlane Rows */

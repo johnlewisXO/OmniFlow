@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import geminiService, { ProjectBlueprint, MeetingExtractionResult } from '../../services/geminiService';
+import edgeFunctionService, { EdgeFunctionSlug, EdgeInvocationRecord } from '../../services/edgeFunctionService';
 import { TaskStatus, TaskPriority } from '../../types';
 import { AIInsightsEngineWidget } from './AIInsightsEngineWidget';
 import { Avatar } from '../shared/Avatar';
@@ -35,9 +36,19 @@ export const AIProjectManagerStudio: React.FC = () => {
     updateTask,
     darkMode,
     addToast,
+    currentOrganization,
+    currentUser,
   } = useAppStore();
 
-  const [activeStudioTab, setActiveStudioTab] = useState<'architect' | 'capacity' | 'meetings' | 'insights'>('architect');
+  const [activeStudioTab, setActiveStudioTab] = useState<'architect' | 'capacity' | 'meetings' | 'insights' | 'edge'>('architect');
+  const [edgeLogs, setEdgeLogs] = useState<EdgeInvocationRecord[]>(() => edgeFunctionService.getInvocations());
+  const [runningEdgeSlug, setRunningEdgeSlug] = useState<EdgeFunctionSlug | null>(null);
+
+  useEffect(() => {
+    return edgeFunctionService.subscribe(() => {
+      setEdgeLogs([...edgeFunctionService.getInvocations()]);
+    });
+  }, []);
 
   // Tab 1: Blueprint Architect State
   const [goalPrompt, setGoalPrompt] = useState('Launch mobile app by December with offline sync and biometric login');
@@ -306,6 +317,7 @@ export const AIProjectManagerStudio: React.FC = () => {
               { id: 'capacity', label: '2. Capacity Balancer' },
               { id: 'meetings', label: '3. Meeting Intelligence' },
               { id: 'insights', label: '4. Risk & Insights' },
+              { id: 'edge', label: '5. Edge Compute' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -762,6 +774,156 @@ export const AIProjectManagerStudio: React.FC = () => {
 
       {/* TAB 4: Full AI Insights Engine */}
       {activeStudioTab === 'insights' && <AIInsightsEngineWidget />}
+
+      {/* TAB 5: Supabase Edge Functions & Server Compute Pipeline */}
+      {activeStudioTab === 'edge' && (
+        <div className="space-y-6">
+          <div
+            className={`p-6 rounded-2xl border ${
+              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90 shadow-xs'
+            }`}
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                  Supabase Edge Functions + Server Compute Runtime
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                  High-Demand Compute Offloading Pipelines
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Execute AI risk synthesis, transactional SMTP/Brevo notifications, scheduled SLA rule evaluations, and 1080p WebRTC TURN/ICE provisioning off the main browser thread.
+                </p>
+              </div>
+              <div className="text-xs font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl shrink-0">
+                4 Edge Pipelines Active
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+              {[
+                {
+                  slug: 'ai-copilot-synthesis' as EdgeFunctionSlug,
+                  title: '01 · ai-copilot-synthesis',
+                  desc: 'Runs server-side Gemini 3.8 Flash sprint risk radar & executive report compilation.',
+                  payload: {
+                    operation: 'sprint_risk_radar',
+                    payload: {
+                      projectName: activeProject?.name || projects[0]?.name || 'Organization Portfolio',
+                      sprintName: sprints[0]?.name || 'Active Sprint',
+                      tasks: tasks.slice(0, 20),
+                    },
+                  },
+                },
+                {
+                  slug: 'transactional-notifications' as EdgeFunctionSlug,
+                  title: '02 · transactional-notifications',
+                  desc: 'Dispatches Brevo/SMTP organization invite & join-request approval webhooks with tokenized fallback.',
+                  payload: {
+                    eventType: 'ORG_JOIN_REQUEST_APPROVED',
+                    recipientEmail: currentUser?.email || 'team@omniflow.app',
+                    organizationName: currentOrganization?.name || 'Workspace',
+                    role: currentUser?.role || 'OWNER',
+                  },
+                },
+                {
+                  slug: 'automation-rule-engine' as EdgeFunctionSlug,
+                  title: '03 · automation-rule-engine',
+                  desc: 'Evaluates overdue SLA thresholds and WHEN → IF → THEN task escalation triggers.',
+                  payload: {
+                    organizationName: currentOrganization?.name || 'Workspace',
+                    tasks,
+                  },
+                },
+                {
+                  slug: 'webrtc-turn-and-scribe' as EdgeFunctionSlug,
+                  title: '04 · webrtc-turn-and-scribe',
+                  desc: 'Provisions ephemeral 1080p/60fps & 48kHz Opus ICE/TURN credentials for low-latency video calls.',
+                  payload: {
+                    roomId: `org-${currentOrganization?.id || 'studio'}-hd`,
+                    qualityProfile: '1080p_60fps_opus_48khz',
+                  },
+                },
+              ].map(fn => {
+                const isRunning = runningEdgeSlug === fn.slug;
+                return (
+                  <div
+                    key={fn.slug}
+                    className={`p-4 rounded-xl border flex flex-col justify-between gap-4 ${
+                      darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200/80'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-indigo-500 dark:text-indigo-400">
+                          {fn.title}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          supabase/functions/{fn.slug}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+                        {fn.desc}
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setRunningEdgeSlug(fn.slug);
+                        try {
+                          const res = await edgeFunctionService.invoke(fn.slug, fn.payload);
+                          addToast(
+                            `Edge Function Executed (${res.latencyMs}ms)`,
+                            res.data?.summary || `${fn.slug} completed successfully.`,
+                            'success'
+                          );
+                        } catch (err: any) {
+                          addToast('Edge Execution Error', err?.message || 'Failed to invoke function', 'error');
+                        } finally {
+                          setRunningEdgeSlug(null);
+                        }
+                      }}
+                      disabled={isRunning}
+                      className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {isRunning ? 'Executing on Edge Runtime...' : 'Invoke Live Edge Function →'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Live Invocation Telemetry Log */}
+            {edgeLogs.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className="text-xs font-mono uppercase tracking-wider text-slate-400">
+                  Recent Edge Invocation Telemetry
+                </div>
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {edgeLogs.map(log => (
+                    <div
+                      key={log.id}
+                      className={`p-3 rounded-xl border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                        darkMode ? 'bg-slate-950 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={log.status === 'success' ? 'text-emerald-400' : 'text-rose-400'}>
+                          ●
+                        </span>
+                        <span className="font-bold text-indigo-400">{log.slug}</span>
+                        <span className="text-slate-400 truncate">· {log.summary}</span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">
+                        {log.latencyMs}ms · {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
