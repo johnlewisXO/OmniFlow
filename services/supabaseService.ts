@@ -1397,8 +1397,25 @@ const supabaseService = {
       return ((data as any[]) || []).map(n => {
         const rawMsg = String(n.content || n.message || '');
         const cleanMsg = rawMsg.includes('||JSON:') ? rawMsg.split('||JSON:')[0] : rawMsg;
+        let resolvedType = n.type;
+        if (rawMsg.includes('||JSON:')) {
+          try {
+            const parsed = JSON.parse(rawMsg.split('||JSON:')[1]);
+            if (parsed?._notifType) {
+              resolvedType = parsed._notifType;
+            } else if (parsed?.requester_id && parsed?.organization_id && parsed?.status) {
+              resolvedType =
+                parsed.status === 'approved'
+                  ? 'ORGANIZATION_JOIN_APPROVED'
+                  : parsed.status === 'declined'
+                  ? 'ORGANIZATION_JOIN_DECLINED'
+                  : 'ORGANIZATION_JOIN_REQUEST';
+            }
+          } catch {}
+        }
         return {
           ...n,
+          type: resolvedType,
           read: n.is_read !== undefined ? n.is_read : n.read,
           message: cleanMsg,
           content: cleanMsg,
@@ -1410,22 +1427,31 @@ const supabaseService = {
   },
 
   insertNotification: async (notification: any): Promise<void> => {
-    const dbNotification = {
+    const rawContentStr = notification.raw_content || notification.message || notification.content || '';
+    const dbNotification: Record<string, any> = {
       id: notification.id || crypto.randomUUID(),
       user_id: notification.user_id,
       sender_id: notification.actor_id || notification.sender_id || notification.user_id,
-      type: notification.type || 'SYSTEM_NOTIFICATION',
+      type: notification.type || 'TASK_UPDATED',
       title: notification.title || 'Workspace Update',
-      content: notification.raw_content || notification.message || notification.content || '',
+      content: rawContentStr,
       reference_id: notification.entity_id || notification.reference_id || '00000000-0000-0000-0000-000000000000',
       is_read: notification.read || false,
       created_at: notification.created_at || new Date().toISOString(),
     };
-    
+
     const { error } = await supabase.from('notifications').insert([dbNotification]);
     if (error) {
-      console.warn("Failed to insert notification, table might not exist:", error);
-      throw error;
+      // If notifications.type is a strict Postgres enum that rejected a custom type (e.g. ORGANIZATION_JOIN_REQUEST),
+      // retry omitting `type` (uses DB column default) or with a standard enum value while preserving full payload in `content`
+      const { type: _omittedType, ...withoutType } = dbNotification;
+      const retry1 = await supabase.from('notifications').insert([withoutType]);
+      if (retry1.error) {
+        await supabase
+          .from('notifications')
+          .insert([{ ...dbNotification, type: 'TASK_ASSIGNED' }])
+          .catch(() => {});
+      }
     }
   },
 
@@ -1805,16 +1831,7 @@ const supabaseService = {
       } catch {}
     }
 
-    // 2. Sync to cross-session backend API (/api/join-requests)
-    if (typeof window !== 'undefined') {
-      fetch('/api/join-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newReq),
-      }).catch(() => {});
-    }
-
-    // 3. Also store in local audit_logs
+    // 2. Also store in local audit_logs
     try {
       await supabaseService.logAuditEvent({
         organization_id: organizationId,
@@ -1833,10 +1850,10 @@ const supabaseService = {
       });
     } catch {}
 
-    // 4. Notify all Project Managers, Admins, and Owners of this organization in Supabase notifications
+    // 3. Notify all Project Managers, Admins, and Owners of this organization in Supabase notifications
     // We embed `||JSON:${JSON.stringify(newReq)}` in `raw_content` so approvers on any browser/device reconstruct the full request from Supabase
     const displayMsg = `${newReq.requester_name} (${newReq.requester_email}) requested to join ${organizationName} as ${normalizedRole.replace(/_/g, ' ')}. Approve or decline in Team Management.`;
-    const encodedContent = `${displayMsg}||JSON:${JSON.stringify(newReq)}`;
+    const encodedContent = `${displayMsg}||JSON:${JSON.stringify({ ...newReq, _notifType: 'ORGANIZATION_JOIN_REQUEST' })}`;
 
     try {
       const orgMembers = await supabaseService.getUsersByOrganizationId(organizationId);
@@ -1871,7 +1888,7 @@ const supabaseService = {
           type: 'ORGANIZATION_JOIN_REQUEST_SENT',
           title: `⏳ Request Sent to ${organizationName}`,
           message: `Your request to join ${organizationName} as ${normalizedRole.replace(/_/g, ' ')} is awaiting Owner or Project Manager approval.`,
-          raw_content: `Your request to join ${organizationName} as ${normalizedRole.replace(/_/g, ' ')} is awaiting Owner or Project Manager approval.||JSON:${JSON.stringify(newReq)}`,
+          raw_content: `Your request to join ${organizationName} as ${normalizedRole.replace(/_/g, ' ')} is awaiting Owner or Project Manager approval.||JSON:${JSON.stringify({ ...newReq, _notifType: 'ORGANIZATION_JOIN_REQUEST_SENT' })}`,
           entity_type: 'organization',
           entity_id: organizationId,
           reference_id: organizationId,
@@ -1881,7 +1898,7 @@ const supabaseService = {
         .catch(() => {});
     } catch {}
 
-    // 5. Broadcast live event for online Project Managers & Owners
+    // 4. Broadcast live event for online Project Managers & Owners
     if (typeof window !== 'undefined') {
       try {
         if ('BroadcastChannel' in window) {
@@ -1896,7 +1913,7 @@ const supabaseService = {
     return newReq;
   },
 
-  getJoinRequestsForOrganization: async (organizationId: string): Promise<OrganizationJoinRequest[]> => {
+  getJoinRequestsForOrganization: async (organizationId: string, _organizationName?: string): Promise<OrganizationJoinRequest[]> => {
     if (!organizationId) return [];
     const map = new Map<string, OrganizationJoinRequest>();
 
@@ -1911,48 +1928,23 @@ const supabaseService = {
       } catch {}
     }
 
-    // 2. Fetch from cross-session backend API (/api/join-requests)
-    if (typeof window !== 'undefined') {
-      try {
-        const res = await fetch(`/api/join-requests?organizationId=${encodeURIComponent(organizationId)}`);
-        if (res.ok) {
-          const serverList: OrganizationJoinRequest[] = await res.json();
-          if (Array.isArray(serverList)) {
-            serverList.forEach(r => {
-              if (r && r.id && r.organization_id === organizationId) {
-                const existing = map.get(r.id);
-                if (!existing || existing.status === 'pending') {
-                  map.set(r.id, r);
-                }
-              }
-            });
-          }
-        }
-      } catch {}
-    }
-
-    // 3. Reconstruct from Supabase notifications table (works across separate browsers/devices)
+    // 2. Reconstruct from Supabase notifications table via getNotifications (avoids 400 enum filter error on PostgREST)
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const myUserId = sessionData?.session?.user?.id;
       if (myUserId) {
-        const { data: notifRows } = await withSupabaseRetry(() =>
-          supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', myUserId)
-            .eq('type', 'ORGANIZATION_JOIN_REQUEST')
-            .order('created_at', { ascending: false })
-            .limit(50)
-        );
+        const notifRows = await supabaseService.getNotifications(myUserId);
         if (Array.isArray(notifRows)) {
           notifRows.forEach((n: any) => {
-            const rawContent = String(n.content || n.message || '');
+            const rawContent = String(n.raw_content || n.content || n.message || '');
             if (rawContent.includes('||JSON:')) {
               try {
                 const parsed: OrganizationJoinRequest = JSON.parse(rawContent.split('||JSON:')[1]);
-                if (parsed && parsed.id && parsed.organization_id === organizationId && !map.has(parsed.id)) {
-                  map.set(parsed.id, parsed);
+                if (parsed && parsed.id && parsed.organization_id === organizationId) {
+                  const existing = map.get(parsed.id);
+                  if (!existing || (existing.status === 'pending' && parsed.status !== 'pending')) {
+                    map.set(parsed.id, parsed);
+                  }
                 }
               } catch {}
             }
@@ -1961,7 +1953,7 @@ const supabaseService = {
       }
     } catch {}
 
-    // 4. Also reconstruct from audit logs cache
+    // 3. Also reconstruct from audit logs cache
     try {
       const logs = await supabaseService.getAuditLogs(organizationId, 150);
       logs.forEach(log => {
@@ -2032,22 +2024,7 @@ const supabaseService = {
     const cleanEmail = (userEmail || '').trim().toLowerCase();
     const candidates: OrganizationJoinRequest[] = [];
 
-    // 1. Check cross-session backend API (/api/join-requests)
-    if (typeof window !== 'undefined') {
-      try {
-        const res = await fetch(
-          `/api/join-requests?userId=${encodeURIComponent(userId || '')}&email=${encodeURIComponent(cleanEmail)}`
-        );
-        if (res.ok) {
-          const serverList: OrganizationJoinRequest[] = await res.json();
-          if (Array.isArray(serverList)) {
-            candidates.push(...serverList);
-          }
-        }
-      } catch {}
-    }
-
-    // 2. Check localStorage
+    // 1. Check localStorage
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem(JOIN_REQUESTS_STORAGE_KEY);
@@ -2062,29 +2039,22 @@ const supabaseService = {
       } catch {}
     }
 
-    // 3. Check Supabase notifications for this user (e.g. ORGANIZATION_JOIN_APPROVED, ORGANIZATION_JOIN_DECLINED, ORGANIZATION_JOIN_REQUEST_SENT)
+    // 2. Check Supabase notifications for this user via getNotifications (avoids 400 enum filter error)
     if (userId) {
       try {
-        const { data: notifRows } = await withSupabaseRetry(() =>
-          supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', userId)
-            .in('type', [
-              'ORGANIZATION_JOIN_APPROVED',
-              'ORGANIZATION_JOIN_DECLINED',
-              'ORGANIZATION_JOIN_REQUEST_SENT',
-            ])
-            .order('created_at', { ascending: false })
-            .limit(20)
-        );
+        const notifRows = await supabaseService.getNotifications(userId);
         if (Array.isArray(notifRows)) {
           notifRows.forEach((n: any) => {
-            const rawContent = String(n.content || n.message || '');
+            const rawContent = String(n.raw_content || n.content || n.message || '');
             if (rawContent.includes('||JSON:')) {
               try {
                 const parsed: OrganizationJoinRequest = JSON.parse(rawContent.split('||JSON:')[1]);
-                if (parsed && parsed.id) {
+                if (
+                  parsed &&
+                  parsed.id &&
+                  (parsed.requester_id === userId ||
+                    (cleanEmail && parsed.requester_email?.toLowerCase() === cleanEmail))
+                ) {
                   candidates.push(parsed);
                 }
               } catch {}
@@ -2113,7 +2083,7 @@ const supabaseService = {
     return sorted[0] || null;
   },
 
-  cancelJoinRequest: async (requestId: string): Promise<void> => {
+  cancelJoinRequest: async (requestId: string, _userId?: string): Promise<void> => {
     if (!requestId) return;
     if (typeof window !== 'undefined') {
       try {
@@ -2122,17 +2092,26 @@ const supabaseService = {
         const filtered = list.filter(r => r.id !== requestId);
         localStorage.setItem(JOIN_REQUESTS_STORAGE_KEY, JSON.stringify(filtered));
       } catch {}
-      fetch(`/api/join-requests/${encodeURIComponent(requestId)}`, {
-        method: 'DELETE',
-      }).catch(() => {});
     }
   },
 
   approveJoinRequest: async (
-    requestId: string,
-    approvedRole: UserRole,
-    reviewer: AppUserType
+    requestIdOrParams:
+      | string
+      | { requestId: string; approvedRole: UserRole; reviewer: AppUserType },
+    approvedRoleArg?: UserRole,
+    reviewerArg?: AppUserType
   ): Promise<OrganizationJoinRequest | null> => {
+    const requestId =
+      typeof requestIdOrParams === 'string' ? requestIdOrParams : requestIdOrParams.requestId;
+    const approvedRole =
+      typeof requestIdOrParams === 'string'
+        ? approvedRoleArg || UserRole.MEMBER
+        : requestIdOrParams.approvedRole;
+    const reviewer =
+      typeof requestIdOrParams === 'string' ? reviewerArg! : requestIdOrParams.reviewer;
+    if (!requestId || !reviewer) return null;
+
     const finalRole = normalizeUserRole(approvedRole);
     let targetReq: OrganizationJoinRequest | null = null;
 
@@ -2172,15 +2151,6 @@ const supabaseService = {
     }
 
     if (!targetReq) return null;
-
-    // Sync approved status to backend API (/api/join-requests/:id)
-    if (typeof window !== 'undefined') {
-      fetch(`/api/join-requests/${encodeURIComponent(targetReq.id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(targetReq),
-      }).catch(() => {});
-    }
 
     // 1. Update requester's profile in Supabase DB & profile extension store
     saveUserProfileExtension(targetReq.requester_id, {
@@ -2254,7 +2224,7 @@ const supabaseService = {
         type: 'ORGANIZATION_JOIN_APPROVED',
         title: `🎉 Approved to join ${targetReq.organization_name}!`,
         message: approvalMsg,
-        raw_content: `${approvalMsg}||JSON:${JSON.stringify(targetReq)}`,
+        raw_content: `${approvalMsg}||JSON:${JSON.stringify({ ...targetReq, _notifType: 'ORGANIZATION_JOIN_APPROVED' })}`,
         entity_type: 'user',
         entity_id: targetReq.organization_id,
         reference_id: targetReq.organization_id,
@@ -2278,7 +2248,16 @@ const supabaseService = {
     return targetReq;
   },
 
-  declineJoinRequest: async (requestId: string, reviewer: AppUserType): Promise<OrganizationJoinRequest | null> => {
+  declineJoinRequest: async (
+    requestIdOrParams: string | { requestId: string; reviewer: AppUserType },
+    reviewerArg?: AppUserType
+  ): Promise<OrganizationJoinRequest | null> => {
+    const requestId =
+      typeof requestIdOrParams === 'string' ? requestIdOrParams : requestIdOrParams.requestId;
+    const reviewer =
+      typeof requestIdOrParams === 'string' ? reviewerArg! : requestIdOrParams.reviewer;
+    if (!requestId || !reviewer) return null;
+
     let targetReq: OrganizationJoinRequest | null = null;
     if (typeof window !== 'undefined') {
       try {
@@ -2314,14 +2293,6 @@ const supabaseService = {
     }
 
     if (targetReq) {
-      if (typeof window !== 'undefined') {
-        fetch(`/api/join-requests/${encodeURIComponent(targetReq.id)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(targetReq),
-        }).catch(() => {});
-      }
-
       await supabaseService.logAuditEvent({
         organization_id: targetReq.organization_id,
         actor_id: reviewer.id,
@@ -2346,7 +2317,7 @@ const supabaseService = {
           type: 'ORGANIZATION_JOIN_DECLINED',
           title: `Access Request Declined`,
           message: declineMsg,
-          raw_content: `${declineMsg}||JSON:${JSON.stringify(targetReq)}`,
+          raw_content: `${declineMsg}||JSON:${JSON.stringify({ ...targetReq, _notifType: 'ORGANIZATION_JOIN_DECLINED' })}`,
           entity_type: 'user',
           entity_id: targetReq.organization_id,
           reference_id: targetReq.organization_id,

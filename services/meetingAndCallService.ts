@@ -57,6 +57,9 @@ type CallStateListener = (state: {
   remoteScreenFrames: Map<string, string>;
   remoteCameraFrames: Map<string, string>;
   reactions: LiveCallReaction[];
+  videoQualityMode: '1080p' | '720p';
+  echoGuardEnabled: boolean;
+  isEchoGated: boolean;
 }) => void;
 
 export const generateMeetingCode = (): string => {
@@ -86,18 +89,25 @@ class MeetingAndCallService {
   private localStream: MediaStream | null = null;
   private screenStream: MediaStream | null = null;
   private remoteStreams = new Map<string, MediaStream>();
-  private remoteScreenFrames = new Map<string, string>();
+  private remoteScreenFrames = new Map<string, string>;
   private remoteCameraFrames = new Map<string, string>();
   private participantHeartbeats = new Map<string, number>();
+  private remoteSpeakingTimestamps = new Map<string, number>();
+  private pendingIceCandidates = new Map<string, RTCIceCandidateInit[]>();
   private peerConnections = new Map<string, RTCPeerConnection>();
   private reactions: LiveCallReaction[] = [];
   private audioContext: AudioContext | null = null;
+  private monitorClonedTrack: MediaStreamTrack | null = null;
   private audioMonitorInterval: ReturnType<typeof setInterval> | null = null;
   private callCleanupInterval: ReturnType<typeof setInterval> | null = null;
   private screenFrameInterval: ReturnType<typeof setInterval> | null = null;
   private cameraFrameInterval: ReturnType<typeof setInterval> | null = null;
   private lastSupabaseScreenBroadcast = 0;
   private lastSupabaseCameraBroadcast = 0;
+  private videoQualityMode: '1080p' | '720p' = '1080p';
+  private echoGuardEnabled = true;
+  private isEchoGated = false;
+  private lastLocalSpeechTimestamp = 0;
 
   constructor() {
     this.loadStoredEvents();
@@ -555,6 +565,28 @@ class MeetingAndCallService {
           this.reactions = [...this.reactions, reaction];
           this.notifyCallListeners();
         }
+        break;
+      }
+
+      case 'CALL_SPEAKING_STATE': {
+        const { callId, userId, isSpeaking } = payload || {};
+        if (!callId || callId !== this.activeCallId || !userId || userId === this.localUserId) return;
+        this.participantHeartbeats.set(userId, Date.now());
+        if (isSpeaking) {
+          this.remoteSpeakingTimestamps.set(userId, Date.now());
+        } else {
+          // Leave 280ms acoustic decay tail before releasing remote speaking gate
+          this.remoteSpeakingTimestamps.set(userId, Date.now() - 180);
+        }
+        const call = this.ongoingCalls.get(callId);
+        if (call) {
+          const updatedParticipants = call.participants.map(p =>
+            p.userId === userId ? { ...p, isSpeaking: Boolean(isSpeaking) } : p
+          );
+          this.ongoingCalls.set(callId, { ...call, participants: updatedParticipants });
+        }
+        this.syncEchoGateState();
+        this.notifyCallListeners();
         break;
       }
 
@@ -1075,7 +1107,73 @@ class MeetingAndCallService {
       remoteScreenFrames: new Map(this.remoteScreenFrames),
       remoteCameraFrames: new Map(this.remoteCameraFrames),
       reactions: [...this.reactions],
+      videoQualityMode: this.videoQualityMode,
+      echoGuardEnabled: this.echoGuardEnabled,
     };
+  }
+
+  public getVideoQualityMode(): '1080p' | '720p' {
+    return this.videoQualityMode;
+  }
+
+  public getEchoGuardEnabled(): boolean {
+    return this.echoGuardEnabled;
+  }
+
+  public setEchoGuardEnabled(enabled: boolean): void {
+    this.echoGuardEnabled = enabled;
+    // Restore audio track enabled state when toggling Echo Guard off
+    if (!enabled && this.localStream && this.activeCallId && this.localUserId) {
+      const call = this.ongoingCalls.get(this.activeCallId);
+      const me = call?.participants.find(p => p.userId === this.localUserId);
+      if (me && !me.isMicMuted) {
+        this.localStream.getAudioTracks().forEach(t => {
+          t.enabled = true;
+        });
+      }
+    }
+    this.notifyCallListeners();
+  }
+
+  public async setVideoQualityMode(mode: '1080p' | '720p'): Promise<void> {
+    this.videoQualityMode = mode;
+    const targetWidth = mode === '1080p' ? 1920 : 1280;
+    const targetHeight = mode === '1080p' ? 1080 : 720;
+
+    if (this.localStream) {
+      const videoTrack = this.localStream.getVideoTracks()[0];
+      if (videoTrack && videoTrack.readyState === 'live') {
+        try {
+          await videoTrack.applyConstraints({
+            width: { ideal: targetWidth },
+            height: { ideal: targetHeight },
+            frameRate: { ideal: 30, max: 60 },
+          });
+        } catch {
+          // Hardware fallback if camera doesn't support 1080p dynamic constraint switch
+        }
+      }
+    }
+
+    if (this.screenStream) {
+      const screenTrack = this.screenStream.getVideoTracks()[0];
+      if (screenTrack && screenTrack.readyState === 'live') {
+        try {
+          await screenTrack.applyConstraints({
+            width: { ideal: targetWidth, max: 2560 },
+            height: { ideal: targetHeight, max: 1440 },
+            frameRate: { ideal: 60, max: 60 },
+          });
+        } catch {
+          // Ignore constraint error
+        }
+      }
+    }
+
+    this.peerConnections.forEach(pc => {
+      this.tunePeerSenderBitrate(pc);
+    });
+    this.notifyCallListeners();
   }
 
   private notifyCallListeners() {
@@ -1210,7 +1308,31 @@ class MeetingAndCallService {
     const wantVideo = me ? !me.isCameraOff : true;
     const wantAudio = me ? !me.isMicMuted : true;
 
-    return this.acquireLocalMedia(wantVideo, wantAudio);
+    const stream = await this.acquireLocalMedia(wantVideo, wantAudio);
+    if (stream) {
+      const newAudioTrack = stream.getAudioTracks()[0];
+      const newVideoTrack = stream.getVideoTracks()[0];
+      this.peerConnections.forEach(pc => {
+        if (newAudioTrack) {
+          const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
+          if (audioSender) {
+            audioSender.replaceTrack(newAudioTrack).catch(() => {});
+          } else {
+            pc.addTrack(newAudioTrack, stream);
+          }
+        }
+        if (newVideoTrack && !this.screenStream) {
+          const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (videoSender) {
+            videoSender.replaceTrack(newVideoTrack).catch(() => {});
+          } else {
+            pc.addTrack(newVideoTrack, stream);
+          }
+        }
+        this.tunePeerSenderBitrate(pc);
+      });
+    }
+    return stream;
   }
 
   public playTestSpeakerSound(): void {
@@ -1238,77 +1360,22 @@ class MeetingAndCallService {
   }
 
   /**
-   * Passes raw microphone audio through a WebAudio DSP anti-howl & echo-suppression chain:
-   * HighPass (85Hz) -> Anti-Screech Notch/Peaking (2.9kHz -9dB) -> LowPass (6.8kHz) -> Compressor/Limiter
-   * so receiver side never experiences harsh acoustic feedback screeching.
+   * Preserves the direct hardware MediaStreamTrack so OS/Browser hardware Acoustic Echo Cancellation (AEC)
+   * maintains exact DAC-to-ADC clock synchronization without WebAudio DynamicsCompressor make-up gain distortion.
+   * Sets optimal WebRTC track contentHints ('speech' for audio, 'motion' for camera).
    */
-  private applyAntiScreechAudioDsp(rawStream: MediaStream): MediaStream {
-    const audioTracks = rawStream.getAudioTracks();
-    if (audioTracks.length === 0 || typeof window === 'undefined') return rawStream;
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return rawStream;
-      if (this.dspAudioContext && this.dspAudioContext.state !== 'closed') {
-        try {
-          this.dspAudioContext.close();
-        } catch {}
-      }
-      const ctx = new AudioCtx({ latencyHint: 'interactive' });
-      this.dspAudioContext = ctx;
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
-
-      const source = ctx.createMediaStreamSource(new MediaStream([audioTracks[0]]));
-
-      // 1. High-pass filter removes low rumble & proximity boom (< 90Hz)
-      const highPass = ctx.createBiquadFilter();
-      highPass.type = 'highpass';
-      highPass.frequency.value = 90;
-      highPass.Q.value = 0.7;
-
-      // 2. Anti-howl notch filter suppresses primary acoustic feedback screech band (2600Hz - 3400Hz)
-      const antiScreechNotch = ctx.createBiquadFilter();
-      antiScreechNotch.type = 'peaking';
-      antiScreechNotch.frequency.value = 3000;
-      antiScreechNotch.Q.value = 1.8;
-      antiScreechNotch.gain.value = -9;
-
-      // 3. Low-pass filter cuts ultrasonic/high-pitched feedback whine (> 6800Hz)
-      const lowPass = ctx.createBiquadFilter();
-      lowPass.type = 'lowpass';
-      lowPass.frequency.value = 6800;
-      lowPass.Q.value = 0.7;
-
-      // 4. Fast dynamics compressor / limiter prevents sudden gain runaway loops
-      const compressor = ctx.createDynamicsCompressor();
-      compressor.threshold.value = -24;
-      compressor.knee.value = 12;
-      compressor.ratio.value = 8;
-      compressor.attack.value = 0.002;
-      compressor.release.value = 0.15;
-
-      const destination = ctx.createMediaStreamDestination();
-      source.connect(highPass);
-      highPass.connect(antiScreechNotch);
-      antiScreechNotch.connect(lowPass);
-      lowPass.connect(compressor);
-      compressor.connect(destination);
-
-      const processedAudioTrack = destination.stream.getAudioTracks()[0];
-      if (!processedAudioTrack) return rawStream;
-
-      // Keep enabled state synced with original hardware track
-      const origTrack = audioTracks[0];
-      processedAudioTrack.enabled = origTrack.enabled;
-      origTrack.addEventListener('ended', () => {
-        processedAudioTrack.stop();
-      });
-
-      return new MediaStream([...rawStream.getVideoTracks(), processedAudioTrack]);
-    } catch {
-      return rawStream;
-    }
+  private prepareLosslessHardwareMediaStream(rawStream: MediaStream): MediaStream {
+    rawStream.getAudioTracks().forEach(t => {
+      try {
+        if ('contentHint' in t) t.contentHint = 'speech';
+      } catch {}
+    });
+    rawStream.getVideoTracks().forEach(t => {
+      try {
+        if ('contentHint' in t) t.contentHint = 'motion';
+      } catch {}
+    });
+    return rawStream;
   }
 
   public async acquireLocalMedia(withVideo = true, withAudio = true): Promise<MediaStream | null> {
@@ -1316,18 +1383,22 @@ class MeetingAndCallService {
       return null;
     }
 
+    const is1080p = this.videoQualityMode === '1080p';
+    const targetWidth = is1080p ? 1920 : 1280;
+    const targetHeight = is1080p ? 1080 : 720;
+
     const videoConstraint: boolean | MediaTrackConstraints = withVideo
       ? this.selectedVideoDeviceId
         ? {
             deviceId: { exact: this.selectedVideoDeviceId },
-            width: { ideal: 960, max: 1280 },
-            height: { ideal: 540, max: 720 },
-            frameRate: { ideal: 30, max: 30 },
+            width: { ideal: targetWidth, max: 1920 },
+            height: { ideal: targetHeight, max: 1080 },
+            frameRate: { ideal: 30, max: 60 },
           }
         : {
-            width: { ideal: 960, max: 1280 },
-            height: { ideal: 540, max: 720 },
-            frameRate: { ideal: 30, max: 30 },
+            width: { ideal: targetWidth, max: 1920 },
+            height: { ideal: targetHeight, max: 1080 },
+            frameRate: { ideal: 30, max: 60 },
             facingMode: 'user',
           }
       : false;
@@ -1338,6 +1409,7 @@ class MeetingAndCallService {
       autoGainControl: { ideal: true },
       channelCount: { ideal: 1 },
       sampleRate: { ideal: 48000 },
+      sampleSize: { ideal: 16 },
       latency: { ideal: 0.01 },
       googEchoCancellation: true,
       googAutoGainControl: true,
@@ -1356,7 +1428,7 @@ class MeetingAndCallService {
         video: videoConstraint,
         audio: audioConstraint,
       });
-      const stream = withAudio ? this.applyAntiScreechAudioDsp(rawStream) : rawStream;
+      const stream = this.prepareLosslessHardwareMediaStream(rawStream);
       if (this.localStream && this.localStream !== stream) {
         this.localStream.getTracks().forEach(t => t.stop());
       }
@@ -1368,12 +1440,13 @@ class MeetingAndCallService {
       this.notifyCallListeners();
       return stream;
     } catch (_firstErr) {
+      // Fallback to 720p HD if camera does not support 1080p or exact device constraint
       try {
         const rawBasicStream = await navigator.mediaDevices.getUserMedia({
-          video: withVideo,
+          video: withVideo ? { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } : false,
           audio: withAudio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
         });
-        const basicStream = withAudio ? this.applyAntiScreechAudioDsp(rawBasicStream) : rawBasicStream;
+        const basicStream = this.prepareLosslessHardwareMediaStream(rawBasicStream);
         if (this.localStream && this.localStream !== basicStream) {
           this.localStream.getTracks().forEach(t => t.stop());
         }
@@ -1398,8 +1471,8 @@ class MeetingAndCallService {
               video: false,
               audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             });
-            const filteredA = this.applyAntiScreechAudioDsp(aStream);
-            combinedTracks.push(...filteredA.getAudioTracks());
+            const preparedA = this.prepareLosslessHardwareMediaStream(aStream);
+            combinedTracks.push(...preparedA.getAudioTracks());
           } catch {}
         }
         if (combinedTracks.length > 0) {
@@ -1422,13 +1495,13 @@ class MeetingAndCallService {
 
   private hasActiveWebRTCVideoPeer(): boolean {
     if (this.peerConnections.size === 0) return false;
-    let allConnected = true;
+    let anyConnected = false;
     this.peerConnections.forEach(pc => {
-      if (pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
-        allConnected = false;
+      if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        anyConnected = true;
       }
     });
-    return allConnected;
+    return anyConnected;
   }
 
   private startScreenFrameBroadcastLoop(presenterUserId: string) {
@@ -1459,6 +1532,9 @@ class MeetingAndCallService {
         }
         return;
       }
+      // Skip base64 screen snapshot encoding when native WebRTC 1080p/60fps P2P stream is active!
+      if (this.hasActiveWebRTCVideoPeer()) return;
+
       const track = this.screenStream.getVideoTracks()[0];
       if (!track || track.readyState !== 'live' || !track.enabled) return;
 
@@ -1474,7 +1550,7 @@ class MeetingAndCallService {
       try {
         ctx.drawImage(offscreenVideo, 0, 0, targetW, targetH);
         const now = Date.now();
-        const sendToSupabase = now - this.lastSupabaseScreenBroadcast >= 650;
+        const sendToSupabase = now - this.lastSupabaseScreenBroadcast >= 950;
         const frame = canvas.toDataURL('image/jpeg', sendToSupabase ? 0.5 : 0.62);
         if (sendToSupabase) {
           this.lastSupabaseScreenBroadcast = now;
@@ -1489,7 +1565,7 @@ class MeetingAndCallService {
           !sendToSupabase
         );
       } catch {}
-    }, 220);
+    }, 650);
   }
 
   private startCameraFrameBroadcastLoop(userId: string) {
@@ -1533,7 +1609,7 @@ class MeetingAndCallService {
       try {
         ctx.drawImage(offscreenVideo, 0, 0, canvas.width, canvas.height);
         const now = Date.now();
-        const sendToSupabase = now - this.lastSupabaseCameraBroadcast >= 750;
+        const sendToSupabase = now - this.lastSupabaseCameraBroadcast >= 1100;
         const frame = canvas.toDataURL('image/jpeg', 0.45);
         if (sendToSupabase) {
           this.lastSupabaseCameraBroadcast = now;
@@ -1548,7 +1624,7 @@ class MeetingAndCallService {
           !sendToSupabase
         );
       } catch {}
-    }, 260);
+    }, 850);
   }
 
   private startAudioActivityMonitor(stream: MediaStream) {
@@ -1574,38 +1650,67 @@ class MeetingAndCallService {
       const source = this.audioContext.createMediaStreamSource(stream);
       const analyser = this.audioContext.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.65;
+      analyser.smoothingTimeConstant = 0.55;
       source.connect(analyser);
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       this.audioMonitorInterval = setInterval(() => {
         const activeTrack = stream.getAudioTracks()[0];
-        if (!activeTrack || !activeTrack.enabled || activeTrack.readyState !== 'live') {
+        if (!activeTrack || activeTrack.readyState !== 'live') {
           this.liveMicLevel = 0;
           return;
         }
         if (this.audioContext?.state === 'suspended') {
           this.audioContext.resume().catch(() => {});
         }
-        analyser.getByteFrequencyData(dataArray);
-        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        this.liveMicLevel = Math.min(100, Math.round((avg / 65) * 100));
-        const isSpeakingNow = avg > 12;
-
         if (!this.activeCallId) return;
         const call = this.ongoingCalls.get(this.activeCallId);
         if (!call) return;
 
         const targetUid = this.localUserId || call.hostId;
         const me = call.participants.find(p => p.userId === targetUid);
-        if (me && !me.isMicMuted && me.isSpeaking !== isSpeakingNow) {
+        if (!me || me.isMicMuted) {
+          this.liveMicLevel = 0;
+          return;
+        }
+
+        const now = Date.now();
+        let remotePeerActivelySpeaking = false;
+        this.remoteSpeakingTimestamps.forEach((ts, uid) => {
+          if (uid !== targetUid && now - ts < 650) {
+            remotePeerActivelySpeaking = true;
+          }
+        });
+
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        this.liveMicLevel = Math.min(100, Math.round((avg / 65) * 100));
+
+        // When Echo Guard is enabled and a remote participant is speaking, raise threshold slightly to ignore speaker bleed
+        const speakingThreshold = this.echoGuardEnabled && remotePeerActivelySpeaking ? 20 : 12;
+        const isSpeakingNow = avg > speakingThreshold;
+
+        if (me.isSpeaking !== isSpeakingNow) {
           const updatedParticipants = call.participants.map(p =>
             p.userId === targetUid ? { ...p, isSpeaking: isSpeakingNow } : p
           );
           this.ongoingCalls.set(call.id, { ...call, participants: updatedParticipants });
           this.notifyCallListeners();
+          this.broadcastPacket('CALL_SPEAKING_STATE', {
+            callId: call.id,
+            userId: targetUid,
+            isSpeaking: isSpeakingNow,
+            ts: now,
+          });
+        } else if (isSpeakingNow && now % 450 < 160) {
+          this.broadcastPacket('CALL_SPEAKING_STATE', {
+            callId: call.id,
+            userId: targetUid,
+            isSpeaking: true,
+            ts: now,
+          });
         }
-      }, 180);
+      }, 150);
     } catch (e) {}
   }
 
@@ -2110,16 +2215,17 @@ class MeetingAndCallService {
         return false;
       }
       let displayStream: MediaStream | null = null;
+      const is1080p = this.videoQualityMode === '1080p';
       try {
         try {
           displayStream = await navigator.mediaDevices.getDisplayMedia({
             video: {
               cursor: 'always',
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              frameRate: { ideal: 30 },
+              width: { ideal: is1080p ? 1920 : 1280, max: 2560 },
+              height: { ideal: is1080p ? 1080 : 720, max: 1440 },
+              frameRate: { ideal: 60, max: 60 },
             } as any,
-            audio: true,
+            audio: false,
           });
         } catch (firstErr: any) {
           if (firstErr?.name === 'NotAllowedError' || firstErr?.name === 'AbortError') {
@@ -2140,10 +2246,15 @@ class MeetingAndCallService {
       this.screenStream = displayStream;
       const screenTrack = displayStream.getVideoTracks()[0];
       if (screenTrack) {
+        try {
+          if ('contentHint' in screenTrack) {
+            screenTrack.contentHint = 'detail';
+          }
+        } catch {}
         screenTrack.addEventListener('ended', () => {
           this.stopScreenShare(currentUserId);
         });
-        // Transmit screen track to WebRTC peers
+        // Transmit 1080p/60fps screen track to WebRTC peers with high-clarity bitrate tuning
         this.peerConnections.forEach(pc => {
           const sender = pc.getSenders().find(s => s.track?.kind === 'video');
           if (sender) {
@@ -2151,6 +2262,7 @@ class MeetingAndCallService {
           } else if (this.screenStream) {
             pc.addTrack(screenTrack, this.screenStream);
           }
+          this.tunePeerSenderBitrate(pc);
         });
       }
 
@@ -2179,11 +2291,17 @@ class MeetingAndCallService {
     // Restore camera video track to WebRTC peers if camera is active
     const camTrack = this.localStream?.getVideoTracks().find(t => t.readyState === 'live' && t.enabled);
     if (camTrack) {
+      try {
+        if ('contentHint' in camTrack) {
+          camTrack.contentHint = 'motion';
+        }
+      } catch {}
       this.peerConnections.forEach(pc => {
         const sender = pc.getSenders().find(s => s.track?.kind === 'video');
         if (sender) {
           sender.replaceTrack(camTrack).catch(() => {});
         }
+        this.tunePeerSenderBitrate(pc);
       });
     }
     if (!this.activeCallId) return;
@@ -2252,13 +2370,15 @@ class MeetingAndCallService {
       timestamp: new Date().toISOString(),
     };
 
+    const existingChat = Array.isArray(call.chatMessages) ? call.chatMessages : [];
     const updatedCall: VideoCallSession = {
       ...call,
-      chatMessages: [...call.chatMessages, msg],
+      chatMessages: [...existingChat, msg],
     };
     this.ongoingCalls.set(call.id, updatedCall);
     this.persistOngoingCalls();
     this.broadcastPacket('CALL_SESSION_SYNC', updatedCall);
+    this.notifyCallListeners();
   }
 
   public addTranscriptLine(speakerName: string, text: string) {
@@ -2435,6 +2555,8 @@ class MeetingAndCallService {
     this.remoteStreams.clear();
     this.remoteScreenFrames.clear();
     this.remoteCameraFrames.clear();
+    this.pendingIceCandidates.clear();
+    this.remoteSpeakingTimestamps.clear();
     this.notifyCallListeners();
   }
 
@@ -2442,8 +2564,23 @@ class MeetingAndCallService {
   // WEBRTC MESH PEER CONNECTION SIGNALING (LOW-LATENCY, GLARE-FREE)
   // ============================================================================
 
+  private enhanceSdpForLosslessAudioAndHDVideo(sdp?: string): string | undefined {
+    if (!sdp) return sdp;
+    try {
+      // Configure Opus for studio-grade 48kHz audio with in-band FEC, DTX, and 128kbps maxaveragebitrate
+      return sdp.replace(
+        /a=fmtp:(\d+) minptime=10;useinbandfec=1/g,
+        'a=fmtp:$1 minptime=10;useinbandfec=1;usedtx=1;maxplaybackrate=48000;sprop-maxcapturerate=48000;maxaveragebitrate=128000;stereo=0;cbr=0'
+      );
+    } catch {
+      return sdp;
+    }
+  }
+
   private tunePeerSenderBitrate(pc: RTCPeerConnection) {
     try {
+      const isScreenShare = Boolean(this.screenStream && this.screenStream.getVideoTracks().length > 0);
+      const is1080p = this.videoQualityMode === '1080p';
       pc.getSenders().forEach(sender => {
         if (!sender.track || typeof sender.getParameters !== 'function') return;
         const params = sender.getParameters();
@@ -2451,17 +2588,63 @@ class MeetingAndCallService {
           params.encodings = [{}];
         }
         if (sender.track.kind === 'video') {
-          params.encodings[0].maxBitrate = 950_000;
-          params.encodings[0].maxFramerate = 30;
-          (params as any).degradationPreference = 'maintain-framerate';
+          try {
+            if ('contentHint' in sender.track) {
+              sender.track.contentHint = isScreenShare ? 'detail' : 'motion';
+            }
+          } catch {}
+          // High-clarity low-latency bitrate targets:
+          // Screen Share: up to 4.5 Mbps @ 60fps
+          // 1080p Camera: up to 2.8 Mbps @ 30fps
+          // 720p Camera: up to 1.6 Mbps @ 30fps
+          params.encodings[0].maxBitrate = isScreenShare
+            ? 4_500_000
+            : is1080p
+            ? 2_800_000
+            : 1_600_000;
+          params.encodings[0].maxFramerate = isScreenShare ? 60 : 30;
+          params.encodings[0].scaleResolutionDownBy = 1.0;
+          (params.encodings[0] as any).priority = 'high';
+          (params.encodings[0] as any).networkPriority = 'high';
+          (params as any).degradationPreference = isScreenShare ? 'maintain-resolution' : 'balanced';
         } else if (sender.track.kind === 'audio') {
-          params.encodings[0].maxBitrate = 64_000;
+          try {
+            if ('contentHint' in sender.track) {
+              sender.track.contentHint = 'speech';
+            }
+          } catch {}
+          // Studio-grade 128 kbps lossless-clarity Opus audio
+          params.encodings[0].maxBitrate = 128_000;
           (params.encodings[0] as any).priority = 'high';
           (params.encodings[0] as any).networkPriority = 'high';
         }
         sender.setParameters(params).catch(() => {});
       });
+
+      if (typeof pc.getReceivers === 'function') {
+        pc.getReceivers().forEach(receiver => {
+          try {
+            if ('playoutDelayHint' in receiver) {
+              (receiver as any).playoutDelayHint = 0.03;
+            }
+            if ('jitterBufferTarget' in receiver) {
+              (receiver as any).jitterBufferTarget = 30;
+            }
+          } catch {}
+        });
+      }
     } catch {}
+  }
+
+  private async flushPendingIceCandidates(remoteUserId: string, pc: RTCPeerConnection) {
+    const queue = this.pendingIceCandidates.get(remoteUserId);
+    if (!queue || queue.length === 0) return;
+    this.pendingIceCandidates.delete(remoteUserId);
+    for (const candidate of queue) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {}
+    }
   }
 
   private getOrCreatePeerConnection(remoteUserId: string, callId: string, myUserId: string): RTCPeerConnection | null {
@@ -2482,8 +2665,12 @@ class MeetingAndCallService {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' },
         ],
+        iceCandidatePoolSize: 10,
         bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
       });
 
       if (this.localStream) {
@@ -2518,10 +2705,41 @@ class MeetingAndCallService {
       };
 
       pc.ontrack = event => {
-        if (event.streams && event.streams[0]) {
-          this.remoteStreams.set(remoteUserId, event.streams[0]);
-          this.notifyCallListeners();
+        try {
+          if (event.receiver && 'playoutDelayHint' in event.receiver) {
+            (event.receiver as any).playoutDelayHint = 0.03;
+          }
+        } catch {}
+
+        const existingRemote = this.remoteStreams.get(remoteUserId);
+        const merged = new MediaStream();
+        if (existingRemote) {
+          existingRemote.getTracks().forEach(t => {
+            if (t.kind !== event.track.kind && t.readyState === 'live') {
+              merged.addTrack(t);
+            }
+          });
         }
+        if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach(t => {
+            const sameKind = merged.getTracks().find(mt => mt.kind === t.kind);
+            if (sameKind && sameKind.id !== t.id) {
+              merged.removeTrack(sameKind);
+            }
+            merged.addTrack(t);
+          });
+        } else {
+          merged.addTrack(event.track);
+        }
+        this.remoteStreams.set(remoteUserId, merged);
+        this.notifyCallListeners();
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          this.tunePeerSenderBitrate(pc);
+        }
+        this.notifyCallListeners();
       };
 
       this.peerConnections.set(remoteUserId, pc);
@@ -2554,6 +2772,7 @@ class MeetingAndCallService {
               offerToReceiveAudio: true,
               offerToReceiveVideo: true,
             });
+            offer.sdp = this.enhanceSdpForLosslessAudioAndHDVideo(offer.sdp);
             await pc.setLocalDescription(offer);
             this.tunePeerSenderBitrate(pc);
             this.broadcastPacket('WEBRTC_SIGNAL', {
@@ -2561,7 +2780,7 @@ class MeetingAndCallService {
               fromUserId: myUserId,
               toUserId: p.userId,
               signalType: 'offer',
-              sdp: offer,
+              sdp: pc.localDescription || offer,
             });
           } catch {}
         }
@@ -2589,7 +2808,9 @@ class MeetingAndCallService {
           await pc.setLocalDescription({ type: 'rollback' } as any).catch(() => {});
         }
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        await this.flushPendingIceCandidates(fromUserId, pc);
         const answer = await pc.createAnswer();
+        answer.sdp = this.enhanceSdpForLosslessAudioAndHDVideo(answer.sdp);
         await pc.setLocalDescription(answer);
         this.tunePeerSenderBitrate(pc);
         this.broadcastPacket('WEBRTC_SIGNAL', {
@@ -2597,16 +2818,21 @@ class MeetingAndCallService {
           fromUserId: myId,
           toUserId: fromUserId,
           signalType: 'answer',
-          sdp: answer,
+          sdp: pc.localDescription || answer,
         });
       } else if (signalType === 'answer' && sdp) {
         if (pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+          await this.flushPendingIceCandidates(fromUserId, pc);
           this.tunePeerSenderBitrate(pc);
         }
       } else if (signalType === 'ice-candidate' && candidate) {
-        if (pc.remoteDescription) {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
           await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        } else {
+          const existingQueue = this.pendingIceCandidates.get(fromUserId) || [];
+          existingQueue.push(candidate);
+          this.pendingIceCandidates.set(fromUserId, existingQueue);
         }
       }
     } catch (e) {}

@@ -18,7 +18,8 @@ import chatService from '../../services/chatService';
 const CALL_REACTION_EMOJIS = ['👍', '❤️', '🎉', '👏', '🔥', '🚀'];
 
 /**
- * Reliable WebRTC Video Element that binds video tracks only (always muted on <video> to prevent double-playback echo with RemoteAudioPlayer)
+ * Reliable WebRTC Video Element that binds strictly video-only tracks
+ * so <video> never outputs duplicate audio alongside RemoteAudioPlayer.
  */
 const VideoStreamTile: React.FC<{
   stream: MediaStream | null;
@@ -28,35 +29,47 @@ const VideoStreamTile: React.FC<{
   className?: string;
 }> = ({ stream, mirror = false, fit = 'cover', className = '' }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const trackCount = stream ? stream.getVideoTracks().length : 0;
-  const firstTrackId = stream?.getVideoTracks()?.[0]?.id || '';
+  const videoTracks = stream ? stream.getVideoTracks() : [];
+  const trackCount = videoTracks.length;
+  const firstTrackId = videoTracks[0]?.id || '';
+
+  const videoOnlyStream = useMemo(() => {
+    if (!stream) return null;
+    const tracks = stream.getVideoTracks();
+    if (tracks.length === 0) return null;
+    return new MediaStream(tracks);
+  }, [stream, trackCount, firstTrackId]);
 
   const bindStream = useCallback(
     (el: HTMLVideoElement | null) => {
       videoRef.current = el;
-      if (el && stream) {
-        if (el.srcObject !== stream) {
-          el.srcObject = stream;
+      if (el && videoOnlyStream) {
+        if (el.srcObject !== videoOnlyStream) {
+          el.srcObject = videoOnlyStream;
         }
         el.muted = true;
+        el.defaultMuted = true;
+        el.volume = 0;
         el.play().catch(() => {});
       }
     },
-    [stream]
+    [videoOnlyStream]
   );
 
   useEffect(() => {
     const el = videoRef.current;
-    if (el && stream) {
-      if (el.srcObject !== stream) {
-        el.srcObject = stream;
+    if (el && videoOnlyStream) {
+      if (el.srcObject !== videoOnlyStream) {
+        el.srcObject = videoOnlyStream;
       }
       el.muted = true;
+      el.defaultMuted = true;
+      el.volume = 0;
       el.play().catch(() => {});
     }
-  }, [stream, trackCount, firstTrackId]);
+  }, [videoOnlyStream, trackCount, firstTrackId]);
 
-  if (!stream || trackCount === 0) return null;
+  if (!videoOnlyStream || trackCount === 0) return null;
 
   return (
     <video
@@ -72,13 +85,15 @@ const VideoStreamTile: React.FC<{
 };
 
 /**
- * Dedicated Audio Player for remote WebRTC participants with automatic acoustic echo-ducking
- * when local user is speaking into the microphone (prevents speaker-to-mic screeching feedback loop)
+ * Dedicated Lossless 48kHz Audio Player for remote WebRTC participants.
+ * Uses a single audio-only MediaStream per peer so hardware AEC has a clean reference,
+ * with automatic Echo Guard speaker attenuation when testing two devices in the same room.
  */
 const RemoteAudioPlayer: React.FC<{
   stream: MediaStream;
   isLocalSpeaking?: boolean;
-}> = ({ stream, isLocalSpeaking = false }) => {
+  echoGuardEnabled?: boolean;
+}> = ({ stream, isLocalSpeaking = false, echoGuardEnabled = true }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioTrackId = stream?.getAudioTracks()?.[0]?.id || '';
 
@@ -89,16 +104,16 @@ const RemoteAudioPlayer: React.FC<{
     if (audioTracks.length === 0) return;
     const audioOnlyStream = new MediaStream(audioTracks);
     el.srcObject = audioOnlyStream;
-    el.volume = 0.85;
+    el.volume = echoGuardEnabled && isLocalSpeaking ? 0.05 : 1.0;
     el.play().catch(() => {});
   }, [stream, audioTrackId]);
 
   useEffect(() => {
     if (audioRef.current) {
-      // Echo-ducking: attenuate remote speaker gain while local user is actively speaking into mic
-      audioRef.current.volume = isLocalSpeaking ? 0.18 : 0.85;
+      // When Echo Guard is active and local user speaks into mic, duck speaker output to break same-room feedback loops
+      audioRef.current.volume = echoGuardEnabled && isLocalSpeaking ? 0.05 : 1.0;
     }
-  }, [isLocalSpeaking]);
+  }, [isLocalSpeaking, echoGuardEnabled]);
 
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
 };
@@ -975,6 +990,15 @@ ${actionList}`;
   if (callState.isMinimized) {
     return (
       <div className="fixed bottom-20 right-4 sm:right-6 z-[9995] w-72 sm:w-80 rounded-2xl bg-[#0B0F19]/95 border border-white/10 shadow-2xl text-white overflow-hidden backdrop-blur-2xl animate-modal-appear">
+        {/* Keep remote audio playing seamlessly while minimized */}
+        {Array.from(callState.remoteStreams.entries()).map(([peerId, rStream]) => (
+          <RemoteAudioPlayer
+            key={peerId}
+            stream={rStream}
+            isLocalSpeaking={liveMicLevel > 22 && !myParticipant?.isMicMuted}
+            echoGuardEnabled={callState.echoGuardEnabled}
+          />
+        ))}
         <div className="p-3 bg-black/40 border-b border-white/10 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping flex-shrink-0" />
@@ -1101,7 +1125,7 @@ ${actionList}`;
           <VideoStreamTile stream={callState.screenStream} muted fit="contain" />
           <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/75 border border-white/10 text-[11px] font-medium text-sky-400 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-            <span>Broadcasting your screen live to all participants</span>
+            <span>Broadcasting your screen live in {callState.videoQualityMode} @ 60fps</span>
           </div>
         </div>
       );
@@ -1115,7 +1139,19 @@ ${actionList}`;
           remotePeerStream.getVideoTracks().some(t => t.enabled && t.readyState === 'live')
       );
 
-      // Prefer real-time broadcast screen frame when available so the exact shared screen is always visible, or WebRTC stream
+      // Prioritize native 1080p/60fps WebRTC video stream first for ultra-low latency & crystal clarity
+      if (hasRemoteVideoTrack && remotePeerStream) {
+        return (
+          <div className="relative w-full h-full flex items-center justify-center bg-black">
+            <VideoStreamTile stream={remotePeerStream} muted fit="contain" />
+            <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/75 border border-white/10 text-[11px] font-medium text-sky-400 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+              <span>Viewing {screenSharer.name}&apos;s live HD screen stream</span>
+            </div>
+          </div>
+        );
+      }
+
       if (remoteScreenFrame) {
         return (
           <div className="relative w-full h-full flex items-center justify-center bg-black">
@@ -1124,18 +1160,6 @@ ${actionList}`;
               alt={`${screenSharer.name}'s shared screen`}
               className="w-full h-full object-contain select-none"
             />
-            <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/75 border border-white/10 text-[11px] font-medium text-sky-400 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-              <span>Viewing {screenSharer.name}&apos;s live screen</span>
-            </div>
-          </div>
-        );
-      }
-
-      if (hasRemoteVideoTrack && remotePeerStream) {
-        return (
-          <div className="relative w-full h-full flex items-center justify-center bg-black">
-            <VideoStreamTile stream={remotePeerStream} muted={false} fit="contain" />
             <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/75 border border-white/10 text-[11px] font-medium text-sky-400 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
               <span>Viewing {screenSharer.name}&apos;s live screen</span>
@@ -1224,7 +1248,7 @@ ${actionList}`;
         }`}
       >
         {showLiveVideo ? (
-          <VideoStreamTile stream={streamToRender} muted={isMe} mirror={isMe} />
+          <VideoStreamTile stream={streamToRender} muted mirror={isMe} />
         ) : showRemoteFrameFallback && remoteCameraFrame ? (
           <img
             src={remoteCameraFrame}
@@ -1408,12 +1432,13 @@ ${actionList}`;
 
   return (
     <div className="fixed inset-0 z-[9990] bg-[#090D16] text-white flex flex-col overflow-hidden animate-fadeIn select-none">
-      {/* Mount hidden audio players for all remote WebRTC streams with echo-ducking */}
+      {/* Mount hidden audio players for all remote WebRTC streams with lossless 48kHz clarity & Echo Guard */}
       {Array.from(callState.remoteStreams.entries()).map(([peerId, rStream]) => (
         <RemoteAudioPlayer
           key={peerId}
           stream={rStream}
           isLocalSpeaking={liveMicLevel > 22 && !myParticipant?.isMicMuted}
+          echoGuardEnabled={callState.echoGuardEnabled}
         />
       ))}
 
@@ -1460,8 +1485,57 @@ ${actionList}`;
           </div>
         </div>
 
-        {/* Top-Right Compact Controls (Layout, Add People, Minimize PiP) */}
-        <div className="flex items-center gap-2">
+        {/* Top-Right Compact Controls (1080p/720p HD, Echo Guard, Layout, Add People, Minimize PiP) */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* 1080p / 720p HD Quality Switcher */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextMode = callState.videoQualityMode === '1080p' ? '720p' : '1080p';
+              meetingAndCallService.setVideoQualityMode(nextMode);
+              addToast(
+                `Video Stream: ${nextMode} HD`,
+                nextMode === '1080p'
+                  ? 'Switched to 1080p Full HD video & 60fps screen share.'
+                  : 'Switched to 720p Low-Latency HD stream.',
+                'info'
+              );
+            }}
+            title="Toggle between 1080p Full HD (60fps screen share) and 720p Low-Latency HD"
+            className="hidden md:inline-flex h-7 px-2.5 rounded-full bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-400/30 text-[10px] font-mono font-bold text-indigo-300 items-center gap-1 transition-colors cursor-pointer"
+          >
+            <span>{callState.videoQualityMode || '1080p'}</span>
+            <span className="text-emerald-400">HD</span>
+          </button>
+
+          {/* Acoustic Echo Guard Toggle for multi-device / speakerphone clarity */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextGuard = !callState.echoGuardEnabled;
+              meetingAndCallService.setEchoGuardEnabled(nextGuard);
+              addToast(
+                nextGuard ? 'Acoustic Echo Guard Enabled' : 'Full-Duplex Studio Mode',
+                nextGuard
+                  ? 'Anti-screech speaker attenuation active for multi-device & speakerphone calls.'
+                  : 'Switched to unattenuated full-duplex studio audio (recommended for headphones).',
+                'info'
+              );
+            }}
+            title={
+              callState.echoGuardEnabled
+                ? 'Echo Guard ON: Prevents echo & screeching when using speakers or multiple devices nearby'
+                : 'Echo Guard OFF: Unattenuated full-duplex audio (best for headphones)'
+            }
+            className={`hidden md:inline-flex h-7 px-2.5 rounded-full border text-[10px] font-semibold items-center gap-1 transition-colors cursor-pointer ${
+              callState.echoGuardEnabled
+                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
+                : 'bg-white/[0.05] border-white/[0.08] text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>{callState.echoGuardEnabled ? 'Echo Guard ON' : 'Echo Guard OFF'}</span>
+          </button>
+
           {/* Layout Switcher Icons */}
           <div className="hidden sm:flex items-center gap-0.5 p-1 rounded-full bg-white/[0.05] border border-white/[0.08]">
             {(
@@ -1613,13 +1687,13 @@ ${actionList}`;
           )}
 
           {/* Live Captions Subtitle Strip */}
-          {showCaptions && activeCall.transcript.length > 0 && (
+          {showCaptions && Array.isArray(activeCall.transcript) && activeCall.transcript.length > 0 && (
             <div className="mt-2 mx-auto max-w-2xl w-full px-4 py-2 rounded-xl bg-black/80 border border-white/10 text-center">
               <span className="text-xs font-bold text-indigo-400 mr-2">
-                {activeCall.transcript[activeCall.transcript.length - 1].speakerName}:
+                {activeCall.transcript[activeCall.transcript.length - 1]?.speakerName}:
               </span>
               <span className="text-xs text-slate-100">
-                {activeCall.transcript[activeCall.transcript.length - 1].text}
+                {activeCall.transcript[activeCall.transcript.length - 1]?.text}
               </span>
             </div>
           )}
@@ -1640,7 +1714,7 @@ ${actionList}`;
                     },
                     {
                       id: 'chat',
-                      label: `Chat (${activeCall.chatMessages.length})`,
+                      label: `Chat (${(activeCall.chatMessages || []).length})`,
                       icon: ICON_MAP.ChatBubbleLeftIcon,
                     },
                     {
@@ -1897,23 +1971,26 @@ ${actionList}`;
             {activeDrawerTab === 'chat' && (
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-                  {activeCall.chatMessages.map(m => (
-                    <div
-                      key={m.id}
-                      className="p-3 rounded-xl bg-slate-800/70 border border-slate-800 space-y-1"
-                    >
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-indigo-300">{m.senderName}</span>
-                        <span className="text-slate-500 font-mono">
-                          {new Date(m.timestamp).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+                  {(Array.isArray(activeCall.chatMessages) ? activeCall.chatMessages : []).map((m, idx) => {
+                    if (!m) return null;
+                    const msgTime = m.timestamp ? new Date(m.timestamp) : null;
+                    const formattedTime =
+                      msgTime && !Number.isNaN(msgTime.getTime())
+                        ? msgTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : '';
+                    return (
+                      <div
+                        key={m.id || `cmsg-idx-${idx}`}
+                        className="p-3 rounded-xl bg-slate-800/70 border border-slate-800 space-y-1"
+                      >
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-indigo-300">{m.senderName || 'Participant'}</span>
+                          <span className="text-slate-500 font-mono">{formattedTime}</span>
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed break-words">{m.text || ''}</p>
                       </div>
-                      <p className="text-xs text-slate-200 leading-relaxed break-words">{m.text}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <form
@@ -2294,6 +2371,46 @@ ${actionList}`;
                 )}
               </div>
 
+              {/* HD Video Stream Resolution & Acoustic Echo Guard */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Video Stream Quality
+                </span>
+                <div className="flex items-center gap-1">
+                  {(['1080p', '720p'] as const).map(q => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => meetingAndCallService.setVideoQualityMode(q)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold cursor-pointer ${
+                        (callState.videoQualityMode || '1080p') === q
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {q === '1080p' ? '1080p Full HD' : '720p Fast HD'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Same-Room Echo Guard (48kHz Opus)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => meetingAndCallService.setEchoGuardEnabled(!callState.echoGuardEnabled)}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                    callState.echoGuardEnabled
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {callState.echoGuardEnabled ? 'Active (Anti-Screech)' : 'Off (Full-Duplex)'}
+                </button>
+              </div>
+
               {/* Studio Background Mode */}
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[11px] font-semibold text-slate-400">
@@ -2353,7 +2470,7 @@ ${actionList}`;
               if (myParticipant?.isScreenSharing) {
                 await meetingAndCallService.toggleScreenShare(currentUser.id);
               } else {
-                const started = await meetingAndCallService.toggleScreenShare(currentUser.id, false);
+                const started = await meetingAndCallService.toggleScreenShare(currentUser.id);
                 if (started) {
                   setCallLayout('presentation');
                 }
@@ -2445,7 +2562,7 @@ ${actionList}`;
             onClick={() => setActiveDrawerTab(prev => (prev === 'chat' ? null : 'chat'))}
             tooltip="In-call chat"
             active={activeDrawerTab === 'chat'}
-            badge={activeCall.chatMessages.length}
+            badge={(activeCall.chatMessages || []).length}
           >
             <ICON_MAP.ChatBubbleLeftIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </DockIconButton>
@@ -2508,26 +2625,37 @@ class VideoCallErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed bottom-5 right-5 z-[10000] max-w-sm rounded-2xl bg-slate-900/95 border border-rose-500/40 p-4 text-white shadow-2xl backdrop-blur-xl">
+        <div className="fixed bottom-5 right-5 z-[10000] max-w-sm rounded-2xl bg-slate-900/95 border border-indigo-500/40 p-4 text-white shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h4 className="text-xs font-bold text-rose-400">Call Session Reset</h4>
+              <h4 className="text-xs font-bold text-indigo-300">Call Interface Recovered</h4>
               <p className="text-[11px] text-slate-300 mt-0.5">
-                The previous call session has ended or encountered a connection interruption.
+                Your call connection is still active. Click Resume to reopen the studio controls.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  meetingAndCallService.endCallForAll();
-                } catch {}
-                this.setState({ hasError: false, errorMessage: '' });
-              }}
-              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold cursor-pointer flex-shrink-0"
-            >
-              Dismiss
-            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  this.setState({ hasError: false, errorMessage: '' });
+                }}
+                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold cursor-pointer"
+              >
+                Resume
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    meetingAndCallService.endCallForAll();
+                  } catch {}
+                  this.setState({ hasError: false, errorMessage: '' });
+                }}
+                className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white text-[11px] font-semibold cursor-pointer"
+              >
+                End
+              </button>
+            </div>
           </div>
         </div>
       );

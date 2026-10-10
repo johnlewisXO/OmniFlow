@@ -39,7 +39,7 @@ const createIcon = (path: React.ReactNode): React.FC<{ className?: string }> => 
   </svg>
 );
 
-export const ICON_MAP = {
+const RAW_ICON_MAP = {
   ArrowLeftIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />),
   HomeIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955a1.5 1.5 0 012.122 0l8.954 8.955M2.25 12v10.5a.75.75 0 00.75.75H21a.75.75 0 00.75-.75V12M12 21.75V16.5" />),
   FolderIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M2.25 9V7.5a2.25 2.25 0 012.25-2.25h5.379a2.25 2.25 0 011.697.708l.969 1.026a2.25 2.25 0 001.697.708h4.51a2.25 2.25 0 012.25 2.25V9m-16.5 4.5v1.5a2.25 2.25 0 002.25 2.25h12a2.25 2.25 0 002.25-2.25v-1.5" />),
@@ -127,7 +127,19 @@ export const ICON_MAP = {
   PhotoIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />),
   SpeakerXMarkIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6l4.72-4.72a.75.75 0 011.28.531V19.94a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.395C2.806 8.757 3.63 8.25 4.51 8.25H6.75z" />),
   LockClosedIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />),
+  PaperAirplaneIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />),
 };
+
+const FALLBACK_ICON = createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />);
+
+export const SAFE_ICON_MAP = new Proxy(RAW_ICON_MAP, {
+  get(target, prop: string) {
+    return (target as any)[prop] || FALLBACK_ICON;
+  },
+});
+
+export const ICON_MAP: typeof RAW_ICON_MAP = SAFE_ICON_MAP;
+
 
 export const SIDENAV_ITEMS: {
   id: ActiveView;
