@@ -6,6 +6,7 @@ import { Button } from '../shared/Button';
 import { AuditLog, TaskStatus, UserRole, normalizeUserRole } from '../../types';
 import supabaseService from '../../services/supabaseService';
 import { SystemLogMonitorPanel } from '../shared/SystemLogMonitorModal';
+import { PendingJoinRequestsBanner } from '../team/PendingJoinRequestsBanner';
 
 type OwnerTab = 'executive' | 'audit_security' | 'billing' | 'security_api' | 'telemetry' | 'governance';
 
@@ -402,6 +403,10 @@ export const OwnerDashboard: React.FC = () => {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mt-4">
+          <PendingJoinRequestsBanner />
         </div>
 
         {/* Quick Executive Summary Cards (No "Coming Soon" — 100% Working Triggers) */}

@@ -536,7 +536,7 @@ export interface AppStore {
   setIsMobileSidebarOpen: (isOpen: boolean) => void;
   toggleMobileSidebar: () => void;
 
-  signUp: (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => Promise<{ profile?: User; requiresEmailConfirmation?: boolean; smtpFallbackUsed?: boolean; smtpErrorMessage?: string } | void>;
   joinOrCreateOrganization: (organizationName: string, role?: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;

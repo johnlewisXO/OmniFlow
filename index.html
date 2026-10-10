@@ -7,6 +7,17 @@
     <meta name="description" content="Omni Flow: AI-powered project management. Beautifully efficient. Streamline workflows, foster collaboration, and achieve goals with intelligent precision." />
     <meta property="og:title" content="Omni Flow" />
     <meta property="og:description" content="Omni Flow: AI-powered project management. Beautifully efficient. Streamline workflows, foster collaboration, and achieve goals with intelligent precision." />
+    <script>
+      (function () {
+        var origWarn = console.warn;
+        console.warn = function () {
+          if (arguments[0] && typeof arguments[0] === 'string' && arguments[0].indexOf('cdn.tailwindcss.com') !== -1) {
+            return;
+          }
+          return origWarn.apply(console, arguments);
+        };
+      })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {

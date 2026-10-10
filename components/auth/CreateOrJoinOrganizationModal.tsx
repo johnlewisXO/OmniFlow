@@ -473,16 +473,9 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     }
   };
 
-  const handleWithdrawJoinRequest = () => {
-    if (typeof window !== 'undefined' && pendingJoinRequest) {
-      try {
-        const raw = localStorage.getItem('omni_org_join_requests_v1');
-        if (raw) {
-          const list: OrganizationJoinRequest[] = JSON.parse(raw);
-          const filtered = list.filter(r => r.id !== pendingJoinRequest.id);
-          localStorage.setItem('omni_org_join_requests_v1', JSON.stringify(filtered));
-        }
-      } catch {}
+  const handleWithdrawJoinRequest = async () => {
+    if (pendingJoinRequest && currentUser) {
+      await supabaseService.cancelJoinRequest(pendingJoinRequest.id, currentUser.id);
     }
     setPendingJoinRequest(null);
   };

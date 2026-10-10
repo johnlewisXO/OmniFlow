@@ -700,7 +700,17 @@ const localParseErrorMessage = (error: any, defaultMessage: string = "An unexpec
 
 function App() {
   const [currentRoute, setCurrentRoute] = useState(() => {
-    const hash = window.location.hash;
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const isAuthCallback =
+      hash.includes('access_token=') ||
+      hash.includes('type=signup') ||
+      hash.includes('type=recovery') ||
+      hash.includes('verify-email=') ||
+      search.includes('token_hash=') ||
+      search.includes('type=signup') ||
+      search.includes('type=recovery');
+    if (isAuthCallback) return '#/app';
     return (!hash || hash === '#' || hash === '#/') ? '/' : hash;
   });
 
@@ -738,14 +748,29 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const newHash = window.location.hash || '/';
+      if (
+        newHash.includes('access_token=') ||
+        newHash.includes('type=signup') ||
+        newHash.includes('type=recovery') ||
+        newHash.includes('verify-email=')
+      ) {
+        setCurrentRoute('#/app');
+        return;
+      }
       setCurrentRoute(newHash === '#/' || newHash === '#' ? '/' : newHash);
     };
     window.addEventListener('hashchange', handleHashChange);
 
     const browserHash = window.location.hash;
+    const isAuthHash =
+      browserHash.includes('access_token=') ||
+      browserHash.includes('type=signup') ||
+      browserHash.includes('type=recovery') ||
+      browserHash.includes('verify-email=');
+
     if ((browserHash === '' || browserHash === '#' || browserHash === '#/') && currentRoute.startsWith('#/app')) {
         setCurrentRoute('/'); 
-    } else if (browserHash.startsWith('#/app') && currentRoute === '/') {
+    } else if ((browserHash.startsWith('#/app') || isAuthHash) && currentRoute === '/') {
         setCurrentRoute('#/app'); 
     }
 
@@ -855,6 +880,49 @@ function App() {
     console.log('[App.tsx AuthEffect] Initializing auth handling.');
     let mounted = true;
 
+    // Handle email confirmation tokens (#access_token=...&type=signup or ?token_hash=...&type=signup)
+    const processUrlEmailConfirmation = async () => {
+      if (typeof window === 'undefined') return;
+      const combined = `${window.location.hash}&${window.location.search}`;
+      const isSignupConfirm = combined.includes('type=signup') || combined.includes('type=email') || combined.includes('verify-email=');
+      const accessTokenMatch = combined.match(/access_token=([^&]+)/);
+      const refreshTokenMatch = combined.match(/refresh_token=([^&]+)/);
+      const tokenHashMatch = combined.match(/token_hash=([^&]+)/);
+
+      if (accessTokenMatch?.[1] && refreshTokenMatch?.[1] && !combined.includes('type=recovery')) {
+        try {
+          const { data } = await supabase.auth.setSession({
+            access_token: decodeURIComponent(accessTokenMatch[1]),
+            refresh_token: decodeURIComponent(refreshTokenMatch[1]),
+          });
+          if (data?.user && isSignupConfirm) {
+            const prof = await supabaseService.ensureUserProfileForSession(data.user);
+            if (prof) {
+              await emailNotificationService.verifyUserEmail(prof);
+              useAppStore.getState().addToast('Email Confirmed!', `Your email (${prof.email}) is now verified.`, 'success');
+            }
+            window.history.replaceState(null, '', window.location.pathname + '#/app');
+          }
+        } catch {}
+      } else if (tokenHashMatch?.[1] && isSignupConfirm) {
+        try {
+          const { data } = await supabase.auth.verifyOtp({
+            token_hash: decodeURIComponent(tokenHashMatch[1]),
+            type: 'signup',
+          });
+          if (data?.user) {
+            const prof = await supabaseService.ensureUserProfileForSession(data.user);
+            if (prof) {
+              await emailNotificationService.verifyUserEmail(prof);
+              useAppStore.getState().addToast('Email Confirmed!', `Your email (${prof.email}) is now verified.`, 'success');
+            }
+            window.history.replaceState(null, '', window.location.pathname + '#/app');
+          }
+        } catch {}
+      }
+    };
+    processUrlEmailConfirmation();
+
     const finishInitialLoad = () => {
       if (mounted && useAppStore.getState().appLoading) {
         setAppLoading(false);
@@ -869,40 +937,47 @@ function App() {
       }
     }, 4000);
 
-    const handleSession = async (session: any) => {
+    let activeSessionUserIdInFlight: string | null = null;
+    let lastResolvedSessionUserId: string | null = null;
+
+    const handleSession = async (session: any, forceRefresh = false) => {
       if (!mounted) return;
       setAuthError(null);
 
       if (session && session.user) {
-        console.log(`[App.tsx AuthEffect] Session active. User ID: ${session.user.id}. Fetching profile.`);
+        const uid = session.user.id;
+        if (!forceRefresh && (activeSessionUserIdInFlight === uid || (lastResolvedSessionUserId === uid && useAppStore.getState().currentUser?.id === uid))) {
+          finishInitialLoad();
+          return;
+        }
+        activeSessionUserIdInFlight = uid;
+        console.log(`[App.tsx AuthEffect] Session active. User ID: ${uid}. Fetching or ensuring profile.`);
         try {
-          // Timeout profile fetch after 10 seconds to guarantee the app loads without getting stuck
-          const profilePromise = supabaseService.getUserProfile(session.user.id);
+          // Timeout profile fetch/ensure after 10 seconds to guarantee the app loads without getting stuck
+          const profilePromise = supabaseService.ensureUserProfileForSession(session.user);
           const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000));
           const userProfile = await Promise.race([profilePromise, timeoutPromise]);
           
           if (userProfile && mounted) {
-            console.log(`[App.tsx AuthEffect] Profile fetched: ID ${userProfile.id}`);
-            let finalRole: UserRole | undefined = undefined;
-            if (userProfile.role) {
-              const roleString = String(userProfile.role).toUpperCase();
-              if (Object.values(UserRole).includes(roleString as UserRole)) {
-                finalRole = roleString as UserRole;
-              }
-            }
-            const appUserPayload: AppUserType = {
+            console.log(`[App.tsx AuthEffect] Profile fetched: ID ${userProfile.id}, Role: ${userProfile.role}, Org: ${userProfile.organization_id || 'none'}`);
+            const normalizedPayload = supabaseService.normalizeAppUser({
+              ...userProfile,
               id: userProfile.id,
               supabase_auth_id: session.user.id,
-              email: session.user.email || userProfile.email || '', 
-              full_name: userProfile.full_name,
-              avatar_url: userProfile.avatar_url,
-              organization_id: userProfile.organization_id,
-              role: finalRole,
-            };
+              email: session.user.email || userProfile.email || '',
+            });
             try {
-              localStorage.setItem(`omni_user_profile_${session.user.id}`, JSON.stringify(appUserPayload));
+              localStorage.setItem(`omni_user_profile_${session.user.id}`, JSON.stringify(normalizedPayload));
             } catch (e) {}
-            setCurrentUser(appUserPayload);
+            if (!normalizedPayload.organization_id && typeof window !== 'undefined' && session.user.email_confirmed_at) {
+              const hasSeenOrgPrompt = localStorage.getItem(`omni_org_prompt_seen_${session.user.id}`);
+              if (!hasSeenOrgPrompt) {
+                sessionStorage.setItem('omni_just_registered', 'true');
+                localStorage.setItem(`omni_org_prompt_seen_${session.user.id}`, 'true');
+              }
+            }
+            lastResolvedSessionUserId = uid;
+            setCurrentUser(normalizedPayload);
             useAppStore.getState().setAuthLoading(false);
 
             if (!window.location.hash.startsWith('#/app')) {
@@ -917,7 +992,7 @@ function App() {
                if (raw) cachedProfile = JSON.parse(raw);
              } catch (e) {}
              const existingStoreUser = useAppStore.getState().currentUser;
-             const fallbackUser: AppUserType = {
+             const fallbackUser = supabaseService.normalizeAppUser({
                id: session.user.id,
                supabase_auth_id: session.user.id,
                email: session.user.email || cachedProfile?.email || '',
@@ -925,7 +1000,8 @@ function App() {
                avatar_url: cachedProfile?.avatar_url || session.user.user_metadata?.avatar_url,
                organization_id: cachedProfile?.organization_id || (existingStoreUser?.id === session.user.id ? existingStoreUser.organization_id : undefined),
                role: cachedProfile?.role || (existingStoreUser?.id === session.user.id ? existingStoreUser.role : UserRole.MEMBER),
-             };
+             });
+             lastResolvedSessionUserId = uid;
              setCurrentUser(fallbackUser);
              useAppStore.getState().setAuthLoading(false);
              if (!window.location.hash.startsWith('#/app')) {
@@ -942,7 +1018,7 @@ function App() {
               if (raw) cachedProfile = JSON.parse(raw);
             } catch (e) {}
             const existingStoreUser = useAppStore.getState().currentUser;
-            const fallbackUser: AppUserType = {
+            const fallbackUser = supabaseService.normalizeAppUser({
               id: session.user.id,
               supabase_auth_id: session.user.id,
               email: session.user.email || cachedProfile?.email || '',
@@ -950,7 +1026,8 @@ function App() {
               avatar_url: cachedProfile?.avatar_url || session.user.user_metadata?.avatar_url,
               organization_id: cachedProfile?.organization_id || (existingStoreUser?.id === session.user.id ? existingStoreUser.organization_id : undefined),
               role: cachedProfile?.role || (existingStoreUser?.id === session.user.id ? existingStoreUser.role : UserRole.MEMBER),
-            };
+            });
+            lastResolvedSessionUserId = uid;
             setCurrentUser(fallbackUser);
             useAppStore.getState().setAuthLoading(false);
             if (!window.location.hash.startsWith('#/app')) {
@@ -959,12 +1036,17 @@ function App() {
             }
           }
         } finally {
+          if (activeSessionUserIdInFlight === uid) {
+            activeSessionUserIdInFlight = null;
+          }
           if (mounted) {
             useAppStore.getState().setAuthLoading(false);
             finishInitialLoad();
           }
         }
       } else {
+        activeSessionUserIdInFlight = null;
+        lastResolvedSessionUserId = null;
         if (mounted) {
           console.log("[App.tsx AuthEffect] No active session. Setting current user to null.");
           setCurrentUser(null);
@@ -995,7 +1077,7 @@ function App() {
         setTimeout(() => {
           if (!mounted) return;
           if (_event === 'SIGNED_OUT') {
-            handleSession(null);
+            handleSession(null, true);
             return;
           }
 
@@ -1050,10 +1132,25 @@ function App() {
           table: 'notifications',
           filter: `user_id=eq.${currentUser.id}`
         }, (payload) => {
-          console.log('New notification received:', payload.new);
-          // Only add if it's not already in the store (to avoid duplicates if we also emitted locally)
-          // We can just add it, but let's make sure it's mapped correctly
-          addNotification(payload.new as any);
+          const newNotif = payload.new as any;
+          console.log('New notification received:', newNotif);
+          addNotification(newNotif);
+          if (newNotif?.type === 'ORGANIZATION_JOIN_REQUEST') {
+            window.dispatchEvent(new CustomEvent('omni_org_join_request_updated'));
+            useAppStore.getState().addToast(
+              newNotif.title || 'New Organization Join Request',
+              newNotif.message || 'A user has requested to join your organization.',
+              'info',
+              { entity_type: 'team_management' }
+            );
+          } else if (newNotif?.type === 'ORGANIZATION_JOIN_APPROVED') {
+            window.dispatchEvent(new CustomEvent('omni_org_join_request_updated'));
+            supabaseService.getUserProfile(currentUser.id).then(fresh => {
+              if (fresh?.organization_id) {
+                setCurrentUser(fresh);
+              }
+            });
+          }
         })
         .subscribe();
 

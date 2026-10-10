@@ -543,6 +543,77 @@ async function startServer() {
     }
   });
 
+  // 8. Cross-Session Organization Join Requests & Approval Store
+  const joinRequestsStore = new Map<string, any>();
+
+  app.get('/api/join-requests', (req, res) => {
+    const { organizationId, userId, email } = req.query as {
+      organizationId?: string;
+      userId?: string;
+      email?: string;
+    };
+    const all = Array.from(joinRequestsStore.values());
+    if (organizationId) {
+      return res.json(
+        all
+          .filter(r => r.organization_id === organizationId)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      );
+    }
+    if (userId || email) {
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const matches = all
+        .filter(
+          r =>
+            (userId && r.requester_id === userId) ||
+            (cleanEmail && r.requester_email?.toLowerCase() === cleanEmail)
+        )
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return res.json(matches);
+    }
+    return res.json(all);
+  });
+
+  app.post('/api/join-requests', (req, res) => {
+    const payload = req.body;
+    if (!payload || !payload.id || !payload.organization_id) {
+      return res.status(400).json({ error: 'Invalid join request payload' });
+    }
+    // Remove older pending requests from same user for same org
+    for (const [key, existing] of joinRequestsStore.entries()) {
+      if (
+        existing.organization_id === payload.organization_id &&
+        (existing.requester_id === payload.requester_id ||
+          (existing.requester_email &&
+            payload.requester_email &&
+            existing.requester_email.toLowerCase() === payload.requester_email.toLowerCase())) &&
+        existing.status === 'pending' &&
+        key !== payload.id
+      ) {
+        joinRequestsStore.delete(key);
+      }
+    }
+    joinRequestsStore.set(payload.id, payload);
+    return res.json(payload);
+  });
+
+  app.patch('/api/join-requests/:id', (req, res) => {
+    const { id } = req.params;
+    const updates = req.body || {};
+    const existing = joinRequestsStore.get(id);
+    const merged = existing ? { ...existing, ...updates } : { id, ...updates };
+    if (merged.organization_id) {
+      joinRequestsStore.set(id, merged);
+    }
+    return res.json(merged);
+  });
+
+  app.delete('/api/join-requests/:id', (req, res) => {
+    const { id } = req.params;
+    joinRequestsStore.delete(id);
+    return res.json({ deleted: true, id });
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

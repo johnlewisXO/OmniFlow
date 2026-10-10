@@ -4,6 +4,7 @@ import { OverviewPage } from '../overview/OverviewPage';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { SystemLogMonitorPanel } from '../shared/SystemLogMonitorModal';
+import { PendingJoinRequestsBanner } from '../team/PendingJoinRequestsBanner';
 
 export const ProjectManagerDashboard: React.FC = () => {
   const { currentUser, darkMode, openCreateProjectModal, projects, setActiveProject, setActiveView } = useAppStore();
@@ -60,6 +61,8 @@ export const ProjectManagerDashboard: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      <PendingJoinRequestsBanner />
 
       {activeTab === 'telemetry' ? (
         <SystemLogMonitorPanel />

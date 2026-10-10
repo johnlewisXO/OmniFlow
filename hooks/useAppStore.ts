@@ -739,36 +739,14 @@ const appActionsCreator = (
         try {
           let fetchedUsers: User[] = [];
 
-          const orgPromise = withTimeout(
+          const orgUsers = await withTimeout(
             supabaseService.getUsersByOrganizationId(targetOrgId),
-            7000,
+            8000,
             "Users fetch timeout"
           ).catch(() => [] as User[]);
 
-          const allProfilesPromise = withTimeout(
-            Promise.resolve(
-              supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('organization_id', targetOrgId)
-                .limit(100)
-            ).then(res => res.data || []),
-            7000,
-            "Org profiles timeout"
-          ).catch(() => [] as any[]);
-
-          const [orgUsers, allProfiles] = await Promise.all([orgPromise, allProfilesPromise]);
-
           if (Array.isArray(orgUsers)) {
-            fetchedUsers = orgUsers.filter(u => {
-              const ext = getUserProfileExtensions(u.id);
-              const uOrg = u.organization_id || ext.organization_id;
-              return uOrg === targetOrgId;
-            });
-          }
-
-          if (Array.isArray(allProfiles)) {
-            allProfiles.forEach((p: any) => {
+            orgUsers.forEach((p: any) => {
               if (p && p.id) {
                 const ext = getUserProfileExtensions(p.id);
                 if (ext.removedFromOrgId && ext.removedFromOrgId === targetOrgId) {
@@ -944,13 +922,29 @@ const appActionsCreator = (
       try {
         const result = await supabaseService.signUpUser(email, password, fullName, organizationName, role);
         if (result && result.profile) {
-             console.log("[useAppStore signUp] Supabase signUpUser successful, profile returned:", result.profile);
-             if (!result.profile.organization_id && typeof window !== 'undefined') {
-               sessionStorage.setItem('omni_just_registered', 'true');
-             }
-             get().setCurrentUser(result.profile);
+          if (result.requiresEmailConfirmation) {
+            console.log("[useAppStore signUp] Account requires email confirmation before entering workspace:", result.profile.email);
+            updateState(s => ({ ...s, authLoading: false, authError: null }));
+            return {
+              profile: result.profile,
+              requiresEmailConfirmation: true,
+              smtpFallbackUsed: result.smtpFallbackUsed,
+              smtpErrorMessage: result.smtpErrorMessage,
+            };
+          }
+          console.log("[useAppStore signUp] Supabase signUpUser successful, profile returned:", result.profile);
+          if (!result.profile.organization_id && typeof window !== 'undefined') {
+            sessionStorage.setItem('omni_just_registered', 'true');
+          }
+          get().setCurrentUser(result.profile);
+          updateState(s => ({ ...s, authLoading: false }));
+          return {
+            profile: result.profile,
+            requiresEmailConfirmation: false,
+            smtpFallbackUsed: false,
+          };
         } else {
-            console.warn("[useAppStore signUp] signUpUser completed but didn't return a profile as expected.");
+          console.warn("[useAppStore signUp] signUpUser completed but didn't return a profile as expected.");
         }
         updateState(s => ({ ...s, authLoading: false }));
       } catch (error: any) {
@@ -967,17 +961,22 @@ const appActionsCreator = (
       try {
         const updatedProfile = await supabaseService.joinOrCreateOrganizationForUser(currentUser.id, organizationName, role);
         if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('omni_just_registered');
+          if (updatedProfile.organization_id) {
+            sessionStorage.removeItem('omni_just_registered');
+          }
           try {
             localStorage.setItem(`omni_user_profile_${updatedProfile.id}`, JSON.stringify(updatedProfile));
           } catch (e) {}
         }
         get().setCurrentUser(updatedProfile);
-        setTimeout(() => {
-          selfActions.fetchCurrentOrganization();
-          selfActions.fetchUsersForAssignmentList();
-          selfActions.fetchProjects();
-        }, 50);
+        updateState(s => ({ ...s, authLoading: false }));
+        if (updatedProfile.organization_id) {
+          setTimeout(() => {
+            selfActions.fetchCurrentOrganization();
+            selfActions.fetchUsersForAssignmentList();
+            selfActions.fetchProjects();
+          }, 50);
+        }
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to join or create organization.');
         updateState(s => ({ ...s, authLoading: false, authError: message }));
@@ -987,7 +986,10 @@ const appActionsCreator = (
     signIn: async (email: string, password: string) => {
       updateState(s => ({ ...s, authLoading: true, authError: null }));
       try {
-        await supabaseService.signInUser(email, password);
+        const res = await supabaseService.signInUser(email, password);
+        if (res?.fallbackProfile) {
+          get().setCurrentUser(res.fallbackProfile);
+        }
         updateState(s => ({ ...s, authLoading: false }));
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Sign in failed. Please check your credentials and connection.');
