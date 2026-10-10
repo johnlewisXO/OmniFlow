@@ -68,9 +68,11 @@ export const Sidebar: React.FC = () => {
   const isExpanded = isHovered || isPinned;
 
   const textColorClass = darkMode ? 'text-slate-300' : 'text-slate-600';
-  const hoverBgClass = darkMode ? 'hover:bg-accent/15' : 'hover:bg-accent/10';
-  const activeItemTextClass = darkMode ? 'text-accent-light' : 'text-accent-dark'; 
-  const activeItemBgClass = darkMode ? 'bg-accent/20' : 'bg-accent/15'; 
+  const hoverBgClass = darkMode ? 'hover:bg-white/[0.06]' : 'hover:bg-slate-900/[0.05]';
+  const activeItemTextClass = 'text-white'; 
+  const activeItemBgClass = darkMode
+    ? 'bg-indigo-600 shadow-lg shadow-indigo-600/25'
+    : 'bg-slate-900 shadow-md shadow-slate-900/15'; 
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
   const PlusIcon = ICON_MAP.PlusIcon;
   const CogIcon = ICON_MAP.CogIcon;
@@ -227,15 +229,15 @@ export const Sidebar: React.FC = () => {
                 data-tour-id={`tour-nav-${item.id}`}
                 onClick={() => handleSidenavItemClick(item.id, item.path)}
                 title={(!expanded && !isMobile) ? item.label : undefined}
-                className={`w-full flex items-center ${(expanded || isMobile) ? 'space-x-2.5 px-3' : 'justify-center px-0'} py-2 rounded-xl transition-all group text-left
+                className={`w-full flex items-center ${(expanded || isMobile) ? 'space-x-2.5 px-3.5' : 'justify-center px-0'} py-2.5 rounded-full transition-all group text-left cursor-pointer
                             ${isItemActive 
                               ? `${activeItemBgClass} ${activeItemTextClass}` 
-                              : `${textColorClass} ${hoverBgClass} hover:text-accent-light`
+                              : `${textColorClass} ${hoverBgClass} hover:text-accent`
                             }`}
               >
-                {Icon && <Icon className={`w-4 h-4 flex-shrink-0 ${isItemActive ? (darkMode ? 'text-accent-light' : 'text-accent') : (darkMode ? 'text-slate-400' : 'text-slate-500')} group-hover:text-accent transition-colors`} />}
+                {Icon && <Icon className={`w-4 h-4 flex-shrink-0 ${isItemActive ? 'text-white' : (darkMode ? 'text-slate-400' : 'text-slate-500')} group-hover:text-accent transition-colors`} />}
                 {(expanded || isMobile) && (
-                  <span className={`text-xs font-medium whitespace-nowrap truncate ${isItemActive ? 'font-semibold' : ''}`}>{item.label}</span>
+                  <span className={`text-xs font-medium whitespace-nowrap truncate ${isItemActive ? 'font-semibold text-white' : ''}`}>{item.label}</span>
                 )}
               </button>
             );
@@ -245,15 +247,15 @@ export const Sidebar: React.FC = () => {
               key="admin-settings"
               onClick={() => handleSidenavItemClick('admin_settings', '#')}
               title={(!expanded && !isMobile) ? 'Admin Settings' : undefined}
-              className={`w-full flex items-center ${(expanded || isMobile) ? 'space-x-2.5 px-3' : 'justify-center px-0'} py-2 rounded-xl transition-all group text-left
+              className={`w-full flex items-center ${(expanded || isMobile) ? 'space-x-2.5 px-3.5' : 'justify-center px-0'} py-2.5 rounded-full transition-all group text-left cursor-pointer
                           ${activeView === 'admin_settings' 
                             ? `${activeItemBgClass} ${activeItemTextClass}` 
-                            : `${textColorClass} ${hoverBgClass} hover:text-accent-light`
+                            : `${textColorClass} ${hoverBgClass} hover:text-accent`
                           }`}
             >
-              <CogIcon className={`w-4 h-4 flex-shrink-0 ${activeView === 'admin_settings' ? (darkMode ? 'text-accent-light' : 'text-accent') : (darkMode ? 'text-slate-400' : 'text-slate-500')} group-hover:text-accent transition-colors`} />
+              <CogIcon className={`w-4 h-4 flex-shrink-0 ${activeView === 'admin_settings' ? 'text-white' : (darkMode ? 'text-slate-400' : 'text-slate-500')} group-hover:text-accent transition-colors`} />
               {(expanded || isMobile) && (
-                <span className={`text-xs font-medium whitespace-nowrap truncate ${activeView === 'admin_settings' ? 'font-semibold' : ''}`}>Admin Settings</span>
+                <span className={`text-xs font-medium whitespace-nowrap truncate ${activeView === 'admin_settings' ? 'font-semibold text-white' : ''}`}>Admin Settings</span>
               )}
             </button>
           )}
@@ -580,7 +582,7 @@ export const Sidebar: React.FC = () => {
           setIsHovered(false);
           setProfileMenuOpen(false);
         }}
-        className={`hidden md:flex glass-panel rounded-2xl flex-col h-full p-3 space-y-3 transition-all duration-300 ease-in-out z-30 select-none ${
+        className={`hidden md:flex glass-panel rounded-[32px] flex-col h-full p-3.5 space-y-3 transition-all duration-300 ease-in-out z-30 select-none ${
           isExpanded ? 'w-64' : 'w-16'
         }`}
       >

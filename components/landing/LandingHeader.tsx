@@ -71,17 +71,19 @@ export const LandingHeader: React.FC = () => {
         <div className="hidden md:flex items-center gap-3 shrink-0">
           {!currentUser && (
             <a
-              href="#/app"
-              className="text-sm font-medium text-slate-300 hover:text-white transition-colors px-3 py-2 whitespace-nowrap"
+              href="#/login"
+              onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+              className="text-sm font-semibold text-slate-300 hover:text-white transition-colors px-4 py-2 rounded-full hover:bg-white/[0.06] whitespace-nowrap"
             >
               Sign In
             </a>
           )}
           <a
-            href="#/app"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/25 border border-indigo-400/30 transition-all whitespace-nowrap"
+            href={currentUser ? '#/app/overview' : '#/signup'}
+            onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/25 border border-indigo-400/30 transition-all whitespace-nowrap"
           >
-            <span>{currentUser ? 'Open Workspace' : 'Launch Workspace'}</span>
+            <span>{currentUser ? 'Open Workspace' : 'Start Free Workspace'}</span>
             <span aria-hidden="true">→</span>
           </a>
         </div>
@@ -90,7 +92,7 @@ export const LandingHeader: React.FC = () => {
         <button
           type="button"
           onClick={() => setMobileMenuOpen(prev => !prev)}
-          className="md:hidden w-11 h-11 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-center text-slate-200 hover:text-white"
+          className="md:hidden w-11 h-11 rounded-full border border-white/10 bg-white/[0.03] flex items-center justify-center text-slate-200 hover:text-white"
           aria-label="Toggle navigation menu"
         >
           {mobileMenuOpen ? (
@@ -109,17 +111,27 @@ export const LandingHeader: React.FC = () => {
               key={item.label}
               href={item.href}
               onClick={e => handleNavClick(e, item.href)}
-              className="block px-3 py-2.5 rounded-xl text-sm font-medium text-slate-200 hover:bg-white/5 hover:text-white"
+              className="block px-3 py-2.5 rounded-2xl text-sm font-medium text-slate-200 hover:bg-white/5 hover:text-white"
             >
               {item.label}
             </a>
           ))}
           <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
+            {!currentUser && (
+              <a
+                href="#/login"
+                onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+                className="w-full py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-center text-sm font-semibold text-white"
+              >
+                Sign In
+              </a>
+            )}
             <a
-              href="#/app"
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-center text-sm font-semibold text-white shadow-lg shadow-indigo-600/25"
+              href={currentUser ? '#/app/overview' : '#/signup'}
+              onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+              className="w-full py-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-center text-sm font-semibold text-white shadow-lg shadow-indigo-600/25"
             >
-              {currentUser ? 'Open Workspace →' : 'Launch Free Workspace →'}
+              {currentUser ? 'Open Workspace →' : 'Start Free Workspace →'}
             </a>
           </div>
         </div>

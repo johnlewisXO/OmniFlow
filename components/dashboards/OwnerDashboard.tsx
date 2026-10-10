@@ -378,7 +378,7 @@ export const OwnerDashboard: React.FC = () => {
           </div>
 
           {/* Interactive Tab Switcher */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl bg-slate-200/70 dark:bg-slate-900 border border-slate-300/60 dark:border-slate-800">
+          <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-full bg-slate-200/70 dark:bg-slate-900 border border-slate-300/60 dark:border-slate-800">
             {[
               { id: 'executive', label: '1. Overview & Admin' },
               { id: 'audit_security', label: '2. Security & Activity Audit' },
@@ -391,7 +391,7 @@ export const OwnerDashboard: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as OwnerTab)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : darkMode
@@ -408,101 +408,108 @@ export const OwnerDashboard: React.FC = () => {
         <div className="mt-4">
           <PendingJoinRequestsBanner />
         </div>
-
-        {/* Quick Executive Summary Cards (No "Coming Soon" — 100% Working Triggers) */}
-        {activeTab === 'executive' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            {/* Card 1: Subscription & Billing */}
-            <div
-              className={`p-4 rounded-2xl border flex flex-col justify-between ${
-                darkMode ? 'bg-amber-950/20 border-amber-700/40' : 'bg-amber-50/70 border-amber-200'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Subscription & Billing</span>
-                  <span className="text-xs font-mono font-bold">{activePlan.name}</span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                  {seatCount} / {activePlan.maxSeats} active seats · {billing.paymentBrand} •••• {billing.paymentLast4}
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('billing')} className="w-full">
-                Manage Plan & Invoices →
-              </Button>
-            </div>
-
-            {/* Card 2: Security & User Activity Audit */}
-            <div
-              className={`p-4 rounded-2xl border flex flex-col justify-between ${
-                darkMode ? 'bg-indigo-950/25 border-indigo-700/40' : 'bg-indigo-50/70 border-indigo-200'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                    Security & Activity Audit
-                  </span>
-                  <span className="text-xs font-mono font-bold">{auditLogs.length} Events</span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                  Immutable SHA-256 verified trail of team actions, task transitions, and role assignments.
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('audit_security')} className="w-full">
-                Inspect Audit Trail →
-              </Button>
-            </div>
-
-            {/* Card 3: Advanced Security & API */}
-            <div
-              className={`p-4 rounded-2xl border flex flex-col justify-between ${
-                darkMode ? 'bg-sky-950/25 border-sky-700/40' : 'bg-sky-50/70 border-sky-200'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-sky-600 dark:text-sky-400">SSO, MFA & API Keys</span>
-                  <span className="text-xs font-mono font-bold">
-                    {securityPolicy.enforceMfa ? 'MFA Enforced' : 'Standard Auth'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                  {securityPolicy.apiKeys.length} active API key(s) · SSO: {securityPolicy.ssoProvider.replace('_', ' ')}
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('security_api')} className="w-full">
-                Configure Security & Keys →
-              </Button>
-            </div>
-
-            {/* Card 4: Exception & Console Log Telemetry */}
-            <div
-              className={`p-4 rounded-2xl border flex flex-col justify-between ${
-                darkMode ? 'bg-rose-950/25 border-rose-700/40' : 'bg-rose-50/70 border-rose-200'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                    Exception & Console Logs
-                  </span>
-                  <span className="text-xs font-mono font-bold">LIVE</span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                  Real-time runtime exception stack traces and WebSocket diagnostics (Owner & PM exclusive).
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('telemetry')} className="w-full">
-                Open Telemetry Console →
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* TAB 1: EXECUTIVE OVERVIEW & ADMIN OPERATIONS */}
-      {activeTab === 'executive' && <AdminDashboard embeddedInOwner={true} />}
+      {/* TAB 1: EXECUTIVE OVERVIEW (Task Overview, Project Status, Meet Schedule & Calendar at TOP) + OWNER & ADMIN GOVERNANCE */}
+      {activeTab === 'executive' && (
+        <div className="space-y-2">
+          <AdminDashboard embeddedInOwner={true} />
+
+          {/* Owner-Exclusive Governance Modules */}
+          <div className="px-4 md:px-6 pb-6">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+              Owner-Exclusive Enterprise Controls
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Subscription & Billing */}
+              <div
+                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                  darkMode ? 'bg-amber-950/20 border-amber-700/40' : 'bg-amber-50/70 border-amber-200'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Subscription &amp; Billing</span>
+                    <span className="text-xs font-mono font-bold">{activePlan.name}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    {seatCount} / {activePlan.maxSeats} active seats · {billing.paymentBrand} •••• {billing.paymentLast4}
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('billing')} className="w-full">
+                  Manage Plan &amp; Invoices →
+                </Button>
+              </div>
+
+              {/* Card 2: Security & User Activity Audit */}
+              <div
+                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                  darkMode ? 'bg-indigo-950/25 border-indigo-700/40' : 'bg-indigo-50/70 border-indigo-200'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      Security &amp; Activity Audit
+                    </span>
+                    <span className="text-xs font-mono font-bold">{auditLogs.length} Events</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    Immutable SHA-256 verified trail of team actions, task transitions, and role assignments.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('audit_security')} className="w-full">
+                  Inspect Audit Trail →
+                </Button>
+              </div>
+
+              {/* Card 3: Advanced Security & API */}
+              <div
+                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                  darkMode ? 'bg-sky-950/25 border-sky-700/40' : 'bg-sky-50/70 border-sky-200'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-sky-600 dark:text-sky-400">SSO, MFA &amp; API Keys</span>
+                    <span className="text-xs font-mono font-bold">
+                      {securityPolicy.enforceMfa ? 'MFA Enforced' : 'Standard Auth'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    {securityPolicy.apiKeys.length} active API key(s) · SSO: {securityPolicy.ssoProvider.replace('_', ' ')}
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('security_api')} className="w-full">
+                  Configure Security &amp; Keys →
+                </Button>
+              </div>
+
+              {/* Card 4: Exception & Console Log Telemetry */}
+              <div
+                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                  darkMode ? 'bg-rose-950/25 border-rose-700/40' : 'bg-rose-50/70 border-rose-200'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      Exception &amp; Console Logs
+                    </span>
+                    <span className="text-xs font-mono font-bold">LIVE</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    Real-time runtime exception stack traces and WebSocket diagnostics (Owner &amp; PM exclusive).
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('telemetry')} className="w-full">
+                  Open Telemetry Console →
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB 2: SECURITY & USER ACTIVITY AUDIT (IMMUTABLE AUDIT TRAIL) */}
       {activeTab === 'audit_security' && (

@@ -258,13 +258,13 @@ export const KanbanBoard: React.FC = () => {
         
         {/* Left: View Mode Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto max-w-full scrollbar-none">
-          <div className={`flex p-1 rounded-xl border flex-shrink-0 ${darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+          <div className={`flex p-1 rounded-full border flex-shrink-0 ${darkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
             <button
               onClick={() => setViewMode('kanban')}
               title="Kanban Board"
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'kanban'
-                  ? 'bg-accent text-white shadow-sm'
+                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -275,9 +275,9 @@ export const KanbanBoard: React.FC = () => {
             <button
               onClick={() => setViewMode('sprints')}
               title="Sprints & Backlog"
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'sprints'
-                  ? 'bg-accent text-white shadow-sm'
+                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -289,9 +289,9 @@ export const KanbanBoard: React.FC = () => {
             <button
               onClick={() => setViewMode('list')}
               title="List View"
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-accent text-white shadow-sm'
+                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -302,9 +302,9 @@ export const KanbanBoard: React.FC = () => {
             <button
               onClick={() => setViewMode('gantt')}
               title="Gantt / Timeline"
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'gantt'
-                  ? 'bg-accent text-white shadow-sm'
+                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -316,14 +316,14 @@ export const KanbanBoard: React.FC = () => {
 
           {/* Swimlane Dropdown (only on Kanban mode) */}
           {viewMode === 'kanban' && (
-            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium flex-shrink-0 ${
-              darkMode ? 'bg-slate-800/80 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+            <div className={`hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium flex-shrink-0 ${
+              darkMode ? 'bg-slate-900/80 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
             }`}>
               <span className="text-slate-400">Swimlanes:</span>
               <select
                 value={swimlaneMode}
                 onChange={(e) => setSwimlaneMode(e.target.value as SwimlaneType)}
-                className={`bg-transparent outline-none cursor-pointer font-semibold ${
+                className={`!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-semibold ${
                   darkMode ? 'text-slate-200' : 'text-slate-900'
                 }`}
               >
@@ -363,15 +363,15 @@ export const KanbanBoard: React.FC = () => {
         {/* Right: Agile Stats & Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Progress / Velocity Badge */}
-          <div className={`hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-xl border text-xs ${
-            darkMode ? 'bg-slate-800/60 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'
+          <div className={`hidden lg:flex items-center gap-3 px-4 py-1.5 rounded-full border text-xs ${
+            darkMode ? 'bg-slate-900/70 border-slate-700/60 text-slate-300' : 'bg-white/90 border-slate-200 text-slate-600'
           }`}>
-            <span className="font-semibold">{stats.done}/{stats.total} Done ({stats.progressPercent}%)</span>
+            <span className="font-semibold tabular-nums">{stats.done}/{stats.total} Done ({stats.progressPercent}%)</span>
             <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${stats.progressPercent}%` }} />
             </div>
             <span className="text-slate-400">|</span>
-            <span className="font-semibold text-accent">{stats.completedStoryPoints}/{stats.totalStoryPoints} pts</span>
+            <span className="font-semibold text-accent tabular-nums">{stats.completedStoryPoints}/{stats.totalStoryPoints} pts</span>
           </div>
 
           {/* WIP Limit Settings Button */}

@@ -27,7 +27,11 @@ export const LandingFooter: React.FC = () => {
           <a href="#pricing" className="hover:text-white transition-colors">
             Pricing
           </a>
-          <a href="#/app" className="text-indigo-400 hover:text-indigo-300 font-semibold">
+          <a
+            href="#/signup"
+            onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+            className="text-indigo-400 hover:text-indigo-300 font-semibold"
+          >
             Launch Workspace →
           </a>
         </div>

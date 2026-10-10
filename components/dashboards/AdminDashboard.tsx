@@ -221,15 +221,25 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
   return (
     <div className={`p-4 md:p-6 space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
       {!embeddedInOwner && (
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Admin Operations Center</h1>
-          <p className={`text-sm mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Manage organization members, global workspace governance, project templates, and live activity logs.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Admin Operations Center</h1>
+            <p className={`text-sm mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              Live Task Overview, Concentric Project Velocity, Meet Schedule, and Organization Governance.
+            </p>
+          </div>
+          <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/25 text-xs font-bold self-start sm:self-auto">
+            ADMINISTRATOR
+          </span>
         </div>
       )}
 
-      {/* 3 Functional Admin Action Cards */}
+      {/* 1. Primary Task Overview, Project Status Rings, Meet Schedule & Calendar Hub at the TOP */}
+      <div>
+        <OverviewPage showWelcomeMessage={false} />
+      </div>
+
+      {/* 2. 3 Functional Admin Governance & Template Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
         {/* 1. User & RBAC Management */}
         <div
@@ -564,11 +574,6 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
             ))}
           </div>
         )}
-      </div>
-
-      {/* General App Overview */}
-      <div className="pt-2">
-        <OverviewPage showWelcomeMessage={false} />
       </div>
     </div>
   );

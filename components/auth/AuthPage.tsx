@@ -44,7 +44,26 @@ export const AuthPage: React.FC = () => {
     addToast
   } = useAppStore();
 
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'verify_email' | 'forgot_password' | 'reset_password'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'verify_email' | 'forgot_password' | 'reset_password'>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash || '';
+      if (h.startsWith('#/signup')) return 'signup';
+      if (h.startsWith('#/forgot-password')) return 'forgot_password';
+      if (h.startsWith('#/reset-password')) return 'reset_password';
+    }
+    return 'login';
+  });
+
+  useEffect(() => {
+    const syncAuthModeFromHash = () => {
+      const h = window.location.hash || '';
+      if (h.startsWith('#/signup')) setAuthMode('signup');
+      else if (h.startsWith('#/login')) setAuthMode('login');
+      else if (h.startsWith('#/forgot-password')) setAuthMode('forgot_password');
+    };
+    window.addEventListener('hashchange', syncAuthModeFromHash);
+    return () => window.removeEventListener('hashchange', syncAuthModeFromHash);
+  }, []);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -585,7 +604,60 @@ export const AuthPage: React.FC = () => {
     <div className="min-h-screen flex w-full animate-fadeIn">
       {/* Left Column - Form */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-4 sm:p-8 lg:p-16 relative z-10 overflow-y-auto">
-        <div className={`w-full max-w-md auth-panel p-6 sm:p-8 md:p-10 space-y-5 rounded-squircle-lg animate-modal-appear`}>
+        <div className="w-full max-w-md mb-4 flex items-center justify-between">
+          <a
+            href="#/"
+            onClick={(e) => {
+              e.preventDefault();
+              sessionStorage.removeItem('omni_explicit_auth_intent');
+              window.location.hash = '#/';
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+              darkMode
+                ? 'bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-white/10'
+                : 'bg-white/85 hover:bg-white text-slate-700 border-slate-200 shadow-xs'
+            }`}
+          >
+            <span aria-hidden="true">←</span>
+            <span>Back to Home</span>
+          </a>
+
+          <div className={`inline-flex p-1 rounded-full border ${
+            darkMode ? 'bg-slate-900/80 border-white/10' : 'bg-white/85 border-slate-200'
+          }`}>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('login');
+                setFormError(null);
+                window.history.replaceState(null, '', '#/login');
+              }}
+              className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                authMode === 'login'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('signup');
+                setFormError(null);
+                window.history.replaceState(null, '', '#/signup');
+              }}
+              className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                authMode === 'signup'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+        </div>
+        <div className={`w-full max-w-md auth-panel p-6 sm:p-8 md:p-10 space-y-5 rounded-[32px] animate-modal-appear`}>
           <div className="text-center">
               <div className="flex justify-center mb-3">
                 <AIBotFace mood={authLoading || isResetting || isResendingConfirmation ? 'thinking' : 'happy'} size="lg" />

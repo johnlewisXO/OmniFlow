@@ -102,150 +102,180 @@
 
   body { 
     color: #1F2937;
-    background-color: #F8FAFC;
+    background-color: #F4F3FB;
     background-image: 
-      radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.14) 0px, transparent 50%),
-      radial-gradient(at 85% 20%, rgba(120, 183, 255, 0.16) 0px, transparent 50%),
-      radial-gradient(at 50% 80%, rgba(167, 139, 250, 0.12) 0px, transparent 50%),
-      radial-gradient(at 80% 85%, rgba(255, 255, 255, 0.85) 0px, transparent 60%),
-      linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 50%, #E2E8F0 100%);
+      radial-gradient(at 12% 12%, rgba(105, 87, 255, 0.14) 0px, transparent 52%),
+      radial-gradient(at 88% 18%, rgba(244, 114, 182, 0.11) 0px, transparent 48%),
+      radial-gradient(at 52% 82%, rgba(120, 183, 255, 0.14) 0px, transparent 52%),
+      radial-gradient(at 82% 86%, rgba(255, 255, 255, 0.92) 0px, transparent 60%),
+      linear-gradient(135deg, #F8F7FF 0%, #F2F0FC 48%, #EAE8F8 100%);
     background-size: 160% 160%;
     background-attachment: fixed;
     animation: animateBackgroundMesh 30s ease-in-out infinite;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable Text", "Segoe UI", "Plus Jakarta Sans", "Inter", sans-serif;
-    font-weight: 300;
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Inter", sans-serif;
+    font-weight: 400;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    letter-spacing: -0.008em;
-    line-height: 1.48;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
     font-size: 0.875rem;
     transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", "Plus Jakarta Sans", "Inter", sans-serif;
-    font-weight: 400 !important;
-    letter-spacing: -0.022em;
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em;
   }
 
-  .font-normal { font-weight: 300 !important; }
-  .font-medium { font-weight: 400 !important; }
-  .font-semibold { font-weight: 400 !important; }
-  .font-bold, .font-extrabold, .font-black { font-weight: 500 !important; letter-spacing: -0.015em; }
+  .font-normal { font-weight: 400 !important; }
+  .font-medium { font-weight: 500 !important; }
+  .font-semibold { font-weight: 600 !important; }
+  .font-bold, .font-extrabold, .font-black { font-weight: 700 !important; letter-spacing: -0.02em; }
 
   html.dark body {
     color: #F8FAFC;
-    background-color: #070A12;
+    background-color: #0B0D17;
     background-image: 
-      radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.28) 0px, transparent 50%),
-      radial-gradient(at 85% 20%, rgba(59, 130, 246, 0.22) 0px, transparent 50%),
-      radial-gradient(at 50% 80%, rgba(139, 92, 246, 0.20) 0px, transparent 50%),
-      linear-gradient(135deg, #070A12 0%, #0F172A 50%, #131728 100%);
+      radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.25) 0px, transparent 50%),
+      radial-gradient(at 85% 20%, rgba(56, 189, 248, 0.16) 0px, transparent 50%),
+      radial-gradient(at 50% 80%, rgba(139, 92, 246, 0.18) 0px, transparent 50%),
+      linear-gradient(135deg, #090B14 0%, #0F1322 50%, #13172A 100%);
     background-size: 160% 160%;
     background-attachment: fixed;
     animation: animateBackgroundMesh 30s ease-in-out infinite;
   }
 
-  /* Glass Panels, Sidebar, Header (16px / 20px radius) */
-  .glass-panel, .auth-panel, aside, header { 
-    background: rgba(255, 255, 255, 0.78) !important;
-    backdrop-filter: blur(24px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.70) !important;
+  /* Taskly & Soft Glass Panels, Sidebar, Header (32px / 2rem super-rounded bento radius) */
+  .glass-panel, .auth-panel, aside { 
+    background: rgba(255, 255, 255, 0.84) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.88) !important;
     box-shadow: 
-      0 8px 30px rgba(15, 23, 42, 0.04),
-      0 1px 0.5px rgba(255, 255, 255, 0.90) inset,
-      0 -1px 0.5px rgba(255, 255, 255, 0.30) inset !important;
-    border-radius: 18px !important;
+      0 14px 36px rgba(15, 23, 42, 0.045),
+      0 1px 1px rgba(255, 255, 255, 0.95) inset !important;
+    border-radius: 32px !important;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  html.dark .glass-panel, html.dark .auth-panel, html.dark aside, html.dark header {
-    background: rgba(13, 18, 30, 0.82) !important;
-    backdrop-filter: blur(24px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  header.workspace-header {
+    background: rgba(255, 255, 255, 0.84) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.88) !important;
     box-shadow: 
-      0 10px 32px rgba(0, 0, 0, 0.40),
-      0 1px 0.5px rgba(255, 255, 255, 0.15) inset,
-      0 -1px 0.5px rgba(255, 255, 255, 0.04) inset !important;
+      0 10px 28px rgba(15, 23, 42, 0.04),
+      0 1px 1px rgba(255, 255, 255, 0.95) inset !important;
+    border-radius: 9999px !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* Form Inputs (clean padding, consistent 12px radius) */
+  html.dark .glass-panel, html.dark .auth-panel, html.dark aside {
+    background: rgba(17, 21, 36, 0.82) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    box-shadow: 
+      0 14px 38px rgba(0, 0, 0, 0.42),
+      0 1px 0.5px rgba(255, 255, 255, 0.12) inset !important;
+    border-radius: 32px !important;
+  }
+
+  html.dark header.workspace-header {
+    background: rgba(17, 21, 36, 0.82) !important;
+    backdrop-filter: blur(28px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    box-shadow: 
+      0 10px 30px rgba(0, 0, 0, 0.40),
+      0 1px 0.5px rgba(255, 255, 255, 0.12) inset !important;
+    border-radius: 9999px !important;
+  }
+
+  .bento-card-32 {
+    border-radius: 32px !important;
+  }
+
+  .bento-card-24 {
+    border-radius: 24px !important;
+  }
+
+  /* Form Inputs (clean padding, consistent 16px radius) */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), textarea, select {
     width: 100%;
-    padding: 0.55rem 0.85rem !important;
+    padding: 0.55rem 0.9rem !important;
     box-sizing: border-box !important;
     font-size: 0.8125rem;
     line-height: 1.4;
-    border-radius: 12px !important;
-    background: rgba(255, 255, 255, 0.70) !important;
+    border-radius: 16px !important;
+    background: rgba(255, 255, 255, 0.78) !important;
     backdrop-filter: blur(12px) saturate(160%) !important;
     -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
-    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+    border: 1px solid rgba(226, 232, 240, 0.9) !important;
     color: #0F172A !important;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02), inset 0 1px 1px rgba(255, 255, 255, 0.7) !important;
     transition: all 0.2s ease-out;
   }
 
   textarea {
-    padding: 0.65rem 0.85rem !important;
+    padding: 0.65rem 0.9rem !important;
     min-height: 72px;
   }
 
   html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), html.dark textarea, html.dark select {
-    background: rgba(15, 23, 42, 0.65) !important;
-    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    background: rgba(15, 23, 42, 0.68) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
     color: #F8FAFC !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.06) !important;
   }
 
   input:focus, textarea:focus, select:focus {
     border-color: #6957FF !important;
-    background: rgba(255, 255, 255, 0.90) !important;
-    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.20), inset 0 1px 2px rgba(255, 255, 255, 0.7) !important;
   }
 
   html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
-    background: rgba(15, 23, 42, 0.85) !important;
-    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.30), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.28), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
   }
 
-  /* Modals (20px radius) */
+  /* Modals & Slide-Over Drawers (32px radius) */
   .animate-modal-appear, [role="dialog"] {
-    border-radius: 20px !important;
-    background: rgba(255, 255, 255, 0.85) !important;
-    backdrop-filter: blur(28px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.65) !important;
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(255, 255, 255, 0.4) inset !important;
+    border-radius: 32px !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(32px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(255, 255, 255, 0.5) inset !important;
   }
 
   html.dark .animate-modal-appear, html.dark [role="dialog"] {
-    background: rgba(15, 23, 42, 0.88) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(255, 255, 255, 0.1) inset !important;
+    background: rgba(15, 19, 34, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(255, 255, 255, 0.08) inset !important;
   }
 
-  /* Cards (16px radius) */
+  /* Nested Bento Cards (24px radius) */
   .bg-slate-100\/70, .bg-slate-800\/50, .bg-white\/80, .bg-slate-700\/70, .bg-slate-900\/40, .bg-white\/90 {
-    border-radius: 16px !important;
+    border-radius: 24px !important;
     backdrop-filter: blur(20px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   }
 
   html:not(.dark) .bg-slate-100\/70, html:not(.dark) .bg-white\/80, html:not(.dark) .bg-white\/90 {
-    background-color: rgba(255, 255, 255, 0.60) !important;
-    border-color: rgba(255, 255, 255, 0.45) !important;
-    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.6) !important;
+    background-color: rgba(255, 255, 255, 0.78) !important;
+    border-color: rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035), inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
   }
 
   html.dark .bg-slate-800\/50, html.dark .bg-slate-700\/70, html.dark .bg-slate-900\/40 {
-    background-color: rgba(15, 23, 42, 0.60) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+    background-color: rgba(20, 26, 44, 0.68) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
   }
 
   /* Buttons (9999px rounded pill & glossy glass) */
@@ -302,4 +332,49 @@
   .rounded-full {
     border-radius: 9999px !important;
   }
+
+  /* State-Update Visual Indication & Smooth Transition Effects */
+  @keyframes stateUpdatedPulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(105, 87, 255, 0.55), 0 0 0 2px rgba(16, 185, 129, 0.45) inset;
+    }
+    35% {
+      transform: scale(1.012);
+      box-shadow: 0 0 0 8px rgba(105, 87, 255, 0), 0 0 22px rgba(16, 185, 129, 0.32), 0 0 0 2px rgba(16, 185, 129, 0.65) inset;
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(105, 87, 255, 0), 0 0 0 0 rgba(16, 185, 129, 0) inset;
+    }
+  }
+
+  @keyframes stateUpdatedBadgeSlide {
+    0% {
+      opacity: 0;
+      transform: translateY(4px) scale(0.92);
+    }
+    20% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    85% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.95);
+    }
+  }
+
+  .animate-state-updated {
+    animation: stateUpdatedPulse 1.15s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    border-color: rgba(16, 185, 129, 0.65) !important;
+  }
+
+  .animate-state-badge {
+    animation: stateUpdatedBadgeSlide 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 }
+

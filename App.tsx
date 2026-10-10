@@ -592,7 +592,7 @@ const MainAppLayout: React.FC = () => {
         <Header />
         <div
           data-main-scroll-view="true"
-          className={`flex-1 flex flex-col glass-panel rounded-2xl p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
+          className={`flex-1 flex flex-col glass-panel rounded-[32px] p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
             scrollBounceState === 'top'
               ? 'animate-bubbleStretchTop'
               : scrollBounceState === 'bottom'
@@ -704,15 +704,21 @@ function App() {
   const [currentRoute, setCurrentRoute] = useState(() => {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
+    const pathname = window.location.pathname || '/';
     const isAuthCallback =
       hash.includes('access_token=') ||
       hash.includes('type=signup') ||
       hash.includes('type=recovery') ||
       hash.includes('verify-email=') ||
+      hash.includes('join-token=') ||
       search.includes('token_hash=') ||
       search.includes('type=signup') ||
-      search.includes('type=recovery');
+      search.includes('type=recovery') ||
+      search.includes('invite=');
     if (isAuthCallback) return '#/app';
+    if (pathname === '/login') return '#/login';
+    if (pathname === '/signup') return '#/signup';
+    if (pathname.startsWith('/app')) return `#${pathname}`;
     return (!hash || hash === '#' || hash === '#/') ? '/' : hash;
   });
 
@@ -746,41 +752,58 @@ function App() {
     }
   }, [currentUser?.id, activeProject?.id, activeView, updateUserPresence]);
 
-
   useEffect(() => {
-    const handleHashChange = () => {
+    const slugToViewMap: Record<string, ActiveView> = {
+      overview: 'overview',
+      projects: 'projects_overview',
+      kanban: 'kanban',
+      sprints: 'sprints_view',
+      'my-tasks': 'my_tasks_view',
+      chat: 'team_chat_view',
+      calendar: 'calendar_meetings_view',
+      inbox: 'inbox_view',
+      reports: 'reports_view',
+      team: 'team_management',
+      automations: 'automations_view',
+      'ai-copilot': 'ai_copilot_studio',
+      profile: 'profile_settings',
+      admin: 'admin_settings',
+      logs: 'user_logs_view',
+    };
+
+    const syncRouteFromBrowser = () => {
       const newHash = window.location.hash || '/';
       if (
         newHash.includes('access_token=') ||
         newHash.includes('type=signup') ||
         newHash.includes('type=recovery') ||
-        newHash.includes('verify-email=')
+        newHash.includes('verify-email=') ||
+        newHash.includes('join-token=')
       ) {
         setCurrentRoute('#/app');
         return;
       }
-      setCurrentRoute(newHash === '#/' || newHash === '#' ? '/' : newHash);
+      const normalized = newHash === '#/' || newHash === '#' ? '/' : newHash;
+      setCurrentRoute(normalized);
+
+      if (normalized.startsWith('#/app/')) {
+        const rawSlug = normalized.replace('#/app/', '').split('?')[0].split('/')[0].trim();
+        const mappedView = slugToViewMap[rawSlug];
+        if (mappedView && useAppStore.getState().activeView !== mappedView) {
+          useAppStore.getState().setActiveView(mappedView);
+        }
+      }
     };
-    window.addEventListener('hashchange', handleHashChange);
 
-    const browserHash = window.location.hash;
-    const isAuthHash =
-      browserHash.includes('access_token=') ||
-      browserHash.includes('type=signup') ||
-      browserHash.includes('type=recovery') ||
-      browserHash.includes('verify-email=');
-
-    if ((browserHash === '' || browserHash === '#' || browserHash === '#/') && currentRoute.startsWith('#/app')) {
-        setCurrentRoute('/'); 
-    } else if ((browserHash.startsWith('#/app') || isAuthHash) && currentRoute === '/') {
-        setCurrentRoute('#/app'); 
-    }
-
+    syncRouteFromBrowser();
+    window.addEventListener('hashchange', syncRouteFromBrowser);
+    window.addEventListener('popstate', syncRouteFromBrowser);
 
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('hashchange', syncRouteFromBrowser);
+      window.removeEventListener('popstate', syncRouteFromBrowser);
     };
-  }, [currentRoute]); 
+  }, []); 
 
   useEffect(() => {
     // 1. Immediately extract and save any invitation token present in URL
@@ -1211,22 +1234,66 @@ function App() {
   }, [currentUser, projects, activeProject, activeView, setActiveProject, setActiveView, appLoading, isLoadingProjects]);
 
 
+  const isExplicitAuthRoute =
+    currentRoute.startsWith('#/login') ||
+    currentRoute.startsWith('#/signup') ||
+    currentRoute.startsWith('#/forgot-password') ||
+    currentRoute.startsWith('#/reset-password');
+
+  const hasCallbackTokens =
+    typeof window !== 'undefined' &&
+    (window.location.hash.includes('access_token=') ||
+      window.location.hash.includes('type=signup') ||
+      window.location.hash.includes('type=recovery') ||
+      window.location.hash.includes('verify-email=') ||
+      window.location.hash.includes('join-token=') ||
+      window.location.search.includes('token_hash=') ||
+      window.location.search.includes('invite='));
+
+  const hasExplicitAuthIntent =
+    typeof window !== 'undefined' &&
+    sessionStorage.getItem('omni_explicit_auth_intent') === 'true';
+
   const isAppRoute = currentRoute.startsWith('#/app');
 
-  if (appLoading && isAppRoute) {
+  // If authenticated and currently on #/login or #/signup, seamlessly transition to workspace
+  useEffect(() => {
+    if (currentUser && isExplicitAuthRoute) {
+      window.location.hash = '#/app/overview';
+      setCurrentRoute('#/app/overview');
+    }
+  }, [currentUser, isExplicitAuthRoute]);
+
+  // Unauthenticated Landing-First Guard:
+  // If user is not logged in and lands on a stale #/app route without an explicit login click or callback token,
+  // automatically normalize the URL to #/ so they always see the Landing Page first.
+  useEffect(() => {
+    if (!appLoading && !currentUser && isAppRoute && !hasExplicitAuthIntent && !hasCallbackTokens) {
+      window.history.replaceState(null, '', '#/');
+      setCurrentRoute('/');
+    }
+  }, [appLoading, currentUser, isAppRoute, hasExplicitAuthIntent, hasCallbackTokens]);
+
+  if (appLoading && (isAppRoute || isExplicitAuthRoute || hasCallbackTokens)) {
     return <GlobalSpinner />;
   }
 
-  if (!isAppRoute) {
+  // Unauthenticated visitor: show AuthPage ONLY when they explicitly clicked Login/Signup or have an auth callback token.
+  // Otherwise, ALWAYS show the LandingPage first!
+  if (!currentUser) {
+    if (isExplicitAuthRoute || (isAppRoute && (hasExplicitAuthIntent || hasCallbackTokens))) {
+      return <AuthPage />;
+    }
     return <LandingPage />;
   }
 
-  if (!currentUser) {
-    return <AuthPage />;
+  // Authenticated user who explicitly navigated back to '/' can still view the Landing Page
+  if (!isAppRoute && !isExplicitAuthRoute) {
+    return <LandingPage />;
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden p-2 md:p-3 animate-fadeIn"> {/* Adjusted padding */}
+    <div className="h-screen w-screen overflow-hidden p-2 sm:p-3 md:p-4 animate-fadeIn">
        <MainAppLayout />
     </div>
   );

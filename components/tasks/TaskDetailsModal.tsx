@@ -40,6 +40,7 @@ export const TaskDetailsModal: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'general' | 'qa' | 'admin'>('general');
   const [activityTab, setActivityTab] = useState<'comments' | 'history' | 'worklog'>('comments');
+  const [isDrawerMode, setIsDrawerMode] = useState<boolean>(true);
   
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
@@ -1396,14 +1397,37 @@ export const TaskDetailsModal: React.FC = () => {
     </div>
   );
 
+  const inspectorHeaderActions = (
+    <button
+      type="button"
+      onClick={() => setIsDrawerMode(prev => !prev)}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+        darkMode
+          ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700'
+          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+      }`}
+      title={isDrawerMode ? 'Expand to centered full modal' : 'Dock to right-hand inspector drawer'}
+    >
+      <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-indigo-500" />
+      <span>{isDrawerMode ? 'Expand Modal' : 'Side Drawer'}</span>
+    </button>
+  );
+
   return (
-    <Modal isOpen={isViewTaskModalOpen} onClose={closeViewTaskModal} title={modalTitle as any} size="5xl">
+    <Modal
+      isOpen={isViewTaskModalOpen}
+      onClose={closeViewTaskModal}
+      title={modalTitle as any}
+      size="5xl"
+      variant={isDrawerMode ? 'drawer' : 'center'}
+      headerActions={inspectorHeaderActions}
+    >
       {error && (
-        <div className={`p-4 mb-4 rounded-md text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
+        <div className={`p-4 mb-4 rounded-2xl text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
             <strong>Error:</strong> {error}
         </div>
       )}
-      <div className="flex flex-col lg:flex-row gap-6 min-w-0">
+      <div className={`flex flex-col ${isDrawerMode ? '' : 'lg:flex-row'} gap-6 min-w-0`}>
         
         {/* Left Column: Main Content */}
         <div className="w-full lg:flex-1 flex flex-col min-w-0 pr-0 lg:pr-2">
@@ -1573,8 +1597,8 @@ export const TaskDetailsModal: React.FC = () => {
             </button>
           </div>
 
-          {/* Mobile & Tablet Top Placement for Ticket Status, Pinned Fields & Details */}
-          <div className="block lg:hidden mb-6">
+          {/* Top Placement for Ticket Status, Pinned Fields & Details in Drawer or Mobile */}
+          <div className={`${isDrawerMode ? 'block' : 'block lg:hidden'} mb-6`}>
             {renderTicketPropertiesPanel(true)}
           </div>
 
@@ -2311,10 +2335,12 @@ export const TaskDetailsModal: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Sidebar Details (Desktop) */}
-        <div className="hidden lg:flex w-full lg:w-80 flex-shrink-0 flex-col gap-5">
-          {renderTicketPropertiesPanel(false)}
-        </div>
+        {/* Right Column: Sidebar Details (Desktop Full Modal Mode) */}
+        {!isDrawerMode && (
+          <div className="hidden lg:flex w-full lg:w-80 flex-shrink-0 flex-col gap-5">
+            {renderTicketPropertiesPanel(false)}
+          </div>
+        )}
       </div>
 
       {/* Attachment Viewer Overlay */}

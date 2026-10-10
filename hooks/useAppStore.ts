@@ -6,8 +6,20 @@ import { ICON_MAP } from '../constants';
 import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions } from '../services/supabaseService';
 import collabService from '../services/collabService';
 import emailNotificationService from '../services/emailNotificationService';
+import soundService from '../services/soundService';
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
+
+const emitVisualStateUpdate = (label: string, entityType?: string, entityId?: string) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('omni_state_updated', {
+        detail: { label, entityType, entityId, timestamp: Date.now() },
+      })
+    );
+  }
+};
+
 
 // --- NO MOCK DATA ---
 
@@ -450,6 +462,18 @@ const appActionsCreator = (
         }
         return { ...s, notifications: newNotifications };
       });
+
+      // Play subtle, non-excessive UI sound based on toast context
+      if (toastType === 'error' || toastType === 'warning') {
+        soundService.play('warning');
+      } else if (navTarget?.entity_type === 'chat' || title.startsWith('💬')) {
+        soundService.play('chat_message');
+      } else if (toastType === 'success') {
+        soundService.play('state_updated');
+      } else {
+        soundService.play('notification');
+      }
+      emitVisualStateUpdate(title, navTarget?.entity_type, navTarget?.entity_id);
     },
     setCurrentOrganization: (org: Organization | null) => {
       updateState(s => ({ ...s, currentOrganization: org }));
@@ -496,6 +520,7 @@ const appActionsCreator = (
           }
           return { ...s, notifications: newNotifications };
         });
+        soundService.play('notification');
       }
     },
     markNotificationAsRead: (id: string) => {
@@ -910,6 +935,28 @@ const appActionsCreator = (
     setActiveView: (view: ActiveView) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('activeView', view);
+          const viewSlugMap: Record<ActiveView, string> = {
+            overview: 'overview',
+            projects_overview: 'projects',
+            kanban: 'kanban',
+            sprints_view: 'sprints',
+            my_tasks_view: 'my-tasks',
+            team_chat_view: 'chat',
+            calendar_meetings_view: 'calendar',
+            inbox_view: 'inbox',
+            reports_view: 'reports',
+            team_management: 'team',
+            automations_view: 'automations',
+            ai_copilot_studio: 'ai-copilot',
+            profile_settings: 'profile',
+            admin_settings: 'admin',
+            user_logs_view: 'logs',
+          };
+          const slug = viewSlugMap[view] || 'overview';
+          const targetHash = `#/app/${slug}`;
+          if (get().currentUser && window.location.hash !== targetHash) {
+            window.history.pushState(null, '', targetHash);
+          }
         }
         updateState(s => ({ ...s, activeView: view, isMobileSidebarOpen: false }));
         const currentStore = get();
@@ -1001,6 +1048,8 @@ const appActionsCreator = (
       if (typeof window !== 'undefined') {
         localStorage.removeItem('activeView');
         localStorage.removeItem('activeProjectId');
+        sessionStorage.removeItem('omni_explicit_auth_intent');
+        window.location.hash = '#/';
       }
       updateState(s => ({ ...s, authLoading: true, authError: null, activeProject: null, projects: [], tasks: [], users: [], activeView: 'overview', currentUser: null }));
       try {
@@ -1117,8 +1166,10 @@ const appActionsCreator = (
             id: currentUser.id,
             name: currentUser.full_name || currentUser.email || 'Teammate'
           });
+          soundService.play('task_create');
+          emitVisualStateUpdate(`Created "${createdTask.title}"`, 'task', createdTask.id);
         }
-        updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [], parentTaskIdForNewTask: null }));
+        updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [], parentTaskIdForNewTask: null, highlightedTaskId: createdTask?.id || s.highlightedTaskId }));
         return createdTask;
       } catch (error: any) {
         const message = parseErrorMessage(error, 'Failed to create task.');
@@ -1179,9 +1230,17 @@ const appActionsCreator = (
               }
               if (updates.status && updates.status !== originalTask.status) {
                 selfActions.emitEvent('TASK_STATUS_UPDATED', { task: updatedTask });
+                if (updates.status === TaskStatus.DONE) {
+                  soundService.play('task_complete');
+                } else {
+                  soundService.play('state_updated');
+                }
+              } else {
+                soundService.play('state_updated');
               }
+              emitVisualStateUpdate(`Updated "${updatedTask.title}"`, 'task', taskId);
             }
-            updateState(s => ({ ...s, isLoadingTasks: false }));
+            updateState(s => ({ ...s, isLoadingTasks: false, highlightedTaskId: taskId }));
         } catch (error: any) {
             const message = parseErrorMessage(error, `Failed to update task ${taskId}. Reverting.`);
             updateState(s => ({ ...s, tasks: originalTasks, myTasks: originalMyTasks, isLoadingTasks: false, tasksError: message }));
@@ -1275,7 +1334,20 @@ const appActionsCreator = (
         ? { ...currentTaskToView, status: newStatus, position: newVisualIndexInColumn }
         : currentTaskToView;
 
-      updateState(s => ({ ...s, tasks: finalOptimisticTasks, taskToView: updatedTaskToView, tasksError: null }));
+      updateState(s => ({ ...s, tasks: finalOptimisticTasks, taskToView: updatedTaskToView, highlightedTaskId: draggedTaskId, tasksError: null }));
+
+      if (newStatus === TaskStatus.DONE && originalStatus !== TaskStatus.DONE) {
+        soundService.play('task_complete');
+      } else {
+        soundService.play('drag_drop');
+      }
+      emitVisualStateUpdate(
+        originalStatus !== newStatus
+          ? `Moved "${draggedTask.title}" to ${String(newStatus).replace(/_/g, ' ')}`
+          : `Reordered "${draggedTask.title}"`,
+        'task',
+        draggedTaskId
+      );
 
       // Broadcast task move / status update immediately in real-time
       const curUser = get().currentUser;

@@ -5,6 +5,7 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { Avatar } from '../shared/Avatar';
 import { PRIORITY_STYLES, ICON_MAP } from '../../constants';
 import { collabService } from '../../services/collabService';
+import soundService from '../../services/soundService';
 
 interface TaskCardProps {
   task: Task;
@@ -129,6 +130,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    soundService.play('drag_pickup');
     e.dataTransfer.setData('taskId', task.id);
     e.dataTransfer.setData('originalStatus', task.status);
     e.dataTransfer.setData('originalPosition', task.position.toString());
@@ -162,8 +164,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     <div
       data-task-id={task.id} 
       style={cardBackgroundStyle}
-      className={`p-3.5 sm:p-4 rounded-xl shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group
-                  ${isHighlighted ? (darkMode ? 'ring-2 ring-accent-light shadow-accent-light/20' : 'ring-2 ring-accent shadow-accent/20') : ''}
+      className={`p-4 rounded-[22px] shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group
+                  ${isHighlighted ? 'animate-state-updated ring-2 ring-emerald-500/60 shadow-emerald-500/20' : ''}
                   ${activeEditors.length > 0 ? 'ring-1 ring-blue-500/50 border-blue-500/40' : activeTypers.length > 0 ? 'ring-1 ring-purple-500/50 border-purple-500/40' : viewers.length > 0 ? 'ring-1 ring-emerald-500/30 border-emerald-500/30' : ''}
                   ${isBlocked ? 'border-amber-400/60 dark:border-amber-500/50 bg-amber-50/20 dark:bg-amber-950/10' : ''}`}
       onClick={handleCardClick}
@@ -171,13 +173,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Top Badges: Blocked, Story Points, & Single Unified Live Presence Indicator */}
+      {/* Top Badges: Blocked, Story Points, State Updated Indicator, & Single Unified Live Presence Indicator */}
       <div className="flex items-center justify-between gap-1.5 mb-2">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {isHighlighted && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/35 animate-state-badge">
+              ✓ Updated
+            </span>
+          )}
           {isBlocked && (
             <span
               title="This task is blocked by unfinished prerequisite tasks."
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60"
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60"
             >
               <ICON_MAP.ExclamationTriangleIcon className="w-3 h-3 text-amber-600 dark:text-amber-400" />
               Blocked
@@ -185,7 +192,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
           )}
 
           {task.story_points !== undefined && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-white/[0.08]">
               {task.story_points} pts
             </span>
           )}
@@ -295,10 +302,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
         </div>
       )}
 
-      <div className={`flex items-center justify-between text-xs ${subTextColor} pt-1 border-t border-slate-100 dark:border-slate-800/80`}>
-        <div className="flex items-center space-x-1.5">
+      <div className={`flex items-center justify-between text-xs ${subTextColor} pt-2 border-t border-slate-100 dark:border-slate-800/80`}>
+        <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-white/[0.06]">
           <PriorityIconComponent className={`w-3.5 h-3.5 ${priorityColor}`} />
-          <span className={`${priorityColor} text-[11px] font-semibold`}>{task.priority}</span>
+          <span className={`${priorityColor} text-[11px] font-bold`}>{task.priority}</span>
         </div>
         <div className="flex items-center space-x-1">
           {assignee && (

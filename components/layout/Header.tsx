@@ -5,6 +5,7 @@ import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
 import { AnimatedPopover } from '../shared/Modal';
 import { collabService, formatAccurateLastSeen } from '../../services/collabService';
+import soundService from '../../services/soundService';
 import { UserPresence, normalizeUserRole } from '../../types';
 
 export const StatusDynamicIcon: React.FC<{ status: 'available' | 'away' | 'busy'; className?: string }> = ({ status, className = 'w-4 h-4' }) => {
@@ -70,6 +71,34 @@ export const Header: React.FC = () => {
 
   const [isStatusPopoverOpen, setIsStatusPopoverOpen] = useState(false);
   const statusPopoverRef = useRef<HTMLDivElement>(null);
+
+  // UI Sound Preference & Live Visual State Sync Indicator
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => soundService.isEnabled());
+  const [recentStateUpdateLabel, setRecentStateUpdateLabel] = useState<string | null>(null);
+  const stateUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const onSoundPref = (e: CustomEvent) => {
+      if (e.detail && typeof e.detail.enabled === 'boolean') {
+        setSoundEnabled(e.detail.enabled);
+      }
+    };
+    const onStateUpdated = (e: CustomEvent) => {
+      const label = e.detail?.label || 'Synced';
+      setRecentStateUpdateLabel(label);
+      if (stateUpdateTimerRef.current) clearTimeout(stateUpdateTimerRef.current);
+      stateUpdateTimerRef.current = setTimeout(() => {
+        setRecentStateUpdateLabel(null);
+      }, 2200);
+    };
+    window.addEventListener('omni_sound_pref_changed', onSoundPref as EventListener);
+    window.addEventListener('omni_state_updated', onStateUpdated as EventListener);
+    return () => {
+      window.removeEventListener('omni_sound_pref_changed', onSoundPref as EventListener);
+      window.removeEventListener('omni_state_updated', onStateUpdated as EventListener);
+      if (stateUpdateTimerRef.current) clearTimeout(stateUpdateTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const handleStatusSync = (e: CustomEvent) => {
@@ -186,13 +215,13 @@ export const Header: React.FC = () => {
   const statusLabelText = myStatus === 'available' ? 'Available' : myStatus === 'away' ? 'Away' : 'Busy / DND';
 
   return (
-    <header className="glass-panel rounded-2xl px-3.5 sm:px-5 py-3 relative z-20">
-      <div className="flex items-center justify-between gap-2 min-w-0">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+    <header className="workspace-header glass-panel rounded-full px-4 sm:px-6 py-2.5 relative z-20">
+      <div className="flex items-center justify-between gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Mobile Hamburger Button */}
           <button
             onClick={toggleMobileSidebar}
-            className={`md:hidden p-2 rounded-xl transition-all ${
+            className={`md:hidden p-2 rounded-full transition-all ${
               darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
             aria-label="Open sidebar navigation"
@@ -200,16 +229,37 @@ export const Header: React.FC = () => {
             <Bars3Icon className="w-5 h-5" />
           </button>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0">
             <h1 className="text-base sm:text-lg md:text-xl font-bold text-gradient-accent tracking-tight truncate">
-              {activeProject ? activeProject.name : 'Dashboard'}
+              {activeProject ? activeProject.name : 'Workspace Studio'}
             </h1>
             {activeProject && (
-              <p className={`text-xs ${subTextColor} truncate hidden sm:block`}>
-                Manage tasks and progress for {activeProject.name}
+              <p className={`text-[11px] ${subTextColor} truncate hidden sm:block`}>
+                {activeProject.name} · Live Sprint Board
               </p>
             )}
           </div>
+
+          {/* Pill Search Bar Trigger (Taskly / Soft Glass style) */}
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            className={`hidden md:flex items-center justify-between gap-4 px-4 py-1.5 rounded-full border text-xs transition-all cursor-pointer ml-2 min-w-[220px] lg:min-w-[280px] ${
+              darkMode
+                ? 'bg-slate-900/70 hover:bg-slate-800/90 border-white/10 text-slate-400'
+                : 'bg-slate-100/80 hover:bg-white border-slate-200/80 text-slate-500 shadow-2xs'
+            }`}
+          >
+            <span className="flex items-center gap-2 truncate">
+              <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+              <span>Search tasks, projects, or ask Co-Pilot...</span>
+            </span>
+            <kbd className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              darkMode ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'
+            }`}>
+              ⌘K
+            </kbd>
+          </button>
         </div>
 
         <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
@@ -294,6 +344,39 @@ export const Header: React.FC = () => {
             <ICON_MAP.KeyboardIcon className="w-4 h-4" />
           </button>
 
+          {/* Live Visual State-Update Sync Indicator */}
+          {recentStateUpdateLabel && (
+            <div
+              key={recentStateUpdateLabel}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-300 text-[11px] font-bold animate-state-badge pointer-events-none"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              <span className="max-w-[140px] truncate">{recentStateUpdateLabel}</span>
+            </div>
+          )}
+
+          {/* UI Sound Effects Toggle Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = soundService.toggleEnabled();
+              setSoundEnabled(next);
+            }}
+            className={`p-2 rounded-full transition-all cursor-pointer ${
+              soundEnabled
+                ? darkMode
+                  ? 'hover:bg-slate-800 text-indigo-400 hover:text-indigo-300'
+                  : 'hover:bg-slate-200 text-indigo-600 hover:text-indigo-700'
+                : darkMode
+                ? 'hover:bg-slate-800 text-slate-500'
+                : 'hover:bg-slate-200 text-slate-400'
+            }`}
+            title={soundEnabled ? 'UI Sounds On (Click to mute)' : 'UI Sounds Muted (Click to enable)'}
+            aria-label={soundEnabled ? 'Mute UI sounds' : 'Enable UI sounds'}
+          >
+            <ICON_MAP.SpeakerWaveIcon className={`w-4 h-4 sm:w-5 sm:h-5 ${!soundEnabled ? 'opacity-45' : ''}`} />
+          </button>
+
           <button
             onClick={() => setActiveView('inbox_view')}
             className={`relative p-2 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'}`}
@@ -308,7 +391,10 @@ export const Header: React.FC = () => {
           <Button
             variant="secondary" 
             size="icon"
-            onClick={toggleDarkMode}
+            onClick={() => {
+              soundService.play('click_soft');
+              toggleDarkMode();
+            }}
             aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             className="w-8 h-8 sm:w-9 sm:h-9"
           >

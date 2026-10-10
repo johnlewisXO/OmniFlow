@@ -80,7 +80,7 @@ const PRICING_PLANS = [
       'Mobile thumb-bar navigation & dark mode',
     ],
     ctaText: 'Start Free Workspace',
-    ctaHref: '#/app',
+    ctaHref: '#/signup',
     highlighted: false,
   },
   {
@@ -99,7 +99,7 @@ const PRICING_PLANS = [
       'Owner & Project Manager Org Join Approval gate',
     ],
     ctaText: 'Launch Pro Studio',
-    ctaHref: '#/app',
+    ctaHref: '#/signup',
     highlighted: true,
   },
   {
@@ -460,7 +460,12 @@ const LandingPage: React.FC = () => {
 
                   <a
                     href={plan.ctaHref}
-                    className={`w-full py-3 px-4 rounded-xl text-center text-xs sm:text-sm font-semibold transition-all ${
+                    onClick={() => {
+                      if (plan.ctaHref.startsWith('#/')) {
+                        sessionStorage.setItem('omni_explicit_auth_intent', 'true');
+                      }
+                    }}
+                    className={`w-full py-3 px-5 rounded-full text-center text-xs sm:text-sm font-semibold transition-all ${
                       plan.highlighted
                         ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25'
                         : 'bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/10'
@@ -533,8 +538,9 @@ const LandingPage: React.FC = () => {
                       now.
                     </p>
                     <a
-                      href="#/app"
-                      className="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold text-xs"
+                      href="#/signup"
+                      onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+                      className="inline-block mt-2 px-5 py-2.5 rounded-full bg-emerald-600 text-white font-semibold text-xs"
                     >
                       Open Live Workspace →
                     </a>
@@ -551,7 +557,7 @@ const LandingPage: React.FC = () => {
                         value={leadEmail}
                         onChange={e => setLeadEmail(e.target.value)}
                         placeholder="you@company.com"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#070A12] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#070A12] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div>
@@ -563,18 +569,19 @@ const LandingPage: React.FC = () => {
                         value={leadOrg}
                         onChange={e => setLeadOrg(e.target.value)}
                         placeholder="e.g. Regal Logistics"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#070A12] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#070A12] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <button
                       type="submit"
-                      className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/25 cursor-pointer transition-all"
+                      className="w-full py-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/25 cursor-pointer transition-all"
                     >
                       Request Custom Onboarding
                     </button>
                     <div className="text-center pt-1">
                       <a
-                        href="#/app"
+                        href="#/signup"
+                        onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
                         className="text-xs text-slate-400 hover:text-white underline"
                       >
                         Or jump straight into your workspace now →

@@ -1,138 +1,223 @@
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
-import { MyTasksWidget } from './MyTasksWidget';
-import { ProjectStatusWidget } from './ProjectStatusWidget';
 import { TeamWorkloadWidget } from './TeamWorkloadWidget';
 import { KeyMilestonesWidget } from './KeyMilestonesWidget';
 import { AIInsightsEngineWidget } from '../ai/AIInsightsEngineWidget';
+import { TasklyBentoWorkspaceHub } from '../dashboards/TasklyBentoWorkspaceHub';
 import { ICON_MAP } from '../../constants';
-import { TaskStatus } from '../../types';
+import soundService from '../../services/soundService';
 
 interface OverviewPageProps {
-  showWelcomeMessage?: boolean; 
+  showWelcomeMessage?: boolean;
 }
 
+type OverviewSectionId = 'bento_hub' | 'workload_milestones' | 'ai_insights';
+
+const DEFAULT_SECTIONS: OverviewSectionId[] = [
+  'bento_hub',
+  'workload_milestones',
+  'ai_insights',
+];
+
 export const OverviewPage: React.FC<OverviewPageProps> = ({ showWelcomeMessage = true }) => {
-  const { currentUser, darkMode, projects, tasks, users, currentOrganization } = useAppStore();
+  const { currentUser, darkMode, currentOrganization } = useAppStore();
   const SparklesIcon = ICON_MAP.SparklesIcon;
+  const GripIcon = ICON_MAP.GripVerticalIcon || ICON_MAP.Bars3Icon;
 
-  // Global KPIs across organization
-  const metrics = useMemo(() => {
-    const totalProjects = projects.length;
-    const activeProjects = projects.filter(p => p.status === 'active').length;
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.status === TaskStatus.DONE).length;
-    const inProgressTasks = tasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length;
-    const overallCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const storageKey = `omni_overview_sections_v2_${currentUser?.id || 'guest'}`;
+  const [sectionOrder, setSectionOrder] = useState<OverviewSectionId[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as OverviewSectionId[];
+          if (Array.isArray(parsed) && parsed.length === DEFAULT_SECTIONS.length) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return DEFAULT_SECTIONS;
+  });
 
-    return { totalProjects, activeProjects, totalTasks, completedTasks, inProgressTasks, overallCompletionRate };
-  }, [projects, tasks]);
+  const [draggedSection, setDraggedSection] = useState<OverviewSectionId | null>(null);
+  const [dragOverSection, setDragOverSection] = useState<OverviewSectionId | null>(null);
+  const [updatedSection, setUpdatedSection] = useState<OverviewSectionId | null>(null);
 
-  if (!currentUser && showWelcomeMessage) { 
+  if (!currentUser && showWelcomeMessage) {
     return (
       <div className="p-6 text-center">
-        <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Loading user data or not logged in.</p>
+        <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          Loading user data or not logged in.
+        </p>
       </div>
     );
   }
 
-  return (
-    <div className={`flex flex-col p-4 md:p-6 space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      
-      {/* 1. Analytics Hero Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+  const handleSectionDragStart = (e: React.DragEvent, id: OverviewSectionId) => {
+    // Do not hijack inner bento widget drags
+    if (e.dataTransfer.types.includes('text/bento-widget')) return;
+    soundService.play('drag_pickup');
+    e.dataTransfer.setData('text/overview-section', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedSection(id);
+  };
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
-                <SparklesIcon className="w-5 h-5 text-amber-300" />
-              </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
-                {currentOrganization?.name || 'Workspace'} · Executive Overview
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              {showWelcomeMessage && currentUser ? `Welcome back, ${currentUser.full_name || currentUser.email}` : 'Workspace Performance'}
-            </h1>
-            <p className="text-sm text-indigo-200/80 max-w-xl leading-relaxed">
-              Comprehensive organization throughput, milestone roadmaps, cross-team workload, and sprint delivery velocity.
-            </p>
-          </div>
+  const handleSectionDragOver = (e: React.DragEvent, id: OverviewSectionId) => {
+    if (!draggedSection || draggedSection === id) return;
+    e.preventDefault();
+    if (dragOverSection !== id) {
+      setDragOverSection(id);
+    }
+  };
 
-          <div className="flex items-center gap-2">
-            <span className="px-3.5 py-1.5 rounded-xl bg-white/10 text-xs font-semibold text-indigo-200 border border-white/10">
-              Role: <span className="text-white font-bold">{currentUser?.role ? currentUser.role.replace(/_/g, ' ') : 'MEMBER'}</span>
+  const handleSectionDrop = (e: React.DragEvent, targetId: OverviewSectionId) => {
+    if (!draggedSection) return;
+    e.preventDefault();
+    const sourceId =
+      (e.dataTransfer.getData('text/overview-section') as OverviewSectionId) || draggedSection;
+    setDraggedSection(null);
+    setDragOverSection(null);
+
+    if (!sourceId || sourceId === targetId) return;
+    const fromIdx = sectionOrder.indexOf(sourceId);
+    const toIdx = sectionOrder.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const next = [...sectionOrder];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setSectionOrder(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(storageKey, JSON.stringify(next));
+    }
+    soundService.play('drag_drop');
+    setUpdatedSection(sourceId);
+    setTimeout(() => setUpdatedSection(null), 1500);
+  };
+
+  const renderSection = (secId: OverviewSectionId) => {
+    const isDropTarget = dragOverSection === secId && draggedSection !== secId;
+    const isPulsed = updatedSection === secId;
+
+    if (secId === 'bento_hub') {
+      return (
+        <div
+          key={secId}
+          onDragOver={e => handleSectionDragOver(e, secId)}
+          onDrop={e => handleSectionDrop(e, secId)}
+          className={`transition-all rounded-[32px] ${
+            isDropTarget ? 'ring-2 ring-indigo-500 bg-indigo-500/5 p-1' : ''
+          } ${isPulsed ? 'animate-state-updated' : ''}`}
+        >
+          <TasklyBentoWorkspaceHub
+            roleBadgeLabel={currentUser?.role ? currentUser.role.replace(/_/g, ' ') : 'WORKSPACE'}
+          />
+        </div>
+      );
+    }
+
+    if (secId === 'workload_milestones') {
+      return (
+        <div
+          key={secId}
+          draggable
+          onDragStart={e => handleSectionDragStart(e, secId)}
+          onDragOver={e => handleSectionDragOver(e, secId)}
+          onDrop={e => handleSectionDrop(e, secId)}
+          onDragEnd={() => {
+            setDraggedSection(null);
+            setDragOverSection(null);
+          }}
+          className={`group relative transition-all rounded-[32px] ${
+            isDropTarget ? 'ring-2 ring-indigo-500 bg-indigo-500/5 p-1' : ''
+          } ${isPulsed ? 'animate-state-updated' : ''}`}
+        >
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <GripIcon className="w-3.5 h-3.5 cursor-grab text-slate-400 group-hover:text-indigo-500" />
+              Team Capacity &amp; Key Milestones
             </span>
           </div>
-        </div>
-
-        {/* Analytics Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Active Portfolios</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">{metrics.activeProjects}</span>
-              <span className="text-xs text-indigo-300 font-medium">/ {metrics.totalProjects} total</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              Live projects in organization
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Shipped Deliverables</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-emerald-400">{metrics.completedTasks}</span>
-              <span className="text-xs text-slate-400">tasks done</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              {metrics.inProgressTasks} currently in development
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Organization Velocity</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">{metrics.overallCompletionRate}%</span>
-              <span className="text-xs text-indigo-300 font-medium">completion</span>
-            </div>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
-              <div 
-                className="bg-emerald-400 h-full rounded-full transition-all duration-500" 
-                style={{ width: `${metrics.overallCompletionRate}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider">Team Capacity</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-amber-300">{users.length}</span>
-              <span className="text-xs text-slate-400">members</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              Collaborating across pipelines
-            </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 flex-shrink-0">
+            <TeamWorkloadWidget />
+            <KeyMilestonesWidget />
           </div>
         </div>
-      </div>
+      );
+    }
 
-      {/* AI Insights Engine */}
-      <AIInsightsEngineWidget />
-
-      {/* Row 1: My Tasks & Project Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 flex-shrink-0">
-        <MyTasksWidget />
-        <ProjectStatusWidget />
+    return (
+      <div
+        key={secId}
+        draggable
+        onDragStart={e => handleSectionDragStart(e, secId)}
+        onDragOver={e => handleSectionDragOver(e, secId)}
+        onDrop={e => handleSectionDrop(e, secId)}
+        onDragEnd={() => {
+          setDraggedSection(null);
+          setDragOverSection(null);
+        }}
+        className={`group relative transition-all rounded-[32px] ${
+          isDropTarget ? 'ring-2 ring-indigo-500 bg-indigo-500/5 p-1' : ''
+        } ${isPulsed ? 'animate-state-updated' : ''}`}
+      >
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <GripIcon className="w-3.5 h-3.5 cursor-grab text-slate-400 group-hover:text-indigo-500" />
+            AI Co-Pilot Insights &amp; Risk Radar
+          </span>
+        </div>
+        <AIInsightsEngineWidget />
       </div>
+    );
+  };
 
-      {/* Row 2: Team Workload Overview & Key Project Milestones */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 flex-shrink-0">
-        <TeamWorkloadWidget />
-        <KeyMilestonesWidget />
-      </div>
+  return (
+    <div
+      className={`flex flex-col ${
+        showWelcomeMessage ? 'p-4 md:p-6' : 'p-0'
+      } space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}
+    >
+      {/* 1. Sleek 32px Welcome Banner */}
+      {showWelcomeMessage && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-[32px] p-5 sm:p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-full bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
+                  <SparklesIcon className="w-4 h-4 text-amber-300" />
+                </span>
+                <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
+                  {currentOrganization?.name || 'Workspace'} · Taskly &amp; Soft Glass Studio
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                {currentUser
+                  ? `Welcome back, ${currentUser.full_name || currentUser.email}`
+                  : 'Workspace Performance'}
+              </h1>
+              <p className="text-xs sm:text-sm text-indigo-200/80 max-w-2xl leading-relaxed">
+                Real-time concentric velocity rings, live 1080p standup studio, inline team chat, and 1-click task inspection.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-4 py-1.5 rounded-full bg-white/10 text-xs font-semibold text-indigo-200 border border-white/15">
+                Role:{' '}
+                <span className="text-white font-bold">
+                  {currentUser?.role ? currentUser.role.replace(/_/g, ' ') : 'MEMBER'}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Customizable Sections (Defaults to Task Overview, Project Status, Meet Schedule & Calendar at the very top) */}
+      {sectionOrder.map(secId => renderSection(secId))}
     </div>
   );
 };

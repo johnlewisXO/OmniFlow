@@ -107,16 +107,16 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   return (
     <div 
       style={columnBackgroundStyle}
-      className={`flex-1 min-w-[300px] max-w-[340px] rounded-squircle-lg p-3 md:p-4 shadow-glass ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
+      className={`flex-1 min-w-[300px] max-w-[340px] rounded-[28px] p-3.5 md:p-4 shadow-glass ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}
     >
-      <div className={`flex items-center justify-between px-1 py-2 mb-3.5 rounded-md`}>
+      <div className={`flex items-center justify-between px-1.5 py-2 mb-3.5 rounded-full`}>
         <div className="flex items-center space-x-2.5 min-w-0">
           <span className={`w-3 h-3 rounded-full ${colorClass} shadow-sm flex-shrink-0`}></span>
-          <h2 className={`font-semibold text-sm sm:text-md truncate ${textColor}`}>{title}</h2>
-          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full shadow-sm flex-shrink-0 ${
+          <h2 className={`font-bold text-sm sm:text-md truncate ${textColor}`}>{title}</h2>
+          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm flex-shrink-0 ${
             isWipExceeded
               ? 'bg-red-500/20 text-red-600 dark:text-red-400 font-bold border border-red-500/40 animate-pulse'
               : `${countText} ${countBg}`
@@ -131,7 +131,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         </div>
         <button 
           onClick={() => openModal()} 
-          className={`${darkMode ? 'text-slate-400 hover:text-accent-light' : 'text-slate-500 hover:text-accent'} p-1.5 rounded-squircle-sm ${buttonHoverBg} transition-colors flex-shrink-0`}
+          className={`${darkMode ? 'text-slate-400 hover:text-accent-light' : 'text-slate-500 hover:text-accent'} p-1.5 rounded-full ${buttonHoverBg} transition-colors flex-shrink-0 cursor-pointer`}
           title={`Add task to ${title}`}
           disabled={!activeProject}
         >

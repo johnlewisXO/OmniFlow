@@ -170,17 +170,27 @@ export const HeroSection: React.FC = () => {
           {/* Primary & Secondary CTAs */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <a
-              href="#/app"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-xl shadow-indigo-600/30 border border-indigo-400/30 transition-all whitespace-nowrap"
+              href={currentUser ? '#/app/overview' : '#/signup'}
+              onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-xl shadow-indigo-600/30 border border-indigo-400/30 transition-all whitespace-nowrap"
             >
               <span>{currentUser ? 'Enter Workspace Studio' : 'Start Free Workspace'}</span>
               <span aria-hidden="true">→</span>
             </a>
+            {!currentUser && (
+              <a
+                href="#/login"
+                onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-white text-sm font-semibold border border-white/15 transition-all whitespace-nowrap"
+              >
+                <span>Sign In to Workspace</span>
+              </a>
+            )}
             <a
               href="#capabilities"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 text-sm font-medium border border-white/10 transition-all whitespace-nowrap"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.03] hover:bg-white/[0.07] text-slate-300 text-sm font-medium border border-white/10 transition-all whitespace-nowrap"
             >
-              <span>Explore Platform Architecture</span>
+              <span>Explore Architecture</span>
             </a>
           </div>
 
@@ -194,7 +204,7 @@ export const HeroSection: React.FC = () => {
         </div>
 
         {/* Interactive Live Product Preview Studio */}
-        <div className="mt-12 md:mt-16 rounded-2xl border border-white/10 bg-slate-900/65 backdrop-blur-2xl shadow-2xl shadow-black/70 overflow-hidden">
+        <div className="mt-12 md:mt-16 rounded-[32px] border border-white/10 bg-slate-900/65 backdrop-blur-2xl shadow-2xl shadow-black/70 overflow-hidden">
           {/* Studio Window Header & Interactive Tab Bar */}
           <div className="px-4 sm:px-6 py-3.5 border-b border-white/[0.08] bg-[#0B0F1C]/90 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -215,7 +225,7 @@ export const HeroSection: React.FC = () => {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                     activeTab === tab.id
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
