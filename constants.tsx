@@ -26,7 +26,12 @@ export const ALL_ACTIVE_VIEWS: ActiveView[] = [
   'task_automations',
   'task_automations_view',
   'ai_copilot_view',
-  'calendar_view'
+  'calendar_view',
+  'docs_wiki_view',
+  'okrs_goals_view',
+  'triage_intake_view',
+  'workload_capacity_view',
+  'whiteboard_view'
 ];
 
 export const APP_TITLE = "Omni Flow";
@@ -130,6 +135,7 @@ const RAW_ICON_MAP = {
   PaperAirplaneIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />),
   MenuIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />),
   ChatBubbleLeftRightIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />),
+  StarIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />),
 };
 
 const FALLBACK_ICON = createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />);
@@ -149,19 +155,25 @@ export const SIDENAV_ITEMS: {
   icon: keyof typeof ICON_MAP;
   path: string;
   roles?: UserRole[];
+  category?: 'workspace' | 'execution' | 'strategy' | 'admin';
 }[] = [
-  { id: 'overview', label: 'Overview', icon: 'HomeIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'ai_copilot_view', label: 'AI Co-Pilot & PM', icon: 'SparklesIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'projects_overview', label: 'Projects', icon: 'FolderIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'sprints_view', label: 'Sprints', icon: 'RocketLaunchIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'calendar_view', label: 'Calendar & Meetings', icon: 'CalendarIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'my_tasks_view', label: 'My Tasks', icon: 'ClipboardListIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'team_chat_view', label: 'Teams Chat & Meet', icon: 'ChatBubbleLeftIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'task_automations', label: 'Triggers & Rules', icon: 'BoltIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'inbox_view', label: 'Inbox', icon: 'InboxIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'reports_view', label: 'Reports', icon: 'ChartBarIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER] },
-  { id: 'team_management', label: 'Team Management', icon: 'UserGroupIcon', path: '#', roles: Object.values(UserRole) },
-  { id: 'user_logs_view', label: 'User Logs', icon: 'UserLogsIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN] },
+  { id: 'overview', label: 'Overview', icon: 'HomeIcon', path: '#', roles: Object.values(UserRole), category: 'workspace' },
+  { id: 'inbox_view', label: 'Inbox', icon: 'InboxIcon', path: '#', roles: Object.values(UserRole), category: 'workspace' },
+  { id: 'team_chat_view', label: 'Teams Chat & Meet', icon: 'ChatBubbleLeftIcon', path: '#', roles: Object.values(UserRole), category: 'workspace' },
+  { id: 'calendar_view', label: 'Calendar & Meetings', icon: 'CalendarIcon', path: '#', roles: Object.values(UserRole), category: 'workspace' },
+  { id: 'projects_overview', label: 'Projects', icon: 'FolderIcon', path: '#', roles: Object.values(UserRole), category: 'execution' },
+  { id: 'sprints_view', label: 'Sprints', icon: 'RocketLaunchIcon', path: '#', roles: Object.values(UserRole), category: 'execution' },
+  { id: 'my_tasks_view', label: 'My Tasks', icon: 'ClipboardListIcon', path: '#', roles: Object.values(UserRole), category: 'execution' },
+  { id: 'triage_intake_view', label: 'Triage & Intake', icon: 'FilterIcon', path: '#', roles: Object.values(UserRole), category: 'execution' },
+  { id: 'workload_capacity_view', label: 'Workload & Timer', icon: 'ClockIcon', path: '#', roles: Object.values(UserRole), category: 'execution' },
+  { id: 'whiteboard_view', label: 'Whiteboard Studio', icon: 'Squares2X2Icon', path: '#', roles: Object.values(UserRole), category: 'strategy' },
+  { id: 'docs_wiki_view', label: 'Docs & Spec Wiki', icon: 'DocumentTextIcon', path: '#', roles: Object.values(UserRole), category: 'strategy' },
+  { id: 'okrs_goals_view', label: 'OKRs & Goals', icon: 'FlagIcon', path: '#', roles: Object.values(UserRole), category: 'strategy' },
+  { id: 'ai_copilot_view', label: 'AI Co-Pilot & PM', icon: 'SparklesIcon', path: '#', roles: Object.values(UserRole), category: 'strategy' },
+  { id: 'reports_view', label: 'Reports & Analytics', icon: 'ChartBarIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER], category: 'strategy' },
+  { id: 'task_automations', label: 'Triggers & Rules', icon: 'BoltIcon', path: '#', roles: Object.values(UserRole), category: 'admin' },
+  { id: 'team_management', label: 'Team Management', icon: 'UserGroupIcon', path: '#', roles: Object.values(UserRole), category: 'admin' },
+  { id: 'user_logs_view', label: 'User Logs', icon: 'UserLogsIcon', path: '#', roles: [UserRole.OWNER, UserRole.ADMIN], category: 'admin' },
 ];
 
 

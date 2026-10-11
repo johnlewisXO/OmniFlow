@@ -46,6 +46,11 @@ import { EmailOutboxAndVerifyModal } from './components/shared/EmailOutboxAndVer
 import emailNotificationService from './services/emailNotificationService';
 import { CalendarMeetingsPage } from './components/calendar/CalendarMeetingsPage';
 import { VideoCallStudioModal } from './components/chat/VideoCallStudioModal';
+import { ProjectDocsWikiPage } from './components/docs/ProjectDocsWikiPage';
+import { OKRsGoalsPage } from './components/okrs/OKRsGoalsPage';
+import { TriageIntakePage } from './components/triage/TriageIntakePage';
+import { WorkloadCapacityPage } from './components/workload/WorkloadCapacityPage';
+import { WhiteboardStudioPage } from './components/whiteboard/WhiteboardStudioPage';
 
 // Initialize global exception and console log monitoring immediately
 if (typeof logMonitorService?.init === 'function') {
@@ -63,7 +68,9 @@ const ToastContainer: React.FC = () => {
     setActiveView,
     openViewTaskModal,
     setHighlightedTaskId,
-    setHighlightedProjectId
+    setHighlightedProjectId,
+    lastUndoAction,
+    triggerUndo
   } = useAppStore();
   const [visibleToasts, setVisibleToasts] = useState<string[]>([]);
   const seenToastIdsRef = useRef<Set<string>>(new Set());
@@ -333,11 +340,35 @@ const ToastContainer: React.FC = () => {
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 break-words">
                 {n.message || n.content}
               </p>
-              {isInteractive && actionLabel && (
-                <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                  {actionLabel}
-                </span>
-              )}
+              <div className="flex items-center flex-wrap gap-2 mt-1.5">
+                {isInteractive && actionLabel && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                    {actionLabel}
+                  </span>
+                )}
+                {lastUndoAction && (
+                  (n.type || '').includes('TASK') ||
+                  (n.title || '').toLowerCase().includes('task') ||
+                  (n.title || '').toLowerCase().includes('moved') ||
+                  (n.title || '').toLowerCase().includes('updated') ||
+                  (n.title || '').toLowerCase().includes('deleted') ||
+                  (n.title || '').toLowerCase().includes('batch')
+                ) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerUndo();
+                      markNotificationAsRead(n.id);
+                      setVisibleToasts(prev => prev.filter(id => id !== n.id));
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
+                    title={`Undo: ${lastUndoAction.label}`}
+                  >
+                    <span>↩ Undo</span>
+                  </button>
+                )}
+              </div>
             </div>
             <button
               onClick={(e) => {
@@ -571,6 +602,16 @@ const MainAppLayout: React.FC = () => {
         return <AIProjectManagerStudio />;
       case 'calendar_view':
         return <CalendarMeetingsPage />;
+      case 'docs_wiki_view':
+        return <ProjectDocsWikiPage />;
+      case 'okrs_goals_view':
+        return <OKRsGoalsPage />;
+      case 'triage_intake_view':
+        return <TriageIntakePage />;
+      case 'workload_capacity_view':
+        return <WorkloadCapacityPage />;
+      case 'whiteboard_view':
+        return <WhiteboardStudioPage />;
       case 'admin_settings':
         if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.OWNER) {
           return <AdminDashboard />;
@@ -769,6 +810,11 @@ function App() {
       profile: 'profile_settings',
       admin: 'admin_settings',
       logs: 'user_logs_view',
+      docs: 'docs_wiki_view',
+      okrs: 'okrs_goals_view',
+      triage: 'triage_intake_view',
+      workload: 'workload_capacity_view',
+      whiteboard: 'whiteboard_view',
     };
 
     const syncRouteFromBrowser = () => {

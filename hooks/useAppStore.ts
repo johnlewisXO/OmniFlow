@@ -1,7 +1,7 @@
 
 
 import { useState, useEffect } from 'react';
-import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig, WorkspaceAccentId } from '../types';
+import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig, WorkspaceAccentId, ActiveTaskTimer, UndoActionEntry } from '../types';
 import { ICON_MAP } from '../constants';
 import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions, saveUserProfileExtension } from '../services/supabaseService';
 import collabService from '../services/collabService';
@@ -93,6 +93,10 @@ interface StoreState {
 
   // Webhooks
   webhooks: WebhookConfig[];
+
+  // Live Active-Task Focus Timer & Undo Stack
+  activeTimer: ActiveTaskTimer | null;
+  lastUndoAction: UndoActionEntry | null;
 }
 
 const _darkMode = typeof window !== 'undefined' ? (localStorage.getItem('omniflow_theme_mode') || localStorage.getItem('theme')) === 'dark' : false;
@@ -102,6 +106,15 @@ const _activeView = typeof window !== 'undefined' ? (localStorage.getItem('activ
 const _activeProjectId = typeof window !== 'undefined' ? localStorage.getItem('activeProjectId') : null;
 const _storedSprints = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('omni_sprints') || '[]') : [];
 const _storedWebhooks = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('omni_webhooks') || '[]') : [];
+const _storedActiveTimer: ActiveTaskTimer | null = (() => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('omni_active_task_timer');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+})();
 
 const initialStoreStateValues: StoreState = {
   darkMode: _darkMode,
@@ -167,6 +180,8 @@ const initialStoreStateValues: StoreState = {
 
   // Webhooks
   webhooks: _storedWebhooks,
+  activeTimer: _storedActiveTimer,
+  lastUndoAction: null,
 };
 
 const parseErrorMessage = (error: any, defaultMessage: string = "An unexpected error occurred."): string => {
@@ -985,19 +1000,23 @@ const appActionsCreator = (
     setActiveView: (view: ActiveView) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('activeView', view);
-          const viewSlugMap: Record<ActiveView, string> = {
+          const viewSlugMap: Partial<Record<ActiveView, string>> = {
             overview: 'overview',
             projects_overview: 'projects',
             kanban: 'kanban',
             sprints_view: 'sprints',
+            docs_wiki_view: 'docs',
+            okrs_goals_view: 'okrs',
+            triage_intake_view: 'triage',
+            workload_capacity_view: 'workload',
             my_tasks_view: 'my-tasks',
             team_chat_view: 'chat',
-            calendar_meetings_view: 'calendar',
+            calendar_view: 'calendar',
             inbox_view: 'inbox',
             reports_view: 'reports',
             team_management: 'team',
-            automations_view: 'automations',
-            ai_copilot_studio: 'ai-copilot',
+            task_automations: 'automations',
+            ai_copilot_view: 'ai-copilot',
             profile_settings: 'profile',
             admin_settings: 'admin',
             user_logs_view: 'logs',
@@ -1276,12 +1295,33 @@ const appActionsCreator = (
         );
         const currentTaskToView = get().taskToView;
         const updatedTaskToView = currentTaskToView?.id === taskId ? { ...currentTaskToView, ...updates } : currentTaskToView;
+
+        // Record 1-Click Undo snapshot if originalTask exists
+        let nextUndoAction: UndoActionEntry | null = get().lastUndoAction;
+        if (originalTask) {
+          const revertSnapshot: Partial<Task> = {};
+          (Object.keys(updates) as (keyof Task)[]).forEach(k => {
+            (revertSnapshot as any)[k] = originalTask[k];
+          });
+          nextUndoAction = {
+            id: `undo-${Date.now()}`,
+            label: `Undo update on "${originalTask.title}"`,
+            createdAt: Date.now(),
+            revert: async () => {
+              await supabaseService.updateTask(taskId, revertSnapshot);
+              if (activeProject?.id) {
+                await selfActions.fetchTasksForProject(activeProject.id);
+              }
+            },
+          };
+        }
         
         updateState(s => ({ 
             ...s, 
             tasks: updatedTasksOptimistic, 
             myTasks: updatedMyTasksOptimistic,
             taskToView: updatedTaskToView,
+            lastUndoAction: nextUndoAction,
             isLoadingTasks: true, 
             tasksError: null, 
             isEditTaskModalOpen: false, 
@@ -1429,7 +1469,20 @@ const appActionsCreator = (
         ? { ...currentTaskToView, status: newStatus, position: newVisualIndexInColumn }
         : currentTaskToView;
 
-      updateState(s => ({ ...s, tasks: finalOptimisticTasks, taskToView: updatedTaskToView, highlightedTaskId: draggedTaskId, tasksError: null }));
+      const moveUndoEntry: UndoActionEntry = {
+        id: `undo-move-${Date.now()}`,
+        label: `Undo moving "${draggedTask.title}"`,
+        createdAt: Date.now(),
+        revert: async () => {
+          updateState(s => ({ ...s, tasks: currentTasks }));
+          await supabaseService.updateTask(draggedTaskId, { status: originalStatus });
+          if (activeProjectId) {
+            await selfActions.fetchTasksForProject(activeProjectId);
+          }
+        },
+      };
+
+      updateState(s => ({ ...s, tasks: finalOptimisticTasks, taskToView: updatedTaskToView, lastUndoAction: moveUndoEntry, highlightedTaskId: draggedTaskId, tasksError: null }));
 
       if (newStatus === TaskStatus.DONE && originalStatus !== TaskStatus.DONE) {
         soundService.play('task_complete');
@@ -2151,6 +2204,200 @@ const appActionsCreator = (
         } catch (e) {
           console.warn(`Webhook execution error for ${hook.name}:`, e);
         }
+      }
+    },
+
+    // Live Active-Task Focus Timer & Worklog Engine
+    startTaskTimer: (task: Task) => {
+      const currentTimer = get().activeTimer;
+      let accumulated = 0;
+      if (currentTimer && currentTimer.taskId === task.id) {
+        accumulated = currentTimer.accumulatedSeconds + (currentTimer.isRunning ? Math.floor((Date.now() - currentTimer.startedAt) / 1000) : 0);
+      }
+      const nextTimer: ActiveTaskTimer = {
+        taskId: task.id,
+        taskTitle: task.title,
+        projectId: task.projectId,
+        startedAt: Date.now(),
+        accumulatedSeconds: accumulated,
+        isRunning: true,
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('omni_active_task_timer', JSON.stringify(nextTimer));
+      }
+      updateState(s => ({ ...s, activeTimer: nextTimer }));
+      soundService.play('click_soft');
+      // If task is in TODO, automatically move to IN_PROGRESS
+      if (task.status === TaskStatus.TODO) {
+        selfActions.updateTask(task.id, { status: TaskStatus.IN_PROGRESS }).catch(() => {});
+      }
+      get().addToast('⏱️ Focus Timer Started', `Tracking focus time on "${task.title}".`, 'info', {
+        entity_type: 'task',
+        entity_id: task.id,
+      });
+    },
+
+    pauseTaskTimer: () => {
+      const currentTimer = get().activeTimer;
+      if (!currentTimer || !currentTimer.isRunning) return;
+      const elapsed = Math.floor((Date.now() - currentTimer.startedAt) / 1000);
+      const pausedTimer: ActiveTaskTimer = {
+        ...currentTimer,
+        accumulatedSeconds: currentTimer.accumulatedSeconds + Math.max(0, elapsed),
+        isRunning: false,
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('omni_active_task_timer', JSON.stringify(pausedTimer));
+      }
+      updateState(s => ({ ...s, activeTimer: pausedTimer }));
+      soundService.play('click_soft');
+    },
+
+    resumeTaskTimer: () => {
+      const currentTimer = get().activeTimer;
+      if (!currentTimer || currentTimer.isRunning) return;
+      const resumedTimer: ActiveTaskTimer = {
+        ...currentTimer,
+        startedAt: Date.now(),
+        isRunning: true,
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('omni_active_task_timer', JSON.stringify(resumedTimer));
+      }
+      updateState(s => ({ ...s, activeTimer: resumedTimer }));
+      soundService.play('click_soft');
+    },
+
+    stopAndLogTaskTimer: async () => {
+      const currentTimer = get().activeTimer;
+      if (!currentTimer) return;
+      const elapsed = currentTimer.isRunning ? Math.floor((Date.now() - currentTimer.startedAt) / 1000) : 0;
+      const totalSeconds = Math.max(60, currentTimer.accumulatedSeconds + Math.max(0, elapsed));
+      const loggedMinutes = Math.max(1, Math.round(totalSeconds / 60));
+      const loggedHours = Number((totalSeconds / 3600).toFixed(2));
+
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('omni_active_task_timer');
+        try {
+          const rawLogs = localStorage.getItem('omni_task_worklogs');
+          const logs = rawLogs ? JSON.parse(rawLogs) : [];
+          logs.unshift({
+            id: `wl-${Date.now()}`,
+            taskId: currentTimer.taskId,
+            taskTitle: currentTimer.taskTitle,
+            projectId: currentTimer.projectId,
+            userId: get().currentUser?.id || 'system',
+            userName: get().currentUser?.full_name || get().currentUser?.email || 'Member',
+            durationSeconds: totalSeconds,
+            durationMinutes: loggedMinutes,
+            hours: loggedHours,
+            loggedAt: new Date().toISOString(),
+          });
+          localStorage.setItem('omni_task_worklogs', JSON.stringify(logs.slice(0, 200)));
+          window.dispatchEvent(new CustomEvent('omni_worklogs_updated'));
+        } catch {}
+      }
+
+      updateState(s => ({ ...s, activeTimer: null }));
+      soundService.play('state_updated');
+      get().addToast(
+        '✅ Worklog Saved',
+        `Logged ${loggedMinutes}m (${loggedHours}h) on "${currentTimer.taskTitle}".`,
+        'success',
+        { entity_type: 'task', entity_id: currentTimer.taskId }
+      );
+    },
+
+    // 1-Click Undo Execution & Bulk Task Operations
+    triggerUndo: async () => {
+      const undo = get().lastUndoAction;
+      if (!undo) return;
+      updateState(s => ({ ...s, lastUndoAction: null }));
+      try {
+        soundService.play('state_updated');
+        await undo.revert();
+        get().addToast('↩ Action Undone', `Restored previous state: ${undo.label.replace(/^Undo /i, '')}.`, 'info');
+      } catch (err) {
+        console.warn('Undo failed:', err);
+      }
+    },
+
+    bulkUpdateTasks: async (taskIds: string[], updates: Partial<Task>) => {
+      if (!taskIds.length) return;
+      const originalTasks = [...get().tasks];
+      const affectedSnapshots = originalTasks.filter(t => taskIds.includes(t.id)).map(t => ({ ...t }));
+      const activeProjectId = get().activeProject?.id;
+
+      const bulkUndo: UndoActionEntry = {
+        id: `undo-bulk-${Date.now()}`,
+        label: `Undo bulk update of ${taskIds.length} tasks`,
+        createdAt: Date.now(),
+        revert: async () => {
+          updateState(s => ({ ...s, tasks: originalTasks }));
+          await Promise.all(
+            affectedSnapshots.map(snap =>
+              supabaseService.updateTask(snap.id, {
+                status: snap.status,
+                priority: snap.priority,
+                assignee_id: snap.assignee_id,
+                sprintId: snap.sprintId,
+              })
+            )
+          );
+          if (activeProjectId) {
+            await selfActions.fetchTasksForProject(activeProjectId);
+          }
+        },
+      };
+
+      updateState(s => ({
+        ...s,
+        tasks: s.tasks.map(t => (taskIds.includes(t.id) ? { ...t, ...updates } : t)),
+        myTasks: s.myTasks.map(t => (taskIds.includes(t.id) ? { ...t, ...updates } : t)),
+        lastUndoAction: bulkUndo,
+      }));
+
+      soundService.play('state_updated');
+      emitVisualStateUpdate(`Bulk updated ${taskIds.length} tasks`, 'task');
+
+      try {
+        await Promise.all(taskIds.map(id => supabaseService.updateTask(id, updates)));
+        if (activeProjectId) {
+          await selfActions.fetchTasksForProject(activeProjectId);
+        }
+        get().addToast(
+          `Bulk Updated ${taskIds.length} Tasks`,
+          `Applied changes across ${taskIds.length} selected tasks.`,
+          'success',
+          { entity_type: 'task', metadata: { canUndo: true } }
+        );
+      } catch (err) {
+        console.error('Bulk update error:', err);
+        updateState(s => ({ ...s, tasks: originalTasks }));
+      }
+    },
+
+    bulkDeleteTasks: async (taskIds: string[]) => {
+      if (!taskIds.length) return;
+      const originalTasks = [...get().tasks];
+      const activeProjectId = get().activeProject?.id;
+
+      updateState(s => ({
+        ...s,
+        tasks: s.tasks.filter(t => !taskIds.includes(t.id)),
+        myTasks: s.myTasks.filter(t => !taskIds.includes(t.id)),
+      }));
+      soundService.play('warning');
+
+      try {
+        await Promise.all(taskIds.map(id => supabaseService.deleteTask(id)));
+        if (activeProjectId) {
+          await selfActions.fetchTasksForProject(activeProjectId);
+        }
+        get().addToast(`Deleted ${taskIds.length} Tasks`, `Removed ${taskIds.length} selected tasks from the project.`, 'info');
+      } catch (err) {
+        console.error('Bulk delete error:', err);
+        updateState(s => ({ ...s, tasks: originalTasks }));
       }
     },
   });

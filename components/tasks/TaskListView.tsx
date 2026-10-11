@@ -14,6 +14,9 @@ interface TaskListViewProps {
   darkMode: boolean;
   onTaskClick: (taskId: string) => void;
   onQuickCreateTask?: (status: TaskStatus) => void;
+  selectedTaskIds?: string[];
+  focusedTaskId?: string | null;
+  onToggleSelectTask?: (taskId: string, shiftKey?: boolean) => void;
 }
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
@@ -21,6 +24,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   users,
   darkMode,
   onTaskClick,
+  selectedTaskIds = [],
+  focusedTaskId = null,
+  onToggleSelectTask,
 }) => {
   const {
     updateTask,
@@ -31,6 +37,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     presences,
     currentUser,
     highlightedTaskId,
+    startTaskTimer,
   } = useAppStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -423,11 +430,21 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           onDragEnd={handleDragEnd}
           onDragOver={e => handleDragOverTaskRow(e, task, sectionStatus)}
           onDrop={e => handleDropOnTaskRow(e, task, sectionStatus)}
-          onClick={() => onTaskClick(task.id)}
+          onClick={e => {
+            if (e.shiftKey && onToggleSelectTask) {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelectTask(task.id, true);
+              return;
+            }
+            onTaskClick(task.id);
+          }}
           className={`group relative flex flex-row items-center justify-between py-2 px-2.5 sm:py-2.5 sm:px-3.5 border-b gap-2 sm:gap-3 transition-all cursor-grab active:cursor-grabbing select-none min-h-[44px] ${
             darkMode
               ? 'border-slate-800/80 hover:bg-slate-800/50'
               : 'border-slate-200/80 hover:bg-slate-50'
+          } ${selectedTaskIds.includes(task.id) ? 'bg-accent/[0.08] ring-1 ring-inset ring-accent/50' : ''} ${
+            focusedTaskId === task.id ? 'ring-1 ring-inset ring-indigo-400' : ''
           } ${isSubtask ? (darkMode ? 'bg-slate-950/40 pl-6 sm:pl-9' : 'bg-slate-50/70 pl-6 sm:pl-9') : ''} ${
             isBeingDragged ? 'opacity-35 bg-indigo-500/10 border-dashed border-indigo-500' : ''
           } ${
@@ -438,8 +455,25 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               : ''
           } ${isRecentlyUpdated ? 'animate-state-updated' : ''} ${presenceRowClass}`}
         >
-          {/* Left Side: Grip + Subtask Toggle + Checkbox + Slim Title */}
+          {/* Left Side: Multi-Select Checkbox + Grip + Subtask Toggle + Done Checkbox + Slim Title */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+            {onToggleSelectTask && (
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onToggleSelectTask(task.id, e.shiftKey);
+                }}
+                title="Select task for bulk action"
+                className={`w-4 h-4 rounded border flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
+                  selectedTaskIds.includes(task.id)
+                    ? 'bg-accent border-accent text-white'
+                    : 'border-slate-300 dark:border-slate-600 opacity-50 group-hover:opacity-100'
+                }`}
+              >
+                {selectedTaskIds.includes(task.id) && <ICON_MAP.CheckIcon className="w-2.5 h-2.5 stroke-[3]" />}
+              </button>
+            )}
             {/* Drag Handle Icon */}
             <div
               className="text-slate-400 group-hover:text-indigo-500 transition-colors flex-shrink-0 cursor-grab"
@@ -616,6 +650,19 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 </span>
               )}
             </div>
+
+            {/* Start Focus Timer Button */}
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                startTaskTimer(task);
+              }}
+              className="opacity-60 group-hover:opacity-100 p-1 text-slate-400 hover:text-emerald-500 rounded-full transition-all cursor-pointer"
+              title="Start Focus Timer"
+            >
+              <ICON_MAP.ClockIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
 
             {/* Delete Button */}
             <button

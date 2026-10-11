@@ -278,6 +278,66 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         },
       },
       {
+        id: 'nav-whiteboard-studio',
+        category: 'knowledge',
+        title: 'Collaborative Whiteboard & Design Canvas (Figma / FigJam)',
+        subtitle: 'Infinite canvas, frames, stickies, freehand pen, live cursors & 1-click task conversion',
+        meta: 'Whiteboard Studio',
+        icon: ICON_MAP.SparklesIcon,
+        action: () => {
+          setActiveView('whiteboard_view');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-docs-wiki',
+        category: 'knowledge',
+        title: 'Project Docs & Spec Wiki Hub',
+        subtitle: 'Collaborative PRDs, technical specs & 1-click task conversion',
+        meta: 'Docs & Wiki',
+        icon: ICON_MAP.DocumentTextIcon,
+        action: () => {
+          setActiveView('docs_wiki_view');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-okrs-goals',
+        category: 'knowledge',
+        title: 'OKRs, Strategic Goals & Milestone Rollups',
+        subtitle: 'Track company Objectives & Key Results linked to project velocity',
+        meta: 'OKRs & Goals',
+        icon: ICON_MAP.TagIcon,
+        action: () => {
+          setActiveView('okrs_goals_view');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-triage-intake',
+        category: 'tasks',
+        title: 'Triage Queue & Bug/Feature Intake Forms',
+        subtitle: 'Review incoming bug reports, feature requests & route to sprint',
+        meta: 'Triage',
+        icon: ICON_MAP.ExclamationTriangleIcon,
+        action: () => {
+          setActiveView('triage_intake_view');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-workload-timer',
+        category: 'sprints',
+        title: 'Live Task Focus Timer & Team Workload Heatmap',
+        subtitle: 'Monitor weekly team capacity, active focus timers & rebalance load',
+        meta: 'Workload',
+        icon: ICON_MAP.ClockIcon,
+        action: () => {
+          setActiveView('workload_capacity_view');
+          onClose();
+        },
+      },
+      {
         id: 'nav-reports',
         category: 'knowledge',
         title: 'Executive Reports & AI Summary',

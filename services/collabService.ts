@@ -715,6 +715,16 @@ class CollabService {
             window.dispatchEvent(new CustomEvent('omni_remote_team_member_removed', { detail: payload }));
           }
         })
+        .on('broadcast', { event: 'whiteboard_delta' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_delta', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'whiteboard_cursor' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_cursor', { detail: payload }));
+          }
+        })
         .subscribe((status: string) => {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
           if (status === 'SUBSCRIBED') {
@@ -916,6 +926,14 @@ class CollabService {
     } else if (type === 'TEAM_MEMBER_REMOVED' && payload) {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('omni_remote_team_member_removed', { detail: payload }));
+      }
+    } else if (type === 'WHITEBOARD_DELTA' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_delta', { detail: payload }));
+      }
+    } else if (type === 'WHITEBOARD_CURSOR' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_cursor', { detail: payload }));
       }
     }
   }
@@ -1241,6 +1259,37 @@ class CollabService {
   public broadcastTeamMemberRemoved(payload: { userId: string; userName?: string; actor: { id: string; name: string } }) {
     this.emitLocalPacket('TEAM_MEMBER_REMOVED', payload);
     this.sendBroadcast('team_member_removed', payload, true);
+  }
+
+  public broadcastWhiteboardDelta(payload: {
+    boardId: string;
+    action: 'upsert_node' | 'delete_node' | 'upsert_connector' | 'delete_connector' | 'add_stroke' | 'replace_board';
+    node?: any;
+    nodeId?: string;
+    connector?: any;
+    connectorId?: string;
+    stroke?: any;
+    board?: any;
+    actorId: string;
+    actorName: string;
+  }) {
+    this.emitLocalPacket('WHITEBOARD_DELTA', payload);
+    this.sendBroadcast('whiteboard_delta', payload, false);
+  }
+
+  public broadcastWhiteboardCursor(payload: {
+    userId: string;
+    userName: string;
+    color: string;
+    x: number;
+    y: number;
+    activeTool?: string;
+    selectedNodeId?: string | null;
+    boardId: string;
+    updatedAt: number;
+  }) {
+    this.emitLocalPacket('WHITEBOARD_CURSOR', payload);
+    this.sendBroadcast('whiteboard_cursor', payload, false);
   }
 
   public onPresencesChange(callback: (presences: UserPresence[]) => void): () => void {

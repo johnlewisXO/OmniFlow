@@ -52,13 +52,39 @@ export const Header: React.FC = () => {
     openShortcutsModal,
     presences,
     users,
+    activeTimer,
+    pauseTaskTimer,
+    resumeTaskTimer,
+    stopAndLogTaskTimer,
+    tasks,
+    openViewTaskModal,
   } = useAppStore();
 
   const [lastSeenTick, setLastSeenTick] = useState(0);
+  const [timerTick, setTimerTick] = useState(0);
+
   useEffect(() => {
     const t = setInterval(() => setLastSeenTick(v => v + 1), 10000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    if (!activeTimer?.isRunning) return;
+    const t = setInterval(() => setTimerTick(v => v + 1), 1000);
+    return () => clearInterval(t);
+  }, [activeTimer?.isRunning]);
+
+  const formattedFocusTimer = useMemo(() => {
+    if (!activeTimer) return '00:00:00';
+    const liveSeconds = activeTimer.isRunning
+      ? Math.max(0, Math.floor((Date.now() - activeTimer.startedAt) / 1000))
+      : 0;
+    const total = Math.max(0, (activeTimer.accumulatedSeconds || 0) + liveSeconds);
+    const hrs = Math.floor(total / 3600);
+    const mins = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
+  }, [activeTimer, timerTick]);
 
   const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
     if (typeof window !== 'undefined' && currentUser?.id) {
@@ -346,6 +372,67 @@ export const Header: React.FC = () => {
           >
             <ICON_MAP.KeyboardIcon className="w-4 h-4" />
           </button>
+
+          {/* Persistent Header Active-Task Focus Timer Capsule */}
+          {activeTimer && (
+            <div
+              className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded-full border text-xs transition-all shadow-xs ${
+                activeTimer.isRunning
+                  ? darkMode
+                    ? 'bg-indigo-950/85 border-indigo-500/50 text-indigo-200'
+                    : 'bg-indigo-50 border-indigo-300 text-indigo-900'
+                  : darkMode
+                  ? 'bg-amber-950/60 border-amber-500/40 text-amber-200'
+                  : 'bg-amber-50 border-amber-300 text-amber-900'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const found = tasks.find(t => t.id === activeTimer.taskId);
+                  if (found) openViewTaskModal(found);
+                  else setActiveView('workload_capacity_view');
+                }}
+                className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:opacity-80"
+                title={`Focusing on: ${activeTimer.taskTitle} (Click to inspect)`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    activeTimer.isRunning ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'
+                  }`}
+                />
+                <span className="hidden xl:inline max-w-[130px] truncate font-semibold text-[11px]">
+                  {activeTimer.taskTitle}
+                </span>
+                <span className="font-mono font-bold tabular-nums text-[11px] tracking-tight">
+                  {formattedFocusTimer}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  soundService.play('click_soft');
+                  if (activeTimer.isRunning) pauseTaskTimer();
+                  else resumeTaskTimer();
+                }}
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white/15 hover:bg-white/25 dark:bg-slate-800/80 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                title={activeTimer.isRunning ? 'Pause Focus Timer' : 'Resume Focus Timer'}
+              >
+                {activeTimer.isRunning ? 'Pause' : 'Resume'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  soundService.play('task_complete');
+                  stopAndLogTaskTimer();
+                }}
+                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer"
+                title="Stop Timer & Log Work Hours to Task"
+              >
+                Log
+              </button>
+            </div>
+          )}
 
           {/* Live Visual State-Update Sync Indicator */}
           {recentStateUpdateLabel && (

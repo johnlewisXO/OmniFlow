@@ -11,33 +11,32 @@ export const KeyboardShortcutsModal: React.FC = () => {
 
   const shortcutSections = [
     {
-      title: 'General & Navigation',
+      title: 'General & Undo',
       shortcuts: [
         { keys: ['Cmd', 'K'], label: 'Open Command Palette' },
-        { keys: ['/'], label: 'Quick Focus Search' },
+        { keys: ['Cmd', 'Z'], label: '1-Click Undo Last Task Action' },
         { keys: ['?'], label: 'Open Keyboard Shortcuts' },
-        { keys: ['Esc'], label: 'Close Active Modal / Dropdown' },
+        { keys: ['Esc'], label: 'Clear Selection / Close Modal' },
       ],
     },
     {
-      title: 'Task Actions',
+      title: 'Linear-Style Board & List Hotkeys',
       shortcuts: [
         { keys: ['C'], label: 'Create New Task' },
-        { keys: ['J', 'or', '↓'], label: 'Navigate Down / Next Task' },
-        { keys: ['K', 'or', '↑'], label: 'Navigate Up / Prev Task' },
-        { keys: ['Enter'], label: 'Open Selected Task Details' },
-        { keys: ['X'], label: 'Toggle Task Completion (Done)' },
-        { keys: ['E'], label: 'Edit Selected Task' },
+        { keys: ['J', 'or', '↓'], label: 'Focus Next Task' },
+        { keys: ['K', 'or', '↑'], label: 'Focus Previous Task' },
+        { keys: ['Enter'], label: 'Open Focused Task Inspector' },
+        { keys: ['X'], label: 'Toggle Multi-Select on Task' },
+        { keys: ['S'], label: 'Cycle Task Status Inline' },
+        { keys: ['1', '–', '4'], label: 'Set Priority (Critical → Low)' },
+        { keys: ['M'], label: 'Assign Focused Task to Me' },
       ],
     },
     {
-      title: 'View Switcher',
+      title: 'Workspace Modules',
       shortcuts: [
-        { keys: ['G', 'O'], label: 'Go to Overview' },
-        { keys: ['G', 'B'], label: 'Go to Kanban Board' },
-        { keys: ['G', 'S'], label: 'Go to Sprint Planning' },
-        { keys: ['G', 'M'], label: 'Go to My Tasks' },
-        { keys: ['G', 'R'], label: 'Go to Reports' },
+        { keys: ['B'], label: 'Toggle Sidebar Drawer' },
+        { keys: ['Shift', 'Click'], label: 'Multi-Select Task Card / Row' },
       ],
     },
   ];

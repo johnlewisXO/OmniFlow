@@ -9,9 +9,17 @@ import soundService from '../../services/soundService';
 
 interface TaskCardProps {
   task: Task;
+  isSelected?: boolean;
+  isFocused?: boolean;
+  onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({
+  task,
+  isSelected = false,
+  isFocused = false,
+  onToggleSelect,
+}) => {
   const { 
     users, 
     tasks,
@@ -21,7 +29,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     openEditTaskModal,
     highlightedTaskId,
     presences,
-    currentUser
+    currentUser,
+    activeTimer,
+    startTaskTimer,
   } = useAppStore();
 
   const [recentRemoteBroadcast, setRecentRemoteBroadcast] = useState<{ actorName: string; summary: string } | null>(null);
@@ -125,9 +135,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     }
   };
 
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (e.shiftKey && onToggleSelect) {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect(task.id, true);
+      return;
+    }
     openViewTaskModal(task.id);
   };
+
+  const isTimingThisTask = activeTimer?.taskId === task.id;
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     soundService.play('drag_pickup');
@@ -165,6 +183,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       data-task-id={task.id} 
       style={cardBackgroundStyle}
       className={`p-4 rounded-[22px] shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group
+                  ${isSelected ? 'ring-2 ring-accent border-accent bg-accent/[0.04]' : ''}
+                  ${isFocused && !isSelected ? 'ring-2 ring-indigo-400/80 border-indigo-400/70' : ''}
                   ${isHighlighted ? 'animate-state-updated ring-2 ring-emerald-500/60 shadow-emerald-500/20' : ''}
                   ${activeEditors.length > 0 ? 'ring-1 ring-blue-500/50 border-blue-500/40' : activeTypers.length > 0 ? 'ring-1 ring-purple-500/50 border-purple-500/40' : viewers.length > 0 ? 'ring-1 ring-emerald-500/30 border-emerald-500/30' : ''}
                   ${isBlocked ? 'border-amber-400/60 dark:border-amber-500/50 bg-amber-50/20 dark:bg-amber-950/10' : ''}`}
@@ -173,9 +193,31 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Top Badges: Blocked, Story Points, State Updated Indicator, & Single Unified Live Presence Indicator */}
+      {/* Top Badges: Multi-Select Checkbox, Blocked, Story Points, State Updated Indicator, & Single Unified Live Presence Indicator */}
       <div className="flex items-center justify-between gap-1.5 mb-2">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {onToggleSelect && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                onToggleSelect(task.id, e.shiftKey);
+              }}
+              title="Select task for bulk actions (Shift+Click or press X)"
+              className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
+                isSelected
+                  ? 'bg-accent border-accent text-white opacity-100'
+                  : 'border-slate-300 dark:border-slate-600 opacity-0 group-hover:opacity-100 focus:opacity-100'
+              }`}
+            >
+              {isSelected && <ICON_MAP.CheckIcon className="w-3 h-3 stroke-[3]" />}
+            </button>
+          )}
+          {isTimingThisTask && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+              ⏱ Timing
+            </span>
+          )}
           {isHighlighted && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/35 animate-state-badge">
               ✓ Updated
@@ -258,6 +300,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
       <div className="flex justify-between items-start mb-2">
         <h3 className={`text-sm font-bold ${textColor} leading-snug mr-2`}>{task.title}</h3>
         <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+                onClick={e => {
+                  e.stopPropagation();
+                  startTaskTimer(task);
+                }}
+                title="Start Focus Timer on this task"
+                className={`p-1 rounded-squircle-sm ${darkMode ? 'text-slate-400 hover:bg-emerald-500/20 hover:text-emerald-300' : 'text-slate-500 hover:bg-emerald-500/15 hover:text-emerald-600'} transition-colors cursor-pointer`}
+            >
+              <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />
+            </button>
             <button
                 onClick={handleEdit}
                 title="Edit task"

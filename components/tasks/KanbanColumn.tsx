@@ -13,6 +13,9 @@ interface KanbanColumnProps {
   tasksOverride?: Task[];
   wipLimit?: number;
   layoutMode?: 'grid' | 'snap';
+  selectedTaskIds?: string[];
+  focusedTaskId?: string | null;
+  onToggleSelectTask?: (taskId: string, shiftKey?: boolean) => void;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
@@ -22,6 +25,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   tasksOverride,
   wipLimit,
   layoutMode = 'grid',
+  selectedTaskIds = [],
+  focusedTaskId = null,
+  onToggleSelectTask,
 }) => {
   const { 
     activeProject, 
@@ -163,7 +169,12 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             {isDragOver && dropIndicatorIndex === index && (
               <div className={dropIndicatorStyle}></div>
             )}
-            <TaskCard task={task} />
+            <TaskCard
+              task={task}
+              isSelected={selectedTaskIds.includes(task.id)}
+              isFocused={focusedTaskId === task.id}
+              onToggleSelect={onToggleSelectTask}
+            />
           </React.Fragment>
         ))}
         {isDragOver && dropIndicatorIndex === tasksInColumn.length && tasksInColumn.length > 0 && (

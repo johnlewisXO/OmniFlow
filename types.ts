@@ -404,7 +404,161 @@ export type ActiveView =
   | 'task_automations'
   | 'task_automations_view'
   | 'ai_copilot_view'
-  | 'calendar_view';
+  | 'calendar_view'
+  | 'docs_wiki_view'
+  | 'okrs_goals_view'
+  | 'triage_intake_view'
+  | 'workload_capacity_view'
+  | 'whiteboard_view';
+
+export type WhiteboardNodeType =
+  | 'frame'
+  | 'sticky'
+  | 'rectangle'
+  | 'diamond'
+  | 'circle'
+  | 'text'
+  | 'doc_card';
+
+export interface WhiteboardNode {
+  id: string;
+  type: WhiteboardNodeType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  title?: string;
+  content: string;
+  color: string;
+  authorId?: string;
+  authorName?: string;
+  votes?: number;
+  reactions?: Record<string, number>;
+  linkedTaskId?: string;
+  updatedAt: number;
+}
+
+export interface WhiteboardConnector {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  label?: string;
+  color: string;
+  style?: 'solid' | 'dashed';
+}
+
+export interface WhiteboardStroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  strokeWidth: number;
+  authorName?: string;
+}
+
+export interface WhiteboardBoard {
+  id: string;
+  name: string;
+  projectId?: string;
+  organizationId?: string;
+  nodes: WhiteboardNode[];
+  connectors: WhiteboardConnector[];
+  strokes: WhiteboardStroke[];
+  updatedAt: string;
+}
+
+export interface WhiteboardCursor {
+  userId: string;
+  userName: string;
+  color: string;
+  x: number;
+  y: number;
+  activeTool?: string;
+  selectedNodeId?: string | null;
+  boardId: string;
+  updatedAt: number;
+}
+
+export interface ActiveTaskTimer {
+  taskId: string;
+  taskTitle: string;
+  projectId?: string;
+  startedAt: number; // timestamp ms when last resumed
+  accumulatedSeconds: number;
+  isRunning: boolean;
+}
+
+export interface UndoActionEntry {
+  id: string;
+  label: string;
+  createdAt: number;
+  revert: () => Promise<void>;
+}
+
+export interface ProjectDocSpecItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  convertedTaskId?: string;
+  priority?: TaskPriority;
+}
+
+export interface ProjectDoc {
+  id: string;
+  title: string;
+  category: 'prd' | 'architecture' | 'release_notes' | 'post_mortem' | 'runbook';
+  projectId?: string;
+  organizationId?: string;
+  authorId: string;
+  authorName: string;
+  summary: string;
+  content: string;
+  specChecklist: ProjectDocSpecItem[];
+  linkedTaskIds: string[];
+  updatedAt: string;
+}
+
+export interface OKRKeyResult {
+  id: string;
+  title: string;
+  targetValue: number;
+  currentValue: number;
+  unit: '%' | 'pts' | 'tasks' | 'ms' | 'users';
+  linkedProjectId?: string;
+  linkedSprintId?: string;
+  linkedTag?: string;
+  autoRollupFromProject?: boolean;
+}
+
+export interface OKRObjective {
+  id: string;
+  title: string;
+  quarter: string;
+  ownerId: string;
+  ownerName: string;
+  department: string;
+  status: 'on_track' | 'at_risk' | 'off_track' | 'completed';
+  description: string;
+  keyResults: OKRKeyResult[];
+  updatedAt: string;
+}
+
+export interface TriageIntakeItem {
+  id: string;
+  title: string;
+  description: string;
+  category: 'bug' | 'feature_request' | 'security' | 'performance' | 'customer_escalation';
+  severity: TaskPriority;
+  reporterName: string;
+  reporterEmail: string;
+  environment?: string;
+  stepsToReproduce?: string;
+  targetProjectId?: string;
+  targetSprintId?: string;
+  suggestedAssigneeId?: string;
+  status: 'pending_triage' | 'accepted' | 'declined' | 'duplicate';
+  promotedTaskId?: string;
+  createdAt: string;
+}
 
 export type CalendarEventCategory =
   | 'sprint_planning'
@@ -796,4 +950,17 @@ export interface AppStore {
   saveWebhook: (webhook: WebhookConfig) => void;
   deleteWebhook: (id: string) => void;
   triggerWebhook: (event: string, payload: any) => Promise<void>;
+
+  // Live Active-Task Focus Timer & Worklog
+  activeTimer: ActiveTaskTimer | null;
+  startTaskTimer: (task: Task) => void;
+  pauseTaskTimer: () => void;
+  resumeTaskTimer: () => void;
+  stopAndLogTaskTimer: () => Promise<void>;
+
+  // 1-Click Undo Stack & Bulk Task Operations
+  lastUndoAction: UndoActionEntry | null;
+  triggerUndo: () => Promise<void>;
+  bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => Promise<void>;
+  bulkDeleteTasks: (taskIds: string[]) => Promise<void>;
 }

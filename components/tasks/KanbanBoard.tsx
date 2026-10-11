@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskStatus, UserRole, Task, TaskPriority } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
@@ -8,6 +8,7 @@ import { TaskListView } from './TaskListView';
 import { SprintPlanningView } from '../sprints/SprintPlanningView';
 import { AutomatedTriggersModal } from './AutomatedTriggersModal';
 import { Button } from '../shared/Button';
+import soundService from '../../services/soundService';
 
 type SwimlaneType = 'none' | 'assignee' | 'priority';
 
@@ -24,7 +25,13 @@ export const KanbanBoard: React.FC = () => {
     openViewTaskModal,
     sprints,
     activeSprintId,
-    presences
+    presences,
+    updateTask,
+    bulkUpdateTasks,
+    bulkDeleteTasks,
+    lastUndoAction,
+    triggerUndo,
+    addToast,
   } = useAppStore();
 
   const [viewMode, setViewMode] = useState<'kanban' | 'sprints' | 'list' | 'gantt'>('kanban');
@@ -56,6 +63,19 @@ export const KanbanBoard: React.FC = () => {
   const [filterSprint, setFilterSprint] = useState<string>('all');
   const [swimlaneMode, setSwimlaneMode] = useState<SwimlaneType>('none');
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Record<string, boolean>>({});
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
+
+  const handleToggleSelectTask = useCallback((taskId: string) => {
+    soundService.play('click_soft');
+    setSelectedTaskIds(prev =>
+      prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+    );
+  }, []);
+
+  const clearSelectedTasks = useCallback(() => {
+    setSelectedTaskIds([]);
+  }, []);
 
   // WIP Limits (persisted in local state per project)
   const [wipLimits, setWipLimits] = useState<Record<string, number>>(() => {
@@ -159,6 +179,129 @@ export const KanbanBoard: React.FC = () => {
       return true;
     });
   }, [rawProjectTasks, searchQuery, filterMyTasks, currentUser, filterUnassigned, filterPriority, filterSprint, sprints, activeProject]);
+
+  // Linear-Style Keyboard Hotkeys (J/K nav, 1-4 Priority, S Status, M Assign to Me, X Select, Enter Inspect, Cmd+Z Undo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Cmd+Z / Ctrl+Z Undo
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        if (lastUndoAction) {
+          e.preventDefault();
+          triggerUndo();
+        }
+        return;
+      }
+
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'Escape') {
+        if (selectedTaskIds.length > 0) {
+          e.preventDefault();
+          clearSelectedTasks();
+        } else if (focusedTaskId) {
+          setFocusedTaskId(null);
+        }
+        return;
+      }
+
+      if (filteredProjectTasks.length === 0) return;
+
+      // J / ArrowDown -> Next Task
+      if (e.key.toLowerCase() === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const idx = focusedTaskId ? filteredProjectTasks.findIndex(t => t.id === focusedTaskId) : -1;
+        const nextIdx = (idx + 1) % filteredProjectTasks.length;
+        setFocusedTaskId(filteredProjectTasks[nextIdx].id);
+        return;
+      }
+
+      // K / ArrowUp -> Previous Task
+      if (e.key.toLowerCase() === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const idx = focusedTaskId ? filteredProjectTasks.findIndex(t => t.id === focusedTaskId) : 0;
+        const prevIdx = (idx - 1 + filteredProjectTasks.length) % filteredProjectTasks.length;
+        setFocusedTaskId(filteredProjectTasks[prevIdx].id);
+        return;
+      }
+
+      const activeTask = focusedTaskId ? filteredProjectTasks.find(t => t.id === focusedTaskId) : null;
+      if (!activeTask) return;
+
+      // X -> Toggle Multi-Select on Focused Task
+      if (e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        handleToggleSelectTask(activeTask.id);
+        return;
+      }
+
+      // Enter -> Open Task Inspector
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        openViewTaskModal(activeTask.id);
+        return;
+      }
+
+      // S -> Cycle Status (Todo -> In Progress -> Review -> Done)
+      if (e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        const order = [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.REVIEW, TaskStatus.DONE];
+        const nextStatus = order[(order.indexOf(activeTask.status) + 1) % order.length];
+        updateTask(activeTask.id, { status: nextStatus });
+        addToast('Status Cycled (S)', `"${activeTask.title}" moved to ${nextStatus.replace(/_/g, ' ')}.`, 'info');
+        return;
+      }
+
+      // M -> Assign to Me
+      if (e.key.toLowerCase() === 'm' && currentUser) {
+        e.preventDefault();
+        updateTask(activeTask.id, { assignee_id: currentUser.id, assigneeId: currentUser.id });
+        addToast('Assigned to You (M)', `"${activeTask.title}" assigned to ${currentUser.full_name || currentUser.email}.`, 'success');
+        return;
+      }
+
+      // 1-4 -> Inline Priority Hotkeys
+      if (['1', '2', '3', '4'].includes(e.key)) {
+        e.preventDefault();
+        const prioMap: Record<string, TaskPriority> = {
+          '1': TaskPriority.CRITICAL,
+          '2': TaskPriority.HIGH,
+          '3': TaskPriority.MEDIUM,
+          '4': TaskPriority.LOW,
+        };
+        const newPriority = prioMap[e.key];
+        if (newPriority) {
+          updateTask(activeTask.id, { priority: newPriority });
+          addToast(`Priority Set (${e.key})`, `"${activeTask.title}" priority set to ${newPriority}.`, 'info');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    filteredProjectTasks,
+    focusedTaskId,
+    selectedTaskIds.length,
+    lastUndoAction,
+    triggerUndo,
+    clearSelectedTasks,
+    handleToggleSelectTask,
+    openViewTaskModal,
+    updateTask,
+    currentUser,
+    addToast,
+  ]);
 
   // Agile Metrics (Total, Done, In Progress, Velocity, Story points estimation)
   const stats = useMemo(() => {
@@ -587,20 +730,33 @@ export const KanbanBoard: React.FC = () => {
               </select>
             </div>
 
-            {/* Filter Count & Reset */}
-            {hasActiveFilters && (
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-xs text-accent font-semibold">
-                  Showing {filteredProjectTasks.length} of {rawProjectTasks.length}
-                </span>
+            {/* Filter Count, Undo Button & Reset */}
+            <div className="flex items-center gap-2 ml-auto">
+              {lastUndoAction && (
                 <button
-                  onClick={resetFilters}
-                  className="text-xs text-red-500 hover:underline font-medium cursor-pointer"
+                  type="button"
+                  onClick={() => triggerUndo()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
+                  title={`Undo last action: ${lastUndoAction.label} (⌘Z)`}
                 >
-                  Clear filters
+                  <span>↩ Undo</span>
+                  <span className="hidden sm:inline max-w-[140px] truncate opacity-80">({lastUndoAction.label})</span>
                 </button>
-              </div>
-            )}
+              )}
+              {hasActiveFilters && (
+                <>
+                  <span className="text-xs text-accent font-semibold">
+                    Showing {filteredProjectTasks.length} of {rawProjectTasks.length}
+                  </span>
+                  <button
+                    onClick={resetFilters}
+                    className="text-xs text-red-500 hover:underline font-medium cursor-pointer"
+                  >
+                    Clear filters
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -656,6 +812,9 @@ export const KanbanBoard: React.FC = () => {
                     tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
                     wipLimit={wipLimits[column.id]}
                     layoutMode="grid"
+                    selectedTaskIds={selectedTaskIds}
+                    focusedTaskId={focusedTaskId}
+                    onToggleSelectTask={handleToggleSelectTask}
                   />
                 </div>
               ))}
@@ -678,6 +837,9 @@ export const KanbanBoard: React.FC = () => {
                   tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
                   wipLimit={wipLimits[column.id]}
                   layoutMode={tabletLayoutMode}
+                  selectedTaskIds={selectedTaskIds}
+                  focusedTaskId={focusedTaskId}
+                  onToggleSelectTask={handleToggleSelectTask}
                 />
               ))}
             </div>
@@ -734,6 +896,9 @@ export const KanbanBoard: React.FC = () => {
                           colorClass={column.color}
                           tasksOverride={swimlane.tasks}
                           wipLimit={wipLimits[column.id]}
+                          selectedTaskIds={selectedTaskIds}
+                          focusedTaskId={focusedTaskId}
+                          onToggleSelectTask={handleToggleSelectTask}
                         />
                       ))}
                     </div>
@@ -749,6 +914,9 @@ export const KanbanBoard: React.FC = () => {
           users={users}
           darkMode={darkMode}
           onTaskClick={openViewTaskModal}
+          selectedTaskIds={selectedTaskIds}
+          focusedTaskId={focusedTaskId}
+          onToggleSelectTask={handleToggleSelectTask}
         />
       ) : (
         <GanttTimelineView
@@ -757,6 +925,128 @@ export const KanbanBoard: React.FC = () => {
           darkMode={darkMode}
           onTaskClick={openViewTaskModal}
         />
+      )}
+
+      {/* Multi-Select Floating Bulk Action Bar */}
+      {selectedTaskIds.length > 0 && (
+        <div className="fixed bottom-16 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[94vw] animate-in slide-in-from-bottom-4">
+          <div
+            className={`flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-2.5 rounded-2xl border shadow-2xl backdrop-blur-xl ${
+              darkMode
+                ? 'bg-slate-900/95 border-indigo-500/40 text-slate-100'
+                : 'bg-white/95 border-indigo-300 text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-2 pr-2 border-r border-slate-200 dark:border-slate-800">
+              <span className="px-2 py-0.5 rounded-md bg-accent text-white font-mono font-bold text-xs tabular-nums">
+                {selectedTaskIds.length}
+              </span>
+              <span className="text-xs font-bold whitespace-nowrap">Selected</span>
+            </div>
+
+            {/* Batch Status */}
+            <select
+              defaultValue=""
+              onChange={async e => {
+                const val = e.target.value as TaskStatus;
+                if (!val) return;
+                e.target.value = '';
+                await bulkUpdateTasks(selectedTaskIds, { status: val });
+                clearSelectedTasks();
+              }}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800 border-slate-700 text-slate-200'
+                  : 'bg-slate-100 border-slate-200 text-slate-800'
+              }`}
+            >
+              <option value="" disabled>
+                Set Status...
+              </option>
+              <option value={TaskStatus.TODO}>To Do</option>
+              <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+              <option value={TaskStatus.REVIEW}>In Review</option>
+              <option value={TaskStatus.DONE}>Done</option>
+            </select>
+
+            {/* Batch Priority */}
+            <select
+              defaultValue=""
+              onChange={async e => {
+                const val = e.target.value as TaskPriority;
+                if (!val) return;
+                e.target.value = '';
+                await bulkUpdateTasks(selectedTaskIds, { priority: val });
+                clearSelectedTasks();
+              }}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800 border-slate-700 text-slate-200'
+                  : 'bg-slate-100 border-slate-200 text-slate-800'
+              }`}
+            >
+              <option value="" disabled>
+                Set Priority...
+              </option>
+              <option value={TaskPriority.CRITICAL}>Critical</option>
+              <option value={TaskPriority.HIGH}>High</option>
+              <option value={TaskPriority.MEDIUM}>Medium</option>
+              <option value={TaskPriority.LOW}>Low</option>
+            </select>
+
+            {/* Batch Assignee */}
+            <select
+              defaultValue=""
+              onChange={async e => {
+                const val = e.target.value;
+                if (!val) return;
+                e.target.value = '';
+                const assigneeVal = val === 'unassigned' ? undefined : val;
+                await bulkUpdateTasks(selectedTaskIds, {
+                  assignee_id: assigneeVal,
+                  assigneeId: assigneeVal,
+                });
+                clearSelectedTasks();
+              }}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800 border-slate-700 text-slate-200'
+                  : 'bg-slate-100 border-slate-200 text-slate-800'
+              }`}
+            >
+              <option value="" disabled>
+                Assign To...
+              </option>
+              <option value="unassigned">Unassigned</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.full_name || u.email}
+                </option>
+              ))}
+            </select>
+
+            {/* Batch Delete */}
+            <button
+              type="button"
+              onClick={async () => {
+                await bulkDeleteTasks(selectedTaskIds);
+                clearSelectedTasks();
+              }}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-colors cursor-pointer"
+            >
+              Delete ({selectedTaskIds.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={clearSelectedTasks}
+              className="px-2 py-1 text-xs font-semibold text-slate-400 hover:text-slate-200 cursor-pointer"
+              title="Clear Selection (Esc)"
+            >
+              Clear (Esc)
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Automated Triggers Modal */}

@@ -1660,6 +1660,98 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
       <div className="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-12 gap-5 items-stretch">
         {widgetOrder.map(widgetId => renderBentoWidget(widgetId))}
       </div>
+
+      {/* 3. Strategic & Competitive Modules Bento Cards (Whiteboard Studio, Docs & Wiki, OKRs & Goals, Triage Queue, Workload Heatmap) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 pt-1">
+        {[
+          {
+            id: 'whiteboard_view' as const,
+            title: 'Whiteboard & FigJam Studio',
+            badge: 'Live Canvas',
+            stat: '3 Templates',
+            sub: 'Frames, stickies, pen & multiplayer sync',
+            icon: ICON_MAP.SparklesIcon,
+            accentClass: 'bg-rose-500/15 text-rose-500 border-rose-500/30',
+          },
+          {
+            id: 'docs_wiki_view' as const,
+            title: 'Project Docs & Spec Wiki',
+            badge: 'PRDs & Specs',
+            stat: `${Math.max(3, projects.length * 2)} Docs`,
+            sub: '1-click Convert checklist to Task',
+            icon: ICON_MAP.DocumentTextIcon,
+            accentClass: 'bg-indigo-500/15 text-indigo-500 border-indigo-500/30',
+          },
+          {
+            id: 'okrs_goals_view' as const,
+            title: 'OKRs & Strategic Goals',
+            badge: 'Live Rollups',
+            stat: `${ringMetrics.donePct || 68}%`,
+            sub: 'Objectives linked to sprint velocity',
+            icon: ICON_MAP.TagIcon,
+            accentClass: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30',
+          },
+          {
+            id: 'triage_intake_view' as const,
+            title: 'Triage & Request Intake',
+            badge: 'Intake Forms',
+            stat: `${Math.max(2, statusCounts[TaskStatus.TODO])} Queued`,
+            sub: 'Accept & route bugs to active sprint',
+            icon: ICON_MAP.ExclamationTriangleIcon,
+            accentClass: 'bg-amber-500/15 text-amber-500 border-amber-500/30',
+          },
+          {
+            id: 'workload_capacity_view' as const,
+            title: 'Workload & Focus Timer',
+            badge: 'Capacity Heatmap',
+            stat: `${Math.max(1, users.length)} Members`,
+            sub: 'Live task timer & 1-click load balance',
+            icon: ICON_MAP.ClockIcon,
+            accentClass: 'bg-cyan-500/15 text-cyan-500 border-cyan-500/30',
+          },
+        ].map(mod => {
+          const ModIcon = mod.icon;
+          return (
+            <button
+              key={mod.id}
+              type="button"
+              onClick={() => {
+                soundService.play('click_soft');
+                setActiveView(mod.id);
+              }}
+              className={`group text-left p-5 rounded-[28px] border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                darkMode
+                  ? 'bg-slate-900/75 hover:bg-slate-800/90 border-white/10 shadow-lg shadow-black/20'
+                  : 'bg-white/90 hover:bg-white border-slate-200/80 shadow-sm hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center ${mod.accentClass}`}>
+                  <ModIcon className="w-5 h-5" />
+                </div>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${mod.accentClass}`}
+                >
+                  {mod.badge}
+                </span>
+              </div>
+              <div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-slate-900'} group-hover:text-accent transition-colors`}>
+                    {mod.title}
+                  </h4>
+                  <span className="font-mono font-extrabold text-sm tabular-nums text-accent">
+                    {mod.stat}
+                  </span>
+                </div>
+                <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {mod.sub}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };
