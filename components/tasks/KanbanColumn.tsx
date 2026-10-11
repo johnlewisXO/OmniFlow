@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   colorClass: string;
   tasksOverride?: Task[];
   wipLimit?: number;
+  layoutMode?: 'grid' | 'snap';
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
@@ -19,7 +20,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   title, 
   colorClass,
   tasksOverride,
-  wipLimit
+  wipLimit,
+  layoutMode = 'grid',
 }) => {
   const { 
     activeProject, 
@@ -104,16 +106,21 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   };
 
 
+  const responsiveWidthClass =
+    layoutMode === 'snap'
+      ? 'shrink-0 w-[85vw] sm:w-[310px] md:w-[320px] xl:flex-1 xl:min-w-[275px] xl:max-w-[360px] snap-start'
+      : 'w-full min-w-0 max-w-none xl:flex-1 xl:min-w-[265px]';
+
   return (
     <div 
       style={columnBackgroundStyle}
-      className={`flex-1 min-w-[300px] max-w-[340px] rounded-[28px] p-3.5 md:p-4 shadow-glass ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
+      className={`${responsiveWidthClass} rounded-[28px] p-3 sm:p-3.5 md:p-4 shadow-glass ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}
     >
-      <div className={`flex items-center justify-between px-1.5 py-2 mb-3.5 rounded-full`}>
-        <div className="flex items-center space-x-2.5 min-w-0">
+      <div className={`flex items-center justify-between px-1.5 py-1.5 sm:py-2 mb-3 rounded-full`}>
+        <div className="flex items-center space-x-2 min-w-0">
           <span className={`w-3 h-3 rounded-full ${colorClass} shadow-sm flex-shrink-0`}></span>
           <h2 className={`font-bold text-sm sm:text-md truncate ${textColor}`}>{title}</h2>
           <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm flex-shrink-0 ${
@@ -138,7 +145,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <PlusIcon className="w-5 h-5" />
         </button>
       </div>
-      <div className="flex-1 min-h-[420px] space-y-3.5 px-1 pb-2 column-content-area">
+      <div className="flex-1 min-h-[260px] md:min-h-[320px] xl:min-h-[420px] space-y-3 px-0.5 sm:px-1 pb-2 column-content-area">
         {isLoadingTasks && tasksInColumn.length === 0 && (
           <div className="text-center py-12">
              <ICON_MAP.SpinnerIcon className={`w-10 h-10 mx-auto ${darkMode ? 'text-accent-light/70' : 'text-accent/70'} animate-spin`} />

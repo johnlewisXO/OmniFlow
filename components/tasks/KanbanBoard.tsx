@@ -31,6 +31,22 @@ export const KanbanBoard: React.FC = () => {
   const [isAutomationsOpen, setIsAutomationsOpen] = useState(false);
   const [isWipModalOpen, setIsWipModalOpen] = useState(false);
   const [mobileActiveColumn, setMobileActiveColumn] = useState<string>('todo');
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [tabletLayoutMode, setTabletLayoutMode] = useState<'grid' | 'snap'>(() => {
+    try {
+      const saved = localStorage.getItem('omni_kanban_tablet_layout');
+      return saved === 'snap' ? 'snap' : 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+
+  const handleTabletLayoutChange = (mode: 'grid' | 'snap') => {
+    setTabletLayoutMode(mode);
+    try {
+      localStorage.setItem('omni_kanban_tablet_layout', mode);
+    } catch {}
+  };
 
   // Quick Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +93,11 @@ export const KanbanBoard: React.FC = () => {
   };
 
   const hasActiveFilters = searchQuery !== '' || filterMyTasks || filterPriority !== 'all' || filterUnassigned || filterSprint !== 'all';
+  const activeFilterCount =
+    (filterMyTasks ? 1 : 0) +
+    (filterUnassigned ? 1 : 0) +
+    (filterPriority !== 'all' ? 1 : 0) +
+    (filterSprint !== 'all' ? 1 : 0);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -374,6 +395,43 @@ export const KanbanBoard: React.FC = () => {
             <span className="font-semibold text-accent tabular-nums">{stats.completedStoryPoints}/{stats.totalStoryPoints} pts</span>
           </div>
 
+          {/* Tablet Layout Mode Switcher (2x2 Grid vs Snap-Scroll) */}
+          {viewMode === 'kanban' && swimlaneMode === 'none' && (
+            <div
+              className={`hidden md:flex xl:hidden items-center p-0.5 rounded-full border text-[11px] font-semibold ${
+                darkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-100 border-slate-200'
+              }`}
+              title="Switch tablet board layout between 2x2 Grid and Horizontal Snap-Scroll"
+            >
+              <button
+                type="button"
+                onClick={() => handleTabletLayoutChange('grid')}
+                className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                  tabletLayoutMode === 'grid'
+                    ? 'bg-accent text-white shadow-2xs'
+                    : darkMode
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                2×2 Grid
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabletLayoutChange('snap')}
+                className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                  tabletLayoutMode === 'snap'
+                    ? 'bg-accent text-white shadow-2xs'
+                    : darkMode
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Snap Scroll
+              </button>
+            </div>
+          )}
+
           {/* WIP Limit Settings Button */}
           {viewMode === 'kanban' && (
             <Button
@@ -384,7 +442,8 @@ export const KanbanBoard: React.FC = () => {
               title="Configure Work-In-Progress Limits"
             >
               <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-slate-400" />
-              WIP Limits
+              <span className="hidden sm:inline">WIP Limits</span>
+              <span className="sm:hidden">WIP</span>
             </Button>
           )}
 
@@ -397,126 +456,153 @@ export const KanbanBoard: React.FC = () => {
               className="gap-1.5 text-xs font-semibold"
             >
               <ICON_MAP.CogIcon className="w-4 h-4 text-accent" />
-              Automations
+              <span className="hidden sm:inline">Automations</span>
             </Button>
           )}
         </div>
       </div>
 
-      {/* Quick Filters Bar (Jira / Linear Style) */}
-      <div className={`flex items-center gap-2 p-2.5 mb-3 rounded-xl border flex-wrap text-xs ${
+      {/* Responsive Quick Filters Bar with Collapsible Drawer on Mobile/Tablet (< lg) */}
+      <div className={`p-2 sm:p-2.5 mb-2 rounded-2xl border text-xs transition-all ${
         darkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50/80 border-slate-200/80'
       }`}>
-        {/* Search Filter Input */}
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter by title, tag, desc..."
-            className={`w-full pl-8 pr-3 py-1.5 rounded-lg border text-xs outline-none transition-all ${
-              darkMode 
-                ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-accent' 
-                : 'bg-white border-slate-300 text-slate-800 focus:border-accent'
-            }`}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        {/* Quick Filter Chips */}
-        <button
-          onClick={() => setFilterMyTasks(!filterMyTasks)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all border ${
-            filterMyTasks
-              ? 'bg-accent text-white border-accent shadow-sm'
-              : darkMode 
-                ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-          }`}
-        >
-          <ICON_MAP.UserIcon className="w-3.5 h-3.5" />
-          My Tasks
-        </button>
-
-        <button
-          onClick={() => setFilterUnassigned(!filterUnassigned)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all border ${
-            filterUnassigned
-              ? 'bg-accent text-white border-accent shadow-sm'
-              : darkMode 
-                ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-          }`}
-        >
-          <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" />
-          Unassigned
-        </button>
-
-        {/* Priority Filter Select */}
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${
-          darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'
-        }`}>
-          <span className="text-slate-400">Priority:</span>
-          <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value as any)}
-            className={`bg-transparent outline-none cursor-pointer font-medium ${
-              darkMode ? 'text-slate-200' : 'text-slate-800'
-            }`}
-          >
-            <option value="all" className={darkMode ? 'bg-slate-800' : 'bg-white'}>All</option>
-            <option value="urgent" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Urgent</option>
-            <option value="high" className={darkMode ? 'bg-slate-800' : 'bg-white'}>High</option>
-            <option value="medium" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Medium</option>
-            <option value="low" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Low</option>
-          </select>
-        </div>
-
-        {/* Sprint Filter Select */}
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${
-          darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'
-        }`}>
-          <span className="text-slate-400">Sprint:</span>
-          <select
-            value={filterSprint}
-            onChange={(e) => setFilterSprint(e.target.value)}
-            className={`bg-transparent outline-none cursor-pointer font-medium ${
-              darkMode ? 'text-slate-200' : 'text-slate-800'
-            }`}
-          >
-            <option value="all" className={darkMode ? 'bg-slate-800' : 'bg-white'}>All Tasks</option>
-            <option value="active" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Active Sprint</option>
-            <option value="backlog" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Product Backlog</option>
-            {sprints.filter(s => s.projectId === activeProject?.id).map(sp => (
-              <option key={sp.id} value={sp.id} className={darkMode ? 'bg-slate-800' : 'bg-white'}>
-                {sp.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Filter Count & Reset */}
-        {hasActiveFilters && (
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-accent font-semibold">
-              Showing {filteredProjectTasks.length} of {rawProjectTasks.length}
-            </span>
-            <button
-              onClick={resetFilters}
-              className="text-xs text-red-500 hover:underline font-medium"
-            >
-              Clear filters
-            </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Search Filter Input */}
+          <div className="relative flex-1 min-w-[160px] lg:max-w-xs">
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter by title, tag, desc..."
+              className={`w-full pl-8 pr-6 py-1.5 rounded-xl border text-xs outline-none transition-all ${
+                darkMode 
+                  ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-accent' 
+                  : 'bg-white border-slate-300 text-slate-800 focus:border-accent'
+              }`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+              >
+                ×
+              </button>
+            )}
           </div>
-        )}
+
+          {/* Mobile / Tablet Collapsible Filter Drawer Toggle Button (< lg) */}
+          <button
+            type="button"
+            onClick={() => setIsFilterDrawerOpen(prev => !prev)}
+            className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold border transition-all cursor-pointer ${
+              isFilterDrawerOpen || activeFilterCount > 0
+                ? 'bg-accent text-white border-accent shadow-xs'
+                : darkMode
+                ? 'bg-slate-800 border-slate-700 text-slate-300'
+                : 'bg-white border-slate-200 text-slate-700'
+            }`}
+          >
+            <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-white/25 text-white text-[10px] font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {/* Filter Chips & Selects: Always visible on lg+, collapsible drawer on < lg */}
+          <div className={`${
+            isFilterDrawerOpen ? 'flex w-full pt-2 mt-1 border-t border-slate-200/70 dark:border-slate-800' : 'hidden'
+          } lg:flex lg:w-auto lg:pt-0 lg:mt-0 lg:border-t-0 items-center gap-2 flex-wrap`}>
+            <button
+              onClick={() => setFilterMyTasks(!filterMyTasks)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all border cursor-pointer ${
+                filterMyTasks
+                  ? 'bg-accent text-white border-accent shadow-sm'
+                  : darkMode 
+                    ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <ICON_MAP.UserIcon className="w-3.5 h-3.5" />
+              My Tasks
+            </button>
+
+            <button
+              onClick={() => setFilterUnassigned(!filterUnassigned)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all border cursor-pointer ${
+                filterUnassigned
+                  ? 'bg-accent text-white border-accent shadow-sm'
+                  : darkMode 
+                    ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" />
+              Unassigned
+            </button>
+
+            {/* Priority Filter Select */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border ${
+              darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'
+            }`}>
+              <span className="text-slate-400">Priority:</span>
+              <select
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value as any)}
+                className={`!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-medium ${
+                  darkMode ? 'text-slate-200' : 'text-slate-800'
+                }`}
+              >
+                <option value="all" className={darkMode ? 'bg-slate-800' : 'bg-white'}>All</option>
+                <option value="urgent" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Urgent</option>
+                <option value="high" className={darkMode ? 'bg-slate-800' : 'bg-white'}>High</option>
+                <option value="medium" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Medium</option>
+                <option value="low" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Low</option>
+              </select>
+            </div>
+
+            {/* Sprint Filter Select */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border ${
+              darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'
+            }`}>
+              <span className="text-slate-400">Sprint:</span>
+              <select
+                value={filterSprint}
+                onChange={(e) => setFilterSprint(e.target.value)}
+                className={`!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-medium ${
+                  darkMode ? 'text-slate-200' : 'text-slate-800'
+                }`}
+              >
+                <option value="all" className={darkMode ? 'bg-slate-800' : 'bg-white'}>All Tasks</option>
+                <option value="active" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Active Sprint</option>
+                <option value="backlog" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Product Backlog</option>
+                {sprints.filter(s => s.projectId === activeProject?.id).map(sp => (
+                  <option key={sp.id} value={sp.id} className={darkMode ? 'bg-slate-800' : 'bg-white'}>
+                    {sp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Count & Reset */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-xs text-accent font-semibold">
+                  Showing {filteredProjectTasks.length} of {rawProjectTasks.length}
+                </span>
+                <button
+                  onClick={resetFilters}
+                  className="text-xs text-red-500 hover:underline font-medium cursor-pointer"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Main View Render */}
@@ -538,7 +624,7 @@ export const KanbanBoard: React.FC = () => {
                     onClick={() => setMobileActiveColumn(col.id)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all min-h-[38px] ${
                       isSelected
-                        ? 'bg-indigo-600 text-white shadow-xs'
+                        ? 'bg-accent text-white shadow-xs'
                         : darkMode
                           ? 'text-slate-400 hover:text-slate-200'
                           : 'text-slate-600 hover:text-slate-900'
@@ -569,13 +655,20 @@ export const KanbanBoard: React.FC = () => {
                     colorClass={column.color}
                     tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
                     wipLimit={wipLimits[column.id]}
+                    layoutMode="grid"
                   />
                 </div>
               ))}
             </div>
 
-            {/* Desktop Multi-Column Board (>= 768px) */}
-            <div className="hidden md:flex flex-1 items-start space-x-3 md:space-x-4 overflow-x-auto pb-4 scrollbar-thin">
+            {/* Tablet (2x2 Grid or Snap-Scroll) & Desktop (4-Column Row) Board (>= 768px) */}
+            <div
+              className={
+                tabletLayoutMode === 'grid'
+                  ? 'hidden md:grid md:grid-cols-2 md:gap-4 xl:flex xl:items-start xl:gap-4 xl:overflow-x-auto pb-4 scrollbar-thin'
+                  : 'hidden md:flex flex-1 items-start space-x-3 md:space-x-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-thin'
+              }
+            >
               {TASK_STATUS_COLUMNS.map(column => (
                 <KanbanColumn
                   key={column.id}
@@ -584,6 +677,7 @@ export const KanbanBoard: React.FC = () => {
                   colorClass={column.color}
                   tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
                   wipLimit={wipLimits[column.id]}
+                  layoutMode={tabletLayoutMode}
                 />
               ))}
             </div>

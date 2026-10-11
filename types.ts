@@ -38,6 +38,110 @@ export const normalizeUserRole = (rawRole?: string | UserRole | null): UserRole 
   return UserRole.MEMBER;
 };
 
+export type WorkspaceAccentId = 'violet' | 'cyan' | 'emerald' | 'coral' | 'amber' | 'cobalt';
+
+export interface WorkspaceAccentPreset {
+  id: WorkspaceAccentId;
+  name: string;
+  tagline: string;
+  lightHex: string;
+  darkHex: string;
+  gradientStart: string;
+  gradientEnd: string;
+  primaryHslLight: string;
+  primaryHslDark: string;
+  primaryRgbLight: string;
+  primaryRgbDark: string;
+  swatchClass: string;
+}
+
+export const WORKSPACE_ACCENT_PRESETS: WorkspaceAccentPreset[] = [
+  {
+    id: 'violet',
+    name: 'Electric Violet',
+    tagline: 'Signature studio purple',
+    lightHex: '#6957FF',
+    darkHex: '#857CFF',
+    gradientStart: '#7C6BFF',
+    gradientEnd: '#5B4AEE',
+    primaryHslLight: '245 100% 67%',
+    primaryHslDark: '244 100% 74%',
+    primaryRgbLight: '105, 87, 255',
+    primaryRgbDark: '133, 124, 255',
+    swatchClass: 'from-violet-500 to-indigo-600',
+  },
+  {
+    id: 'cyan',
+    name: 'Ocean Cyan',
+    tagline: 'Crisp aqua & sky glow',
+    lightHex: '#0284C7',
+    darkHex: '#38BDF8',
+    gradientStart: '#06B6D4',
+    gradientEnd: '#0284C7',
+    primaryHslLight: '199 96% 40%',
+    primaryHslDark: '199 95% 60%',
+    primaryRgbLight: '2, 132, 199',
+    primaryRgbDark: '56, 189, 248',
+    swatchClass: 'from-cyan-400 to-sky-600',
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald Mint',
+    tagline: 'Vibrant forest & mint',
+    lightHex: '#059669',
+    darkHex: '#34D399',
+    gradientStart: '#10B981',
+    gradientEnd: '#059669',
+    primaryHslLight: '160 84% 35%',
+    primaryHslDark: '158 64% 52%',
+    primaryRgbLight: '5, 150, 105',
+    primaryRgbDark: '52, 211, 153',
+    swatchClass: 'from-emerald-400 to-teal-600',
+  },
+  {
+    id: 'coral',
+    name: 'Sunset Coral',
+    tagline: 'Warm rose & crimson energy',
+    lightHex: '#E11D48',
+    darkHex: '#FB7185',
+    gradientStart: '#F43F5E',
+    gradientEnd: '#E11D48',
+    primaryHslLight: '347 77% 50%',
+    primaryHslDark: '351 95% 71%',
+    primaryRgbLight: '225, 29, 72',
+    primaryRgbDark: '251, 113, 133',
+    swatchClass: 'from-rose-400 to-pink-600',
+  },
+  {
+    id: 'amber',
+    name: 'Amber Gold',
+    tagline: 'Solar gold & warm honey',
+    lightHex: '#D97706',
+    darkHex: '#FBBF24',
+    gradientStart: '#F59E0B',
+    gradientEnd: '#D97706',
+    primaryHslLight: '32 95% 44%',
+    primaryHslDark: '43 96% 56%',
+    primaryRgbLight: '217, 119, 6',
+    primaryRgbDark: '251, 191, 36',
+    swatchClass: 'from-amber-400 to-orange-600',
+  },
+  {
+    id: 'cobalt',
+    name: 'Cobalt Blue',
+    tagline: 'Executive sapphire blue',
+    lightHex: '#2563EB',
+    darkHex: '#60A5FA',
+    gradientStart: '#3B82F6',
+    gradientEnd: '#1D4ED8',
+    primaryHslLight: '221 83% 53%',
+    primaryHslDark: '213 94% 68%',
+    primaryRgbLight: '37, 99, 235',
+    primaryRgbDark: '96, 165, 250',
+    swatchClass: 'from-blue-500 to-indigo-700',
+  },
+];
+
 export interface UserProfilePreferences {
   jobTitle?: string;
   department?: string;
@@ -55,6 +159,8 @@ export interface UserProfilePreferences {
   workingDays?: string[];
   defaultLandingView?: ActiveView;
   compactDensity?: boolean;
+  accentColor?: WorkspaceAccentId;
+  themeMode?: 'light' | 'dark';
   emailDigestFrequency?: 'instant' | 'daily' | 'weekly' | 'off';
   notifyOnTaskAssigned?: boolean;
   notifyOnMentions?: boolean;
@@ -515,6 +621,8 @@ export interface Notification {
 export interface AppStore {
   darkMode: boolean;
   toggleDarkMode: () => void;
+  accentColor: WorkspaceAccentId;
+  setAccentColor: (accent: WorkspaceAccentId) => void;
 
   users: User[];
   projects: Project[];

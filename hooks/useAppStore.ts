@@ -1,12 +1,13 @@
 
 
-import { useState, useCallback, useEffect } from 'react';
-import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig } from '../types';
+import { useState, useEffect } from 'react';
+import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig, WorkspaceAccentId } from '../types';
 import { ICON_MAP } from '../constants';
-import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions } from '../services/supabaseService';
+import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions, saveUserProfileExtension } from '../services/supabaseService';
 import collabService from '../services/collabService';
 import emailNotificationService from '../services/emailNotificationService';
 import soundService from '../services/soundService';
+import { processTaskAutomationRules } from '../services/automationEngine';
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
 
@@ -25,6 +26,7 @@ const emitVisualStateUpdate = (label: string, entityType?: string, entityId?: st
 
 interface StoreState {
   darkMode: boolean;
+  accentColor: WorkspaceAccentId;
   users: User[];
   projects: Project[];
   tasks: Task[];
@@ -93,7 +95,8 @@ interface StoreState {
   webhooks: WebhookConfig[];
 }
 
-const _darkMode = typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false;
+const _darkMode = typeof window !== 'undefined' ? (localStorage.getItem('omniflow_theme_mode') || localStorage.getItem('theme')) === 'dark' : false;
+const _accentColor = (typeof window !== 'undefined' ? (localStorage.getItem('omniflow_accent_color') as WorkspaceAccentId) : null) || 'violet';
 const _notifications = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('notifications') || '[]') : [];
 const _activeView = typeof window !== 'undefined' ? (localStorage.getItem('activeView') as ActiveView || 'overview') : 'overview';
 const _activeProjectId = typeof window !== 'undefined' ? localStorage.getItem('activeProjectId') : null;
@@ -102,6 +105,7 @@ const _storedWebhooks = typeof window !== 'undefined' ? JSON.parse(localStorage.
 
 const initialStoreStateValues: StoreState = {
   darkMode: _darkMode,
+  accentColor: _accentColor,
   users: [],
   currentUser: null,
   currentOrganization: null,
@@ -919,6 +923,18 @@ const appActionsCreator = (
 
           // Trigger webhook for automations
           get().triggerWebhook('task.updated', { taskId, updates, previousTask });
+
+          // Execute Task Automation Rules Engine on any task mutation
+          const mergedUpdatedTask: Task = { ...targetTask, ...updates };
+          setTimeout(() => {
+            processTaskAutomationRules(previousTask || null, mergedUpdatedTask, {
+              users: get().users,
+              currentUser: get().currentUser,
+              updateTask: selfActions.updateTask,
+              addToast: selfActions.addToast,
+              addNotification: selfActions.addNotification,
+            }).catch(err => console.warn('Automation rule evaluation error:', err));
+          }, 40);
         }
     } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update task ${taskId}.`);
@@ -929,7 +945,41 @@ const appActionsCreator = (
   };
 
   Object.assign(selfActions, {
-    toggleDarkMode: () => updateState(s => ({ ...s, darkMode: !s.darkMode })),
+    toggleDarkMode: () => {
+      updateState(s => {
+        const nextDark = !s.darkMode;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+          localStorage.setItem('omniflow_theme_mode', nextDark ? 'dark' : 'light');
+        }
+        if (s.currentUser?.id) {
+          const ext = getUserProfileExtensions(s.currentUser.id);
+          const nextPrefs = { ...(ext.preferences || s.currentUser.preferences || {}), themeMode: (nextDark ? 'dark' : 'light') as 'dark' | 'light' };
+          saveUserProfileExtension(s.currentUser.id, { preferences: nextPrefs });
+          try {
+            supabaseService.client.auth.updateUser({ data: { theme_mode: nextDark ? 'dark' : 'light' } }).catch(() => {});
+          } catch {}
+        }
+        return { ...s, darkMode: nextDark };
+      });
+    },
+    setAccentColor: (accent: WorkspaceAccentId) => {
+      updateState(s => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('omniflow_accent_color', accent);
+          document.documentElement.dataset.accent = accent;
+        }
+        if (s.currentUser?.id) {
+          const ext = getUserProfileExtensions(s.currentUser.id);
+          const nextPrefs = { ...(ext.preferences || s.currentUser.preferences || {}), accentColor: accent };
+          saveUserProfileExtension(s.currentUser.id, { preferences: nextPrefs });
+          try {
+            supabaseService.client.auth.updateUser({ data: { accent_color: accent } }).catch(() => {});
+          } catch {}
+        }
+        return { ...s, accentColor: accent };
+      });
+    },
     setIsMobileSidebarOpen: (isOpen: boolean) => updateState(s => ({ ...s, isMobileSidebarOpen: isOpen })),
     toggleMobileSidebar: () => updateState(s => ({ ...s, isMobileSidebarOpen: !s.isMobileSidebarOpen })),
     setActiveView: (view: ActiveView) => {
@@ -1105,9 +1155,35 @@ const appActionsCreator = (
         updateState(s => ({ ...s, currentOrganization: null }));
       }
 
+      // Restore user's saved themeMode and accentColor if available
+      let restoredAccent = get().accentColor;
+      let restoredDark = get().darkMode;
+      if (user?.id) {
+        const ext = getUserProfileExtensions(user.id);
+        const savedAccent = (ext.preferences?.accentColor || user.preferences?.accentColor) as WorkspaceAccentId | undefined;
+        const savedTheme = (ext.preferences?.themeMode || user.preferences?.themeMode) as 'light' | 'dark' | undefined;
+        if (savedAccent) {
+          restoredAccent = savedAccent;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('omniflow_accent_color', savedAccent);
+            document.documentElement.dataset.accent = savedAccent;
+          }
+        }
+        if (savedTheme) {
+          restoredDark = savedTheme === 'dark';
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('theme', savedTheme);
+            localStorage.setItem('omniflow_theme_mode', savedTheme);
+            document.documentElement.classList.toggle('dark', restoredDark);
+          }
+        }
+      }
+
       updateState(s => ({
         ...s,
         currentUser: user,
+        accentColor: restoredAccent,
+        darkMode: restoredDark,
         authLoading: false,
         activeProject: nextActiveProject,
         activeView: nextActiveView,
@@ -1168,6 +1244,16 @@ const appActionsCreator = (
           });
           soundService.play('task_create');
           emitVisualStateUpdate(`Created "${createdTask.title}"`, 'task', createdTask.id);
+          setTimeout(() => {
+            processTaskAutomationRules(null, createdTask, {
+              users: get().users,
+              currentUser: get().currentUser,
+              updateTask: selfActions.updateTask,
+              addToast: selfActions.addToast,
+              addNotification: selfActions.addNotification,
+              isTaskCreated: true,
+            }).catch(err => console.warn('Automation evaluation on createTask error:', err));
+          }, 50);
         }
         updateState(s => ({ ...s, isLoading: false, isModalOpen: false, suggestedTaskTitles: [], parentTaskIdForNewTask: null, highlightedTaskId: createdTask?.id || s.highlightedTaskId }));
         return createdTask;
@@ -1239,6 +1325,15 @@ const appActionsCreator = (
                 soundService.play('state_updated');
               }
               emitVisualStateUpdate(`Updated "${updatedTask.title}"`, 'task', taskId);
+              setTimeout(() => {
+                processTaskAutomationRules(originalTask, updatedTask, {
+                  users: get().users,
+                  currentUser: get().currentUser,
+                  updateTask: selfActions.updateTask,
+                  addToast: selfActions.addToast,
+                  addNotification: selfActions.addNotification,
+                }).catch(err => console.warn('Automation evaluation on updateTask error:', err));
+              }, 40);
             }
             updateState(s => ({ ...s, isLoadingTasks: false, highlightedTaskId: taskId }));
         } catch (error: any) {
@@ -1385,6 +1480,16 @@ const appActionsCreator = (
         
         if (originalStatus !== newStatus) {
           selfActions.emitEvent('TASK_STATUS_UPDATED', { task: draggedTask });
+          const prevTaskSnapshot: Task = { ...draggedTask, status: originalStatus };
+          setTimeout(() => {
+            processTaskAutomationRules(prevTaskSnapshot, draggedTask!, {
+              users: get().users,
+              currentUser: get().currentUser,
+              updateTask: selfActions.updateTask,
+              addToast: selfActions.addToast,
+              addNotification: selfActions.addNotification,
+            }).catch(err => console.warn('Automation evaluation on moveTask error:', err));
+          }, 40);
         }
         
         updateState(s => ({ ...s, isLoadingTasks: false }));
@@ -2069,11 +2174,19 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
 
   const setState = (updater: (s: TState) => TState) => {
     const oldDarkMode = state.darkMode;
+    const oldAccent = state.accentColor;
     state = updater(state);
 
-    if (typeof window !== 'undefined' && state.darkMode !== oldDarkMode) {
-      document.documentElement.classList.toggle('dark', state.darkMode);
-      localStorage.setItem('theme', state.darkMode ? 'dark' : 'light');
+    if (typeof window !== 'undefined') {
+      if (state.darkMode !== oldDarkMode) {
+        document.documentElement.classList.toggle('dark', state.darkMode);
+        localStorage.setItem('theme', state.darkMode ? 'dark' : 'light');
+        localStorage.setItem('omniflow_theme_mode', state.darkMode ? 'dark' : 'light');
+      }
+      if (state.accentColor && state.accentColor !== oldAccent) {
+        document.documentElement.dataset.accent = state.accentColor;
+        localStorage.setItem('omniflow_accent_color', state.accentColor);
+      }
     }
     listeners.forEach(listener => listener());
   };
@@ -2082,8 +2195,13 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
   const getCombinedState = () => ({ ...state, ...actions });
   const actions = actionsCreatorFunc(setState, getCombinedState as any);
 
-  if (typeof window !== 'undefined' && initialStateValues.darkMode) {
-    document.documentElement.classList.add('dark');
+  if (typeof window !== 'undefined') {
+    if (initialStateValues.darkMode) {
+      document.documentElement.classList.add('dark');
+    }
+    if (initialStateValues.accentColor) {
+      document.documentElement.dataset.accent = initialStateValues.accentColor;
+    }
   }
 
   // Real-time Presence sync across the entire platform

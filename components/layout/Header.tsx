@@ -6,7 +6,7 @@ import { Avatar } from '../shared/Avatar';
 import { AnimatedPopover } from '../shared/Modal';
 import { collabService, formatAccurateLastSeen } from '../../services/collabService';
 import soundService from '../../services/soundService';
-import { UserPresence, normalizeUserRole } from '../../types';
+import { UserPresence, normalizeUserRole, WORKSPACE_ACCENT_PRESETS, WorkspaceAccentId } from '../../types';
 
 export const StatusDynamicIcon: React.FC<{ status: 'available' | 'away' | 'busy'; className?: string }> = ({ status, className = 'w-4 h-4' }) => {
   if (status === 'available') {
@@ -37,6 +37,8 @@ export const Header: React.FC = () => {
   const { 
     darkMode, 
     toggleDarkMode, 
+    accentColor,
+    setAccentColor,
     activeProject, 
     openModal, 
     currentUser, 
@@ -169,8 +171,10 @@ export const Header: React.FC = () => {
   };
 
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
 
   const SunIcon = ICON_MAP.SunIcon;
   const MoonIcon = ICON_MAP.MoonIcon;
@@ -181,6 +185,7 @@ export const Header: React.FC = () => {
 
   const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
   const unreadCount = notifications.filter(n => !n.read).length;
+  const activeAccentPreset = WORKSPACE_ACCENT_PRESETS.find(p => p.id === accentColor) || WORKSPACE_ACCENT_PRESETS[0];
 
   const handleLogout = async () => {
     try {
@@ -204,6 +209,9 @@ export const Header: React.FC = () => {
       if (statusPopoverRef.current && !statusPopoverRef.current.contains(event.target as Node)) {
         setIsStatusPopoverOpen(false);
       }
+      if (themeMenuRef.current && !themeMenuRef.current.contains(event.target as Node)) {
+        setIsThemeMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
@@ -215,13 +223,13 @@ export const Header: React.FC = () => {
   const statusLabelText = myStatus === 'available' ? 'Available' : myStatus === 'away' ? 'Away' : 'Busy / DND';
 
   return (
-    <header className="workspace-header glass-panel rounded-full px-4 sm:px-6 py-2.5 relative z-20">
-      <div className="flex items-center justify-between gap-3 min-w-0">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+    <header className="workspace-header glass-panel rounded-full px-3 sm:px-5 py-2 relative z-20">
+      <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {/* Mobile Hamburger Button */}
           <button
             onClick={toggleMobileSidebar}
-            className={`md:hidden p-2 rounded-full transition-all ${
+            className={`md:hidden p-2 rounded-full transition-all flex-shrink-0 ${
               darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
             aria-label="Open sidebar navigation"
@@ -229,22 +237,22 @@ export const Header: React.FC = () => {
             <Bars3Icon className="w-5 h-5" />
           </button>
 
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gradient-accent tracking-tight truncate">
+          <div className="min-w-0 flex-1 sm:flex-initial">
+            <h1 className="text-sm sm:text-base md:text-lg font-bold text-gradient-accent tracking-tight truncate max-w-[145px] sm:max-w-[220px] md:max-w-[280px]">
               {activeProject ? activeProject.name : 'Workspace Studio'}
             </h1>
             {activeProject && (
-              <p className={`text-[11px] ${subTextColor} truncate hidden sm:block`}>
+              <p className={`text-[10px] ${subTextColor} truncate hidden lg:block`}>
                 {activeProject.name} · Live Sprint Board
               </p>
             )}
           </div>
 
-          {/* Pill Search Bar Trigger (Taskly / Soft Glass style) */}
+          {/* Pill Search Bar Trigger on Desktop (lg+) */}
           <button
             type="button"
             onClick={openCommandPalette}
-            className={`hidden md:flex items-center justify-between gap-4 px-4 py-1.5 rounded-full border text-xs transition-all cursor-pointer ml-2 min-w-[220px] lg:min-w-[280px] ${
+            className={`hidden lg:flex items-center justify-between gap-4 px-3.5 py-1.5 rounded-full border text-xs transition-all cursor-pointer ml-2 min-w-[220px] xl:min-w-[270px] ${
               darkMode
                 ? 'bg-slate-900/70 hover:bg-slate-800/90 border-white/10 text-slate-400'
                 : 'bg-slate-100/80 hover:bg-white border-slate-200/80 text-slate-500 shadow-2xs'
@@ -252,7 +260,7 @@ export const Header: React.FC = () => {
           >
             <span className="flex items-center gap-2 truncate">
               <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-              <span>Search tasks, projects, or ask Co-Pilot...</span>
+              <span>Search tasks, projects, or Co-Pilot...</span>
             </span>
             <kbd className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
               darkMode ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'
@@ -262,7 +270,7 @@ export const Header: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+        <div className="flex items-center space-x-1 sm:space-x-1.5 md:space-x-2 flex-shrink-0">
           {/* Minimal Team Presence Avatars */}
           {uniquePresences.length > 0 && (
             <div className="hidden lg:flex items-center -space-x-1.5 mr-1">
@@ -310,30 +318,25 @@ export const Header: React.FC = () => {
             </div>
           )}
 
-          {/* Quick Command Palette Button */}
+          {/* Compact Search Button on Mobile & Tablet (< lg) */}
           <button
             data-tour-id="tour-header-command"
             onClick={openCommandPalette}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
+            className={`lg:hidden p-2 rounded-full transition-all border cursor-pointer ${
               darkMode 
                 ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300' 
                 : 'bg-slate-100/90 hover:bg-slate-200/90 border-slate-200 text-slate-600'
             }`}
-            title="Open Command Palette (Cmd+K / Ctrl+K)"
+            title="Search or Command Palette (⌘K)"
+            aria-label="Open Command Palette"
           >
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400" />
-            <span className="hidden md:inline">Search or command...</span>
-            <kbd className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-              darkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-white border-slate-300 text-slate-500'
-            }`}>
-              ⌘K
-            </kbd>
+            <ICON_MAP.SearchIcon className="w-4 h-4" />
           </button>
 
-          {/* Keyboard Shortcuts Button */}
+          {/* Keyboard Shortcuts Button (Desktop only) */}
           <button
             onClick={openShortcutsModal}
-            className={`p-2 rounded-xl border transition-all text-xs font-medium ${
+            className={`hidden xl:inline-flex p-2 rounded-xl border transition-all text-xs font-medium cursor-pointer ${
               darkMode 
                 ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-400 hover:text-slate-200' 
                 : 'bg-slate-100/90 hover:bg-slate-200/90 border-slate-200 text-slate-500 hover:text-slate-800'
@@ -348,21 +351,21 @@ export const Header: React.FC = () => {
           {recentStateUpdateLabel && (
             <div
               key={recentStateUpdateLabel}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-300 text-[11px] font-bold animate-state-badge pointer-events-none"
+              className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-300 text-[10px] font-bold animate-state-badge pointer-events-none"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-              <span className="max-w-[140px] truncate">{recentStateUpdateLabel}</span>
+              <span className="max-w-[120px] truncate">{recentStateUpdateLabel}</span>
             </div>
           )}
 
-          {/* UI Sound Effects Toggle Button */}
+          {/* UI Sound Effects Toggle Button (sm+) */}
           <button
             type="button"
             onClick={() => {
               const next = soundService.toggleEnabled();
               setSoundEnabled(next);
             }}
-            className={`p-2 rounded-full transition-all cursor-pointer ${
+            className={`hidden sm:inline-flex p-2 rounded-full transition-all cursor-pointer ${
               soundEnabled
                 ? darkMode
                   ? 'hover:bg-slate-800 text-indigo-400 hover:text-indigo-300'
@@ -374,12 +377,120 @@ export const Header: React.FC = () => {
             title={soundEnabled ? 'UI Sounds On (Click to mute)' : 'UI Sounds Muted (Click to enable)'}
             aria-label={soundEnabled ? 'Mute UI sounds' : 'Enable UI sounds'}
           >
-            <ICON_MAP.SpeakerWaveIcon className={`w-4 h-4 sm:w-5 sm:h-5 ${!soundEnabled ? 'opacity-45' : ''}`} />
+            <ICON_MAP.SpeakerWaveIcon className={`w-4 h-4 ${!soundEnabled ? 'opacity-45' : ''}`} />
           </button>
+
+          {/* Workspace Color Accent & Theme Picker Popover */}
+          <div className="relative" ref={themeMenuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                soundService.play('click_soft');
+                setIsThemeMenuOpen(prev => !prev);
+              }}
+              className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-full border transition-all cursor-pointer ${
+                darkMode
+                  ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-200'
+                  : 'bg-slate-100/90 hover:bg-slate-200/80 border-slate-200 text-slate-700'
+              }`}
+              title="Customize Workspace Theme & Color Accent"
+              aria-label="Customize Workspace Theme & Color Accent"
+            >
+              <span className={`w-3.5 h-3.5 rounded-full bg-gradient-to-br ${activeAccentPreset.swatchClass} ring-1 ring-white/40 shrink-0`} />
+              {darkMode ? <SunIcon className="w-3.5 h-3.5 text-amber-400" /> : <MoonIcon className="w-3.5 h-3.5 text-slate-600" />}
+            </button>
+
+            <AnimatedPopover
+              isOpen={isThemeMenuOpen}
+              direction="down"
+              className={`absolute right-0 mt-2.5 w-64 rounded-2xl shadow-2xl p-3.5 z-50 border backdrop-blur-xl ${
+                darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
+              }`}
+            >
+              <div className="space-y-3">
+                {/* Light / Dark Mode Switch */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/70 dark:border-slate-800">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Theme Mode</span>
+                  <div className="flex items-center gap-1 p-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (darkMode) {
+                          soundService.play('click_soft');
+                          toggleDarkMode();
+                        }
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
+                        !darkMode ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <SunIcon className="w-3 h-3 text-amber-500" />
+                      <span>Light</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!darkMode) {
+                          soundService.play('click_soft');
+                          toggleDarkMode();
+                        }
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
+                        darkMode ? 'bg-slate-700 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <MoonIcon className="w-3 h-3 text-indigo-400" />
+                      <span>Dark</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6 Curated Color Accents */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Workspace Accent</span>
+                    <span className="text-[10px] font-semibold text-indigo-500">{activeAccentPreset.name}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {WORKSPACE_ACCENT_PRESETS.map((preset) => {
+                      const isSelected = accentColor === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            soundService.play('click_soft');
+                            setAccentColor(preset.id as WorkspaceAccentId);
+                            addToast('Accent Updated', `Workspace accent set to ${preset.name}.`, 'info');
+                          }}
+                          className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? darkMode
+                                ? 'bg-slate-800 border-white/40 ring-1 ring-white/25'
+                                : 'bg-slate-100 border-slate-900/30 ring-1 ring-slate-900/10'
+                              : darkMode
+                              ? 'border-slate-800 hover:bg-slate-800/60'
+                              : 'border-slate-200/70 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span
+                            className={`w-4 h-4 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white shrink-0`}
+                          >
+                            {isSelected && <ICON_MAP.CheckIcon className="w-2.5 h-2.5 stroke-[3]" />}
+                          </span>
+                          <span className="text-[11px] font-bold truncate">{preset.name.split(' ')[1] || preset.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </AnimatedPopover>
+          </div>
 
           <button
             onClick={() => setActiveView('inbox_view')}
-            className={`relative p-2 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'}`}
+            className={`relative p-2 rounded-full transition-colors cursor-pointer ${darkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'}`}
             aria-label="Notifications"
           >
             <BellIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -388,29 +499,16 @@ export const Header: React.FC = () => {
             )}
           </button>
 
-          <Button
-            variant="secondary" 
-            size="icon"
-            onClick={() => {
-              soundService.play('click_soft');
-              toggleDarkMode();
-            }}
-            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            className="w-8 h-8 sm:w-9 sm:h-9"
-          >
-            {darkMode ? <SunIcon className="w-4 h-4 sm:w-5 sm:h-5" /> : <MoonIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
-          </Button>
-
           <Button 
             variant="primary" 
             size="sm" 
             onClick={handleAddTaskClick}
             disabled={!currentUser}
             title={!activeProject ? "Select a project to add tasks" : (!currentUser ? "Login to add tasks" : "Add new task")}
-            className="px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium"
+            className="px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold shrink-0"
           >
             <PlusIcon className="w-4 h-4 sm:mr-1" /> 
-            <span className="hidden sm:inline">Add Task</span>
+            <span className="hidden md:inline">Add Task</span>
           </Button>
           
           {/* Rich Profile Dropdown Menu */}
@@ -588,26 +686,45 @@ export const Header: React.FC = () => {
                 </div>
 
                 {/* Preferences & Utilities */}
-                <div className={`py-1 px-1.5 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'} space-y-0.5`}>
-                  <button
-                    onClick={() => {
-                      toggleDarkMode();
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
-                      darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      {darkMode ? <SunIcon className="w-4 h-4 text-amber-400" /> : <MoonIcon className="w-4 h-4 text-indigo-500" />}
-                      <span>Appearance Mode</span>
-                    </span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-amber-300' : 'bg-slate-100 border-slate-200 text-slate-700'
-                    }`}>
-                      {darkMode ? 'Dark' : 'Light'}
-                    </span>
-                  </button>
+                <div className={`py-1.5 px-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'} space-y-2`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Workspace Accent</span>
+                    <button
+                      type="button"
+                      onClick={toggleDarkMode}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 cursor-pointer ${
+                        darkMode ? 'bg-slate-800 border-slate-700 text-amber-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {darkMode ? <SunIcon className="w-3 h-3" /> : <MoonIcon className="w-3 h-3" />}
+                      <span>{darkMode ? 'Dark' : 'Light'}</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-1.5 pb-1">
+                    {WORKSPACE_ACCENT_PRESETS.map((preset) => {
+                      const isSelected = accentColor === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            soundService.play('click_soft');
+                            setAccentColor(preset.id as WorkspaceAccentId);
+                            addToast('Accent Updated', `Workspace accent set to ${preset.name}.`, 'info');
+                          }}
+                          title={preset.name}
+                          className={`w-7 h-7 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white transition-transform cursor-pointer ${
+                            isSelected ? 'scale-110 ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-slate-900' : 'opacity-80 hover:opacity-100 hover:scale-105'
+                          }`}
+                        >
+                          {isSelected && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
+                <div className={`py-1 px-1.5 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'} space-y-0.5`}>
                   <button
                     onClick={() => {
                       openCommandPalette();

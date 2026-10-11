@@ -213,7 +213,7 @@
           --card-bg-light: 0 0% 100%;
           --card-border-light: 220 30% 90%;
 
-          /* Modern Purple Primary (#6957FF) */
+          /* Dynamic Workspace Accent Tokens (Default: Electric Violet #6957FF) */
           --primary: 245 100% 67%; /* #6957FF */
           --primary-rgb: 105, 87, 255; 
           --primary-light: 244 100% 72%; /* #857CFF */
@@ -223,6 +223,9 @@
           --accent-rgb: var(--primary-rgb);
           --accent-light: var(--primary-light);
           --accent-dark: var(--primary-dark);
+          --accent-hex: #6957FF;
+          --accent-gradient-start: #7C6BFF;
+          --accent-gradient-end: #5B4AEE;
           --shadow-color-rgb: 15, 23, 42;
           
           /* Status Colors */
@@ -233,13 +236,59 @@
           --status-info: 200 80% 55%; 
 
           /* Landing Page Colors */
-          --neon-accent: 245 100% 67%; 
-          --neon-accent-rgb: 105, 87, 255;
+          --neon-accent: var(--primary); 
+          --neon-accent-rgb: var(--primary-rgb);
           --neon-accent-secondary: 212 100% 73%;
           --neon-accent-secondary-rgb: 120, 183, 255;
           --landing-bg: 240 20% 10%;
           --landing-bg-darker: 240 25% 7%;
           --landing-border: 240 15% 20%;
+        }
+
+        html[data-accent="cyan"] {
+          --primary: 199 96% 40%;
+          --primary-rgb: 2, 132, 199;
+          --primary-light: 199 95% 60%;
+          --primary-dark: 201 96% 32%;
+          --accent-hex: #0284C7;
+          --accent-gradient-start: #06B6D4;
+          --accent-gradient-end: #0284C7;
+        }
+        html[data-accent="emerald"] {
+          --primary: 160 84% 35%;
+          --primary-rgb: 5, 150, 105;
+          --primary-light: 158 64% 52%;
+          --primary-dark: 161 94% 28%;
+          --accent-hex: #059669;
+          --accent-gradient-start: #10B981;
+          --accent-gradient-end: #059669;
+        }
+        html[data-accent="coral"] {
+          --primary: 347 77% 50%;
+          --primary-rgb: 225, 29, 72;
+          --primary-light: 351 95% 71%;
+          --primary-dark: 345 83% 41%;
+          --accent-hex: #E11D48;
+          --accent-gradient-start: #F43F5E;
+          --accent-gradient-end: #E11D48;
+        }
+        html[data-accent="amber"] {
+          --primary: 32 95% 44%;
+          --primary-rgb: 217, 119, 6;
+          --primary-light: 43 96% 56%;
+          --primary-dark: 26 90% 37%;
+          --accent-hex: #D97706;
+          --accent-gradient-start: #F59E0B;
+          --accent-gradient-end: #D97706;
+        }
+        html[data-accent="cobalt"] {
+          --primary: 221 83% 53%;
+          --primary-rgb: 37, 99, 235;
+          --primary-light: 213 94% 68%;
+          --primary-dark: 224 76% 45%;
+          --accent-hex: #2563EB;
+          --accent-gradient-start: #3B82F6;
+          --accent-gradient-end: #1D4ED8;
         }
 
         html.dark { 
@@ -253,6 +302,32 @@
           --primary: 244 100% 72%; /* #857CFF */
           --primary-rgb: 133, 124, 255;
           --primary-foreground: 222 47% 11%;
+          --accent-hex: #857CFF;
+        }
+        html.dark[data-accent="cyan"] {
+          --primary: 199 95% 60%;
+          --primary-rgb: 56, 189, 248;
+          --accent-hex: #38BDF8;
+        }
+        html.dark[data-accent="emerald"] {
+          --primary: 158 64% 52%;
+          --primary-rgb: 52, 211, 153;
+          --accent-hex: #34D399;
+        }
+        html.dark[data-accent="coral"] {
+          --primary: 351 95% 71%;
+          --primary-rgb: 251, 113, 133;
+          --accent-hex: #FB7185;
+        }
+        html.dark[data-accent="amber"] {
+          --primary: 43 96% 56%;
+          --primary-rgb: 251, 191, 36;
+          --accent-hex: #FBBF24;
+        }
+        html.dark[data-accent="cobalt"] {
+          --primary: 213 94% 68%;
+          --primary-rgb: 96, 165, 250;
+          --accent-hex: #60A5FA;
         }
         
         :root {
@@ -276,9 +351,9 @@
           color: #1F2937;
           background-color: #F8FAFC;
           background-image: 
-            radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.14) 0px, transparent 50%),
-            radial-gradient(at 85% 20%, rgba(120, 183, 255, 0.16) 0px, transparent 50%),
-            radial-gradient(at 50% 80%, rgba(167, 139, 250, 0.12) 0px, transparent 50%),
+            radial-gradient(at 15% 15%, rgba(var(--primary-rgb), 0.14) 0px, transparent 50%),
+            radial-gradient(at 85% 20%, rgba(120, 183, 255, 0.14) 0px, transparent 50%),
+            radial-gradient(at 50% 80%, rgba(var(--primary-rgb), 0.10) 0px, transparent 50%),
             radial-gradient(at 80% 85%, rgba(255, 255, 255, 0.85) 0px, transparent 60%),
             linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 50%, #E2E8F0 100%);
           background-size: 160% 160%;
@@ -308,13 +383,45 @@
           color: #F8FAFC;
           background-color: #070A12;
           background-image: 
-            radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.28) 0px, transparent 50%),
-            radial-gradient(at 85% 20%, rgba(59, 130, 246, 0.22) 0px, transparent 50%),
-            radial-gradient(at 50% 80%, rgba(139, 92, 246, 0.20) 0px, transparent 50%),
+            radial-gradient(at 15% 15%, rgba(var(--primary-rgb), 0.25) 0px, transparent 50%),
+            radial-gradient(at 85% 20%, rgba(59, 130, 246, 0.18) 0px, transparent 50%),
+            radial-gradient(at 50% 80%, rgba(var(--primary-rgb), 0.16) 0px, transparent 50%),
             linear-gradient(135deg, #070A12 0%, #0F172A 50%, #131728 100%);
           background-size: 160% 160%;
           background-attachment: fixed;
           animation: animateBackgroundMesh 30s ease-in-out infinite;
+        }
+
+        /* Theme-aware overrides when non-default workspace accent is selected */
+        html[data-accent]:not([data-accent="violet"]) .bg-indigo-600,
+        html[data-accent]:not([data-accent="violet"]) .bg-indigo-500,
+        html[data-accent]:not([data-accent="violet"]) .bg-\[\#6957FF\] {
+          background-color: var(--accent-gradient-start) !important;
+        }
+        html[data-accent]:not([data-accent="violet"]) .hover\:bg-indigo-500:hover,
+        html[data-accent]:not([data-accent="violet"]) .hover\:bg-indigo-600:hover,
+        html[data-accent]:not([data-accent="violet"]) .hover\:bg-\[\#5A48F0\]:hover {
+          background-color: var(--accent-gradient-end) !important;
+        }
+        html[data-accent]:not([data-accent="violet"]) .text-indigo-600,
+        html[data-accent]:not([data-accent="violet"]) .text-indigo-500,
+        html[data-accent]:not([data-accent="violet"]) .text-indigo-400,
+        html[data-accent]:not([data-accent="violet"]) .text-\[\#6957FF\],
+        html[data-accent]:not([data-accent="violet"]) .dark\:text-\[\#857CFF\] {
+          color: var(--accent-hex) !important;
+        }
+        html[data-accent]:not([data-accent="violet"]) .border-indigo-500,
+        html[data-accent]:not([data-accent="violet"]) .border-indigo-500\/30,
+        html[data-accent]:not([data-accent="violet"]) .border-indigo-500\/40,
+        html[data-accent]:not([data-accent="violet"]) .border-\[\#6957FF\]\/30 {
+          border-color: rgba(var(--primary-rgb), 0.38) !important;
+        }
+        html[data-accent]:not([data-accent="violet"]) .bg-indigo-500\/10,
+        html[data-accent]:not([data-accent="violet"]) .bg-indigo-500\/15,
+        html[data-accent]:not([data-accent="violet"]) .bg-indigo-500\/20,
+        html[data-accent]:not([data-accent="violet"]) .bg-\[\#6957FF\]\/10,
+        html[data-accent]:not([data-accent="violet"]) .bg-\[\#6957FF\]\/15 {
+          background-color: rgba(var(--primary-rgb), 0.14) !important;
         }
 
         .glass-panel, .auth-panel, aside, header { 
@@ -369,14 +476,14 @@
         }
 
         input:focus, textarea:focus, select:focus {
-          border-color: #6957FF !important;
+          border-color: var(--accent-hex) !important;
           background: rgba(255, 255, 255, 0.75) !important;
-          box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.20), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+          box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.20), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
         }
 
         html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
           background: rgba(15, 23, 42, 0.70) !important;
-          box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.30), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
+          box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.30), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
         }
 
         .animate-modal-appear, [role="dialog"] {
@@ -414,16 +521,16 @@
 
         button.bg-gradient-to-br, button[type="submit"], .hero-cta-primary {
           border-radius: 9999px !important;
-          background: linear-gradient(135deg, #7668FF 0%, #6957FF 50%, #5B4AEE 100%) !important;
-          box-shadow: 0 8px 20px rgba(105, 87, 255, 0.28), 0 2px 4px rgba(255, 255, 255, 0.35) inset !important;
+          background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%) !important;
+          box-shadow: 0 8px 20px rgba(var(--primary-rgb), 0.28), 0 2px 4px rgba(255, 255, 255, 0.35) inset !important;
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
           border: 1px solid rgba(255, 255, 255, 0.25) !important;
         }
 
         button.bg-gradient-to-br:hover, button[type="submit"]:hover, .hero-cta-primary:hover {
           transform: translateY(-1px) scale(1.02) !important;
-          box-shadow: 0 12px 28px rgba(105, 87, 255, 0.38), 0 2px 4px rgba(255, 255, 255, 0.45) inset !important;
-          background: linear-gradient(135deg, #857CFF 0%, #7668FF 50%, #6957FF 100%) !important;
+          box-shadow: 0 12px 28px rgba(var(--primary-rgb), 0.38), 0 2px 4px rgba(255, 255, 255, 0.45) inset !important;
+          background: linear-gradient(135deg, var(--accent-hex) 0%, var(--accent-gradient-start) 100%) !important;
         }
 
         .scrollbar-thin { 

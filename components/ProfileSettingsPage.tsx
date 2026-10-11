@@ -3,7 +3,7 @@ import { useAppStore } from '../hooks/useAppStore';
 import supabaseService, { saveUserProfileExtension, getUserProfileExtensions, normalizeAppUser } from '../services/supabaseService';
 import { collabService } from '../services/collabService';
 import { ICON_MAP } from '../constants';
-import { ActiveView, normalizeUserRole, UserProfilePreferences } from '../types';
+import { ActiveView, normalizeUserRole, UserProfilePreferences, WORKSPACE_ACCENT_PRESETS, WorkspaceAccentId } from '../types';
 import { StatusDynamicIcon } from './layout/Header';
 
 type SettingsTabId = 'identity' | 'capacity' | 'notifications' | 'ai_copilot' | 'security';
@@ -41,6 +41,8 @@ export const ProfileSettingsPage: React.FC = () => {
     currentOrganization,
     darkMode,
     toggleDarkMode,
+    accentColor,
+    setAccentColor,
     setCurrentUser,
     addToast,
     tasks,
@@ -693,6 +695,68 @@ export const ProfileSettingsPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
+
+                    {/* Workspace Theme & Color Accent Swatches on Default Tab */}
+                    <div className="pt-5 border-t border-slate-200 dark:border-slate-800">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                        <div>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Workspace Theme & Color Accent
+                          </h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Personalize your workspace accent color and Dark/Light mode. Saved automatically for your next session.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={toggleDarkMode}
+                          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                            darkMode
+                              ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-700'
+                              : 'bg-slate-100 border-slate-200 text-slate-800 hover:bg-slate-200/70'
+                          }`}
+                        >
+                          {darkMode ? <ICON_MAP.SunIcon className="w-4 h-4" /> : <ICON_MAP.MoonIcon className="w-4 h-4" />}
+                          <span>{darkMode ? 'Dark Mode Active' : 'Light Mode Active'}</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {WORKSPACE_ACCENT_PRESETS.map((preset) => {
+                          const isSelected = accentColor === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => {
+                                setAccentColor(preset.id as WorkspaceAccentId);
+                                setPrefs((p) => ({ ...p, accentColor: preset.id as WorkspaceAccentId }));
+                                addToast('Accent Updated', `Workspace accent set to ${preset.name}.`, 'info');
+                              }}
+                              className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                isSelected
+                                  ? darkMode
+                                    ? 'bg-slate-800 border-white/40 ring-2 ring-white/15 shadow-sm'
+                                    : 'bg-slate-50 border-slate-900/30 ring-2 ring-slate-900/10 shadow-sm'
+                                  : darkMode
+                                  ? 'bg-slate-900/50 border-slate-800 hover:bg-slate-800/60'
+                                  : 'bg-white border-slate-200/80 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className={`w-7 h-7 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white shadow-xs shrink-0`}
+                              >
+                                {isSelected && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold truncate">{preset.name}</div>
+                                <div className="text-[10px] text-slate-400 truncate">{preset.tagline}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -825,6 +889,55 @@ export const ProfileSettingsPage: React.FC = () => {
                           </span>
                           <span className="underline">Switch Theme</span>
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Workspace Color Accent Swatches */}
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            Workspace Color Accent (Persisted Across Sessions)
+                          </label>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Choose your signature accent palette for buttons, active states, focus rings, and ambient glow in both Light and Dark modes.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                        {WORKSPACE_ACCENT_PRESETS.map((preset) => {
+                          const isSelected = accentColor === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => {
+                                setAccentColor(preset.id as WorkspaceAccentId);
+                                setPrefs((p) => ({ ...p, accentColor: preset.id as WorkspaceAccentId }));
+                                addToast('Accent Updated', `Workspace accent set to ${preset.name}.`, 'info');
+                              }}
+                              className={`flex items-center gap-3 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                                isSelected
+                                  ? darkMode
+                                    ? 'bg-slate-800/90 border-white/40 ring-2 ring-white/20 shadow-md'
+                                    : 'bg-slate-50 border-slate-900/30 ring-2 ring-slate-900/10 shadow-md'
+                                  : darkMode
+                                  ? 'bg-slate-900/50 border-slate-800 hover:bg-slate-800/60'
+                                  : 'bg-white border-slate-200/80 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className={`w-8 h-8 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white shadow-sm shrink-0`}
+                              >
+                                {isSelected && <ICON_MAP.CheckIcon className="w-4 h-4 stroke-[2.5]" />}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold truncate">{preset.name}</div>
+                                <div className="text-[10px] text-slate-400 truncate">{preset.tagline}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

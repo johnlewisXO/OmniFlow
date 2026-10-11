@@ -66,8 +66,13 @@ export const TaskAutomationsDashboard: React.FC = () => {
   const ArrowPathIcon = ICON_MAP.ArrowPathIcon;
 
   useEffect(() => {
-    setRules(getStoredRules());
-    setLogs(getStoredLogs());
+    const syncAll = () => {
+      setRules(getStoredRules());
+      setLogs(getStoredLogs());
+    };
+    syncAll();
+    window.addEventListener('omni_automation_rules_updated', syncAll);
+    return () => window.removeEventListener('omni_automation_rules_updated', syncAll);
   }, []);
 
   // Compute stats
@@ -146,19 +151,17 @@ export const TaskAutomationsDashboard: React.FC = () => {
     }
 
     const testTask = tasks[0];
-    const logEntry = addAutomationLog({
-      ruleId: rule.id,
-      ruleName: rule.name,
-      taskId: testTask.id,
-      taskTitle: testTask.title,
-      triggerEvent: `Manual Test Run (${rule.triggerEvent})`,
-      actionTaken: `Executed action ${rule.actionType} (${rule.actionTargetValue})`,
-      status: 'success',
-      details: 'Simulated manual test run successfully.'
+    await processTaskAutomationRules(testTask, testTask, {
+      users,
+      currentUser: useAppStore.getState().currentUser,
+      updateTask,
+      addToast,
+      addNotification: useAppStore.getState().addNotification,
+      isManualTest: true,
     });
 
+    setRules(getStoredRules());
     setLogs(getStoredLogs());
-    addToast('Test Run Complete', `Simulated rule "${rule.name}" on task "${testTask.title}"`, 'success');
   };
 
   // Webhook Handlers
@@ -537,8 +540,10 @@ export const TaskAutomationsDashboard: React.FC = () => {
               <option value="all">All Trigger Events</option>
               <option value="status_change">Status Change</option>
               <option value="priority_change">Priority Change</option>
+              <option value="due_date_approaching">Due Within 24h / Overdue</option>
               <option value="assignee_change">Assignee Change</option>
               <option value="task_created">Task Created</option>
+              <option value="subtasks_completed">Subtasks Completed</option>
             </select>
           </div>
 
@@ -680,7 +685,10 @@ export const TaskAutomationsDashboard: React.FC = () => {
                   onChange={(e) => {
                     const evt = e.target.value as AutomationTriggerType;
                     setTriggerEvent(evt);
-                    setTriggerConditionValue(evt === 'status_change' ? TaskStatus.REVIEW : TaskPriority.CRITICAL);
+                    if (evt === 'status_change') setTriggerConditionValue(TaskStatus.REVIEW);
+                    else if (evt === 'priority_change') setTriggerConditionValue(TaskPriority.CRITICAL);
+                    else if (evt === 'due_date_approaching') setTriggerConditionValue('24h');
+                    else setTriggerConditionValue('any');
                   }}
                   className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
                     darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
@@ -688,6 +696,8 @@ export const TaskAutomationsDashboard: React.FC = () => {
                 >
                   <option value="status_change">Task Status Changes To...</option>
                   <option value="priority_change">Task Priority Changes To...</option>
+                  <option value="due_date_approaching">Task Due Within 24 Hours / Overdue</option>
+                  <option value="subtasks_completed">All Subtask Checklist Items Completed</option>
                   <option value="assignee_change">Task Assignee Is Updated</option>
                   <option value="task_created">New Task Is Created</option>
                 </select>
