@@ -4,6 +4,7 @@ import { ProjectDoc, ProjectDocSpecItem, TaskPriority, TaskStatus } from '../../
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import soundService from '../../services/soundService';
+import { WhiteboardStudioPage } from '../whiteboard/WhiteboardStudioPage';
 
 const DOCS_STORAGE_KEY = 'omni_flow_project_docs_v1';
 
@@ -156,6 +157,7 @@ export const ProjectDocsWikiPage: React.FC = () => {
   const [newSpecText, setNewSpecText] = useState('');
   const [newSpecPriority, setNewSpecPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
   const [convertingSpecId, setConvertingSpecId] = useState<string | null>(null);
+  const [showEmbeddedWhiteboard, setShowEmbeddedWhiteboard] = useState<boolean>(false);
   const [targetProjectId, setTargetProjectId] = useState<string>(activeProject?.id || projects[0]?.id || '');
 
   useEffect(() => {
@@ -530,6 +532,57 @@ export const ProjectDocsWikiPage: React.FC = () => {
                     <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/80">
                       {activeDoc.content}
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Linked Interactive Project Whiteboard Canvas */}
+              <div
+                className={`p-3.5 rounded-2xl border flex flex-col gap-3 ${
+                  darkMode
+                    ? 'bg-slate-950/60 border-indigo-500/25'
+                    : 'bg-indigo-50/40 border-indigo-200/80'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ICON_MAP.SparklesIcon className="w-4 h-4 text-indigo-500" />
+                    <span className="text-xs font-bold">
+                      Linked Architecture & Brainstorm Whiteboard
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      · Live multi-user canvas synced with this project
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmbeddedWhiteboard(prev => !prev)}
+                      className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
+                    >
+                      {showEmbeddedWhiteboard ? 'Hide Inline Canvas' : 'Embed Live Canvas'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => useAppStore.getState().setActiveView('whiteboard_view')}
+                      className={`px-3 py-1 rounded-xl text-xs font-semibold border cursor-pointer ${
+                        darkMode
+                          ? 'border-white/15 hover:bg-slate-800 text-slate-200'
+                          : 'border-slate-200 hover:bg-white text-slate-700'
+                      }`}
+                    >
+                      Full Screen ↗
+                    </button>
+                  </div>
+                </div>
+
+                {showEmbeddedWhiteboard && (
+                  <div className="h-[460px] w-full rounded-2xl overflow-hidden border border-slate-300/30 dark:border-white/10 flex flex-col">
+                    <WhiteboardStudioPage
+                      compactMode
+                      projectIdOverride={targetProjectId || activeProject?.id}
+                      onCloseCompact={() => setShowEmbeddedWhiteboard(false)}
+                    />
                   </div>
                 )}
               </div>

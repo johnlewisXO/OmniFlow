@@ -2390,6 +2390,113 @@ const supabaseService = {
       reader.onerror = () => reject(new Error('File reading failed'));
       reader.readAsDataURL(file);
     });
+  },
+
+  // Authoritative Shared Whiteboard Cloud Persistence (Supabase Storage + Local Cache reconciliation)
+  saveSharedWhiteboardState: async (
+    scopeKey: string,
+    payload: {
+      boards: any[];
+      activeBoardId: string;
+      version: number;
+      updatedAt: string;
+      updatedBy?: string;
+    }
+  ): Promise<void> => {
+    if (!scopeKey || !payload) return;
+    const cleanKey = scopeKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const localKey = `omni_whiteboard_cloud_v3_${cleanKey}`;
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(localKey, JSON.stringify(payload));
+      } catch {}
+    }
+
+    try {
+      const jsonStr = JSON.stringify(payload);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const filePath = `whiteboards/wb_v3_${cleanKey}.json`;
+      await supabase.storage.from('avatars').upload(filePath, blob, {
+        upsert: true,
+        contentType: 'application/json',
+        cacheControl: '0',
+      });
+    } catch (e) {
+      // Silent fallback if storage bucket policy is restricted
+    }
+  },
+
+  fetchSharedWhiteboardState: async (
+    scopeKey: string
+  ): Promise<{
+    boards: any[];
+    activeBoardId: string;
+    version: number;
+    updatedAt: string;
+    updatedBy?: string;
+  } | null> => {
+    if (!scopeKey) return null;
+    const cleanKey = scopeKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const localKey = `omni_whiteboard_cloud_v3_${cleanKey}`;
+    let localData: any = null;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(localKey);
+        if (raw) localData = JSON.parse(raw);
+      } catch {}
+    }
+
+    let cloudData: any = null;
+    try {
+      const filePath = `whiteboards/wb_v3_${cleanKey}.json`;
+      const { data: pubData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      if (pubData?.publicUrl) {
+        const resp = await fetch(`${pubData.publicUrl}?t=${Date.now()}`, { cache: 'no-store' });
+        if (resp.ok) {
+          const parsed = await resp.json();
+          if (parsed && Array.isArray(parsed.boards)) {
+            cloudData = parsed;
+          }
+        }
+      }
+      if (!cloudData) {
+        const { data: dlBlob, error: dlErr } = await supabase.storage.from('avatars').download(filePath);
+        if (!dlErr && dlBlob) {
+          const text = await dlBlob.text();
+          const parsed = JSON.parse(text);
+          if (parsed && Array.isArray(parsed.boards)) {
+            cloudData = parsed;
+          }
+        }
+      }
+    } catch {}
+
+    if (cloudData && localData) {
+      const cloudVer = Number(cloudData.version || 0);
+      const localVer = Number(localData.version || 0);
+      const cloudTime = cloudData.updatedAt ? new Date(cloudData.updatedAt).getTime() : 0;
+      const localTime = localData.updatedAt ? new Date(localData.updatedAt).getTime() : 0;
+      const winner =
+        cloudVer > localVer || (cloudVer === localVer && cloudTime >= localTime)
+          ? cloudData
+          : localData;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(localKey, JSON.stringify(winner));
+        } catch {}
+      }
+      return winner;
+    }
+
+    const resolved = cloudData || localData || null;
+    if (resolved && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(localKey, JSON.stringify(resolved));
+      } catch {}
+    }
+    return resolved;
   }
 };
 

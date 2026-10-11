@@ -725,6 +725,16 @@ class CollabService {
             window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_cursor', { detail: payload }));
           }
         })
+        .on('broadcast', { event: 'whiteboard_request_state' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_request_state', { detail: payload }));
+          }
+        })
+        .on('broadcast', { event: 'whiteboard_full_sync' }, ({ payload }: any) => {
+          if (typeof window !== 'undefined' && payload) {
+            window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_full_sync', { detail: payload }));
+          }
+        })
         .subscribe((status: string) => {
           this.isChannelSubscribed = status === 'SUBSCRIBED';
           if (status === 'SUBSCRIBED') {
@@ -934,6 +944,14 @@ class CollabService {
     } else if (type === 'WHITEBOARD_CURSOR' && payload) {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_cursor', { detail: payload }));
+      }
+    } else if (type === 'WHITEBOARD_REQUEST_STATE' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_request_state', { detail: payload }));
+      }
+    } else if (type === 'WHITEBOARD_FULL_SYNC' && payload) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omni_remote_whiteboard_full_sync', { detail: payload }));
       }
     }
   }
@@ -1263,28 +1281,69 @@ class CollabService {
 
   public broadcastWhiteboardDelta(payload: {
     boardId: string;
-    action: 'upsert_node' | 'delete_node' | 'upsert_connector' | 'delete_connector' | 'add_stroke' | 'replace_board';
+    scopeKey?: string;
+    version?: number;
+    action:
+      | 'upsert_node'
+      | 'delete_node'
+      | 'upsert_connector'
+      | 'delete_connector'
+      | 'add_stroke'
+      | 'upsert_comment'
+      | 'delete_comment'
+      | 'replace_board';
     node?: any;
     nodeId?: string;
     connector?: any;
     connectorId?: string;
     stroke?: any;
+    comment?: any;
+    commentId?: string;
     board?: any;
     actorId: string;
     actorName: string;
   }) {
     this.emitLocalPacket('WHITEBOARD_DELTA', payload);
-    this.sendBroadcast('whiteboard_delta', payload, false);
+    this.sendBroadcast('whiteboard_delta', payload, true);
+  }
+
+  public requestWhiteboardState(payload: {
+    scopeKey: string;
+    requesterId: string;
+    requesterName?: string;
+    knownVersion?: number;
+  }) {
+    this.emitLocalPacket('WHITEBOARD_REQUEST_STATE', payload);
+    this.sendBroadcast('whiteboard_request_state', payload, true);
+  }
+
+  public broadcastWhiteboardFullSync(payload: {
+    scopeKey: string;
+    boards: any[];
+    activeBoardId: string;
+    version: number;
+    updatedAt: string;
+    actorId: string;
+    actorName: string;
+  }) {
+    this.emitLocalPacket('WHITEBOARD_FULL_SYNC', payload);
+    this.sendBroadcast('whiteboard_full_sync', payload, true);
   }
 
   public broadcastWhiteboardCursor(payload: {
     userId: string;
     userName: string;
+    userAvatar?: string;
     color: string;
     x: number;
     y: number;
     activeTool?: string;
     selectedNodeId?: string | null;
+    cursorChat?: string;
+    emote?: string;
+    zoom?: number;
+    panX?: number;
+    panY?: number;
     boardId: string;
     updatedAt: number;
   }) {

@@ -432,9 +432,12 @@ export interface WhiteboardNode {
   color: string;
   authorId?: string;
   authorName?: string;
+  authorAvatar?: string;
+  mentionTag?: string;
   votes?: number;
   reactions?: Record<string, number>;
   linkedTaskId?: string;
+  linkedDocId?: string;
   updatedAt: number;
 }
 
@@ -442,6 +445,8 @@ export interface WhiteboardConnector {
   id: string;
   fromNodeId: string;
   toNodeId: string;
+  fromSide?: 'top' | 'right' | 'bottom' | 'left';
+  toSide?: 'top' | 'right' | 'bottom' | 'left';
   label?: string;
   color: string;
   style?: 'solid' | 'dashed';
@@ -455,25 +460,80 @@ export interface WhiteboardStroke {
   authorName?: string;
 }
 
+export interface WhiteboardCommentReply {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface WhiteboardCommentThread {
+  id: string;
+  x: number;
+  y: number;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  color?: string;
+  resolved?: boolean;
+  createdAt: string;
+  replies: WhiteboardCommentReply[];
+}
+
+export interface WhiteboardPage {
+  id: string;
+  name: string;
+  nodes: WhiteboardNode[];
+  connectors: WhiteboardConnector[];
+  strokes: WhiteboardStroke[];
+  comments?: WhiteboardCommentThread[];
+}
+
+export interface WhiteboardVersionSnapshot {
+  id: string;
+  version: number;
+  label: string;
+  createdAt: string;
+  authorName: string;
+  nodes: WhiteboardNode[];
+  connectors: WhiteboardConnector[];
+  strokes: WhiteboardStroke[];
+  comments?: WhiteboardCommentThread[];
+}
+
 export interface WhiteboardBoard {
   id: string;
   name: string;
   projectId?: string;
   organizationId?: string;
+  version?: number;
+  updatedBy?: string;
   nodes: WhiteboardNode[];
   connectors: WhiteboardConnector[];
   strokes: WhiteboardStroke[];
+  comments?: WhiteboardCommentThread[];
+  pages?: WhiteboardPage[];
+  activePageId?: string;
+  history?: WhiteboardVersionSnapshot[];
   updatedAt: string;
 }
 
 export interface WhiteboardCursor {
   userId: string;
   userName: string;
+  userAvatar?: string;
   color: string;
   x: number;
   y: number;
   activeTool?: string;
   selectedNodeId?: string | null;
+  cursorChat?: string;
+  emote?: string;
+  zoom?: number;
+  panX?: number;
+  panY?: number;
   boardId: string;
   updatedAt: number;
 }

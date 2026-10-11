@@ -1801,6 +1801,23 @@ export const TeamsChatPage: React.FC = () => {
                 </span>
               </button>
 
+              {/* Open Shared Whiteboard Studio Button */}
+              <button
+                type="button"
+                onClick={() => useAppStore.getState().setActiveView('whiteboard_view')}
+                title="Open Collaborative Whiteboard Studio"
+                className={`relative group inline-flex items-center justify-center p-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+                  darkMode
+                    ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-rose-300'
+                    : 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700'
+                }`}
+              >
+                <ICON_MAP.SparklesIcon className="w-4 h-4" />
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-30">
+                  Open Live Whiteboard
+                </span>
+              </button>
+
               {!activeDirectUser && activeChannel && (
                 <button
                   type="button"
@@ -2186,6 +2203,31 @@ export const TeamsChatPage: React.FC = () => {
                               >
                                 <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
                                 <span>Join Call</span>
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        // Interactive Shared Live Whiteboard Card
+                        if (rawContent.startsWith('🎨 **Shared Live Whiteboard:')) {
+                          return (
+                            <div
+                              className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm ${
+                                darkMode
+                                  ? 'bg-slate-900/90 border-indigo-500/35 text-slate-100'
+                                  : 'bg-indigo-50/70 border-indigo-200 text-slate-900'
+                              }`}
+                            >
+                              <div className="space-y-1 text-xs whitespace-pre-line">
+                                {rawContent.replace(/\*\*/g, '')}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => useAppStore.getState().setActiveView('whiteboard_view')}
+                                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+                              >
+                                <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
+                                <span>Open Live Board ↗</span>
                               </button>
                             </div>
                           );

@@ -14,6 +14,7 @@ import meetingAndCallService, {
   IncomingCallInvite,
 } from '../../services/meetingAndCallService';
 import chatService from '../../services/chatService';
+import { WhiteboardStudioPage } from '../whiteboard/WhiteboardStudioPage';
 
 const CALL_REACTION_EMOJIS = ['👍', '❤️', '🎉', '👏', '🔥', '🚀'];
 
@@ -202,7 +203,7 @@ const GlobalVideoCallManagerInner: React.FC = () => {
   } = useAppStore();
 
   const [callState, setCallState] = useState(() => meetingAndCallService.getCallStateSnapshot());
-  const [callLayout, setCallLayout] = useState<'grid' | 'spotlight' | 'presentation'>('grid');
+  const [callLayout, setCallLayout] = useState<'grid' | 'spotlight' | 'presentation' | 'whiteboard'>('grid');
   const [pinnedUserId, setPinnedUserId] = useState<string | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<'people' | 'chat' | 'notes' | 'ai' | null>(null);
   const [showCaptions, setShowCaptions] = useState(false);
@@ -1547,6 +1548,11 @@ ${actionList}`;
                   label: 'Screen Share Stage',
                   icon: ICON_MAP.ComputerDesktopIcon,
                 },
+                {
+                  id: 'whiteboard',
+                  label: 'Live Co-Whiteboard Stage',
+                  icon: ICON_MAP.SparklesIcon,
+                },
               ] as const
             ).map(mode => {
               const IconComp = mode.icon;
@@ -1629,6 +1635,26 @@ ${actionList}`;
               </div>
 
               {/* Right Filmstrip of Participants */}
+              <div className="lg:col-span-3 flex lg:flex-col gap-3 overflow-auto [scrollbar-width:thin] [scrollbar-color:#334155_transparent]">
+                {stageParticipants.map(p => (
+                  <div key={p.userId} className="w-48 lg:w-full h-36 sm:h-44 flex-shrink-0">
+                    {renderParticipantTile(p, false)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : callLayout === 'whiteboard' ? (
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 min-h-0">
+              {/* Primary Live Co-Whiteboard Stage */}
+              <div className="lg:col-span-9 rounded-2xl bg-[#05070B] border border-white/[0.08] overflow-hidden flex flex-col relative min-h-[340px] shadow-2xl">
+                <WhiteboardStudioPage
+                  compactMode
+                  projectIdOverride={activeProject?.id}
+                  onCloseCompact={() => setCallLayout('grid')}
+                />
+              </div>
+
+              {/* Right Filmstrip of Call Participants */}
               <div className="lg:col-span-3 flex lg:flex-col gap-3 overflow-auto [scrollbar-width:thin] [scrollbar-color:#334155_transparent]">
                 {stageParticipants.map(p => (
                   <div key={p.userId} className="w-48 lg:w-full h-36 sm:h-44 flex-shrink-0">
@@ -2484,6 +2510,22 @@ ${actionList}`;
             accent={Boolean(myParticipant?.isScreenSharing)}
           >
             <ICON_MAP.ComputerDesktopIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          </DockIconButton>
+
+          {/* 3B. Live Co-Whiteboard Canvas inside Call */}
+          <DockIconButton
+            onClick={() =>
+              setCallLayout(prev => (prev === 'whiteboard' ? 'grid' : 'whiteboard'))
+            }
+            tooltip={
+              callLayout === 'whiteboard'
+                ? 'Close Co-Whiteboard Stage'
+                : 'Open Live Co-Whiteboard Canvas'
+            }
+            shortcut="W"
+            accent={callLayout === 'whiteboard'}
+          >
+            <ICON_MAP.SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </DockIconButton>
 
           {/* 4. Raise Hand (Icon-only) */}
