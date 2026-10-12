@@ -205,13 +205,13 @@
     <style type="text/tailwindcss">
       @layer base {
         :root {
-          /* Light Mode - 2026 Apple Liquid Glass Aesthetic */
-          --page-background-base-light: 220 25% 97%; /* #F5F7FB */
-          --page-foreground-light: 215 28% 17%; /* #1F2937 */
+          /* Light Mode - Modern Studio Alabaster & Crisp Gallery Surfaces */
+          --page-background-base-light: 240 11% 96%; /* #F4F4F6 Studio Alabaster */
+          --page-foreground-light: 222 47% 11%; /* #0F172A Deep Ink */
           --panel-bg-light: 0 0% 100%;
-          --panel-border-light: 220 30% 90%;
+          --panel-border-light: 220 20% 89%;
           --card-bg-light: 0 0% 100%;
-          --card-border-light: 220 30% 90%;
+          --card-border-light: 220 20% 89%;
 
           /* Dynamic Workspace Accent Tokens (Default: Electric Violet #6957FF) */
           --primary: 245 100% 67%; /* #6957FF */
@@ -240,9 +240,9 @@
           --neon-accent-rgb: var(--primary-rgb);
           --neon-accent-secondary: 212 100% 73%;
           --neon-accent-secondary-rgb: 120, 183, 255;
-          --landing-bg: 240 20% 10%;
-          --landing-bg-darker: 240 25% 7%;
-          --landing-border: 240 15% 20%;
+          --landing-bg: 240 20% 5%;
+          --landing-bg-darker: 240 25% 3%;
+          --landing-border: 240 15% 15%;
         }
 
         html[data-accent="cyan"] {
@@ -292,16 +292,17 @@
         }
 
         html.dark { 
-          --page-background-base-dark: 222 47% 11%; /* #0F172A */
-          --page-foreground-dark: 210 40% 96%; /* #F8FAFC */
-          --panel-bg-dark: 222 47% 11%;
-          --panel-border-dark: 217 33% 20%;
-          --card-bg-dark: 222 47% 11%;
-          --card-border-dark: 217 33% 20%;
+          /* True Obsidian Black Dark Mode */
+          --page-background-base-dark: 240 20% 2%; /* #050507 Obsidian Pitch Black */
+          --page-foreground-dark: 210 40% 98%; /* #F8FAFC */
+          --panel-bg-dark: 230 22% 5%; /* #0A0B0F Carbon Black */
+          --panel-border-dark: 230 16% 14%;
+          --card-bg-dark: 230 20% 6%;
+          --card-border-dark: 230 16% 14%;
           --shadow-color-rgb: 0, 0, 0;
           --primary: 244 100% 72%; /* #857CFF */
           --primary-rgb: 133, 124, 255;
-          --primary-foreground: 222 47% 11%;
+          --primary-foreground: 240 20% 4%;
           --accent-hex: #857CFF;
         }
         html.dark[data-accent="cyan"] {
@@ -348,26 +349,24 @@
         }
 
         body { 
-          color: #1F2937;
-          background-color: #F8FAFC;
+          color: #0F172A;
+          background-color: #F4F4F6;
           background-image: 
-            radial-gradient(at 15% 15%, rgba(var(--primary-rgb), 0.14) 0px, transparent 50%),
-            radial-gradient(at 85% 20%, rgba(120, 183, 255, 0.14) 0px, transparent 50%),
-            radial-gradient(at 50% 80%, rgba(var(--primary-rgb), 0.10) 0px, transparent 50%),
-            radial-gradient(at 80% 85%, rgba(255, 255, 255, 0.85) 0px, transparent 60%),
-            linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 50%, #E2E8F0 100%);
-          background-size: 160% 160%;
+            radial-gradient(at 12% 10%, rgba(var(--primary-rgb), 0.07) 0px, transparent 48%),
+            radial-gradient(at 88% 15%, rgba(120, 183, 255, 0.08) 0px, transparent 48%),
+            radial-gradient(at 50% 88%, rgba(var(--primary-rgb), 0.05) 0px, transparent 52%),
+            linear-gradient(180deg, #F7F7F9 0%, #F2F3F6 52%, #ECEEF2 100%);
+          background-size: 140% 140%;
           background-attachment: fixed;
-          animation: animateBackgroundMesh 30s ease-in-out infinite;
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable Text", "Segoe UI", "Plus Jakarta Sans", "Inter", sans-serif;
-          font-weight: 300;
+          font-weight: 400;
           font-feature-settings: "cv02", "cv03", "cv04", "cv11";
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
           text-rendering: optimizeLegibility;
           letter-spacing: -0.008em;
-          line-height: 1.6;
-          transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+          line-height: 1.55;
+          transition: background-color 0.25s ease-out, color 0.25s ease-out;
         }
 
         h1, h2, h3, h4, h5, h6 {
@@ -381,15 +380,14 @@
 
         html.dark body {
           color: #F8FAFC;
-          background-color: #070A12;
+          background-color: #030305;
           background-image: 
-            radial-gradient(at 15% 15%, rgba(var(--primary-rgb), 0.25) 0px, transparent 50%),
-            radial-gradient(at 85% 20%, rgba(59, 130, 246, 0.18) 0px, transparent 50%),
-            radial-gradient(at 50% 80%, rgba(var(--primary-rgb), 0.16) 0px, transparent 50%),
-            linear-gradient(135deg, #070A12 0%, #0F172A 50%, #131728 100%);
-          background-size: 160% 160%;
+            radial-gradient(at 15% 10%, rgba(var(--primary-rgb), 0.14) 0px, transparent 45%),
+            radial-gradient(at 85% 18%, rgba(56, 189, 248, 0.08) 0px, transparent 45%),
+            radial-gradient(at 50% 90%, rgba(var(--primary-rgb), 0.08) 0px, transparent 50%),
+            linear-gradient(180deg, #020203 0%, #06070A 50%, #090A0F 100%);
+          background-size: 140% 140%;
           background-attachment: fixed;
-          animation: animateBackgroundMesh 30s ease-in-out infinite;
         }
 
         /* Theme-aware overrides when non-default workspace accent is selected */
@@ -425,98 +423,137 @@
         }
 
         .glass-panel, .auth-panel, aside, header { 
-          background: rgba(255, 255, 255, 0.72) !important;
-          backdrop-filter: blur(32px) saturate(210%) !important;
-          -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.70) !important;
+          background: rgba(255, 255, 255, 0.92) !important;
+          backdrop-filter: blur(28px) saturate(190%) !important;
+          -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+          border: 1px solid rgba(15, 23, 42, 0.075) !important;
           box-shadow: 
-            0 14px 40px rgba(15, 23, 42, 0.05),
-            0 1px 0.5px rgba(255, 255, 255, 0.90) inset,
-            0 -1px 0.5px rgba(255, 255, 255, 0.30) inset !important;
-          border-radius: 30px !important;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            0 10px 30px rgba(15, 23, 42, 0.04),
+            0 1px 0px rgba(255, 255, 255, 0.95) inset !important;
+          border-radius: 26px !important;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
         html.dark .glass-panel, html.dark .auth-panel, html.dark aside, html.dark header {
-          background: rgba(13, 18, 30, 0.72) !important;
-          backdrop-filter: blur(32px) saturate(210%) !important;
-          -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.14) !important;
+          background: rgba(10, 11, 15, 0.88) !important;
+          backdrop-filter: blur(28px) saturate(190%) !important;
+          -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+          border: 1px solid rgba(255, 255, 255, 0.085) !important;
           box-shadow: 
-            0 16px 44px rgba(0, 0, 0, 0.45),
-            0 1px 0.5px rgba(255, 255, 255, 0.18) inset,
-            0 -1px 0.5px rgba(255, 255, 255, 0.05) inset !important;
+            0 18px 44px rgba(0, 0, 0, 0.65),
+            0 1px 0px rgba(255, 255, 255, 0.09) inset !important;
+        }
+
+        /* Crisp Obsidian overrides for slate dark surfaces */
+        html.dark .bg-slate-900,
+        html.dark .bg-slate-950,
+        html.dark .dark\:bg-slate-900,
+        html.dark .dark\:bg-slate-950 {
+          background-color: #08090C !important;
+        }
+        html.dark .bg-slate-900\/80,
+        html.dark .bg-slate-900\/90,
+        html.dark .bg-slate-950\/80,
+        html.dark .bg-slate-950\/90 {
+          background-color: rgba(9, 10, 14, 0.90) !important;
+        }
+        html.dark .bg-slate-800,
+        html.dark .dark\:bg-slate-800 {
+          background-color: #11131A !important;
+        }
+        html.dark .border-slate-800,
+        html.dark .border-slate-800\/80,
+        html.dark .border-slate-800\/70,
+        html.dark .border-slate-700\/60 {
+          border-color: rgba(255, 255, 255, 0.08) !important;
         }
 
         input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), textarea, select {
           width: 100%;
-          padding: 0.75rem 1.1rem !important;
+          padding-top: 0.625rem;
+          padding-bottom: 0.625rem;
+          padding-left: 0.95rem;
+          padding-right: 0.95rem;
           box-sizing: border-box !important;
           font-size: 0.875rem;
           line-height: 1.5;
           border-radius: 14px !important;
-          background: rgba(255, 255, 255, 0.55) !important;
-          backdrop-filter: blur(16px) saturate(180%) !important;
-          -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.60) !important;
-          color: #1F2937 !important;
-          box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.5) !important;
-          transition: all 0.25s ease-out;
+          background: rgba(255, 255, 255, 0.88);
+          backdrop-filter: blur(16px) saturate(180%);
+          -webkit-backdrop-filter: blur(16px) saturate(180%);
+          border: 1px solid rgba(15, 23, 42, 0.09);
+          color: #0F172A !important;
+          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03), inset 0 1px 0.5px rgba(255, 255, 255, 0.8);
+          transition: all 0.2s ease-out;
         }
 
+        /* Preserve explicit Tailwind horizontal padding utilities so search bar icons and text NEVER overlap */
+        input.pl-7, .pl-7 { padding-left: 1.85rem !important; }
+        input.pl-8, .pl-8 { padding-left: 2.15rem !important; }
+        input.pl-9, .pl-9 { padding-left: 2.45rem !important; }
+        input.pl-10, .pl-10 { padding-left: 2.65rem !important; }
+        input.pl-11, .pl-11 { padding-left: 2.9rem !important; }
+        input.pl-12, .pl-12 { padding-left: 3.15rem !important; }
+        input.pr-7, .pr-7 { padding-right: 1.85rem !important; }
+        input.pr-8, .pr-8 { padding-right: 2.15rem !important; }
+        input.pr-9, .pr-9 { padding-right: 2.45rem !important; }
+        input.pr-10, .pr-10 { padding-right: 2.65rem !important; }
+        input.pr-11, .pr-11 { padding-right: 2.9rem !important; }
+        input.pr-12, .pr-12 { padding-right: 3.15rem !important; }
+
         textarea {
-          padding: 0.85rem 1.1rem !important;
+          padding: 0.85rem 1.05rem;
           min-height: 80px;
         }
 
         html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), html.dark textarea, html.dark select {
-          background: rgba(15, 23, 42, 0.50) !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          background: rgba(14, 16, 22, 0.82);
+          border: 1px solid rgba(255, 255, 255, 0.10);
           color: #F8FAFC !important;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0.5px rgba(255, 255, 255, 0.05);
         }
 
         input:focus, textarea:focus, select:focus {
           border-color: var(--accent-hex) !important;
-          background: rgba(255, 255, 255, 0.75) !important;
-          box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.20), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+          background: #FFFFFF;
+          box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.16) !important;
         }
 
         html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
-          background: rgba(15, 23, 42, 0.70) !important;
-          box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.30), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
+          background: rgba(18, 20, 28, 0.95);
+          box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.26) !important;
         }
 
         .animate-modal-appear, [role="dialog"] {
-          border-radius: 32px !important;
-          background: rgba(255, 255, 255, 0.72) !important;
+          border-radius: 28px !important;
+          background: rgba(255, 255, 255, 0.95) !important;
           backdrop-filter: blur(28px) saturate(180%) !important;
           -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.55) !important;
-          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(255, 255, 255, 0.4) inset !important;
+          border: 1px solid rgba(15, 23, 42, 0.08) !important;
+          box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12), 0 1px 0px rgba(255, 255, 255, 0.9) inset !important;
         }
 
         html.dark .animate-modal-appear, html.dark [role="dialog"] {
-          background: rgba(15, 23, 42, 0.75) !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(255, 255, 255, 0.1) inset !important;
+          background: rgba(10, 11, 16, 0.94) !important;
+          border: 1px solid rgba(255, 255, 255, 0.10) !important;
+          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75), 0 1px 0px rgba(255, 255, 255, 0.08) inset !important;
         }
 
         .bg-slate-100\/70, .bg-slate-800\/50, .bg-white\/80, .bg-slate-700\/70, .bg-slate-900\/40, .bg-white\/90 {
-          border-radius: 28px !important;
+          border-radius: 24px !important;
           backdrop-filter: blur(20px) saturate(180%) !important;
           -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
         }
 
         html:not(.dark) .bg-slate-100\/70, html:not(.dark) .bg-white\/80, html:not(.dark) .bg-white\/90 {
-          background-color: rgba(255, 255, 255, 0.60) !important;
-          border-color: rgba(255, 255, 255, 0.45) !important;
-          box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.6) !important;
+          background-color: rgba(255, 255, 255, 0.92) !important;
+          border-color: rgba(15, 23, 42, 0.07) !important;
+          box-shadow: 0 6px 20px rgba(15, 23, 42, 0.035), inset 0 1px 0.5px rgba(255, 255, 255, 0.9) !important;
         }
 
         html.dark .bg-slate-800\/50, html.dark .bg-slate-700\/70, html.dark .bg-slate-900\/40 {
-          background-color: rgba(15, 23, 42, 0.60) !important;
-          border-color: rgba(255, 255, 255, 0.12) !important;
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+          background-color: rgba(12, 13, 18, 0.85) !important;
+          border-color: rgba(255, 255, 255, 0.085) !important;
+          box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0.5px rgba(255, 255, 255, 0.06) !important;
         }
 
         button.bg-gradient-to-br, button[type="submit"], .hero-cta-primary {

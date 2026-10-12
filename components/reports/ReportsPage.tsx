@@ -911,47 +911,45 @@ export const ReportsPage: React.FC = () => {
 
   return (
     <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
-      {/* 1. Analytics Hero Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-[28px] p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
+      {/* 1. Compact Icon-First Analytics Header & KPI Strip */}
+      <div className="bg-gradient-to-r from-neutral-950 via-indigo-950/90 to-neutral-950 text-white rounded-[28px] p-5 sm:p-6 shadow-xl border border-white/10 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
-                <ChartBarIcon className="w-5 h-5" />
-              </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
-                Executive Intelligence & Custom Telemetry
-              </span>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30 flex items-center justify-center shrink-0">
+              <ChartBarIcon className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Reports & Performance Analytics
-            </h1>
-            <p className="text-sm text-indigo-200/80 max-w-2xl leading-relaxed">
-              Interactive cumulative flow, sprint burnup velocity, cycle time histograms, click-to-drill-down task inspection, and multi-format data exports.
-            </p>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+                Performance & Telemetry
+              </h1>
+              <p className="text-xs text-indigo-200/75">
+                Interactive flow, burnup velocity & click-to-drill-down analytics
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Customize Report Widgets Button */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Icon-First Customize Report Widgets Button */}
             <button
               type="button"
               onClick={() => {
                 soundService.play('click_soft');
                 setIsCustomizingReport(prev => !prev);
               }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              title="Customize Report Charts & Order"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                 isCustomizingReport
                   ? 'bg-amber-500 text-slate-950 border-amber-400'
-                  : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                  : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
               }`}
             >
               <ICON_MAP.AdjustmentsHorizontalIcon className="w-4 h-4" />
-              <span>{isCustomizingReport ? 'Done Customizing' : 'Customize Charts'}</span>
+              <span className="hidden sm:inline">{isCustomizingReport ? 'Done' : 'Widgets'}</span>
             </button>
 
-            {/* Multi-Format Export Dropdown */}
+            {/* Icon-First Multi-Format Export Dropdown */}
             <div className="relative">
               <button
                 type="button"
@@ -959,10 +957,11 @@ export const ReportsPage: React.FC = () => {
                   soundService.play('click_soft');
                   setIsExportMenuOpen(prev => !prev);
                 }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer"
+                title="Export Analytics Data (CSV, XLS, JSON, MD, PDF)"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all cursor-pointer"
               >
                 <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4 text-emerald-400" />
-                <span>Export Data</span>
+                <span className="hidden sm:inline">Export</span>
                 <ICON_MAP.ChevronDownIcon className="w-3.5 h-3.5 opacity-80" />
               </button>
 
@@ -970,25 +969,25 @@ export const ReportsPage: React.FC = () => {
                 <div
                   className={`absolute right-0 mt-2 w-56 rounded-2xl shadow-2xl p-2 z-50 border backdrop-blur-xl ${
                     darkMode
-                      ? 'bg-slate-900/95 border-slate-700 text-slate-100'
+                      ? 'bg-neutral-900/95 border-white/15 text-slate-100'
                       : 'bg-white border-slate-200 text-slate-900'
                   }`}
                 >
                   <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Download Report Format
+                    Export Format
                   </div>
                   {[
-                    { id: 'csv' as const, label: 'CSV Spreadsheet (.csv)', sub: 'Raw task & velocity table' },
-                    { id: 'xls' as const, label: 'Excel Workbook (.xls)', sub: 'Formatted spreadsheet columns' },
-                    { id: 'json' as const, label: 'Structured JSON (.json)', sub: 'KPIs + full task objects' },
-                    { id: 'md' as const, label: 'Executive Markdown (.md)', sub: 'Ready for Notion / GitHub' },
-                    { id: 'pdf' as const, label: 'Print / Save PDF', sub: 'High-contrast page snapshot' },
+                    { id: 'csv' as const, label: 'CSV (.csv)', sub: 'Task & velocity table' },
+                    { id: 'xls' as const, label: 'Excel (.xls)', sub: 'Spreadsheet workbook' },
+                    { id: 'json' as const, label: 'JSON (.json)', sub: 'KPIs + task objects' },
+                    { id: 'md' as const, label: 'Markdown (.md)', sub: 'Executive doc' },
+                    { id: 'pdf' as const, label: 'Print / PDF', sub: 'Page snapshot' },
                   ].map(item => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => handleExportFormat(item.id)}
-                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-indigo-500/15 transition-colors flex flex-col cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-indigo-500/15 transition-colors flex items-center justify-between cursor-pointer"
                     >
                       <span className="text-xs font-bold">{item.label}</span>
                       <span className="text-[10px] text-slate-400">{item.sub}</span>
@@ -1001,87 +1000,79 @@ export const ReportsPage: React.FC = () => {
             <button
               onClick={handleGenerateAISummary}
               disabled={isGeneratingSummary}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/25 bg-indigo-500 hover:bg-indigo-400 text-white transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Generate AI Executive Summary"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/25 bg-indigo-500 hover:bg-indigo-400 text-white transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {isGeneratingSummary ? (
                 <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin text-white" />
               ) : (
                 <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
               )}
-              <span>{isGeneratingSummary ? 'Synthesizing...' : 'AI Executive Summary'}</span>
+              <span className="hidden sm:inline">{isGeneratingSummary ? 'Synthesizing...' : 'Summary'}</span>
             </button>
           </div>
         </div>
 
-        {/* Analytics KPI Metric Cards (tabular-nums) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-          <div className="bg-white/5 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">
-              Filtered Scope
-            </span>
-            <div className="flex items-baseline gap-2 mt-1 font-mono tabular-nums">
-              <span className="text-2xl font-black text-white">{metrics.total}</span>
-              <span className="text-xs text-indigo-300 font-medium">tasks</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1 font-mono tabular-nums">
-              {metrics.totalPoints} total story points
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">
-              Delivered
-            </span>
-            <div className="flex items-baseline gap-2 mt-1 font-mono tabular-nums">
-              <span className="text-2xl font-black text-emerald-400">{metrics.completed}</span>
-              <span className="text-xs text-slate-300">done</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1 font-mono tabular-nums">
-              {metrics.completedPoints} pts shipped ({metrics.velocityPct}%)
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">
-              Completion Rate
-            </span>
-            <div className="flex items-baseline gap-2 mt-1 font-mono tabular-nums">
-              <span className="text-2xl font-black text-white">{metrics.completionPct}%</span>
-              <span className="text-xs text-indigo-300">ratio</span>
-            </div>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+        {/* Compact Icon-First KPI Metric Capsules */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-5 pt-5 border-t border-white/10">
+          {[
+            {
+              label: 'Scope',
+              value: metrics.total,
+              badge: `${metrics.totalPoints} pts`,
+              icon: ICON_MAP.ClipboardListIcon,
+              iconColor: 'bg-indigo-500/20 text-indigo-300',
+            },
+            {
+              label: 'Shipped',
+              value: metrics.completed,
+              badge: `${metrics.velocityPct}% pts`,
+              icon: ICON_MAP.CheckCircleIcon,
+              iconColor: 'bg-emerald-500/20 text-emerald-300',
+            },
+            {
+              label: 'Completion',
+              value: `${metrics.completionPct}%`,
+              badge: 'Rate',
+              icon: ICON_MAP.ChartBarIcon,
+              iconColor: 'bg-violet-500/20 text-violet-300',
+            },
+            {
+              label: 'Cycle Time',
+              value: `${metrics.avgCycleHours}h`,
+              badge: `${metrics.totalLoggedHours}h focus`,
+              icon: ICON_MAP.ClockIcon,
+              iconColor: 'bg-cyan-500/20 text-cyan-300',
+            },
+            {
+              label: 'Team',
+              value: users.length,
+              badge: `${projects.length} boards`,
+              icon: ICON_MAP.UserGroupIcon,
+              iconColor: 'bg-amber-500/20 text-amber-300',
+            },
+          ].map((kpi, idx) => {
+            const KpiIcon = kpi.icon;
+            return (
               <div
-                className="bg-emerald-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${metrics.completionPct}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-cyan-300 uppercase tracking-wider">
-              Avg Cycle Time
-            </span>
-            <div className="flex items-baseline gap-2 mt-1 font-mono tabular-nums">
-              <span className="text-2xl font-black text-cyan-300">{metrics.avgCycleHours}h</span>
-              <span className="text-xs text-slate-300">per task</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1 font-mono tabular-nums">
-              {metrics.totalLoggedHours}h logged via Focus Timer
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10 col-span-2 sm:col-span-1">
-            <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider">
-              Active Contributors
-            </span>
-            <div className="flex items-baseline gap-2 mt-1 font-mono tabular-nums">
-              <span className="text-2xl font-black text-amber-300">{users.length}</span>
-              <span className="text-xs text-slate-300">members</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              Across {projects.length} project boards
-            </p>
-          </div>
+                key={idx}
+                className="bg-white/[0.05] backdrop-blur-xs rounded-2xl p-3 border border-white/10 flex items-center justify-between gap-2.5"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${kpi.iconColor}`}>
+                    <KpiIcon className="w-4.5 h-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-slate-300 block truncate">{kpi.label}</span>
+                    <span className="text-[10px] font-mono text-indigo-200/70 block truncate">{kpi.badge}</span>
+                  </div>
+                </div>
+                <span className="text-xl font-black text-white font-mono tabular-nums shrink-0">
+                  {kpi.value}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

@@ -348,6 +348,10 @@ export interface Task {
   assignee_id?: string; 
   dueDate?: string;
   due_date?: string;
+  startDate?: string;
+  isMilestone?: boolean;
+  linkedClipIds?: string[];
+  linkedDocIds?: string[];
   projectId: string;
   organization_id?: string;
   position: number;
@@ -409,7 +413,10 @@ export type ActiveView =
   | 'okrs_goals_view'
   | 'triage_intake_view'
   | 'workload_capacity_view'
-  | 'whiteboard_view';
+  | 'whiteboard_view'
+  | 'gantt_roadmap_view'
+  | 'async_clips_view'
+  | 'client_portal_view';
 
 export type WhiteboardNodeType =
   | 'frame'
@@ -1023,4 +1030,90 @@ export interface AppStore {
   triggerUndo: () => Promise<void>;
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => Promise<void>;
   bulkDeleteTasks: (taskIds: string[]) => Promise<void>;
+}
+
+export interface ClipCommentPin {
+  id: string;
+  timestampSeconds: number;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  text: string;
+  reaction?: string;
+  createdAt: string;
+  convertedTaskId?: string;
+}
+
+export interface AsyncVideoClip {
+  id: string;
+  title: string;
+  description: string;
+  durationSeconds: number;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  projectId?: string;
+  linkedTaskId?: string;
+  videoUrl?: string;
+  thumbnailColor: string;
+  recordingMode: 'screen_cam' | 'screen_only' | 'cam_only';
+  transcriptSummary: string[];
+  actionItems: string[];
+  comments: ClipCommentPin[];
+  viewsCount: number;
+  reactions: Record<string, number>;
+  createdAt: string;
+}
+
+export interface ClientFeatureRequest {
+  id: string;
+  title: string;
+  description: string;
+  category: 'feature' | 'integration' | 'performance' | 'ux';
+  status: 'under_review' | 'planned' | 'in_progress' | 'shipped';
+  votes: number;
+  voterIds: string[];
+  requesterName: string;
+  requesterOrg: string;
+  impactScore: 'high' | 'medium' | 'critical';
+  linkedTaskId?: string;
+  projectId?: string;
+  commentsCount: number;
+  createdAt: string;
+}
+
+export interface ReleaseChangelogEntry {
+  id: string;
+  version: string;
+  title: string;
+  summary: string;
+  releaseDate: string;
+  authorName: string;
+  published: boolean;
+  features: string[];
+  improvements: string[];
+  fixes: string[];
+  linkedTaskIds: string[];
+}
+
+export interface SavedFilterPreset {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  targetView: ActiveView;
+  statusFilter?: string;
+  priorityFilter?: string;
+  assigneeFilter?: string;
+  searchQuery?: string;
+  onlyBlocked?: boolean;
+}
+
+export interface ScratchpadNote {
+  id: string;
+  title: string;
+  content: string;
+  color: string;
+  pinned?: boolean;
+  updatedAt: string;
 }

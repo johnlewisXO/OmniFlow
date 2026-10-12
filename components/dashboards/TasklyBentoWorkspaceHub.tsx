@@ -1525,27 +1525,26 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
 
   return (
     <div className="space-y-4">
-      {/* Top Bar: Role-Prominent Pill KPI Capsules + Customize Dashboard Layout Controls */}
+      {/* Top Bar: Compact Icon-First Status + Customize Dashboard Layout Controls */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <span className="w-2 h-2 rounded-full bg-indigo-500" />
-          <span className="font-semibold">
-            Live Workspace Overview · Drag any card handle to customize your layout
-          </span>
+          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+          <span className="font-semibold">Workspace Command Hub</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {isCustomizingLayout && (
             <button
               type="button"
               onClick={handleResetLayout}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+              title="Reset Dashboard Layout to Default"
+              className={`p-2 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
                 darkMode
-                  ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-neutral-900 border-white/10 text-slate-300 hover:bg-neutral-800'
                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              Reset Default
+              <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5" />
             </button>
           )}
           <button
@@ -1554,16 +1553,17 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
               soundService.play('click_soft');
               setIsCustomizingLayout(prev => !prev);
             }}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+            title={isCustomizingLayout ? 'Finish Customizing Layout' : 'Customize Bento Widgets'}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
               isCustomizingLayout
                 ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
                 : darkMode
-                ? 'bg-slate-900/80 border-white/10 text-slate-300 hover:bg-slate-800'
-                : 'bg-white/90 border-slate-200/80 text-slate-700 hover:bg-white shadow-2xs'
+                ? 'bg-neutral-900/90 border-white/10 text-slate-300 hover:bg-neutral-800'
+                : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50 shadow-2xs'
             }`}
           >
             <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" />
-            <span>{isCustomizingLayout ? 'Done Customizing' : 'Customize Dashboard'}</span>
+            <span className="hidden sm:inline">{isCustomizingLayout ? 'Done' : 'Layout'}</span>
           </button>
         </div>
       </div>
@@ -1571,19 +1571,15 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
       {/* Customize Mode Drawer: Show/Hide Widgets & Quick Reorder */}
       {isCustomizingLayout && (
         <div
-          className={`p-4 rounded-[28px] border animate-fadeIn flex flex-wrap items-center justify-between gap-3 ${
+          className={`p-3.5 rounded-[24px] border animate-fadeIn flex flex-wrap items-center justify-between gap-3 ${
             darkMode
-              ? 'bg-indigo-950/30 border-indigo-500/30 text-slate-200'
+              ? 'bg-neutral-900/95 border-indigo-500/30 text-slate-200'
               : 'bg-indigo-50/80 border-indigo-200 text-slate-800'
           }`}
         >
-          <div className="text-xs space-y-0.5">
-            <div className="font-bold text-indigo-600 dark:text-indigo-300">
-              Interactive Bento Customization Mode Active
-            </div>
-            <div className="text-slate-500 dark:text-slate-400">
-              Drag any widget card to swap positions, use ← / → arrows, or toggle visibility below:
-            </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
+            <ICON_MAP.AdjustmentsHorizontalIcon className="w-4 h-4" />
+            <span>Toggle or Drag Bento Cards</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
@@ -1598,7 +1594,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                     isVisible
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
                       : darkMode
-                      ? 'bg-slate-900/80 text-slate-400 border-slate-700'
+                      ? 'bg-neutral-950 text-slate-400 border-white/10'
                       : 'bg-white text-slate-500 border-slate-200'
                   }`}
                 >
@@ -1611,41 +1607,42 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         </div>
       )}
 
-      {/* 1. Top Pill-Shaped KPI Capsules Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+      {/* 1. Compact Icon-First KPI Capsules Row */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {roleKpiCapsules.map((capsule, idx) => {
           const IconComp = capsule.icon;
           return (
             <button
               key={idx}
               type="button"
+              title={`${capsule.label} — ${capsule.sub}`}
               onClick={() => {
                 soundService.play('click_soft');
                 capsule.onClick();
               }}
-              className={`group w-full text-left px-5 py-3.5 rounded-full border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              className={`group w-full text-left px-4 py-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                 darkMode
-                  ? 'bg-slate-900/75 hover:bg-slate-800/90 border-white/10 shadow-lg shadow-black/20'
-                  : 'bg-white/90 hover:bg-white border-white shadow-sm hover:shadow-md'
+                  ? 'bg-neutral-900/90 hover:bg-neutral-900 border-white/10 shadow-lg shadow-black/40'
+                  : 'bg-white hover:bg-slate-50/80 border-slate-200/80 shadow-xs hover:shadow-md'
               }`}
             >
-              <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105 ${capsule.badgeBg}`}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105 ${capsule.badgeBg}`}
                 >
                   <IconComp className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className={`text-xs font-medium truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <p className={`text-xs font-bold truncate ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                     {capsule.label}
                   </p>
-                  <p className={`text-[11px] font-semibold truncate mt-0.5 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  <p className={`text-[10px] font-medium truncate ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                     {capsule.sub}
                   </p>
                 </div>
               </div>
               <div
-                className={`font-mono tabular-nums text-2xl sm:text-3xl font-extrabold pr-1 ${
+                className={`font-mono tabular-nums text-xl sm:text-2xl font-extrabold ${
                   darkMode ? 'text-white' : 'text-slate-900'
                 }`}
               >
@@ -1661,51 +1658,46 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         {widgetOrder.map(widgetId => renderBentoWidget(widgetId))}
       </div>
 
-      {/* 3. Strategic & Competitive Modules Bento Cards (Whiteboard Studio, Docs & Wiki, OKRs & Goals, Triage Queue, Workload Heatmap) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 pt-1">
+      {/* 3. Icon-First Strategic & Competitive Modules Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 pt-1">
         {[
           {
             id: 'whiteboard_view' as const,
-            title: 'Whiteboard & FigJam Studio',
-            badge: 'Live Canvas',
-            stat: '3 Templates',
-            sub: 'Frames, stickies, pen & multiplayer sync',
+            title: 'Whiteboard Studio',
+            stat: 'Canvas',
+            tooltip: 'Collaborative FigJam Whiteboard, Frames, Stickies & Live Sync',
             icon: ICON_MAP.SparklesIcon,
             accentClass: 'bg-rose-500/15 text-rose-500 border-rose-500/30',
           },
           {
             id: 'docs_wiki_view' as const,
-            title: 'Project Docs & Spec Wiki',
-            badge: 'PRDs & Specs',
-            stat: `${Math.max(3, projects.length * 2)} Docs`,
-            sub: '1-click Convert checklist to Task',
+            title: 'Docs & Wiki',
+            stat: `${Math.max(3, projects.length * 2)}`,
+            tooltip: 'Project PRDs, Engineering Specs & 1-Click Task Conversion',
             icon: ICON_MAP.DocumentTextIcon,
             accentClass: 'bg-indigo-500/15 text-indigo-500 border-indigo-500/30',
           },
           {
             id: 'okrs_goals_view' as const,
-            title: 'OKRs & Strategic Goals',
-            badge: 'Live Rollups',
+            title: 'OKRs & Goals',
             stat: `${ringMetrics.donePct || 68}%`,
-            sub: 'Objectives linked to sprint velocity',
+            tooltip: 'Strategic Objectives Linked to Live Sprint Velocity',
             icon: ICON_MAP.TagIcon,
             accentClass: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30',
           },
           {
             id: 'triage_intake_view' as const,
-            title: 'Triage & Request Intake',
-            badge: 'Intake Forms',
-            stat: `${Math.max(2, statusCounts[TaskStatus.TODO])} Queued`,
-            sub: 'Accept & route bugs to active sprint',
+            title: 'Triage Queue',
+            stat: `${Math.max(2, statusCounts[TaskStatus.TODO])}`,
+            tooltip: 'Incoming Requests, Bug Triage & Sprint Routing',
             icon: ICON_MAP.ExclamationTriangleIcon,
             accentClass: 'bg-amber-500/15 text-amber-500 border-amber-500/30',
           },
           {
             id: 'workload_capacity_view' as const,
-            title: 'Workload & Focus Timer',
-            badge: 'Capacity Heatmap',
-            stat: `${Math.max(1, users.length)} Members`,
-            sub: 'Live task timer & 1-click load balance',
+            title: 'Workload & Timer',
+            stat: `${Math.max(1, users.length)}`,
+            tooltip: 'Team Capacity Heatmap & Focus Timer Telemetry',
             icon: ICON_MAP.ClockIcon,
             accentClass: 'bg-cyan-500/15 text-cyan-500 border-cyan-500/30',
           },
@@ -1715,39 +1707,28 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             <button
               key={mod.id}
               type="button"
+              title={mod.tooltip}
               onClick={() => {
                 soundService.play('click_soft');
                 setActiveView(mod.id);
               }}
-              className={`group text-left p-5 rounded-[28px] border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+              className={`group text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
                 darkMode
-                  ? 'bg-slate-900/75 hover:bg-slate-800/90 border-white/10 shadow-lg shadow-black/20'
-                  : 'bg-white/90 hover:bg-white border-slate-200/80 shadow-sm hover:shadow-md'
+                  ? 'bg-neutral-900/90 hover:bg-neutral-900 border-white/10 shadow-lg shadow-black/30'
+                  : 'bg-white hover:bg-slate-50 border-slate-200/80 shadow-xs hover:shadow-md'
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center ${mod.accentClass}`}>
-                  <ModIcon className="w-5 h-5" />
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${mod.accentClass}`}>
+                  <ModIcon className="w-4 h-4" />
                 </div>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${mod.accentClass}`}
-                >
-                  {mod.badge}
+                <span className={`text-xs font-bold truncate ${darkMode ? 'text-white' : 'text-slate-900'} group-hover:text-accent transition-colors`}>
+                  {mod.title}
                 </span>
               </div>
-              <div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <h4 className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-slate-900'} group-hover:text-accent transition-colors`}>
-                    {mod.title}
-                  </h4>
-                  <span className="font-mono font-extrabold text-sm tabular-nums text-accent">
-                    {mod.stat}
-                  </span>
-                </div>
-                <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {mod.sub}
-                </p>
-              </div>
+              <span className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-full border shrink-0 ${mod.accentClass}`}>
+                {mod.stat}
+              </span>
             </button>
           );
         })}

@@ -64,6 +64,8 @@ const ToastContainer: React.FC = () => {
     darkMode,
     tasks,
     projects,
+    users,
+    currentUser,
     setActiveProject,
     setActiveView,
     openViewTaskModal,
@@ -79,7 +81,7 @@ const ToastContainer: React.FC = () => {
     const now = Date.now();
     const newUnread = notifications.filter(n => {
       const createdTime = new Date(n.created_at).getTime();
-      return !n.read && now - createdTime < 7000 && !seenToastIdsRef.current.has(n.id);
+      return !n.read && now - createdTime < 7500 && !seenToastIdsRef.current.has(n.id);
     });
 
     if (newUnread.length > 0) {
@@ -90,17 +92,59 @@ const ToastContainer: React.FC = () => {
       newIds.forEach(id => {
         setTimeout(() => {
           setVisibleToasts(prev => prev.filter(tId => tId !== id));
-        }, 5500);
+        }, 6200);
       });
     }
   }, [notifications]);
 
-  const getToastActionConfig = (n: any): { isInteractive: boolean; label: string | null } => {
+  const getToastActionConfig = (n: any): {
+    isInteractive: boolean;
+    label: string | null;
+    categoryLabel: string;
+    categoryIcon: React.ReactNode;
+    categoryColorClass: string;
+    priorityBadge?: string;
+    diffPill?: string;
+    projectBadge?: string;
+    actorName?: string;
+    actorRole?: string;
+  } => {
     const typeStr = (n.type || '').toUpperCase();
     const titleStr = (n.title || '').toLowerCase();
+    const msgStr = (n.message || n.content || '');
     const entityType = n.entity_type;
+    const targetId = n.entity_id || n.reference_id;
 
-    // 1. ONLY show "View & reply →" for Teams Chat messages and Task Mentions / Task Comments
+    // Resolve related task / project / actor for rich context
+    const matchedTask = tasks.find(t => t.id === targetId || (msgStr && t.title && msgStr.includes(t.title)));
+    const matchedProject =
+      projects.find(p => p.id === targetId || p.id === matchedTask?.project_id) ||
+      projects.find(p => msgStr && p.name && msgStr.includes(p.name));
+
+    const matchedActor =
+      users.find(
+        u =>
+          u.id === n.metadata?.actorId ||
+          u.id === targetId ||
+          (u.full_name && (msgStr.includes(u.full_name) || (n.title || '').includes(u.full_name)))
+      ) || currentUser;
+
+    const actorName = matchedActor?.full_name || matchedActor?.email?.split('@')[0] || 'Workspace';
+    const actorRole = matchedActor?.role ? String(matchedActor.role).replace(/_/g, ' ') : undefined;
+    const projectBadge = matchedProject?.name || (entityType === 'chat' ? '#teams-hub' : undefined);
+
+    // Extract status transition diff or priority if present
+    let diffPill: string | undefined;
+    const arrowMatch = msgStr.match(/([A-Za-z ]+)\s*(?:→|->|to)\s*([A-Za-z ]+)/i);
+    if (arrowMatch && arrowMatch[1] && arrowMatch[2] && arrowMatch[1].length < 18 && arrowMatch[2].length < 18) {
+      diffPill = `${arrowMatch[1].trim()} → ${arrowMatch[2].trim()}`;
+    } else if (matchedTask?.status) {
+      diffPill = String(matchedTask.status);
+    }
+
+    const priorityBadge = matchedTask?.priority ? String(matchedTask.priority) : undefined;
+
+    // 1. Teams Chat messages and Task Mentions / Task Comments
     const isChatMsg =
       (entityType === 'chat' && !titleStr.includes('updated status')) ||
       typeStr.includes('CHAT_MESSAGE') ||
@@ -114,28 +158,89 @@ const ToastContainer: React.FC = () => {
       titleStr.includes('mentioned by') ||
       titleStr.includes('new comment on');
 
-    if (isChatMsg || isTaskMentionOrComment) {
-      return { isInteractive: true, label: 'View & reply →' };
+    if (isChatMsg) {
+      return {
+        isInteractive: true,
+        label: 'Reply',
+        categoryLabel: 'Chat',
+        categoryIcon: <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
+        projectBadge: projectBadge || '#direct-msg',
+        actorName,
+        actorRole,
+      };
+    }
+
+    if (isTaskMentionOrComment) {
+      return {
+        isInteractive: true,
+        label: 'Reply',
+        categoryLabel: 'Mention',
+        categoryIcon: <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+        priorityBadge,
+        diffPill,
+        projectBadge,
+        actorName,
+        actorRole,
+      };
     }
 
     // 2. Teammate status update in chat
     if (entityType === 'chat' && titleStr.includes('updated status')) {
-      return { isInteractive: true, label: 'Open Direct Message →' };
+      return {
+        isInteractive: true,
+        label: 'Message',
+        categoryLabel: 'Presence',
+        categoryIcon: <ICON_MAP.UsersIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+        actorName,
+        actorRole,
+      };
     }
 
     // 3. Task Deleted
     if (typeStr === 'TASK_DELETED') {
-      return { isInteractive: true, label: 'View project board →' };
+      return {
+        isInteractive: true,
+        label: 'Board',
+        categoryLabel: 'Task Removed',
+        categoryIcon: <ICON_MAP.TrashIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+        projectBadge,
+        actorName,
+        actorRole,
+      };
     }
 
     // 4. Other Task Updates (Assigned, Created, Status Changed, Due Soon, Overdue)
-    if (entityType === 'task' || typeStr.includes('TASK')) {
-      return { isInteractive: true, label: 'Open task details →' };
+    if (entityType === 'task' || typeStr.includes('TASK') || matchedTask) {
+      return {
+        isInteractive: true,
+        label: 'Inspect',
+        categoryLabel: 'Task',
+        categoryIcon: <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+        priorityBadge,
+        diffPill,
+        projectBadge,
+        actorName,
+        actorRole,
+      };
     }
 
     // 5. Project Updates
     if (entityType === 'project' || typeStr.includes('PROJECT')) {
-      return { isInteractive: true, label: 'Open project board →' };
+      return {
+        isInteractive: true,
+        label: 'Open',
+        categoryLabel: 'Project',
+        categoryIcon: <ICON_MAP.FolderIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+        projectBadge,
+        actorName,
+        actorRole,
+      };
     }
 
     // 6. Team / Role / Organization Invites
@@ -145,7 +250,15 @@ const ToastContainer: React.FC = () => {
       typeStr.includes('INVITE') ||
       titleStr.includes('role updated')
     ) {
-      return { isInteractive: true, label: 'View team directory →' };
+      return {
+        isInteractive: true,
+        label: 'Directory',
+        categoryLabel: 'Team',
+        categoryIcon: <ICON_MAP.UsersIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+        actorName,
+        actorRole,
+      };
     }
 
     // 7. Calendar & RSVP notifications
@@ -155,25 +268,66 @@ const ToastContainer: React.FC = () => {
       typeStr.includes('RSVP') ||
       titleStr.startsWith('📅')
     ) {
-      return { isInteractive: true, label: 'Open Calendar & RSVP →' };
+      return {
+        isInteractive: true,
+        label: 'Calendar',
+        categoryLabel: 'Event',
+        categoryIcon: <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+        actorName,
+        actorRole,
+      };
     }
 
     // 8. Incoming Video Call notifications
     if (typeStr.includes('VIDEO_CALL') || titleStr.startsWith('📹')) {
-      return { isInteractive: true, label: 'Join Video Call →' };
+      return {
+        isInteractive: true,
+        label: 'Join Call',
+        categoryLabel: 'Live Call',
+        categoryIcon: <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+        actorName,
+        actorRole,
+      };
     }
 
     // 9. Sprint updates
     if (typeStr.includes('SPRINT') || titleStr.includes('sprint ')) {
-      return { isInteractive: true, label: 'View sprint board →' };
+      return {
+        isInteractive: true,
+        label: 'Sprint',
+        categoryLabel: 'Sprint',
+        categoryIcon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+        projectBadge,
+        actorName,
+        actorRole,
+      };
     }
 
     // 10. Email / Verification updates
     if (titleStr.includes('email') || titleStr.includes('verification')) {
-      return { isInteractive: true, label: 'Open Email Center →' };
+      return {
+        isInteractive: true,
+        label: 'Outbox',
+        categoryLabel: 'Email',
+        categoryIcon: <ICON_MAP.InboxIcon className="w-3.5 h-3.5" />,
+        categoryColorClass: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+        actorName,
+      };
     }
 
-    return { isInteractive: false, label: null };
+    return {
+      isInteractive: false,
+      label: null,
+      categoryLabel: 'System',
+      categoryIcon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />,
+      categoryColorClass: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+      projectBadge,
+      actorName,
+      actorRole,
+    };
   };
 
   const handleToastClick = async (n: any) => {
@@ -293,28 +447,43 @@ const ToastContainer: React.FC = () => {
   const toastsToShow = notifications.filter(n => visibleToasts.includes(n.id));
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-[380px] w-full pointer-events-none">
       {toastsToShow.map(n => {
         const type = n.toastType || (n.type === 'TASK_DELETED' || n.type === 'USER_REMOVED_FROM_ORG' ? 'error' : 'success');
-        const { isInteractive, label: actionLabel } = getToastActionConfig(n);
-        
-        let iconEl = <ICON_MAP.CheckIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />;
-        let borderClass = 'border-emerald-500/30 dark:border-emerald-500/40';
-        let bgAccent = 'bg-emerald-500/10';
+        const meta = getToastActionConfig(n);
+        const { isInteractive, label: actionLabel, categoryLabel, categoryIcon, priorityBadge, diffPill, projectBadge, actorName, actorRole } = meta;
+
+        let iconEl = <ICON_MAP.CheckIcon className="w-4 h-4 text-emerald-400 flex-shrink-0" />;
+        let borderClass = 'border-emerald-500/35 dark:border-emerald-500/40';
+        let stripClass = 'bg-emerald-500';
+        let bgAccent = 'bg-emerald-500/15';
 
         if (type === 'error') {
-          iconEl = <ICON_MAP.ExclamationIcon className="w-5 h-5 text-red-500 flex-shrink-0" />;
-          borderClass = 'border-red-500/30 dark:border-red-500/40';
-          bgAccent = 'bg-red-500/10';
+          iconEl = <ICON_MAP.ExclamationIcon className="w-4 h-4 text-rose-400 flex-shrink-0" />;
+          borderClass = 'border-rose-500/35 dark:border-rose-500/40';
+          stripClass = 'bg-rose-500';
+          bgAccent = 'bg-rose-500/15';
         } else if (type === 'warning') {
-          iconEl = <ICON_MAP.ExclamationIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />;
-          borderClass = 'border-amber-500/30 dark:border-amber-500/40';
-          bgAccent = 'bg-amber-500/10';
+          iconEl = <ICON_MAP.ExclamationIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />;
+          borderClass = 'border-amber-500/35 dark:border-amber-500/40';
+          stripClass = 'bg-amber-500';
+          bgAccent = 'bg-amber-500/15';
         } else if (type === 'info') {
-          iconEl = <ICON_MAP.SparklesIcon className="w-5 h-5 text-accent flex-shrink-0" />;
-          borderClass = 'border-accent/30 dark:border-accent/40';
-          bgAccent = 'bg-accent/10';
+          iconEl = <ICON_MAP.SparklesIcon className="w-4 h-4 text-indigo-400 flex-shrink-0" />;
+          borderClass = 'border-indigo-500/35 dark:border-indigo-500/40';
+          stripClass = 'bg-indigo-500';
+          bgAccent = 'bg-indigo-500/15';
         }
+
+        const timeLabel = new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const canUndo =
+          lastUndoAction &&
+          ((n.type || '').includes('TASK') ||
+            (n.title || '').toLowerCase().includes('task') ||
+            (n.title || '').toLowerCase().includes('moved') ||
+            (n.title || '').toLowerCase().includes('updated') ||
+            (n.title || '').toLowerCase().includes('deleted') ||
+            (n.title || '').toLowerCase().includes('batch'));
 
         return (
           <div
@@ -322,64 +491,120 @@ const ToastContainer: React.FC = () => {
             onClick={() => isInteractive && handleToastClick(n)}
             role={isInteractive ? 'button' : undefined}
             tabIndex={isInteractive ? 0 : undefined}
-            className={`pointer-events-auto p-3.5 rounded-xl shadow-xl border backdrop-blur-md flex items-start gap-3 transition-all duration-300 transform translate-y-0 animate-in slide-in-from-bottom-4 ${borderClass} ${
-              isInteractive ? 'cursor-pointer hover:scale-[1.02] hover:shadow-2xl active:scale-[0.99]' : ''
+            className={`pointer-events-auto relative overflow-hidden p-3.5 rounded-2xl shadow-2xl border backdrop-blur-xl flex items-start gap-3 transition-all duration-300 transform translate-y-0 animate-in slide-in-from-bottom-4 ${borderClass} ${
+              isInteractive ? 'cursor-pointer hover:scale-[1.015] active:scale-[0.99]' : ''
             } ${
-              darkMode ? 'bg-slate-900/95 text-slate-100' : 'bg-white/95 text-slate-900'
+              darkMode ? 'bg-[#090A0F]/95 text-slate-100' : 'bg-white/95 text-slate-900'
             }`}
           >
-            <div className={`p-1.5 rounded-lg ${bgAccent}`}>
+            {/* Priority / Status Accent Strip */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${stripClass}`} />
+
+            {/* Category / Status Icon */}
+            <div className={`p-2 rounded-xl ${bgAccent} flex items-center justify-center shrink-0 mt-0.5`}>
               {iconEl}
             </div>
-            <div className="flex-1 min-w-0 pr-1">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-100 leading-snug truncate">
-                  {n.title || (n.type ? n.type.replace(/_/g, ' ') : 'Notification')}
-                </h4>
+
+            <div className="flex-1 min-w-0">
+              {/* Top Meta Row: Category Pill + Project/Channel + Timestamp */}
+              <div className="flex items-center justify-between gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${meta.categoryColorClass}`}>
+                    {categoryIcon}
+                    <span>{categoryLabel}</span>
+                  </span>
+                  {projectBadge && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-500/10 text-slate-500 dark:text-slate-300 truncate max-w-[120px]">
+                      {projectBadge}
+                    </span>
+                  )}
+                  {priorityBadge && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-500 dark:text-rose-400">
+                      {priorityBadge}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-mono tabular-nums text-slate-400 shrink-0">
+                  {timeLabel}
+                </span>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 break-words">
+
+              {/* Title & Message */}
+              <h4 className="font-bold text-xs text-slate-900 dark:text-white leading-snug truncate">
+                {n.title || (n.type ? n.type.replace(/_/g, ' ') : 'Workspace Update')}
+              </h4>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 line-clamp-2 break-words">
                 {n.message || n.content}
               </p>
-              <div className="flex items-center flex-wrap gap-2 mt-1.5">
-                {isInteractive && actionLabel && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                    {actionLabel}
-                  </span>
-                )}
-                {lastUndoAction && (
-                  (n.type || '').includes('TASK') ||
-                  (n.title || '').toLowerCase().includes('task') ||
-                  (n.title || '').toLowerCase().includes('moved') ||
-                  (n.title || '').toLowerCase().includes('updated') ||
-                  (n.title || '').toLowerCase().includes('deleted') ||
-                  (n.title || '').toLowerCase().includes('batch')
-                ) && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      triggerUndo();
-                      markNotificationAsRead(n.id);
-                      setVisibleToasts(prev => prev.filter(id => id !== n.id));
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
-                    title={`Undo: ${lastUndoAction.label}`}
-                  >
-                    <span>↩ Undo</span>
-                  </button>
-                )}
+
+              {/* Bottom Enriched Row: Actor + Status Diff + Icon-First Quick Actions */}
+              <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-slate-200/60 dark:border-white/10">
+                <div className="flex items-center gap-1.5 min-w-0 truncate">
+                  {actorName && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+                      <span className="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-[9px] inline-flex items-center justify-center shrink-0">
+                        {actorName.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="truncate max-w-[90px]">{actorName}</span>
+                      {actorRole && (
+                        <span className="text-[9px] opacity-75 hidden sm:inline">· {actorRole}</span>
+                      )}
+                    </span>
+                  )}
+                  {diffPill && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 truncate max-w-[115px]">
+                      {diffPill}
+                    </span>
+                  )}
+                </div>
+
+                {/* Icon-First Action Pills */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {canUndo && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        triggerUndo();
+                        markNotificationAsRead(n.id);
+                        setVisibleToasts(prev => prev.filter(id => id !== n.id));
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
+                      title={`Undo: ${lastUndoAction?.label}`}
+                    >
+                      <span>↶</span>
+                      <span>Undo</span>
+                    </button>
+                  )}
+                  {isInteractive && actionLabel && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToastClick(n);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer"
+                      title={actionLabel}
+                    >
+                      <span>{actionLabel}</span>
+                      <ICON_MAP.ArrowRightIcon className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 markNotificationAsRead(n.id);
                 setVisibleToasts(prev => prev.filter(id => id !== n.id));
               }}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-500/10 shrink-0"
+              title="Dismiss & Mark Read"
               aria-label="Dismiss notification"
             >
-              <ICON_MAP.XMarkIcon className="w-4 h-4" />
+              <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         );

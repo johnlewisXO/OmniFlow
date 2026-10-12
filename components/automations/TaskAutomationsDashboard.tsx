@@ -11,6 +11,7 @@ import {
   DEFAULT_PRESET_RULES,
   processTaskAutomationRules
 } from '../../services/automationEngine';
+import { VisualWorkflowCanvas } from './VisualWorkflowCanvas';
 
 export const TaskAutomationsDashboard: React.FC = () => {
   const { 
@@ -31,7 +32,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
 
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [logs, setLogs] = useState<AutomationLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'rules' | 'builder' | 'logs' | 'templates' | 'webhooks' | 'portability'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'visual_canvas' | 'builder' | 'logs' | 'templates' | 'webhooks' | 'portability'>('visual_canvas');
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -448,7 +449,18 @@ export const TaskAutomationsDashboard: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className={`flex border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+      <div className={`flex flex-wrap border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+        <button
+          onClick={() => setActiveTab('visual_canvas')}
+          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+            activeTab === 'visual_canvas'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <span>⚡</span>
+          <span>Visual Node Canvas</span>
+        </button>
         <button
           onClick={() => setActiveTab('rules')}
           className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 ${
@@ -510,6 +522,22 @@ export const TaskAutomationsDashboard: React.FC = () => {
           Execution History Logs ({logs.length})
         </button>
       </div>
+
+      {/* Tab Content: Visual Node-Based Workflow Canvas */}
+      {activeTab === 'visual_canvas' && (
+        <VisualWorkflowCanvas
+          onSaveCompiledRule={(newRule) => {
+            const updated = [newRule, ...rules];
+            setRules(updated);
+            saveStoredRules(updated);
+            addToast('Visual Workflow Activated', `"${newRule.name}" compiled and added to Active Rules`, 'success');
+          }}
+          onLogCreated={() => {
+            setLogs(getStoredLogs());
+            addToast('Dry-Run Passed', 'All workflow nodes executed with 0 errors', 'success');
+          }}
+        />
+      )}
 
       {/* Tab Content: Active Rules List */}
       {activeTab === 'rules' && (

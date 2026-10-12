@@ -278,6 +278,66 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         },
       },
       {
+        id: 'nav-gantt-roadmap',
+        category: 'sprints',
+        title: 'Interactive Gantt Timeline & Dependency Roadmap',
+        subtitle: 'Drag-to-reschedule bars, SVG dependency arrows, critical path & milestones',
+        meta: 'Gantt Roadmap',
+        icon: ICON_MAP.CalendarIcon,
+        action: () => {
+          setActiveView('gantt_roadmap_view');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-async-clips',
+        category: 'knowledge',
+        title: 'Async Screen & Camera Clips Studio (Loom Style)',
+        subtitle: 'Record screen + camera bubble clips with timestamped pins & task conversion',
+        meta: 'Video Clips',
+        icon: ICON_MAP.VideoCameraIcon,
+        action: () => {
+          setActiveView('async_clips_view');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-client-portal',
+        category: 'knowledge',
+        title: 'External Client Portal, Feature Voting & Changelog Hub',
+        subtitle: 'Stakeholder feature voting board, public roadmap & automated release notes',
+        meta: 'Client Portal',
+        icon: ICON_MAP.GlobeAltIcon,
+        action: () => {
+          setActiveView('client_portal_view');
+          onClose();
+        },
+      },
+      {
+        id: 'act-toggle-split-pane',
+        category: 'actions',
+        title: 'Toggle Split-Screen Dual-Pane Multitasking (Cmd+\\)',
+        subtitle: 'Work on two workspace modules side-by-side simultaneously',
+        meta: 'Multitasking',
+        icon: ICON_MAP.Squares2X2Icon,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('omni_toggle_split_pane'));
+          onClose();
+        },
+      },
+      {
+        id: 'act-toggle-knowledge-graph',
+        category: 'knowledge',
+        title: 'Open Bi-Directional Backlinks & Knowledge Graph',
+        subtitle: 'Interactive node graph connecting Tasks, Docs, Whiteboards, OKRs & Clips',
+        meta: 'Knowledge Graph',
+        icon: ICON_MAP.SparklesIcon,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('omni_toggle_knowledge_graph'));
+          onClose();
+        },
+      },
+      {
         id: 'nav-whiteboard-studio',
         category: 'knowledge',
         title: 'Collaborative Whiteboard & Design Canvas (Figma / FigJam)',

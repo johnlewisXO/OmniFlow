@@ -944,47 +944,54 @@ export const TeamManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-700/80 pb-3">
+      {/* Icon-First Navigation Sub-Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
         <button
           onClick={() => setActiveTab('directory')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'directory'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
           }`}
         >
-          Team Directory ({users.length})
+          <UserGroupIcon className="w-4 h-4" />
+          <span>Directory</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{users.length}</span>
         </button>
         <button
           onClick={() => setActiveTab('rbac_matrix')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'rbac_matrix'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
           }`}
         >
-          RBAC Permission Matrix
+          <ICON_MAP.CheckBadgeIcon className="w-4 h-4" />
+          <span>RBAC Matrix</span>
         </button>
         <button
           onClick={() => setActiveTab('invitations')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'invitations'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
           }`}
         >
-          Invitations ({invitations.length})
+          <ICON_MAP.MailIcon className="w-4 h-4" />
+          <span>Invites</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{invitations.length}</span>
         </button>
         <button
           onClick={() => setActiveTab('audit_logs')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'audit_logs'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
           }`}
         >
-          User Activity Logs ({auditLogs.length})
+          <ICON_MAP.ClockIcon className="w-4 h-4" />
+          <span>Audit Logs</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{auditLogs.length}</span>
         </button>
       </div>
 
@@ -992,18 +999,27 @@ export const TeamManagementPage: React.FC = () => {
       {activeTab === 'directory' && (
         <div className="space-y-4">
           {/* Directory Filter & Search Bar */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 rounded-2xl border bg-white/70 dark:bg-slate-900/50 border-slate-200/80 dark:border-slate-800">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 rounded-2xl border bg-white/90 dark:bg-neutral-900/80 border-slate-200/80 dark:border-white/10">
+            <div className="relative flex-1 max-w-md flex items-center">
+              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
               <input
                 type="text"
                 placeholder="Search members by name, email, or department..."
                 value={directorySearch}
                 onChange={e => setDirectorySearch(e.target.value)}
-                className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                className={`w-full !pl-10 !pr-8 !py-2 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
+                  darkMode ? 'bg-neutral-950 border-white/10 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
                 }`}
               />
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              {directorySearch && (
+                <button
+                  type="button"
+                  onClick={() => setDirectorySearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 cursor-pointer"
+                >
+                  ×
+                </button>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1502,17 +1518,26 @@ export const TeamManagementPage: React.FC = () => {
       {activeTab === 'audit_logs' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 max-w-md flex items-center">
+              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
               <input
                 type="text"
                 placeholder="Search audit trail by actor, action, or target..."
                 value={auditSearchQuery}
                 onChange={e => setAuditSearchQuery(e.target.value)}
-                className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
-                  darkMode ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+                className={`w-full !pl-10 !pr-8 !py-2 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
+                  darkMode ? 'bg-neutral-900 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
                 }`}
               />
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              {auditSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setAuditSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 cursor-pointer"
+                >
+                  ×
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

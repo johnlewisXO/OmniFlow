@@ -651,24 +651,25 @@ export const Sidebar: React.FC = () => {
 
         {/* Quick Sidebar Filter Input when expanded */}
         {(expanded || isMobile) && (
-          <div className="relative">
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <div className="relative flex items-center">
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <input
               type="text"
               value={sidebarFilter}
               onChange={e => setSidebarFilter(e.target.value)}
               placeholder="Filter menu & projects..."
-              className={`w-full pl-8 pr-6 py-1.5 rounded-xl text-xs border outline-none transition-all ${
+              className={`w-full !pl-9 !pr-7 !py-1.5 rounded-xl text-xs border outline-none transition-all ${
                 darkMode
-                  ? 'bg-slate-900/70 border-slate-700/70 text-slate-200 placeholder-slate-500 focus:border-accent'
-                  : 'bg-white/80 border-slate-200/90 text-slate-800 placeholder-slate-400 focus:border-accent'
+                  ? 'bg-neutral-900/90 border-white/10 text-slate-200 placeholder-slate-500 focus:border-accent'
+                  : 'bg-white border-slate-200/90 text-slate-800 placeholder-slate-400 focus:border-accent'
               }`}
             />
             {sidebarFilter && (
               <button
                 type="button"
                 onClick={() => setSidebarFilter('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 cursor-pointer"
+                title="Clear filter"
               >
                 <XMarkIcon className="w-3.5 h-3.5" />
               </button>

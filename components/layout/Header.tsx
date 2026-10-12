@@ -445,6 +445,46 @@ export const Header: React.FC = () => {
             </div>
           )}
 
+          {/* Next-Gen Spatial Multitasking & UX Quick Bar */}
+          <div className="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/70">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_split_pane'))}
+              title="Toggle Split-Screen Dual-Pane Multitasking (Cmd+\)"
+              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>◫</span>
+              <span>Split</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_ambient_huddle'))}
+              title="Start / Toggle Persistent Ambient Voice & Screen Huddle"
+              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>🎧</span>
+              <span>Huddle</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_knowledge_graph'))}
+              title="Open Bi-Directional Backlinks & Workspace Knowledge Graph"
+              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>🕸️</span>
+              <span>Graph</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_scratchpad'))}
+              title="Open Personal Scratchpad & Saved Filter Views (Cmd+J)"
+              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-amber-600 dark:hover:text-amber-400 transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>📓</span>
+              <span>Scratchpad</span>
+            </button>
+          </div>
+
           {/* UI Sound Effects Toggle Button (sm+) */}
           <button
             type="button"

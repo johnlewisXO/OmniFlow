@@ -420,70 +420,75 @@ export const KanbanBoard: React.FC = () => {
       {/* Top Agile Toolbar: View Switcher, Stats & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1 flex-shrink-0">
         
-        {/* Left: View Mode Tabs */}
+        {/* Left: Icon-First View Mode Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto max-w-full scrollbar-none">
-          <div className={`flex p-1 rounded-full border flex-shrink-0 ${darkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+          <div className={`flex p-1 rounded-full border flex-shrink-0 ${darkMode ? 'bg-neutral-900/90 border-white/10' : 'bg-slate-200/70 border-slate-300/60'}`}>
             <button
               onClick={() => setViewMode('kanban')}
-              title="Kanban Board"
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              title="Kanban Board View"
+              aria-label="Kanban Board View"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'kanban'
                   ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ICON_MAP.ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
-              <span>Board</span>
+              <ICON_MAP.Squares2X2Icon className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden md:inline">Board</span>
             </button>
 
             <button
               onClick={() => setViewMode('sprints')}
-              title="Sprints & Backlog"
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              title="Sprints & Backlog Planning"
+              aria-label="Sprints & Backlog Planning"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'sprints'
                   ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ICON_MAP.RocketLaunchIcon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Sprints & Backlog</span>
-              <span className="sm:hidden">Sprints</span>
+              <span className="hidden md:inline">Sprints</span>
             </button>
 
             <button
               onClick={() => setViewMode('list')}
-              title="List View"
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              title="Structured List View"
+              aria-label="Structured List View"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'list'
                   ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ICON_MAP.DocumentTextIcon className="w-4 h-4 flex-shrink-0" />
-              <span>List</span>
+              <ICON_MAP.ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden md:inline">List</span>
             </button>
 
             <button
               onClick={() => setViewMode('gantt')}
-              title="Gantt / Timeline"
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              title="Gantt & Timeline Roadmap"
+              aria-label="Gantt & Timeline Roadmap"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'gantt'
                   ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ICON_MAP.ClockIcon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Gantt / Timeline</span>
-              <span className="sm:hidden">Timeline</span>
+              <span className="hidden md:inline">Timeline</span>
             </button>
           </div>
 
           {/* Swimlane Dropdown (only on Kanban mode) */}
           {viewMode === 'kanban' && (
-            <div className={`hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium flex-shrink-0 ${
-              darkMode ? 'bg-slate-900/80 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-            }`}>
-              <span className="text-slate-400">Swimlanes:</span>
+            <div
+              title="Group Kanban Swimlanes"
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium flex-shrink-0 ${
+                darkMode ? 'bg-neutral-900/90 border-white/10 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+              }`}
+            >
+              <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-accent flex-shrink-0" />
               <select
                 value={swimlaneMode}
                 onChange={(e) => setSwimlaneMode(e.target.value as SwimlaneType)}
@@ -491,9 +496,9 @@ export const KanbanBoard: React.FC = () => {
                   darkMode ? 'text-slate-200' : 'text-slate-900'
                 }`}
               >
-                <option value="none" className={darkMode ? 'bg-slate-800' : 'bg-white'}>None (Standard)</option>
-                <option value="assignee" className={darkMode ? 'bg-slate-800' : 'bg-white'}>By Assignee</option>
-                <option value="priority" className={darkMode ? 'bg-slate-800' : 'bg-white'}>By Priority</option>
+                <option value="none" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Standard Columns</option>
+                <option value="assignee" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Swimlanes: Assignee</option>
+                <option value="priority" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Swimlanes: Priority</option>
               </select>
             </div>
           )}
@@ -506,14 +511,14 @@ export const KanbanBoard: React.FC = () => {
               <div
                 key={collab.userId}
                 title={`${collab.userName} · Online`}
-                className="relative w-6 h-6 rounded-full ring-2 ring-white dark:ring-slate-900 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600"
+                className="relative w-6 h-6 rounded-full ring-2 ring-white dark:ring-neutral-950 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600"
               >
                 {collab.userAvatar ? (
                   <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
                 ) : (
                   collab.userName.charAt(0).toUpperCase()
                 )}
-                <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900" />
+                <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-neutral-950" />
               </div>
             ))}
             {activeCollabs.length > 4 && (
@@ -524,32 +529,35 @@ export const KanbanBoard: React.FC = () => {
           </div>
         )}
 
-        {/* Right: Agile Stats & Action Buttons */}
+        {/* Right: Compact Icon-First Agile Stats & Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Progress / Velocity Badge */}
-          <div className={`hidden lg:flex items-center gap-3 px-4 py-1.5 rounded-full border text-xs ${
-            darkMode ? 'bg-slate-900/70 border-slate-700/60 text-slate-300' : 'bg-white/90 border-slate-200 text-slate-600'
-          }`}>
-            <span className="font-semibold tabular-nums">{stats.done}/{stats.total} Done ({stats.progressPercent}%)</span>
-            <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+          {/* Progress / Velocity Capsule */}
+          <div
+            title={`${stats.done} of ${stats.total} tasks completed (${stats.progressPercent}%) • ${stats.completedStoryPoints}/${stats.totalStoryPoints} story points`}
+            className={`hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs ${
+              darkMode ? 'bg-neutral-900/90 border-white/10 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
+            }`}
+          >
+            <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span className="font-mono font-bold tabular-nums">{stats.progressPercent}%</span>
+            <div className="w-12 h-1.5 bg-slate-200 dark:bg-neutral-800 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${stats.progressPercent}%` }} />
             </div>
-            <span className="text-slate-400">|</span>
-            <span className="font-semibold text-accent tabular-nums">{stats.completedStoryPoints}/{stats.totalStoryPoints} pts</span>
+            <span className="font-mono font-bold text-accent tabular-nums">{stats.completedStoryPoints}/{stats.totalStoryPoints}p</span>
           </div>
 
-          {/* Tablet Layout Mode Switcher (2x2 Grid vs Snap-Scroll) */}
+          {/* Tablet Layout Mode Switcher (Icon-First 2x2 Grid vs Snap-Scroll) */}
           {viewMode === 'kanban' && swimlaneMode === 'none' && (
             <div
               className={`hidden md:flex xl:hidden items-center p-0.5 rounded-full border text-[11px] font-semibold ${
-                darkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-100 border-slate-200'
+                darkMode ? 'bg-neutral-900/90 border-white/10' : 'bg-slate-200/70 border-slate-300/60'
               }`}
-              title="Switch tablet board layout between 2x2 Grid and Horizontal Snap-Scroll"
             >
               <button
                 type="button"
                 onClick={() => handleTabletLayoutChange('grid')}
-                className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                title="2×2 Grid Layout"
+                className={`p-1.5 rounded-full transition-all cursor-pointer ${
                   tabletLayoutMode === 'grid'
                     ? 'bg-accent text-white shadow-2xs'
                     : darkMode
@@ -557,12 +565,13 @@ export const KanbanBoard: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                2×2 Grid
+                <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => handleTabletLayoutChange('snap')}
-                className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                title="Horizontal Snap-Scroll Layout"
+                className={`p-1.5 rounded-full transition-all cursor-pointer ${
                   tabletLayoutMode === 'snap'
                     ? 'bg-accent text-white shadow-2xs'
                     : darkMode
@@ -570,64 +579,71 @@ export const KanbanBoard: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Snap Scroll
+                <ICON_MAP.ViewColumnsIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          {/* WIP Limit Settings Button */}
+          {/* Icon-First WIP Limit Settings Button */}
           {viewMode === 'kanban' && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={() => setIsWipModalOpen(true)}
-              className="gap-1.5 text-xs font-semibold"
-              title="Configure Work-In-Progress Limits"
+              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                darkMode
+                  ? 'bg-neutral-900/90 border-white/10 text-slate-300 hover:text-white hover:bg-neutral-800'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
+              }`}
+              title="Configure Column WIP Limits"
+              aria-label="Configure Column WIP Limits"
             >
-              <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-slate-400" />
-              <span className="hidden sm:inline">WIP Limits</span>
-              <span className="sm:hidden">WIP</span>
-            </Button>
+              <ICON_MAP.AdjustmentsHorizontalIcon className="w-4 h-4 text-accent" />
+            </button>
           )}
 
-          {/* Automations Button */}
+          {/* Icon-First Automations Button */}
           {(currentUser?.role === UserRole.OWNER || currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.PROJECT_MANAGER) && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={() => setIsAutomationsOpen(true)}
-              className="gap-1.5 text-xs font-semibold"
+              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                darkMode
+                  ? 'bg-neutral-900/90 border-white/10 text-slate-300 hover:text-white hover:bg-neutral-800'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
+              }`}
+              title="Workflow Automations & Rules"
+              aria-label="Workflow Automations & Rules"
             >
-              <ICON_MAP.CogIcon className="w-4 h-4 text-accent" />
-              <span className="hidden sm:inline">Automations</span>
-            </Button>
+              <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-400" />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Responsive Quick Filters Bar with Collapsible Drawer on Mobile/Tablet (< lg) */}
+      {/* Responsive Quick Filters Bar with Non-Overlapping Search Input */}
       <div className={`p-2 sm:p-2.5 mb-2 rounded-2xl border text-xs transition-all ${
-        darkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50/80 border-slate-200/80'
+        darkMode ? 'bg-neutral-900/70 border-white/10' : 'bg-white/90 border-slate-200/80 shadow-2xs'
       }`}>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Search Filter Input */}
-          <div className="relative flex-1 min-w-[160px] lg:max-w-xs">
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative flex-1 min-w-[180px] lg:max-w-xs flex items-center">
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by title, tag, desc..."
-              className={`w-full pl-8 pr-6 py-1.5 rounded-xl border text-xs outline-none transition-all ${
+              placeholder="Filter tasks..."
+              className={`w-full !pl-9 !pr-7 !py-1.5 rounded-xl border text-xs outline-none transition-all ${
                 darkMode 
-                  ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-accent' 
-                  : 'bg-white border-slate-300 text-slate-800 focus:border-accent'
+                  ? 'bg-neutral-950 border-white/10 text-slate-200 focus:border-accent' 
+                  : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-accent'
               }`}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 cursor-pointer"
+                title="Clear search"
               >
                 ×
               </button>
@@ -638,16 +654,16 @@ export const KanbanBoard: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsFilterDrawerOpen(prev => !prev)}
-            className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold border transition-all cursor-pointer ${
+            title="Toggle task filters"
+            className={`lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold border transition-all cursor-pointer ${
               isFilterDrawerOpen || activeFilterCount > 0
                 ? 'bg-accent text-white border-accent shadow-xs'
                 : darkMode
-                ? 'bg-slate-800 border-slate-700 text-slate-300'
+                ? 'bg-neutral-900 border-white/10 text-slate-300'
                 : 'bg-white border-slate-200 text-slate-700'
             }`}
           >
-            <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />
-            <span>Filters</span>
+            <ICON_MAP.FilterIcon className="w-3.5 h-3.5" />
             {activeFilterCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-white/25 text-white text-[10px] font-bold">
                 {activeFilterCount}
@@ -657,34 +673,36 @@ export const KanbanBoard: React.FC = () => {
 
           {/* Filter Chips & Selects: Always visible on lg+, collapsible drawer on < lg */}
           <div className={`${
-            isFilterDrawerOpen ? 'flex w-full pt-2 mt-1 border-t border-slate-200/70 dark:border-slate-800' : 'hidden'
-          } lg:flex lg:w-auto lg:pt-0 lg:mt-0 lg:border-t-0 items-center gap-2 flex-wrap`}>
+            isFilterDrawerOpen ? 'flex w-full pt-2 mt-1 border-t border-slate-200/70 dark:border-white/10' : 'hidden'
+          } lg:flex lg:w-auto lg:pt-0 lg:mt-0 lg:border-t-0 items-center gap-1.5 flex-wrap`}>
             <button
               onClick={() => setFilterMyTasks(!filterMyTasks)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all border cursor-pointer ${
+              title="Filter: Only My Tasks"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold transition-all border cursor-pointer ${
                 filterMyTasks
                   ? 'bg-accent text-white border-accent shadow-sm'
                   : darkMode 
-                    ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700' 
+                    ? 'bg-neutral-900 border-white/10 text-slate-300 hover:bg-neutral-800' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
               <ICON_MAP.UserIcon className="w-3.5 h-3.5" />
-              My Tasks
+              <span>Mine</span>
             </button>
 
             <button
               onClick={() => setFilterUnassigned(!filterUnassigned)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all border cursor-pointer ${
+              title="Filter: Unassigned Tasks"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold transition-all border cursor-pointer ${
                 filterUnassigned
                   ? 'bg-accent text-white border-accent shadow-sm'
                   : darkMode 
-                    ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700' 
+                    ? 'bg-neutral-900 border-white/10 text-slate-300 hover:bg-neutral-800' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
               <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" />
-              Unassigned
+              <span>Unassigned</span>
             </button>
 
             {/* Priority Filter Select */}
