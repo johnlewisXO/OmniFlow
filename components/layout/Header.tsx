@@ -4,6 +4,7 @@ import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
 import { AnimatedPopover } from '../shared/Modal';
+import { QuickUtilitiesDrawer } from '../shared/QuickUtilitiesDrawer';
 import { collabService, formatAccurateLastSeen } from '../../services/collabService';
 import soundService from '../../services/soundService';
 import { UserPresence, normalizeUserRole, WORKSPACE_ACCENT_PRESETS, WorkspaceAccentId } from '../../types';
@@ -147,7 +148,7 @@ export const Header: React.FC = () => {
     addToast('Status Broadcast Live', `Your status is now "${label}" across all connected teammates.`, 'info');
   };
 
-  // Deduplicated presences by userId for the header bar, strictly isolated to currentUser.organization_id
+  // Deduplicated presences by userId for the header bar: strictly excludes logged-in user, showing only other users in their organization!
   const uniquePresences = useMemo(() => {
     const myOrgId = currentUser?.organization_id;
     if (!currentUser || !myOrgId) return [];
@@ -155,8 +156,15 @@ export const Header: React.FC = () => {
     const map = new Map<string, UserPresence>();
     presences.forEach(p => {
       if (!p || !p.userId) return;
+      // Do NOT show the user who is logged in to that session, only other users in their organization
+      const isSelf =
+        p.userId === currentUser.id ||
+        Boolean(currentUser.email && p.userEmail && p.userEmail.toLowerCase() === currentUser.email.toLowerCase());
+      if (isSelf) {
+        return;
+      }
+
       // Enforce strict multi-tenant organization isolation
-      const isSelf = p.userId === currentUser.id;
       const matchesOrgId = p.organizationId === myOrgId;
       const isKnownOrgMember = users.some(
         u =>
@@ -165,7 +173,7 @@ export const Header: React.FC = () => {
             (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase()))
       );
 
-      if (!isSelf && !matchesOrgId && !isKnownOrgMember) {
+      if (!matchesOrgId && !isKnownOrgMember) {
         return;
       }
       if (p.organizationId && p.organizationId !== myOrgId) {
@@ -186,7 +194,7 @@ export const Header: React.FC = () => {
       }
     });
     return Array.from(map.values());
-  }, [presences, currentUser?.id, currentUser?.organization_id, users, lastSeenTick]);
+  }, [presences, currentUser?.id, currentUser?.email, currentUser?.organization_id, users, lastSeenTick]);
 
   const handleAddTaskClick = () => {
     if (!activeProject) {
@@ -198,6 +206,7 @@ export const Header: React.FC = () => {
 
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isUtilitiesDrawerOpen, setIsUtilitiesDrawerOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const themeMenuRef = useRef<HTMLDivElement>(null);
@@ -445,45 +454,23 @@ export const Header: React.FC = () => {
             </div>
           )}
 
-          {/* Next-Gen Spatial Multitasking & UX Quick Bar */}
-          <div className="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/70">
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_split_pane'))}
-              title="Toggle Split-Screen Dual-Pane Multitasking (Cmd+\)"
-              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition flex items-center gap-1 cursor-pointer"
-            >
-              <span>◫</span>
-              <span>Split</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_ambient_huddle'))}
-              title="Start / Toggle Persistent Ambient Voice & Screen Huddle"
-              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition flex items-center gap-1 cursor-pointer"
-            >
-              <span>🎧</span>
-              <span>Huddle</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_knowledge_graph'))}
-              title="Open Bi-Directional Backlinks & Workspace Knowledge Graph"
-              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 transition flex items-center gap-1 cursor-pointer"
-            >
-              <span>🕸️</span>
-              <span>Graph</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('omni_toggle_scratchpad'))}
-              title="Open Personal Scratchpad & Saved Filter Views (Cmd+J)"
-              className="px-2 py-1 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-amber-600 dark:hover:text-amber-400 transition flex items-center gap-1 cursor-pointer"
-            >
-              <span>📓</span>
-              <span>Scratchpad</span>
-            </button>
-          </div>
+          {/* Clean Quick Utilities Drawer Toggle Button */}
+          <button
+            type="button"
+            onClick={() => {
+              soundService.play('click_soft');
+              setIsUtilitiesDrawerOpen(true);
+            }}
+            className={`hidden sm:inline-flex p-2 rounded-full border transition-all cursor-pointer ${
+              darkMode
+                ? 'bg-neutral-900/80 hover:bg-neutral-800 border-white/10 text-slate-300 hover:text-white'
+                : 'bg-slate-100/90 hover:bg-slate-200/90 border-slate-200 text-slate-600 hover:text-slate-900'
+            }`}
+            title="Quick Utilities (Split Screen, Huddle, Knowledge Graph, Scratchpad)"
+            aria-label="Quick Utilities"
+          >
+            <ICON_MAP.Squares2X2Icon className="w-4 h-4 text-indigo-400" />
+          </button>
 
           {/* UI Sound Effects Toggle Button (sm+) */}
           <button
@@ -958,6 +945,13 @@ export const Header: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Slide-over Quick Utilities Drawer */}
+      <QuickUtilitiesDrawer
+        isOpen={isUtilitiesDrawerOpen}
+        onClose={() => setIsUtilitiesDrawerOpen(false)}
+        darkMode={darkMode}
+      />
     </header>
   );
 };

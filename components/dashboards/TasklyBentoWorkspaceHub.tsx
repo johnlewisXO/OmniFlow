@@ -46,6 +46,29 @@ const WIDGET_LABELS: Record<BentoWidgetId, { title: string; colSpanClass: string
   focus_timer_notes: { title: 'Focus Timer & Sticky Notes', colSpanClass: 'xl:col-span-4 md:col-span-12' },
 };
 
+const ROLE_DEFAULT_LAYOUTS: Record<UserRole, { order: BentoWidgetId[]; hidden: BentoWidgetId[] }> = {
+  [UserRole.OWNER]: {
+    order: ['project_status', 'task_overview', 'calendar_schedule', 'team_chat', 'meet_schedule', 'focus_timer_notes'],
+    hidden: ['meet_schedule', 'focus_timer_notes'],
+  },
+  [UserRole.ADMIN]: {
+    order: ['project_status', 'task_overview', 'team_chat', 'calendar_schedule', 'meet_schedule', 'focus_timer_notes'],
+    hidden: ['meet_schedule', 'focus_timer_notes'],
+  },
+  [UserRole.PROJECT_MANAGER]: {
+    order: ['project_status', 'task_overview', 'calendar_schedule', 'team_chat', 'meet_schedule', 'focus_timer_notes'],
+    hidden: ['meet_schedule'],
+  },
+  [UserRole.MEMBER]: {
+    order: ['task_overview', 'focus_timer_notes', 'team_chat', 'calendar_schedule', 'project_status', 'meet_schedule'],
+    hidden: ['meet_schedule'],
+  },
+  [UserRole.CLIENT_VIEWER]: {
+    order: ['project_status', 'calendar_schedule', 'task_overview', 'team_chat', 'meet_schedule', 'focus_timer_notes'],
+    hidden: ['team_chat', 'meet_schedule', 'focus_timer_notes'],
+  },
+};
+
 export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = ({
   roleBadgeLabel,
   customSubtitle,
@@ -68,15 +91,16 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
   } = useAppStore();
 
   const normalizedRole = normalizeUserRole(currentUser?.role);
+  const roleDefaults = ROLE_DEFAULT_LAYOUTS[normalizedRole] || ROLE_DEFAULT_LAYOUTS[UserRole.MEMBER];
 
   // Task Status Filter Pill State + Role-relevant My Tasks toggle
   const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all');
   const [onlyMyTasks, setOnlyMyTasks] = useState<boolean>(() => normalizedRole === UserRole.MEMBER);
   const [selectedGaugeProjectId, setSelectedGaugeProjectId] = useState<string>('all');
 
-  // Customizable Drag-and-Drop Bento Layout State
-  const layoutStorageKey = `omni_bento_layout_v2_${currentUser?.id || 'guest'}_${normalizedRole}`;
-  const hiddenStorageKey = `omni_bento_hidden_v2_${currentUser?.id || 'guest'}_${normalizedRole}`;
+  // Customizable Drag-and-Drop Bento Layout State (Role-tailored defaults)
+  const layoutStorageKey = `omni_bento_layout_v3_${currentUser?.id || 'guest'}_${normalizedRole}`;
+  const hiddenStorageKey = `omni_bento_hidden_v3_${currentUser?.id || 'guest'}_${normalizedRole}`;
 
   const [widgetOrder, setWidgetOrder] = useState<BentoWidgetId[]>(() => {
     if (typeof window !== 'undefined') {
@@ -90,7 +114,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         }
       } catch {}
     }
-    return DEFAULT_WIDGET_ORDER;
+    return roleDefaults.order;
   });
 
   const [hiddenWidgets, setHiddenWidgets] = useState<BentoWidgetId[]>(() => {
@@ -100,7 +124,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         if (raw) return JSON.parse(raw);
       } catch {}
     }
-    return [];
+    return roleDefaults.hidden;
   });
 
   const [isCustomizingLayout, setIsCustomizingLayout] = useState(false);
@@ -142,14 +166,14 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
   };
 
   const handleResetLayout = () => {
-    setWidgetOrder(DEFAULT_WIDGET_ORDER);
-    setHiddenWidgets([]);
+    setWidgetOrder(roleDefaults.order);
+    setHiddenWidgets(roleDefaults.hidden);
     if (typeof window !== 'undefined') {
       localStorage.removeItem(layoutStorageKey);
       localStorage.removeItem(hiddenStorageKey);
     }
     soundService.play('state_updated');
-    addToast('Dashboard Layout Reset', 'Restored default Taskly 32px Bento arrangement.', 'info');
+    addToast('Layout Reset', `Restored clean ${normalizedRole.replace(/_/g, ' ')} dashboard layout.`, 'info');
   };
 
   const handleMoveWidgetStep = (id: BentoWidgetId, dir: -1 | 1) => {
@@ -408,6 +432,80 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           icon: ICON_MAP.CalendarIcon,
           badgeBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-300',
           onClick: () => setActiveView('calendar_view'),
+        },
+      ];
+    }
+
+    if (normalizedRole === UserRole.ADMIN) {
+      return [
+        {
+          label: 'Team Members & Seats',
+          value: Math.max(1, users.length),
+          sub: 'Directory & Accounts',
+          icon: ICON_MAP.UsersIcon,
+          badgeBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-300',
+          onClick: () => setActiveView('team_management'),
+        },
+        {
+          label: 'RBAC Access Matrix',
+          value: '5 Roles',
+          sub: 'Access Control',
+          icon: ICON_MAP.CheckBadgeIcon,
+          badgeBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-300',
+          onClick: () => setActiveView('team_management'),
+        },
+        {
+          label: 'Active Projects',
+          value: projects.length,
+          sub: 'Managed Workspaces',
+          icon: ICON_MAP.FolderIcon,
+          badgeBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+          onClick: () => setActiveView('projects_overview'),
+        },
+        {
+          label: 'Platform Velocity',
+          value: `${ringMetrics.donePct}%`,
+          sub: `${statusCounts[TaskStatus.DONE]} Delivered`,
+          icon: ICON_MAP.CheckIcon,
+          badgeBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+          onClick: () => setActiveView('reports_view'),
+        },
+      ];
+    }
+
+    if (normalizedRole === UserRole.PROJECT_MANAGER) {
+      return [
+        {
+          label: 'In-Flight Sprint Scope',
+          value: inFlightCount,
+          sub: `${statusCounts[TaskStatus.IN_PROGRESS]} in progress`,
+          icon: ICON_MAP.RocketLaunchIcon,
+          badgeBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-300',
+          onClick: () => setActiveView('kanban'),
+        },
+        {
+          label: 'Sprint Velocity',
+          value: `${ringMetrics.donePct}%`,
+          sub: `${statusCounts[TaskStatus.DONE]} Completed`,
+          icon: ICON_MAP.CheckIcon,
+          badgeBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+          onClick: () => setActiveView('reports_view'),
+        },
+        {
+          label: 'Review & QA Queue',
+          value: statusCounts[TaskStatus.REVIEW],
+          sub: 'Needs Verification',
+          icon: ICON_MAP.ClipboardListIcon,
+          badgeBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+          onClick: () => setActiveView('kanban'),
+        },
+        {
+          label: 'Teammates Assigned',
+          value: Math.max(1, users.length),
+          sub: 'Capacity & Workload',
+          icon: ICON_MAP.UsersIcon,
+          badgeBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-300',
+          onClick: () => setActiveView('workload_capacity_view'),
         },
       ];
     }
@@ -1658,8 +1756,8 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         {widgetOrder.map(widgetId => renderBentoWidget(widgetId))}
       </div>
 
-      {/* 3. Icon-First Strategic & Competitive Modules Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 pt-1">
+      {/* 3. Icon-First Strategic Modules Bar (Role-filtered) */}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${normalizedRole === UserRole.CLIENT_VIEWER ? 'xl:grid-cols-3' : 'xl:grid-cols-5'} gap-3 pt-1`}>
         {[
           {
             id: 'whiteboard_view' as const,
@@ -1668,6 +1766,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             tooltip: 'Collaborative FigJam Whiteboard, Frames, Stickies & Live Sync',
             icon: ICON_MAP.SparklesIcon,
             accentClass: 'bg-rose-500/15 text-rose-500 border-rose-500/30',
+            allowedRoles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.MEMBER, UserRole.CLIENT_VIEWER],
           },
           {
             id: 'docs_wiki_view' as const,
@@ -1676,6 +1775,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             tooltip: 'Project PRDs, Engineering Specs & 1-Click Task Conversion',
             icon: ICON_MAP.DocumentTextIcon,
             accentClass: 'bg-indigo-500/15 text-indigo-500 border-indigo-500/30',
+            allowedRoles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.MEMBER, UserRole.CLIENT_VIEWER],
           },
           {
             id: 'okrs_goals_view' as const,
@@ -1684,6 +1784,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             tooltip: 'Strategic Objectives Linked to Live Sprint Velocity',
             icon: ICON_MAP.TagIcon,
             accentClass: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30',
+            allowedRoles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.CLIENT_VIEWER],
           },
           {
             id: 'triage_intake_view' as const,
@@ -1692,6 +1793,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             tooltip: 'Incoming Requests, Bug Triage & Sprint Routing',
             icon: ICON_MAP.ExclamationTriangleIcon,
             accentClass: 'bg-amber-500/15 text-amber-500 border-amber-500/30',
+            allowedRoles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.MEMBER],
           },
           {
             id: 'workload_capacity_view' as const,
@@ -1700,8 +1802,11 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             tooltip: 'Team Capacity Heatmap & Focus Timer Telemetry',
             icon: ICON_MAP.ClockIcon,
             accentClass: 'bg-cyan-500/15 text-cyan-500 border-cyan-500/30',
+            allowedRoles: [UserRole.OWNER, UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.MEMBER],
           },
-        ].map(mod => {
+        ]
+          .filter(mod => mod.allowedRoles.includes(normalizedRole))
+          .map(mod => {
           const ModIcon = mod.icon;
           return (
             <button

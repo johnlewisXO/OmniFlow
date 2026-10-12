@@ -1,63 +1,131 @@
-# Icon-First UI Transformation, Obsidian/Alabaster Theme Palette, Enriched Notifications & Modern Teams Hub
+# Workspace UI Simplification & Role-Tailored Dashboard Architecture
 
-## 1. Overview & Objectives
-We will upgrade **Omni Flow** across five interconnected areas based on your design references and selections:
+Streamline the entire platform interface by removing redundant header clutter, isolating top-nav presence to external teammates, consolidating secondary tools into an on-demand slide-over drawer, and restructuring dashboards into role-tailored, high-clarity Bento grids.
 
-1. **Global Search Input Icon & Text Overlap Fix (`index.html` & All Search Inputs)**:
-   - **Root Cause Identified**: In `index.html`, the global CSS rule `input:not([type="checkbox"])... { padding: 0.75rem 1.1rem !important; }` forced a fixed `1.1rem` (`17.6px`) left padding on all inputs, overriding Tailwind's `pl-8`, `pl-9`, `pl-10`, and `pl-11` classes and causing placeholder/input text to collide with left-positioned magnifying glass icons (`left-3`).
-   - **Fix**: Remove `!important` from horizontal input padding in `index.html`, add explicit `.pl-8` / `.pl-9` / `.pl-10` / `.pl-11` / `.pr-9` / `.pr-10` utility preservation rules, and audit every search input across `TeamsChatPage`, `Header`, `Sidebar`, `KanbanBoard`, `InboxPage`, `TeamManagementPage`, `ReportsPage`, `ProjectDocsWikiPage`, and `TriageIntakePage` so icons and text have crisp, non-overlapping spacing.
+## User Review & Critical Decisions
 
-2. **True Obsidian Black Dark Mode & Studio Alabaster Light Mode (`index.html` & Component Surfaces)**:
-   - **Dark Mode (Obsidian Black)**: Inspired by your "HYPER" dark mode reference and modern Linear/Vercel dark themes—uses a deep pitch-black/obsidian canvas (`#050507` / `#000000` base), sleek carbon-black elevated panels (`rgba(12, 13, 18, 0.88)`), and crisp hairline borders (`rgba(255, 255, 255, 0.08)`).
-   - **Light Mode (Studio Alabaster)**: Inspired by your "Snazzy Studio", "7CHAT", and "Sofia" references—uses a warm, gallery-clean Studio Alabaster background (`#F4F4F6` / `#F6F5F2`) paired with pure `#FFFFFF` cards and subtle `rgba(15, 23, 42, 0.07)` borders for effortless visual hierarchy.
+> [!IMPORTANT]
+> The following design decisions were aligned and confirmed via interactive consultation:
+> - **Dashboard Simplification Strategy**: Clean Bento layout displaying role-tailored, high-priority widgets only (reducing cognitive load for each specific role).
+> - **Visual Aesthetics & Rounding**: Soft pill capsules, generous rounded cards (`28px`–`32px`), unified high-contrast charts, and single-elevation surfaces adhering to the Universal Frontend Design Constitution.
+> - **Secondary Utilities Placement**: The removed tools (`Split`, `Huddle`, `Graph`, `Scratchpad`) will reside inside a discreet slide-over "Quick Utilities" drawer accessible from a single header button or Command Palette (`⌘K`), keeping the primary top bar clean and minimal.
 
-3. **Icon-First UI Across Dashboards, Analytics Cards & Toolbars**:
-   - **Bento & KPI Cards (`TasklyBentoWorkspaceHub.tsx`, `ReportsPage.tsx`, `InboxPage.tsx`)**: Replace wordy multi-line subtitles and verbose button labels with compact, high-signal icon badges, `tabular-nums` primary metrics, and clean 1-line labels with hover tooltips.
-   - **Action Toolbars (`KanbanBoard.tsx`, `Header.tsx`, `ReportsPage.tsx`, `ProjectDocsWikiPage.tsx`, `OKRsGoalsPage.tsx`, `TriageIntakePage.tsx`, `WorkloadCapacityPage.tsx`)**: Convert secondary action buttons, view mode switchers, and export/customize controls into **icon-first buttons** with instant hover tooltips (`title` + custom tooltip pills), keeping concise text only on primary CTAs.
-
-4. **Enriched Notification Feed (`InboxPage.tsx`, `Header.tsx`) & Live Toasts (`App.tsx`)**:
-   - **Rich Metadata & Diff Pills**: Each notification item and live toast displays:
-     - **Actor Avatar / Category Icon Badge** (`Task`, `Mention`, `Chat`, `Sprint`, `Team`, `Security`, `Calendar`).
-     - **Contextual Entity Pill** (Project name, `#channel`, or Role badge) + **Status/Priority Diff Transition** (e.g., `To Do → In Progress` or `Priority: Critical`) when applicable.
-     - **Relative + Exact Timestamp** (`2m ago · 14:32`).
-   - **1-Click Inline Quick Actions**: Hovering or viewing any notification/toast provides instant icon-first actions: **Open Target (`↗`)**, **Quick Reply / View Thread (`💬`)**, **1-Click Undo (`↶`)**, and **Mark Read (`✓`)**.
-
-5. **Modernized Teams Hub (`TeamsChatPage.tsx`) — Mobile, Tablet & Desktop**:
-   - **Channels & DMs Default View on Mobile & Tablet**: Initialize `mobilePaneView` to `'list'` so mobile and tablet users land directly on the Channels & Direct Messages directory first, and tapping any channel or teammate smoothly opens the conversation with a prominent `←` back button and unread badge counter.
-   - **Left Directory Pane Upgrades (Inspired by "Snazzy Studio", "7CHAT" & "Sofia" Screenshots)**:
-     - **"Online Now" Horizontal Avatar Strip** at the top of the directory for 1-tap direct messaging with online teammates.
-     - **Pinned Favourites Section** (star any channel or DM to pin it to `Favourites`) + collapsible `Channels` and `Direct Messages` groups with last-message previews, timestamps, and unread count badges.
-   - **Center Conversation Pane Upgrades**:
-     - **Header Sub-Tabs (`Messages | Canvas | Files & Links`)**: Switch seamlessly between the live message stream, an embedded project **Co-Whiteboard Canvas**, and a **Shared Files & Links** gallery right inside the channel/DM!
-     - **Inline Quote-Reply Blocks (`↩`)**: Click the reply icon on any message to quote-reply with a styled vertical quote bar (matching the "Sofia Petrovna" reference screenshot), plus rich link/board cards and icon-first composer actions (`⚡`, `😊`, `@`, `📎`, `📹`, `🎙️`, `➤`).
-   - **Right Collapsible "Details" Inspector Drawer (Inspired by "Snazzy Studio" & "HYPER" Screenshots)**:
-     - Toggleable **Details (`ⓘ`)** drawer on desktop/tablet with segmented tabs (`Info | Pins | Files | Tasks`) displaying channel creator, creation date, active status, linked project tasks, pinned messages, shared media grid, and member photo cards.
+- **Confirmed Decision 1**: Filter the header avatar stack to strictly exclude the current logged-in user, showing only *other* active team members in their organization.
+- **Confirmed Decision 2**: Remove the four static button clusters (`◫ Split`, `🎧 Huddle`, `🕸️ Graph`, `📓 Scratchpad`) from the header top bar.
+- **Confirmed Decision 3**: Deliver role-specific dashboard views: Executive/Owner (Portfolio & Goals), Project Manager (Sprint Velocity & Workload), Member/Engineer (My Tasks & Focus), Admin (Governance & Directory), and Client (Milestones & Deliverables).
 
 ---
 
-## 2. Visual & Spatial Architecture (Frontend Design Guidelines)
-- **60-30-10 Surface & Contrast Discipline**:
-  - Dark Mode: 60% `#050507` obsidian canvas, 30% `#0D0F14` carbon panels with `1px solid rgba(255,255,255,0.08)`, 10% workspace accent (`var(--accent-hex)`).
-  - Light Mode: 60% `#F4F4F6` studio alabaster canvas, 30% `#FFFFFF` elevated panels with `1px solid rgba(15,23,42,0.07)`, 10% workspace accent.
-- **Icon-First & Single-Line Discipline**: All toolbar controls use icon-only or icon + 1-word single-line buttons (`whitespace-nowrap shrink-0`) with accessible tooltips. All metrics, counters, and timestamps enforce `tabular-nums`.
+## 1. Overview & Core Concept
+
+### What It Does
+1. **Header Cleanup & Organization Teammates Isolation**: Refactors the top navigation bar into a clean 3-zone contract. The presence avatar stack strictly excludes the current logged-in user, showing only other teammates currently active in the organization.
+2. **Header Decluttering**: Eliminates the four bulky utility buttons (`Split`, `Huddle`, `Graph`, `Scratchpad`) from the top navigation bar. In their place, a single sleek `⚡ Quick Utilities` icon button opens an animated slide-over drawer housing these multitasking tools.
+3. **Role-Tailored Bento Dashboards**: Restructures `TasklyBentoWorkspaceHub` so each user role (`OWNER`, `ADMIN`, `PROJECT_MANAGER`, `MEMBER`, `CLIENT_VIEWER`) receives an intentional, uncluttered view of only the metrics and widgets relevant to their daily workflow.
+4. **Visual Polish & Anti-Clutter Pass**: Refactors card geometry across all pages to generous 28px/32px super-rounded corners, clean hairline borders (`border-white/10` in dark mode, `border-slate-200/80` in light mode), unboxed text metadata, and unified interactive charts.
+
+### Target Audience & Persona Workflows
+- **Owner / Executive**: High-level portfolio progress, company delivery velocity, OKR rollups, and macro financial/time metrics without individual ticket clutter.
+- **Project Manager**: Sprint burndown trajectory, column WIP bottlenecks, team capacity balance, and milestone delivery dates.
+- **Engineer / Member**: "My Assigned Tasks" priority queue, integrated focus timer, active sprint items, and recent review requests.
+- **Admin**: Member provisioning, security audit events, seat allocations, and RBAC matrix governance.
+- **Client / Stakeholder**: Milestone roadmap, completed deliverables, and review items without internal agile overhead.
 
 ---
 
-## 3. File-by-File Implementation Steps
+## 2. Technical Architecture & Component Structure
 
-1. **`index.html`**:
-   - Fix global input padding override so `.pl-8`, `.pl-9`, `.pl-10`, `.pl-11`, `.pl-12` and search inputs never overlap icons.
-   - Upgrade `html.dark` and `:root` (light mode) CSS variables and `.glass-panel` / `aside` / `header` surfaces to the **True Obsidian Black** (`#050507` / `#0C0E14`) and **Studio Alabaster** (`#F4F4F6` / `#FFFFFF`) aesthetic while preserving all 6 user-selectable workspace accents.
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             TOP NAVIGATION BAR                              │
+│ ┌──────────────────────┐  ┌─────────────────────────┐  ┌──────────────────┐ │
+│ │ Project Breadcrumb / │  │ Teammates Presence (Ex- │  │ Single Utilities │ │
+│ │ Search Command (⌘K)  │  │ cludes Current User)    │  │ Drawer + Profile │ │
+│ └──────────────────────┘  └─────────────────────────┘  └─────────┬────────┘ │
+└──────────────────────────────────────────────────────────────────┼──────────┘
+                                                                   │ (Click)
+                                                                   ▼
+                                          ┌───────────────────────────────────┐
+                                          │     QUICK UTILITIES DRAWER        │
+                                          │ ┌───────────┐       ┌───────────┐ │
+                                          │ │ ◫ Split   │       │ 🎧 Huddle │ │
+                                          │ └───────────┘       └───────────┘ │
+                                          │ ┌───────────┐       ┌───────────┐ │
+                                          │ │ 🕸️ Graph   │       │ 📓 Notes  │ │
+                                          │ └───────────┘       └───────────┘ │
+                                          └───────────────────────────────────┘
 
-2. **`components/chat/TeamsChatPage.tsx`**:
-   - Set default `mobilePaneView` to `'list'` so Channels/DMs selection is the default view on mobile & tablet.
-   - Add the **"Online Now" horizontal avatar strip** and **Favourites** group in the left sidebar.
-   - Add **Conversation Header Sub-Tabs (`Messages | Canvas | Files`)**, **Message Quote-Reply (`replyingToMessage`)** with inline quoted message blocks, and an **Icon-First Composer Toolbar**.
-   - Add the collapsible right **Channel/DM Details Inspector Drawer (`Info | Pins | Files | Tasks`)** with member cards, shared media, and linked project tasks.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         ROLE-TAILORED BENTO CANVAS                          │
+│                                                                             │
+│  [Role KPI Strip: 4 Focused Tabular Metric Capsules with Icons & Trends]     │
+│                                                                             │
+│  ┌───────────────────────────────┐     ┌──────────────────────────────────┐ │
+│  │ Primary Role Module           │     │ Secondary Role Module            │ │
+│  │ (e.g. My Tasks Queue for      │     │ (e.g. Velocity Gauge for PM;     │ │
+│  │ Members; Portfolio for Execs) │     │ OKR Progress for Execs)          │ │
+│  └───────────────────────────────┘     └──────────────────────────────────┘ │
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │ Compact Strategic Quick-Nav (Docs, Whiteboard, Heatmap, Triage)        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-3. **`App.tsx` & `components/inbox/InboxPage.tsx` & `components/layout/Header.tsx`**:
-   - Upgrade `ToastContainer` in `App.tsx` and notification feed cards in `InboxPage.tsx` & `Header.tsx` with enriched metadata (actor avatar/initials, category icon badge, project/channel context tag, status/priority diff pill, exact + relative time, and icon-first quick action buttons).
-   - Ensure all search bars in `Header.tsx`, `Sidebar.tsx`, and `InboxPage.tsx` have proper icon spacing (`pl-10`).
+---
 
-4. **`components/dashboards/TasklyBentoWorkspaceHub.tsx`, `components/reports/ReportsPage.tsx`, `components/tasks/KanbanBoard.tsx`**:
-   - Streamline KPI capsules, Bento cards, and action toolbars to an **icon-first** presentation with concise labels, feature-accurate icons, and hover tooltips.
+## 3. Implementation Phases & Scope
+
+### Phase 1: Header Decluttering & Logged-In User Filtering
+- **File**: `components/layout/Header.tsx`
+- **Actions**:
+  1. Filter `uniquePresences` to explicitly exclude `p.userId === currentUser.id` and email matches with `currentUser.email`. Ensure the tooltip reads "Other active teammates in [Org Name]".
+  2. Remove the inline `Next-Gen Spatial Multitasking & UX Quick Bar` containing `◫ Split`, `🎧 Huddle`, `🕸️ Graph`, and `📓 Scratchpad`.
+  3. Introduce a compact, elegant icon button (`SparklesIcon` or `Squares2X2Icon`) with tooltip "Quick Utilities & Tools" that opens the slide-over drawer.
+  4. Ensure the Top Navigation adheres strictly to the single-row, three-zone contract with clean hairline borders and no overflowing badges.
+
+### Phase 2: Slide-Over Quick Utilities Drawer
+- **Files**: `components/layout/Header.tsx`, `components/shared/QuickUtilitiesDrawer.tsx`
+- **Actions**:
+  1. Create a dedicated `QuickUtilitiesDrawer` component with an animated backdrop and slide-over panel.
+  2. House the 4 secondary tools with rich descriptions, keyboard shortcuts, and launch buttons:
+     - **Split Dual-Pane Multitasking** (`⌘\`)
+     - **Ambient Voice & Screen Huddle**
+     - **Knowledge Backlinks & Graph**
+     - **Personal Scratchpad & Quick Notes** (`⌘J`)
+  3. Ensure each button cleanly dispatches the existing window custom events (`omni_toggle_split_pane`, `omni_toggle_ambient_huddle`, `omni_toggle_knowledge_graph`, `omni_toggle_scratchpad`).
+
+### Phase 3: Role-Tailored Dashboard Bento Layouts
+- **File**: `components/dashboards/TasklyBentoWorkspaceHub.tsx`
+- **Actions**:
+  1. Define curated default widget sets and order per role:
+     - **Owner / Exec**: `['project_status', 'calendar_schedule', 'task_overview', 'team_chat']`
+     - **Project Manager**: `['project_status', 'task_overview', 'calendar_schedule', 'team_chat']`
+     - **Member / Engineer**: `['task_overview', 'focus_timer_notes', 'team_chat', 'calendar_schedule']`
+     - **Client / Viewer**: `['project_status', 'calendar_schedule', 'task_overview']`
+  2. Remove noisy micro-labels, redundant headers, and decorative pulsing dots.
+  3. Simplify the top KPI strip into 4 crisp, non-cluttered capsules with clear icons, tabular numbers, and clean sub-labels.
+  4. Polish the bottom strategic module cards to be sleek, unified 1-line cards with clear icons and metric badges.
+
+### Phase 4: Across-the-Board UI Simplification & Roundness Alignment
+- **Files**: `components/tasks/KanbanBoard.tsx`, `components/reports/ReportsPage.tsx`, `components/team/TeamManagementPage.tsx`
+- **Actions**:
+  1. Standardize card and container border radius to generous `rounded-[28px]` or `rounded-[32px]` for major sections and `rounded-2xl` for child items.
+  2. Verify that metadata uses clean unboxed text rather than layered pill badges.
+  3. Ensure dark mode surfaces consistently use True Obsidian Black (`#050507` / `#0C0C10`) with `border-white/10`, and light mode surfaces use Studio Alabaster (`#F4F4F6` / `#FFFFFF`) with `border-slate-200/80`.
+
+---
+
+## 4. Verification & Testing Plan
+
+1. **Top Nav Avatar Stack Verification**:
+   - Verify that when logged in as user `A`, user `A`'s own avatar does NOT appear in the top-nav avatar stack.
+   - Verify that other active members from the same organization appear with live presence dots.
+2. **Header Tool Buttons Check**:
+   - Confirm that the buttons `◫ Split`, `🎧 Huddle`, `🕸️ Graph`, and `📓 Scratchpad` are no longer in the header bar.
+   - Confirm that clicking the Quick Utilities button opens the slide-over drawer and each action triggers its corresponding feature.
+3. **Role-Based Dashboard Check**:
+   - Switch user roles (e.g. Owner vs Member vs PM vs Client) and verify that the dashboard rearranges to display only relevant widgets and KPIs without clutter.
+4. **Compilation & Responsive Check**:
+   - Run `compile_applet` to ensure zero TypeScript or bundling errors.
+   - Verify layout on mobile (<768px), tablet (768px-1024px), and desktop (>1024px).
