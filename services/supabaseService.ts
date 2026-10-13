@@ -756,10 +756,10 @@ const supabaseService = {
       if (rawDbRow) {
         let resolvedRow = { ...rawDbRow };
 
-        // Check if server backend has an authoritative role for this user across refreshes
+        // Check if server backend has an authoritative role for this user across refreshes (dual-keyed by UUID and email)
         if (typeof window !== 'undefined' && sessionUser.id) {
           try {
-            const serverRoleRes = await fetch(`/api/users/${encodeURIComponent(sessionUser.id)}/role`);
+            const serverRoleRes = await fetch(`/api/users/${encodeURIComponent(sessionUser.id)}/role?email=${encodeURIComponent(cleanEmail)}`);
             if (serverRoleRes.ok) {
               const serverData = await serverRoleRes.json();
               if (serverData?.role) {
@@ -768,6 +768,9 @@ const supabaseService = {
                   resolvedRow.organization_id = serverData.organizationId;
                 }
                 localStorage.setItem(`axon_user_role_${sessionUser.id}`, serverData.role);
+                if (cleanEmail) {
+                  localStorage.setItem(`axon_user_role_${cleanEmail}`, serverData.role);
+                }
               }
             }
           } catch {}
@@ -1550,8 +1553,11 @@ const supabaseService = {
       );
       if (error) throw error;
       return ((data as any[]) || []).map((u: any) => {
-        const normalized = normalizeAppUser(u);
-        if (serverRolesMap[u.id] || u.db_synced) {
+        const uEmail = (u.email || '').trim().toLowerCase();
+        const serverRoleEntry = serverRolesMap[u.id] || (uEmail ? serverRolesMap[uEmail] : null);
+        const resolvedRole = serverRoleEntry?.role || u.role;
+        const normalized = normalizeAppUser({ ...u, role: resolvedRole });
+        if (serverRoleEntry || u.db_synced) {
           normalized.db_synced = true;
         }
         return normalized;
@@ -1611,8 +1617,19 @@ const supabaseService = {
     return data;
   },
   
-  updateUserRole: async (userId: string, newRole: UserRole, orgId: string): Promise<AppUserType | null> => {
+  updateUserRole: async (userId: string, newRole: UserRole, orgId: string, email?: string): Promise<AppUserType | null> => {
     const normalizedRole = normalizeUserRole(newRole);
+    let cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail && typeof window !== 'undefined') {
+      try {
+        const rawProfile = localStorage.getItem(`omni_user_profile_${userId}`);
+        if (rawProfile) {
+          const parsed = JSON.parse(rawProfile);
+          if (parsed.email) cleanEmail = parsed.email.trim().toLowerCase();
+        }
+      } catch {}
+    }
+
     // Persist immediately in local extension store for instant resilience
     saveUserProfileExtension(userId, { roleOverride: normalizedRole, organization_id: orgId });
 
@@ -1662,13 +1679,13 @@ const supabaseService = {
       }
     }
 
-    // 4. Synchronize with server backend API to guarantee DB persistence across page refreshes
+    // 4. Synchronize with server backend API (both UUID and email) to guarantee DB persistence across page refreshes
     let backendSynced = false;
     try {
       const resp = await fetch(`/api/users/${encodeURIComponent(userId)}/role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: normalizedRole, organizationId: orgId }),
+        body: JSON.stringify({ role: normalizedRole, organizationId: orgId, email: cleanEmail }),
       });
       if (resp.ok) {
         backendSynced = true;
@@ -1677,12 +1694,15 @@ const supabaseService = {
       console.warn('[supabaseService.updateUserRole] Backend sync notification:', e);
     }
 
-    // Persist in authoritative localStorage cache
+    // Persist in authoritative localStorage cache (dual-keyed by UUID and email)
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(`axon_user_role_${userId}`, normalizedRole);
+        if (cleanEmail) {
+          localStorage.setItem(`axon_user_role_${cleanEmail}`, normalizedRole);
+        }
         window.dispatchEvent(new CustomEvent('omni_role_updated', {
-          detail: { userId, role: normalizedRole, organizationId: orgId, dbSynced: true }
+          detail: { userId, email: cleanEmail, role: normalizedRole, organizationId: orgId, dbSynced: true }
         }));
       } catch {}
     }

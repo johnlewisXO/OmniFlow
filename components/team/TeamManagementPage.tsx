@@ -339,7 +339,7 @@ export const TeamManagementPage: React.FC = () => {
             actor_id: creator?.id || 'system',
             actor_name: creator?.full_name || creator?.email || 'Workspace Member',
             actor_email: creator?.email,
-            action: (t.status as any) === 'DONE' || (t.status as any) === TaskStatus.DONE ? 'task_completed' : (t.status as any) === 'IN_PROGRESS' || (t.status as any) === TaskStatus.IN_PROGRESS ? 'task_status_transition' : 'task_updated',
+            action: String(t.status).toUpperCase() === 'DONE' ? 'task_completed' : String(t.status).toUpperCase() === 'IN_PROGRESS' ? 'task_status_transition' : 'task_updated',
             target_type: 'task',
             target_id: t.id,
             target_name: t.title,
@@ -1323,10 +1323,10 @@ export const TeamManagementPage: React.FC = () => {
                             {(syncedUserIds.has(user.id) || user.db_synced) && (
                               <span
                                 title="Role synchronized and persistent in backend database"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs"
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs"
                               >
-                                <ICON_MAP.CheckCircleIcon className="w-3 h-3 text-emerald-400" />
-                                <span>Synced to DB</span>
+                                <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>✓ DB Verified &amp; Synced</span>
                               </span>
                             )}
                           </div>
@@ -1338,13 +1338,15 @@ export const TeamManagementPage: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <select
                                 value={activeSelectRole}
-                                onChange={e => {
+                                onChange={async e => {
                                   const nextRole = normalizeUserRole(e.target.value as UserRole);
+                                  if (nextRole === normalizedUserRole) return;
                                   setEditingUserId(user.id);
                                   setSelectedRoleForUser(nextRole);
+                                  await handleRoleChange(user.id, nextRole);
                                 }}
                                 disabled={(isUpdatingUserRole && editingUserId === user.id) || isThisUserBeingDeleted}
-                                className={`text-xs rounded-xl border px-3 py-1.5 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${
+                                className={`text-xs rounded-xl border px-3 py-1.5 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer ${
                                   darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                                 }`}
                               >
@@ -1354,6 +1356,9 @@ export const TeamManagementPage: React.FC = () => {
                                   </option>
                                 ))}
                               </select>
+                              {isUpdatingUserRole && editingUserId === user.id && (
+                                <SpinnerIcon className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                              )}
                             </div>
                           ) : (
                             <span className="text-xs italic text-slate-400">

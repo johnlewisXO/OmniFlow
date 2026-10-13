@@ -4,5 +4,25 @@
     "organizationId": "test-org",
     "updatedBy": "system",
     "updatedAt": "2026-10-13T17:07:08.469Z"
+  },
+  "e259ef9e-dc06-4a68-af2d-33cb4c5b5171": {
+    "role": "ADMIN",
+    "organizationId": "be2f60da-097a-47a3-859c-571c9139c14d",
+    "updatedBy": "system",
+    "updatedAt": "2026-10-13T17:18:49.162Z"
+  },
+  "test-uuid-1": {
+    "userId": "test-uuid-1",
+    "email": "test@example.com",
+    "role": "PROJECT_MANAGER",
+    "updatedBy": "system",
+    "updatedAt": "2026-10-13T17:47:35.145Z"
+  },
+  "test@example.com": {
+    "userId": "test-uuid-1",
+    "email": "test@example.com",
+    "role": "PROJECT_MANAGER",
+    "updatedBy": "system",
+    "updatedAt": "2026-10-13T17:47:35.145Z"
   }
 }

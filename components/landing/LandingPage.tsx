@@ -249,22 +249,26 @@ const LandingPage: React.FC = () => {
               <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/65 border border-white/[0.08] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
                   <span className="text-xs font-mono text-emerald-400">
-                    02. Mobile-First Thumb Zone
+                    02. Segmented Mobile Switcher &amp; Thumb Zone
                   </span>
                   <h3 className="text-xl font-bold text-white">
-                    5-Slot Bottom Dock &amp; Slide-Over Sheets
+                    Segmented Tabs (Overview, Schedule, Chat) with Zero Overlap
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    On phones and tablets, navigation shifts to a fixed glassmorphic bottom dock
-                    paired with single-column swipeable Kanban lanes and 44px touch targets.
+                    On phones and tablets, the workspace dynamically isolates dashboard modules into instant segmented switcher tabs, eliminating squishing and element collision with 100% full-width layout precision.
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl bg-[#070A12] border border-white/[0.08] flex items-center justify-around text-[11px] font-medium text-slate-300">
-                  <span className="text-indigo-400 font-bold">Overview</span>
-                  <span>Projects</span>
-                  <span>Co-Pilot</span>
-                  <span>Chat</span>
-                  <span>More ↑</span>
+                <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                  <img
+                    src="/images/landing_mobile_studio.jpg"
+                    alt="Mobile and Tablet Segmented Switcher Tabs Mockup"
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent flex items-end p-3">
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                      ✓ Phone &amp; Tablet: Overview · Schedule · Team Chat · Focus
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -272,19 +276,26 @@ const LandingPage: React.FC = () => {
               <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/65 border border-white/[0.08] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
                   <span className="text-xs font-mono text-indigo-400">
-                    03. Predictive Sprint Velocity
+                    03. Autonomous AI Co-Pilot &amp; Risk Radar
                   </span>
                   <h3 className="text-xl font-bold text-white">
                     Fibonacci Burndown &amp; Capacity Rebalancing
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    Track real-time story points across active sprints and let the AI Capacity
-                    Balancer redistribute overloaded queues in one click.
+                    Track real-time story points across active sprints, generate multi-phase architecture roadmaps, and monitor automated risk radar telemetry in one unified view.
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.07] font-mono text-xs text-slate-300 flex items-center justify-between">
-                  <span>Sprint 14 Burndown</span>
-                  <span className="text-emerald-400 font-bold">92% On Track</span>
+                <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                  <img
+                    src="/images/landing_copilot_studio.jpg"
+                    alt="AI Project Management Copilot 3D Studio"
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent flex items-end p-3">
+                    <span className="text-[10px] font-mono text-indigo-300 font-bold">
+                      Sprint 14 Burndown · 92% On Track
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -292,27 +303,34 @@ const LandingPage: React.FC = () => {
               <div className="lg:col-span-2 p-6 sm:p-8 rounded-2xl bg-slate-900/65 border border-white/[0.08] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
                   <span className="text-xs font-mono text-indigo-400">
-                    04. Studio-Grade 1080p WebRTC &amp; Team Chat
+                    04. Studio-Grade 1080p WebRTC &amp; Screen Sharing
                   </span>
                   <h3 className="text-xl sm:text-2xl font-bold text-white">
-                    Lossless 48kHz Opus Audio, 1080p60 Screen Share &amp; Live AI Call Scribe
+                    Lossless 48kHz Opus Audio, 1080p60 Mesh &amp; Collaborative Code Canvas
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-                    Launch instant video calls from any channel or calendar event. Switch between
-                    1080p and 720p HD on the fly, share full-motion 60fps application windows, and
-                    convert call discussions into assigned Kanban tasks without leaving the call.
+                    Launch instant video standups from any channel or calendar event. Share application windows at 60fps, eliminate echo with hardware-level AEC, and turn live discussions into tracked deliverables without context switching.
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-slate-300">
-                  <span className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-                    48kHz Stereo Opus (128 kbps)
-                  </span>
-                  <span className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-                    Hardware AEC + Echo Guard
-                  </span>
-                  <span className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-                    Resilient In-Call Chat &amp; Captions
-                  </span>
+                <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                  <img
+                    src="/images/landing_webrtc_studio.jpg"
+                    alt="1080p WebRTC Video Studio and Collaborative Canvas"
+                    className="w-full h-56 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent flex items-end justify-between p-4">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-300">
+                      <span className="px-2.5 py-1 rounded bg-black/60 border border-white/15">
+                        48kHz Stereo Opus
+                      </span>
+                      <span className="px-2.5 py-1 rounded bg-black/60 border border-white/15">
+                        Hardware AEC
+                      </span>
+                      <span className="px-2.5 py-1 rounded bg-black/60 border border-white/15">
+                        1080p60 Adaptive Mesh
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -78,6 +78,7 @@ export const HeroSection: React.FC = () => {
   const [selectedPromptIdx, setSelectedPromptIdx] = useState(0);
   const [echoGuardActive, setEchoGuardActive] = useState(true);
   const [hdMode, setHdMode] = useState<'1080p' | '720p'>('1080p');
+  const [previewMode, setPreviewMode] = useState<'interactive' | 'cinematic'>('interactive');
   const [activeRuleIds, setActiveRuleIds] = useState<Record<string, boolean>>({
     r1: true,
     r2: true,
@@ -218,30 +219,106 @@ export const HeroSection: React.FC = () => {
               </span>
             </div>
 
-            {/* 4 Switchable Studio Preview Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
-              {studioTabs.map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-                    activeTab === tab.id
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                  }`}
-                >
-                  <span className="font-mono text-[11px] opacity-75">{tab.number}.</span>
-                  <span>{tab.label}</span>
-                </button>
-              ))}
+            {/* Preview Mode Switcher (Interactive Simulator vs 4K Obsidian Render) */}
+            <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-full border border-white/10">
+              <button
+                type="button"
+                onClick={() => setPreviewMode('interactive')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  previewMode === 'interactive'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                ⚡ Live Simulator
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode('cinematic')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  previewMode === 'cinematic'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                💎 4K Obsidian Render
+              </button>
             </div>
+
+            {/* 4 Switchable Studio Preview Tabs (Active in interactive mode) */}
+            {previewMode === 'interactive' && (
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
+                {studioTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                      activeTab === tab.id
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <span className="font-mono text-[11px] opacity-75">{tab.number}.</span>
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Studio Stage Body */}
           <div className="p-4 sm:p-6 lg:p-8 bg-gradient-to-b from-[#0B101E]/90 to-[#070A12]/95 min-h-[420px]">
+            {/* CINEMATIC 4K HIGH-RES VIEW */}
+            {previewMode === 'cinematic' && (
+              <div className="space-y-4">
+                <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black">
+                  <img
+                    src="/images/landing_hero_preview.jpg"
+                    alt="Omni Flow Dark Obsidian SaaS Workspace Studio 4K Preview"
+                    className="w-full h-auto object-cover rounded-2xl"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent pointer-events-none" />
+                  
+                  {/* Floating Glassmorphic HUD Badges */}
+                  <div className="absolute top-4 left-4 p-3 rounded-xl bg-slate-900/85 backdrop-blur-md border border-white/15 shadow-xl text-left hidden sm:block">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[11px] font-mono font-bold text-white">PROJECT OMEGA: SPRINT 14</span>
+                    </div>
+                    <div className="text-[10px] text-slate-300 mt-0.5">Velocity Target: 75% · Real-time 68% Burndown</div>
+                  </div>
+
+                  <div className="absolute top-4 right-4 p-3 rounded-xl bg-slate-900/85 backdrop-blur-md border border-white/15 shadow-xl text-right hidden sm:block">
+                    <div className="text-[11px] font-mono font-bold text-indigo-400">1080p60 WebRTC Studio</div>
+                    <div className="text-[10px] text-slate-300 mt-0.5">Lossless 48kHz Opus · Hardware Echo Guard</div>
+                  </div>
+
+                  <div className="absolute bottom-4 left-4 p-2.5 rounded-xl bg-slate-900/85 backdrop-blur-md border border-emerald-500/30 text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-2">
+                    <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>✓ Dual-Keyed Persistent RBAC Sync</span>
+                  </div>
+
+                  <div className="absolute bottom-4 right-4 p-2.5 rounded-xl bg-slate-900/85 backdrop-blur-md border border-white/15 text-[10px] font-mono text-slate-300 font-bold hidden md:block">
+                    Segmented Mobile Tabs · Zero Overlap
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 px-1 pt-1">
+                  <span>Cinematic 4K render captured from production canvas</span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('interactive')}
+                    className="text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer"
+                  >
+                    Switch to Interactive Simulator →
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* TAB 01: Interactive Kanban & Sprint Velocity */}
-            {activeTab === 'kanban' && (
+            {previewMode === 'interactive' && activeTab === 'kanban' && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/[0.07]">
                   <div>
@@ -323,7 +400,7 @@ export const HeroSection: React.FC = () => {
             )}
 
             {/* TAB 02: Interactive AI Co-Pilot & Executive Scribe */}
-            {activeTab === 'copilot' && (
+            {previewMode === 'interactive' && activeTab === 'copilot' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <div className="lg:col-span-5 space-y-4">
                   <div className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
@@ -333,7 +410,7 @@ export const HeroSection: React.FC = () => {
                     Natural Language Goal → Multi-Sprint Execution Blueprint
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    Select an initiative below to preview how the AI Co-PilotEdge Function
+                    Select an initiative below to preview how the AI Co-Pilot Edge Function
                     synthesizes Fibonacci story points, release gates, and risk mitigations.
                   </p>
 
@@ -361,6 +438,20 @@ export const HeroSection: React.FC = () => {
                 </div>
 
                 <div className="lg:col-span-7 rounded-xl bg-white/[0.03] border border-white/10 p-5 space-y-4">
+                  {/* High-Res Copilot Interface Visual */}
+                  <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                    <img
+                      src="/images/landing_copilot_studio.jpg"
+                      alt="3D AI Project Management Copilot Timeline & Risk Matrix"
+                      className="w-full h-44 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent flex items-end p-3">
+                      <span className="text-[11px] font-mono font-bold text-white">
+                        Fibonacci Sprint Nodes &amp; Autonomous Risk Radar Telemetry
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/[0.08]">
                     <div>
                       <span className="text-xs font-mono text-emerald-400">
@@ -411,54 +502,20 @@ export const HeroSection: React.FC = () => {
             )}
 
             {/* TAB 03: Teams Chat & 1080p HD Video Studio */}
-            {activeTab === 'video' && (
+            {previewMode === 'interactive' && activeTab === 'video' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                <div className="lg:col-span-7 grid grid-cols-2 gap-3.5">
-                  {[
-                    {
-                      name: 'Sarah Chen',
-                      role: 'Principal Architect · Host',
-                      speaking: true,
-                      stream: `${hdMode} 60fps · 48kHz Opus`,
-                    },
-                    {
-                      name: 'Marcus Vance',
-                      role: 'Product Lead · Screen Sharing',
-                      speaking: false,
-                      stream: `${hdMode} Native Track`,
-                    },
-                  ].map((peer, idx) => (
-                    <div
-                      key={idx}
-                      className={`rounded-xl p-4 bg-slate-900/95 border ${
-                        peer.speaking ? 'border-emerald-500/50' : 'border-white/10'
-                      } flex flex-col justify-between h-52 relative overflow-hidden`}
-                    >
-                      <div className="flex items-center justify-between text-[11px] font-mono text-slate-300">
-                        <span>{peer.stream}</span>
-                        {peer.speaking && (
-                          <span className="inline-flex items-center gap-1.5 text-emerald-400">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                            Speaking
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="my-auto flex items-center justify-center">
-                        <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-400/30 flex items-center justify-center text-lg font-bold text-indigo-300">
-                          {peer.name
-                            .split(' ')
-                            .map(n => n[0])
-                            .join('')}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-sm font-bold text-white">{peer.name}</div>
-                        <div className="text-[11px] text-slate-400">{peer.role}</div>
-                      </div>
+                <div className="lg:col-span-7 space-y-3">
+                  <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+                    <img
+                      src="/images/landing_webrtc_studio.jpg"
+                      alt="1080p60 WebRTC Video Studio and Collaborative Screen Sharing"
+                      className="w-full h-auto object-cover rounded-2xl"
+                    />
+                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/15 text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <span>{hdMode} · 48kHz Opus</span>
                     </div>
-                  ))}
+                  </div>
                 </div>
 
                 <div className="lg:col-span-5 space-y-4">
@@ -499,7 +556,7 @@ export const HeroSection: React.FC = () => {
             )}
 
             {/* TAB 04: Triggers, Rules & Edge Automations */}
-            {activeTab === 'automations' && (
+            {previewMode === 'interactive' && activeTab === 'automations' && (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/[0.08]">
                   <div>

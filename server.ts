@@ -552,7 +552,7 @@ async function startServer() {
   const userRolesFile = path.join(dataDir, 'user_roles.json');
   const joinRequestsFile = path.join(dataDir, 'join_requests.json');
 
-  const usersRoleStore = new Map<string, { role: string; organizationId?: string; updatedBy?: string; updatedAt: string }>();
+  const usersRoleStore = new Map<string, { userId?: string; email?: string; role: string; organizationId?: string; updatedBy?: string; updatedAt: string }>();
   const joinRequestsStore = new Map<string, any>();
 
   // Hydrate from disk
@@ -599,7 +599,7 @@ async function startServer() {
     }
   };
 
-  // User Role Endpoints
+  // User Role Endpoints (Dual-keyed by UUID and Email)
   app.get('/api/users/roles', (_req, res) => {
     const obj: Record<string, any> = {};
     for (const [k, v] of usersRoleStore.entries()) {
@@ -610,23 +610,46 @@ async function startServer() {
 
   app.get('/api/users/:userId/role', (req, res) => {
     const { userId } = req.params;
-    const record = usersRoleStore.get(userId);
+    const queryEmail = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
+    let record = usersRoleStore.get(userId);
+
+    if (!record && queryEmail) {
+      record = usersRoleStore.get(queryEmail);
+    }
+
+    if (!record && userId.includes('@')) {
+      record = usersRoleStore.get(userId.trim().toLowerCase());
+    }
+
+    if (!record) {
+      // Linear scan across entries by email or userId
+      for (const entry of usersRoleStore.values()) {
+        if (entry.userId === userId || (queryEmail && entry.email === queryEmail)) {
+          record = entry;
+          break;
+        }
+      }
+    }
+
     if (!record) {
       return res.status(404).json({ error: 'No custom role found for user' });
     }
-    return res.json({ ok: true, userId, ...record });
+    return res.json({ ok: true, synced: true, userId, ...record });
   });
 
   app.post('/api/users/:userId/role', async (req, res) => {
     const { userId } = req.params;
-    const { role, organizationId, updatedBy } = req.body || {};
+    const { role, organizationId, email, updatedBy } = req.body || {};
     if (!userId || !role) {
       return res.status(400).json({ error: 'Missing userId or role parameter.' });
     }
 
     const normalizedRole = String(role).trim().toUpperCase();
+    const cleanEmail = email ? String(email).trim().toLowerCase() : '';
     const updatedAt = new Date().toISOString();
     const entry = {
+      userId,
+      email: cleanEmail || undefined,
       role: normalizedRole,
       organizationId: organizationId || usersRoleStore.get(userId)?.organizationId,
       updatedBy: updatedBy || 'system',
@@ -634,9 +657,12 @@ async function startServer() {
     };
 
     usersRoleStore.set(userId, entry);
+    if (cleanEmail) {
+      usersRoleStore.set(cleanEmail, entry);
+    }
     persistUserRoles();
 
-    // Also attempt REST sync with Supabase user_profiles if reachable
+    // Also attempt REST sync with Supabase user_profiles if reachable (both by UUID and email)
     try {
       const supabaseUrl = 'https://sqzjlxayhghoxjloaddo.supabase.co';
       const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMzg5MjEsImV4cCI6MjA1OTcxNDkyMX0.a6-xS2X3O9hG4l57n1J049N4zX-bM5W7_X69X2V9c_k';
@@ -653,12 +679,29 @@ async function startServer() {
           ...(organizationId ? { organization_id: organizationId } : {}),
         }),
       }).catch(() => {});
+
+      if (cleanEmail) {
+        fetch(`${supabaseUrl}/rest/v1/user_profiles?email=eq.${encodeURIComponent(cleanEmail)}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            role: normalizedRole,
+            ...(organizationId ? { organization_id: organizationId } : {}),
+          }),
+        }).catch(() => {});
+      }
     } catch {}
 
     return res.json({
       ok: true,
       synced: true,
       userId,
+      email: cleanEmail,
       role: normalizedRole,
       organizationId: entry.organizationId,
       updatedAt,

@@ -132,6 +132,16 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
   const [dragOverWidgetId, setDragOverWidgetId] = useState<BentoWidgetId | null>(null);
   const [recentlyUpdatedWidget, setRecentlyUpdatedWidget] = useState<BentoWidgetId | null>(null);
 
+  // Mobile & Tablet Segmented Tab Switcher (Overview, Schedule, Team Chat, Focus)
+  const [mobileTab, setMobileTab] = useState<'overview' | 'schedule' | 'chat' | 'focus'>('overview');
+
+  const getMobileTabForWidget = (id: BentoWidgetId): 'overview' | 'schedule' | 'chat' | 'focus' => {
+    if (id === 'calendar_schedule' || id === 'meet_schedule') return 'schedule';
+    if (id === 'team_chat') return 'chat';
+    if (id === 'focus_timer_notes') return 'focus';
+    return 'overview';
+  };
+
   const pulseWidget = (id: BentoWidgetId) => {
     setRecentlyUpdatedWidget(id);
     setTimeout(() => {
@@ -734,13 +744,13 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
     );
   };
 
-  const renderBentoWidget = (widgetId: BentoWidgetId) => {
+  const renderBentoWidget = (widgetId: BentoWidgetId, isMobileFullWidth = false) => {
     if (hiddenWidgets.includes(widgetId)) return null;
 
     const isDragged = draggedWidgetId === widgetId;
     const isDropTarget = dragOverWidgetId === widgetId && draggedWidgetId !== widgetId;
     const isRecentlyPulsed = recentlyUpdatedWidget === widgetId;
-    const colSpan = WIDGET_LABELS[widgetId].colSpanClass;
+    const colSpan = isMobileFullWidth ? 'w-full col-span-12' : WIDGET_LABELS[widgetId].colSpanClass;
 
     const wrapperProps = {
       draggable: true,
@@ -1751,9 +1761,84 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         })}
       </div>
 
-      {/* 2. Drag-and-Drop 12-Column Taskly & Soft Glass 32px Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-12 gap-5 items-stretch">
-        {widgetOrder.map(widgetId => renderBentoWidget(widgetId))}
+      {/* 2. Mobile & Tablet Segmented Switcher Tabs (Zero-Overlap UX) */}
+      <div className="flex xl:hidden items-center justify-between p-1.5 rounded-2xl border bg-slate-900/60 border-white/10 backdrop-blur-md gap-1.5 shadow-lg">
+        <button
+          type="button"
+          onClick={() => {
+            soundService.play('click_soft');
+            setMobileTab('overview');
+          }}
+          className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'overview'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-white/20'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" />
+          <span>Overview</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            soundService.play('click_soft');
+            setMobileTab('schedule');
+          }}
+          className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'schedule'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-white/20'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" />
+          <span>Schedule</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            soundService.play('click_soft');
+            setMobileTab('chat');
+          }}
+          className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'chat'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-white/20'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <ICON_MAP.ChatBubbleLeftRightIcon className="w-3.5 h-3.5" />
+          <span>Team Chat</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            soundService.play('click_soft');
+            setMobileTab('focus');
+          }}
+          className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'focus'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-white/20'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />
+          <span>Focus</span>
+        </button>
+      </div>
+
+      {/* Mobile/Tablet Isolated View — Clean full width cards with zero overlap */}
+      <div className="flex xl:hidden flex-col gap-5 w-full">
+        {widgetOrder
+          .filter(widgetId => getMobileTabForWidget(widgetId) === mobileTab)
+          .map(widgetId => (
+            <div key={widgetId} className="w-full">
+              {renderBentoWidget(widgetId, true)}
+            </div>
+          ))}
+      </div>
+
+      {/* Desktop 12-Column Drag-and-Drop Bento Grid */}
+      <div className="hidden xl:grid xl:grid-cols-12 gap-5 items-stretch">
+        {widgetOrder.map(widgetId => renderBentoWidget(widgetId, false))}
       </div>
 
       {/* 3. Icon-First Strategic Modules Bar (Role-filtered) */}

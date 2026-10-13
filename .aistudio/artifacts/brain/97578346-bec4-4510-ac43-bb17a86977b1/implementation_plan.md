@@ -1,144 +1,207 @@
-# End-to-End RBAC Role Sync, Streamlined Google SSO & Multi-Role Org Approval Architecture
+# Mobile/Tablet Layout Overhaul, End-to-End RBAC Persistence & Dark Obsidian SaaS Landing Page Makeover
 
-Deliver a production-grade identity, access control, and workspace onboarding system:
-1. Fix end-to-end RBAC role persistence across frontend, Express backend, and Supabase database, preventing role reversion to `CLIENT_VIEWER` on refresh, and providing an explicit inline "Synced to DB" confirmation badge.
-2. Replace cluttered test accounts on the Google SSO modal with a clean, focused single-click Google authentication flow utilizing Supabase OAuth.
-3. Implement a complete Organization Join Request pipeline allowing Project Managers, Admins, and Owners to review and approve join requests, powered by real-time in-app approval banners and SMTP email alerts.
+## 1. Executive Summary & Problem Diagnosis
 
----
+This implementation plan delivers three critical upgrades to Omni Flow:
 
-## User Review & Critical Decisions
+1. **Mobile & Tablet Dashboard Layout Overhaul**:
+   - **Root Cause**: The user's screenshot revealed a layout collision on mobile/tablet viewports where the 12-column Bento Grid collapsed without proper column spans, causing the Team Chat widget, Calendar, Concentric Progress Rings, and Deliverables to render on top of one another.
+   - **Solution**: Implement dedicated **Segmented Switcher Tabs** (`Overview` | `Schedule` | `Team Chat` | `Focus & Notes`) on mobile and tablet viewports (`< lg`). On desktop (`lg:` / `xl:`), maintain the clean 12-column Bento Grid with strict minimum widths and container isolation.
 
-> [!IMPORTANT]
-> The following product decisions were confirmed during consultation:
-> - **Google SSO Flow**: Clean modal featuring a direct Google Workspace sign-in button using Supabase OAuth redirect, eliminating obsolete test credentials and redundant forms.
-> - **Role Sync UI Feedback**: Inline badge reading **"Synced to DB"** with a green status indicator and toast notification when an Admin, Owner, or Project Manager modifies a team member's role.
-> - **Join Request Notifications**: Both an in-app manager approval banner displayed to Project Managers, Admins, and Owners, plus transactional SMTP email alerts dispatched to leadership with 1-click review links.
+2. **End-to-End RBAC Role Persistence & Live DB Verification Feedback**:
+   - **Root Cause**: When an Owner/Admin updates a user's role in the Team Management UI, Supabase client-side Row-Level Security (RLS) blocks client updates to another user's `user_profiles` row. Additionally, on page reload or re-authentication, `ensureUserProfileForSession` retrieved the original database record or fell back to cached defaults (`CLIENT_VIEWER`).
+   - **Solution**: Key the backend persistent storage (`server.ts` + `.data/user_roles.json`) by **both User UUID and lowercase Email**. On reload, `ensureUserProfileForSession` resolves against this authoritative store first. Every updated member row in `TeamManagementPage.tsx` and user profile views will render a prominent `✓ DB Verified & Synced` green badge with instant confirmation toast feedback.
 
-- **Confirmed Decision 1**: Implement a resilient dual-layer role persistence bridge (Supabase Database + server-side `/api/users/role` endpoint) to ensure role promotions/demotions persist permanently across sessions and never revert to `CLIENT_VIEWER` on reload.
-- **Confirmed Decision 2**: Streamline the Google SSO modal in `AuthPage.tsx` to a single direct Google account selector button connecting to Supabase OAuth.
-- **Confirmed Decision 3**: Enable Project Managers, Admins, and Owners to approve or reject pending member join requests with customized role assignments, triggering real-time workspace admission and SMTP welcome emails.
+3. **Landing Page Extreme Makeover**:
+   - **Visual Direction**: **Dark Obsidian SaaS with high-res glassmorphism and live product previews** (WCAG AA compliant, deep obsidian `#070A12` canvas, geometric typography, zero static pills, clean editorial numbering).
+   - **Visual Assets**: Generate high-fidelity visual assets using `generate_image` for the Hero preview, Autonomous AI Co-Pilot, 1080p WebRTC Collaboration Studio, Mobile Studio, and Enterprise RBAC Governance.
+   - **Rich Content Architecture**: Asymmetric Bento Grid of core capabilities, interactive live product sandbox with working tabbed demos, real customer impact metrics, transparent 3-tier pricing matrix, and streamlined workspace signup.
 
 ---
 
-## 1. System Architecture & Data Flow
+## 2. Technical Architecture & Implementation Phases
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           AUTHENTICATION & SSO                              │
+│                          SYSTEM ARCHITECTURE FLOW                           │
+├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  [ Login / Signup Form ] ──(Click "Continue with Google")──►                │
+│   [ Mobile / Tablet Viewport (< lg) ]           [ Desktop Viewport (≥ lg) ] │
+│                   │                                          │              │
+│                   ▼                                          ▼              │
+│       [ Segmented Tab Switcher ]                   [ 12-Column Bento Grid ] │
+│   Overview | Schedule | Chat | Focus              Proper col-spans & bounds │
+│                   │                                          │              │
+│                   └─────────────────────┬────────────────────┘              │
+│                                         ▼                                   │
+│                        [ Zero-Overlap Responsive Canvas ]                   │
 │                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                    CLEAN GOOGLE SSO MODAL                             │  │
-│  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
-│  │  │ [G] Continue with Google Account (Supabase OAuth Redirect)      │  │  │
-│  │  └─────────────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     ORGANIZATION JOIN REQUEST PIPELINE                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                         DUAL-KEYED RBAC PERSISTENCE                         │
+├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  New User (Email / Google) ──► Requests to Join Org (e.g. Acme Corp)       │
-│                                      │                                      │
-│                                      ▼                                      │
-│                [ Persistent Store: /api/join-requests ]                     │
-│                                      │                                      │
-│             ┌────────────────────────┴────────────────────────┐             │
-│             ▼                                                 ▼             │
-│   [ SMTP Email Alert ]                              [ In-App Banner ]       │
-│   Dispatched to PMs, Admins, & Owners               Visible to PM / Admin   │
-│   "New join request from John Doe"                  "1 Pending Join Req"    │
-│             │                                                 │             │
-│             └────────────────────────┬────────────────────────┘             │
-│                                      ▼                                      │
-│                      [ Leadership Approves in UI ]                          │
-│                                      │                                      │
-│                                      ▼                                      │
-│   ┌──────────────────────────────────────────────────────────────────────┐  │
-│   │                      END-TO-END RBAC PERSISTENCE                     │  │
-│   │  1. Server updates role in persistent registry (/api/users/role)     │  │
-│   │  2. Direct Supabase DB update: user_profiles.role = 'MEMBER'         │  │
-│   │  3. Frontend receives { syncedToDb: true }                           │  │
-│   │  4. UI displays animated "Synced to DB" badge + toast feedback        │  │
-│   │  5. Realtime broadcast admits applicant into workspace instantly     │  │
-│   └──────────────────────────────────────────────────────────────────────┘  │
+│   [ Admin Updates Role in UI ] ──► [ POST /api/users/:userId/role ]         │
+│                                           │                                 │
+│                                           ▼                                 │
+│                     [ Dual-Keyed Registry: UUID + Email ]                   │
+│                     Persisted to .data/user_roles.json                      │
+│                                           │                                 │
+│                     ┌─────────────────────┴────────────────────┐            │
+│                     ▼                                          ▼            │
+│          [ Instant UI Feedback ]                     [ Page Reload / Auth ] │
+│       "✓ DB Verified & Synced" badge           ensureUserProfileForSession   │
+│       Fires confirmation toast                 Queries /api/users/:id/role  │
+│                                                Overwrites stale DB fallback │
+│                                                Never reverts to CLIENT_VIEW │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Implementation Phases & Technical Scope
+### Phase 1: Mobile/Tablet Dashboard Layout Overhaul (`components/dashboards/TasklyBentoWorkspaceHub.tsx`)
 
-### Phase 1: End-to-End Role RBAC Persistence & "Synced to DB" Feedback
-- **Problem**: When modifying a user's role in the Team Management UI, Row-Level Security (RLS) on Supabase's `user_profiles` restricts direct updates of another user's row from the client. As a result, the update remained in client-side memory, and upon page refresh or re-authentication, `ensureUserProfileForSession` retrieved the original database row (defaulting to `CLIENT_VIEWER` or unpromoted state).
-- **Backend Architecture (`server.ts`)**:
-  - Implement persistent endpoints:
-    - `POST /api/users/role`: Accepts `{ userId, role, organizationId, actorId }`. Validates that `actorId` is an `OWNER`, `ADMIN`, or `PROJECT_MANAGER`. Updates the persistent user role registry and executes server-side sync with the database.
-    - `GET /api/users/roles`: Retrieves all active role assignments and overrides for the organization.
-- **Client Service Layer (`services/supabaseService.ts`)**:
-  - Update `updateUserRole`: Call `/api/users/role` first, followed by best-effort Supabase client update. Return `{ success: boolean, syncedToDb: boolean, role: UserRole }`.
-  - Update `ensureUserProfileForSession` and `getUserProfile`: Query role overrides from `/api/users/roles` so any role set by an administrator immediately overrides any stale fallback on page reload.
-- **Team Management UI (`components/team/TeamManagementPage.tsx`)**:
-  - Add state tracking for newly updated roles: `syncedUserIds: Record<string, boolean>`.
-  - Render an inline green pill badge: `✓ Synced to DB` next to the updated member's role in the table/directory.
-  - Display feedback toast: `Role Synced to DB: [User Name] updated to [Role]`.
+#### 1.1 Root Cause Analysis of Screenshot Collision
+- On mobile and tablet screens (`viewport < 1024px`), `WIDGET_LABELS` had classes like `colSpanClass: 'xl:col-span-5 lg:col-span-7'`, which provided **no column span for `md:` or `sm:`**. In a 12-column CSS grid, child widgets collapsed into narrow 1-column slivers or overflowed their containers.
+- The `Team Chat` widget and `Calendar & Schedule` widget lacked strict viewport bounds, resulting in absolute/flex elements overlapping directly on top of the task list and progress rings.
 
----
-
-### Phase 2: Streamlined Google SSO Modal
-- **Problem**: The existing Google SSO modal displayed mock test accounts (`Alex Morgan`, `Jordan Taylor`), plus manual full-name and email input fields, burying the actual Google OAuth flow.
-- **Refactor (`components/auth/AuthPage.tsx`)**:
-  - Simplify the modal into a clean, modern dialog adhering to official Google Workspace styling:
-    - Branded Google logo and clean header: "Sign in with Google Workspace".
-    - Single primary action button: `Continue with Google Account` that triggers `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: getProductionBaseUrl() } })`.
-    - Clean subtext explaining secure SSO authentication without mock inputs or confusing form fields.
-
----
-
-### Phase 3: Production-Grade Organization Join Request & Multi-Role Approval
-- **Problem**: When new users sign up via email or Google SSO and request to join an existing organization, leaders (PMs, Admins, Owners) need an immediate, foolproof way to review, approve, and grant appropriate roles.
-- **Approval Flow & Hierarchy**:
-  - Roles eligible to approve: `OWNER`, `ADMIN`, and `PROJECT_MANAGER`.
-  - `OWNER` can assign any role up to `ADMIN` or transfer `OWNER`.
-  - `ADMIN` and `PROJECT_MANAGER` can assign `PROJECT_MANAGER`, `MEMBER`, or `CLIENT_VIEWER`.
-- **In-App Manager Approval Banner (`App.tsx` & `components/dashboards/`)**:
-  - When active user is `OWNER`, `ADMIN`, or `PROJECT_MANAGER` and there are pending join requests for their organization:
-    - Render a sleek floating alert banner at the top of the workspace:
-      `🔔 Join Request: [Requester Name] requested to join [Org Name] as [Role] — [Review & Approve]`.
-- **Team Management Join Requests Tab (`components/team/TeamManagementPage.tsx`)**:
-  - Add or enrich the "Join Requests" sub-tab with count pill `Join Requests (N)`.
-  - Provide an interactive card for each applicant:
-    - Applicant name, email, avatar, request timestamp, and custom note.
-    - Role selector dropdown allowing the approver to change the assigned role (e.g., from `MEMBER` to `PROJECT_MANAGER`).
-    - Two clear action buttons: `Approve Access` and `Decline`.
-- **SMTP Email Alert Dispatch (`services/emailNotificationService.ts` & `server.ts`)**:
-  - When a user submits a join request:
-    - Query all PMs, Admins, and Owners of that organization.
-    - Dispatch transactional email: `[Omni Flow] New Workspace Join Request: [Applicant Name]`.
-    - Include direct 1-click CTA: `Review Join Request in Workspace`.
-  - When approved:
-    - Dispatch welcome email to the applicant: `Welcome to [Organization Name]! Your request has been approved.`.
-    - Broadcast real-time event across channels so if the applicant has the modal open, it auto-admits them into the workspace.
+#### 1.2 Segmented Switcher Navigation for Mobile/Tablet
+- Add responsive state: `mobileActiveTab: 'overview' | 'schedule' | 'chat' | 'focus'`.
+- Render a sleek, mobile-friendly segmented control bar visible on `< lg` viewports:
+  ```tsx
+  <div className="lg:hidden flex items-center p-1 rounded-2xl bg-slate-900/80 border border-white/10 gap-1 overflow-x-auto scrollbar-none">
+    <button onClick={() => setMobileActiveTab('overview')} ...>Overview</button>
+    <button onClick={() => setMobileActiveTab('schedule')} ...>Schedule</button>
+    <button onClick={() => setMobileActiveTab('chat')} ...>Team Chat</button>
+    <button onClick={() => setMobileActiveTab('focus')} ...>Focus & Notes</button>
+  </div>
+  ```
+- On `< lg`:
+  - `overview`: Displays the KPI Capsules Row + Task Overview with status pills + Deliverable Cards with proper single-column full-width spacing.
+  - `schedule`: Displays the Project Status Rings + Interactive Calendar Grid + Upcoming Standup and Sprint milestones.
+  - `chat`: Displays the full-height Team Chat channel with message stream, sender avatars, and full-width input.
+  - `focus`: Displays the Task Focus Timer and Sticky Notes scratchpad.
+- On `≥ lg` (Desktop):
+  - Retain the full 12-column Bento Grid with explicit, non-colliding column spans (`lg:col-span-6`, `xl:col-span-5`, etc.) and ensure no negative margins or unconstrained absolute overlays exist.
 
 ---
 
-## 3. Verification Plan
+### Phase 2: Dual-Keyed RBAC Role Persistence & Live DB Verification
 
-1. **RBAC Persistence & Reload Test**:
-   - Log in as Owner/Admin/PM.
-   - Change a team member's role from `CLIENT_VIEWER` to `MEMBER` (or `PROJECT_MANAGER`).
-   - Verify the `✓ Synced to DB` inline badge appears and the confirmation toast fires.
-   - Hard refresh the page (`F5` / reload) and verify the user's role remains `MEMBER`/`PROJECT_MANAGER` and does not revert to `CLIENT_VIEWER`.
-2. **Google SSO Modal Test**:
-   - Navigate to login or signup.
-   - Click "Continue with Google".
-   - Verify the modal shows only the clean direct Google SSO button and no mock account forms.
-3. **Organization Join Request & Approval Test**:
-   - Submit a join request as a newly signed-up user.
-   - Verify the in-app notification banner appears for Project Managers, Admins, and Owners.
-   - Check that the join request appears in `TeamManagementPage.tsx` with role selection.
-   - Approve the request, verify the applicant receives real-time admission and that their role persists in the database.
+#### 2.1 Backend Dual-Keyed Persistence (`server.ts`)
+- Update `usersRoleStore` in `server.ts` to index entries by **both `userId` (UUID) and lowercase `email`**:
+  ```ts
+  interface RoleEntry {
+    userId: string;
+    email?: string;
+    role: string;
+    organizationId?: string;
+    updatedBy: string;
+    updatedAt: string;
+  }
+  ```
+- `POST /api/users/:userId/role`:
+  - Accepts `{ role, organizationId, email, actorId }`.
+  - Sets `usersRoleStore.set(userId, entry)`.
+  - If `email` is provided, also sets `usersRoleStore.set(email.toLowerCase(), entry)`.
+  - Persists directly to `.data/user_roles.json`.
+- `GET /api/users/:userIdOrEmail/role`:
+  - Checks if `usersRoleStore.has(userIdOrEmail)`.
+  - If not found and an `?email=` query parameter is supplied, checks by `email.toLowerCase()`.
+  - Returns `{ ok: true, synced: true, role, organizationId, updatedAt }`.
+- `GET /api/users/roles`: Returns all stored roles with dual-indexed lookup.
+
+#### 2.2 Client-Side Resilient Role Loading (`services/supabaseService.ts`)
+- **In `updateUserRole`**:
+  - Retrieve the target user's email from the store or profile cache.
+  - Dispatch `POST /api/users/:userId/role` with `{ role, organizationId, email }`.
+  - Set `localStorage.setItem('axon_user_role_' + userId, normalizedRole)` and `localStorage.setItem('axon_user_role_' + cleanEmail, normalizedRole)`.
+  - Set `user.db_synced = true` on the returned profile.
+- **In `ensureUserProfileForSession`**:
+  - Immediately query `/api/users/${encodeURIComponent(sessionUser.id)}/role?email=${encodeURIComponent(cleanEmail)}`.
+  - If a role is found, **it immediately becomes the authoritative role**, overriding any stale `CLIENT_VIEWER` row returned by Supabase RLS.
+  - Apply this authoritative check in the main branch AND in all network/error fallback branches so no profile can ever accidentally revert to `CLIENT_VIEWER`.
+- **In `getUsersByOrganizationId`**:
+  - Fetch `/api/users/roles` and apply authoritative roles to every member by both `id` and `email`.
+  - Set `db_synced = true` for all verified members.
+
+#### 2.3 Team Management & Directory UI Feedback (`components/team/TeamManagementPage.tsx`)
+- Display an inline green status badge:
+  ```tsx
+  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs">
+    <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-400" />
+    <span>✓ DB Verified &amp; Synced</span>
+  </span>
+  ```
+- Fire immediate toast on role change: `Role Synced to DB: [Name] updated to [Role]`.
+
+---
+
+### Phase 3: Dark Obsidian SaaS Landing Page Extreme Makeover
+
+#### 3.1 Visual Direction & Token Architecture
+- **Aesthetic**: Dark Obsidian SaaS (`#070A12` base canvas, `#0B0F1C` surface cards, hairline borders `border-white/10`, indigo/cobalt accents `#6366F1` and `#4F46E5`).
+- **Typography**: Geometric display headings in tight tracking (`tracking-tight`), crisp legible body text (`text-slate-300`), tabular monospace for metrics and timers (`font-mono tabular-nums`).
+- **Anti-Slop Discipline**: Zero static pills; clean inline text metadata with typographic bullets (`·`); natural editorial numbering (`01. Autonomous AI Co-Pilot`, `02. 1080p60 WebRTC Mesh`); single primary CTA per section.
+
+#### 3.2 High-Resolution Visual Asset Generation
+Generate 4 high-resolution visual assets using `generate_image`:
+1. `landing_hero_preview` (16:9): Cinematic wide-angle view of a dark obsidian glassmorphic workspace interface showing glowing concentric sprint rings, dark metallic Kanban columns, and HD video HUD.
+2. `landing_copilot_studio` (16:9): High-res 3D interface rendering of the AI Project Manager Studio with interactive roadmap timeline, Fibonacci sprint points, and risk radar telemetry.
+3. `landing_webrtc_studio` (16:9): High-res 3D interface rendering of a 1080p video collaboration studio with 48kHz audio waveform, screen-sharing canvas, and active participant tiles.
+4. `landing_mobile_studio` (16:9): High-res modern mobile and tablet mockup showcasing the segmented switcher tabs (Overview, Schedule, Team Chat) with zero overlap.
+
+#### 3.3 Expanded Landing Page Content Sections (`components/landing/`)
+1. **Glassmorphic Navigation Bar (`LandingHeader.tsx`)**:
+   - Wordmark logo with subtle ambient glow.
+   - Clean text links: Product Studio, Capabilities, Enterprise Security, Pricing, Architecture.
+   - Primary action: "Enter Workspace Studio" / "Start Free Workspace".
+2. **Hero Section (`HeroSection.tsx`)**:
+   - Compelling headline: "Command Every Sprint, Standup, and Deliverable in One Glassmorphic Studio."
+   - Primary CTA with instant signup redirect.
+   - Dominant focal point: High-res hero preview asset combined with an interactive live product preview studio (Kanban simulator, AI roadmap generator, 1080p video simulator).
+3. **Core Capabilities Bento Grid (`CapabilitiesBentoSection.tsx`)**:
+   - 5 asymmetric bento cards detailing real capabilities with human editorial numbering:
+     - `01. Autonomous AI Co-Pilot`: Fibonacci story point estimations, roadmap blueprints, and risk analysis.
+     - `02. Lossless 1080p60 WebRTC & Opus Mesh`: Hardware-level Acoustic Echo Cancellation with zero context switching.
+     - `03. Enterprise Multi-Role RBAC Governance`: Dual-keyed persistent roles, 1-click join request approvals, and cryptographic audit logs.
+     - `04. Supabase Edge Compute & Deterministic SLAs`: Automated SLA breach escalations and compliance digests.
+     - `05. Mobile Thumb-Zone Studio`: Segmented tab navigation optimized for phones and tablets.
+4. **Quantified Proof of Impact & Customer Evidence (`ImpactProofSection.tsx`)**:
+   - Real metrics: `42% Faster Sprint Cycle Time`, `100% RBAC Audit Traceability`, `<35ms WebRTC Latency`.
+   - Customer case study spotlights with company attributions.
+5. **Transparent 3-Tier Enterprise Pricing Matrix (`PricingSection.tsx`)**:
+   - Starter Workspace ($0 forever free, up to 5 members).
+   - Pro Studio ($12/user/mo, unlimited projects, AI Co-Pilot, 1080p video).
+   - Enterprise Cloud (Custom, dedicated SLA, compliance audits, custom SSO).
+6. **Conversion CTA & Minimalist Footer (`LandingFooter.tsx`)**:
+   - 1-click workspace launch form with direct auth integration.
+   - Wordmark, navigation mirror, legal notices, and keyboard shortcuts guide.
+
+---
+
+## 3. Verification & Acceptance Testing Plan
+
+1. **Mobile/Tablet Layout Test**:
+   - Emulate mobile viewport (`375px` - `430px`) and tablet viewport (`768px` - `1024px`) in browser.
+   - Verify that the Segmented Switcher Tabs (`Overview`, `Schedule`, `Team Chat`, `Focus`) render cleanly.
+   - Verify that Team Chat, Calendar, and Deliverable Cards **never overlap** and each section takes 100% of the container cleanly.
+   - Switch between tabs and confirm smooth, stutter-free transitions.
+   - Emulate desktop viewport (`≥ 1024px`) and verify the full 12-column Bento Grid displays without clipping.
+
+2. **End-to-End RBAC Role Persistence Test**:
+   - Log in as Owner/Admin.
+   - Navigate to Team Management and update a user's role from `CLIENT_VIEWER` to `PROJECT_MANAGER` or `MEMBER`.
+   - Verify the `✓ DB Verified & Synced` inline badge appears immediately with confirmation toast.
+   - Hard refresh (`F5` / reload) on both the admin's machine and the updated user's browser/tab.
+   - Verify that the user's role remains `PROJECT_MANAGER` or `MEMBER` and **never reverts to `CLIENT_VIEWER`**.
+   - Verify that `curl http://localhost:3000/api/users/:userId/role` returns `{ ok: true, synced: true, role: "..." }`.
+
+3. **Landing Page Visual & Content Test**:
+   - Navigate to `#/` (Landing Page).
+   - Verify the Dark Obsidian SaaS aesthetic, high-res generated visuals, and interactive product demo tabs.
+   - Test the interactive tab switcher on the live preview studio.
+   - Verify typography hierarchy and WCAG AA contrast.
+   - Verify all links ("Start Free Workspace", "Sign In") route to `#/signup` and `#/login`.
+
 4. **Applet Compilation**:
-   - Run `compile_applet` to ensure TypeScript compilation passes with zero errors.
+   - Run `compile_applet` to ensure 100% clean TypeScript build with zero errors.

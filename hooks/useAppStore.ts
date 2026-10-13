@@ -1840,7 +1840,7 @@ const appActionsCreator = (
       }));
 
       try {
-        await supabaseService.updateUserRole(userId, normalizedTargetNewRole, currentUser.organization_id);
+        await supabaseService.updateUserRole(userId, normalizedTargetNewRole, currentUser.organization_id, targetUser?.email);
 
         // Broadcast role update in real-time across all connected clients
         collabService.broadcastTeamMemberUpdated({
