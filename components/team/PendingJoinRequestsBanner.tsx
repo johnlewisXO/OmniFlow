@@ -153,6 +153,7 @@ export const PendingJoinRequestsBanner: React.FC = () => {
                 <Avatar
                   user={{
                     id: req.requester_id,
+                    supabase_auth_id: req.requester_id,
                     full_name: req.requester_name,
                     email: req.requester_email,
                     avatar_url: req.requester_avatar,

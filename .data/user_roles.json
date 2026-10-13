@@ -1,0 +1,8 @@
+{
+  "test-user-123": {
+    "role": "PROJECT_MANAGER",
+    "organizationId": "test-org",
+    "updatedBy": "system",
+    "updatedAt": "2026-10-13T17:07:08.469Z"
+  }
+}

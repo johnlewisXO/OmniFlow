@@ -189,6 +189,7 @@ export interface User {
   preferences?: UserProfilePreferences;
   created_at?: string;
   updated_at?: string;
+  db_synced?: boolean;
 }
 
 export interface AuditLog {

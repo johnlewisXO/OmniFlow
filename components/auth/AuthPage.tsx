@@ -1115,23 +1115,35 @@ export const AuthPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Interactive Google SSO Account Chooser & Test Modal */}
+      {/* Streamlined Google SSO Modal - Clean Direct Account Selection */}
       {isGoogleSsoModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
           onClick={() => setIsGoogleSsoModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-4 animate-modal-appear ${
+            className={`w-full max-w-sm rounded-3xl border p-6 sm:p-7 shadow-2xl space-y-6 text-center animate-modal-appear ${
               darkMode
-                ? 'bg-slate-900 border-slate-700 text-slate-100'
-                : 'bg-white border-slate-200 text-slate-900'
+                ? 'bg-neutral-900 border-white/10 text-white shadow-black/80'
+                : 'bg-white border-slate-200 text-slate-900 shadow-xl'
             }`}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+            <div className="flex justify-end -mt-2 -mr-2">
+              <button
+                type="button"
+                onClick={() => setIsGoogleSsoModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Google Brand Mark & Title */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-white dark:bg-neutral-800 border border-slate-200/80 dark:border-white/10 flex items-center justify-center shadow-md">
+                <svg className="w-7 h-7 flex-shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -1149,105 +1161,55 @@ export const AuthPage: React.FC = () => {
                     d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96z"
                   />
                 </svg>
-                <div>
-                  <h3 className="text-sm font-bold">Sign in with Google</h3>
-                  <p className="text-[11px] text-slate-400">Choose an account to continue to {APP_TITLE}</p>
-                </div>
               </div>
+
+              <div>
+                <h3 className="text-lg font-bold tracking-tight">Sign in with Google</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                  Select your Google Workspace or personal account to authenticate securely.
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Google OAuth CTA Button */}
+            <div className="space-y-3 pt-1">
               <button
                 type="button"
-                onClick={() => setIsGoogleSsoModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                disabled={isGoogleAuthenticating}
+                onClick={handleNativeSupabaseGoogleOAuth}
+                className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-bold text-sm flex items-center justify-center gap-3 transition-all cursor-pointer shadow-lg shadow-indigo-600/25"
               >
-                ✕
+                {isGoogleAuthenticating ? (
+                  <>
+                    <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
+                    <span>Connecting to Google...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                      <path
+                        fill="currentColor"
+                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24z"
+                      />
+                    </svg>
+                    <span>Choose Google Account</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNativeSupabaseGoogleOAuth}
+                className="text-[11px] text-slate-400 hover:text-indigo-400 transition-colors inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>Use Supabase OAuth Redirect</span>
+                <span>↗</span>
               </button>
             </div>
-
-            {/* 1-Click Quick Test Google Workspace Accounts */}
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                1-Click Instant Google Workspace Accounts (Test Ready)
-              </p>
-              {[
-                { name: 'Alex Morgan (Owner)', email: 'alex.morgan@omniflow.io', role: UserRole.OWNER },
-                { name: 'Jordan Taylor (Project Manager)', email: 'jordan.pm@omniflow.io', role: UserRole.PROJECT_MANAGER },
-                { name: 'Samira Chen (Product Engineer)', email: 'samira.dev@omniflow.io', role: UserRole.MEMBER },
-              ].map(acc => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  disabled={isGoogleAuthenticating}
-                  onClick={() => handleGoogleAccountSelect(acc)}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    darkMode
-                      ? 'bg-slate-800/70 hover:bg-slate-800 border-slate-700'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
-                      {acc.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold truncate">{acc.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{acc.email}</p>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-500 flex-shrink-0">
-                    Verified SSO →
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Use Custom Google Account */}
-            <form
-              onSubmit={e => {
-                e.preventDefault();
-                if (!customGoogleEmail.trim()) return;
-                handleGoogleAccountSelect({
-                  name: customGoogleName.trim() || customGoogleEmail.split('@')[0],
-                  email: customGoogleEmail.trim(),
-                });
-              }}
-              className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5 text-xs"
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Or Sign In with Your Google Email
-              </p>
-              <input
-                type="text"
-                placeholder="Your Full Name (e.g. Taylor Swift)"
-                value={customGoogleName}
-                onChange={e => setCustomGoogleName(e.target.value)}
-                className="w-full p-2.5 rounded-xl border text-xs"
-              />
-              <input
-                type="email"
-                required
-                placeholder="your.name@gmail.com or @company.com"
-                value={customGoogleEmail}
-                onChange={e => setCustomGoogleEmail(e.target.value)}
-                className="w-full p-2.5 rounded-xl border text-xs"
-              />
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleNativeSupabaseGoogleOAuth}
-                  className="text-[11px] text-indigo-500 hover:underline cursor-pointer"
-                >
-                  Use Supabase OAuth Redirect
-                </button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  disabled={!customGoogleEmail.trim() || isGoogleAuthenticating}
-                >
-                  {isGoogleAuthenticating ? 'Signing in...' : 'Continue with Google →'}
-                </Button>
-              </div>
-            </form>
           </div>
         </div>
       )}

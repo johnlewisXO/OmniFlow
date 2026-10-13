@@ -5,11 +5,15 @@ export type EmailCategory =
   | 'EMAIL_VERIFICATION'
   | 'PASSWORD_RESET'
   | 'ORGANIZATION_INVITE'
+  | 'ORGANIZATION_JOIN_REQUEST'
+  | 'ORGANIZATION_JOIN_APPROVED'
+  | 'ORGANIZATION_JOIN_DECLINED'
   | 'TASK_ASSIGNED'
   | 'MENTION'
   | 'TASK_DUE_ALERT'
   | 'ROLE_UPDATED'
   | 'DIRECT_MESSAGE'
+  | 'SPRINT_ALERT'
   | 'SECURITY_ALERT';
 
 export interface OutboxEmailItem {
@@ -319,6 +323,96 @@ export const emailNotificationService = {
     });
 
     return { inviteUrl, emailItem };
+  },
+
+  sendJoinRequestAlertToManagers: async (params: {
+    applicantName: string;
+    applicantEmail: string;
+    organizationName: string;
+    requestedRole: UserRole;
+    managerEmails: string[];
+  }) => {
+    const origin = getProductionBaseUrl();
+    const reviewUrl = `${origin}#/app?view=team_management`;
+    const items: OutboxEmailItem[] = [];
+
+    params.managerEmails.forEach(mgrEmail => {
+      if (!mgrEmail) return;
+      const item = emailNotificationService.sendEmail({
+        toEmail: mgrEmail,
+        toName: mgrEmail.split('@')[0],
+        subject: `[Omni Flow] New Access Request: ${params.applicantName} wants to join ${params.organizationName}`,
+        category: 'ORGANIZATION_JOIN_REQUEST',
+        preheader: `${params.applicantName} requested ${params.requestedRole.replace(/_/g, ' ')} access to ${params.organizationName}.`,
+        bodyHtml: `
+          <div style="font-family: Inter, sans-serif; line-height: 1.6;">
+            <p>Hello,</p>
+            <p><strong>${params.applicantName}</strong> (<code>${params.applicantEmail}</code>) has requested to join the <strong>${params.organizationName}</strong> workspace as <strong>${params.requestedRole.replace(/_/g, ' ')}</strong>.</p>
+            <div style="margin: 14px 0; padding: 12px 16px; border-radius: 10px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); font-size: 13px;">
+              <div><strong>Applicant:</strong> ${params.applicantName} (${params.applicantEmail})</div>
+              <div><strong>Requested Access:</strong> ${params.requestedRole.replace(/_/g, ' ')}</div>
+              <div><strong>Organization:</strong> ${params.organizationName}</div>
+            </div>
+            <p style="font-size: 13px; color: #64748b;">Project Managers, Admins, and Owners can review and approve this request in Team Management.</p>
+          </div>
+        `,
+        ctaLabel: 'Review Request in Team Management',
+        ctaUrl: reviewUrl,
+        ctaAction: {
+          type: 'open_view',
+          view: 'team_management',
+        },
+      });
+      items.push(item);
+    });
+
+    return items;
+  },
+
+  sendJoinRequestResolutionEmail: async (params: {
+    applicantEmail: string;
+    applicantName: string;
+    organizationName: string;
+    status: 'approved' | 'declined';
+    assignedRole?: UserRole;
+  }): Promise<OutboxEmailItem> => {
+    const origin = getProductionBaseUrl();
+    const appUrl = `${origin}#/app`;
+    const isApproved = params.status === 'approved';
+
+    return emailNotificationService.sendEmail({
+      toEmail: params.applicantEmail,
+      toName: params.applicantName,
+      subject: isApproved
+        ? `[Omni Flow] Welcome to ${params.organizationName}! Your request has been approved`
+        : `[Omni Flow] Update regarding your request to join ${params.organizationName}`,
+      category: isApproved ? 'ORGANIZATION_JOIN_APPROVED' : 'ORGANIZATION_JOIN_DECLINED',
+      preheader: isApproved
+        ? `Your request to join ${params.organizationName} was approved with ${params.assignedRole?.replace(/_/g, ' ')} access.`
+        : `Your request to join ${params.organizationName} could not be approved at this time.`,
+      bodyHtml: `
+        <div style="font-family: Inter, sans-serif; line-height: 1.6;">
+          <p>Hi <strong>${params.applicantName}</strong>,</p>
+          ${
+            isApproved
+              ? `<p>Great news! Your request to join the <strong>${params.organizationName}</strong> workspace has been approved with <strong>${params.assignedRole?.replace(/_/g, ' ')}</strong> permissions.</p>
+                 <div style="margin: 14px 0; padding: 12px 16px; border-radius: 10px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); font-size: 13px;">
+                   <div><strong>Organization:</strong> ${params.organizationName}</div>
+                   <div><strong>Granted Role:</strong> ${params.assignedRole?.replace(/_/g, ' ')}</div>
+                 </div>
+                 <p>You can now access all shared projects, boards, and conversations.</p>`
+              : `<p>Your request to join <strong>${params.organizationName}</strong> was reviewed by the workspace team and declined at this time.</p>
+                 <p>If you believe this was an error, please reach out to your team administrator.</p>`
+          }
+        </div>
+      `,
+      ctaLabel: isApproved ? 'Launch Workspace' : 'Open Omni Flow',
+      ctaUrl: appUrl,
+      ctaAction: {
+        type: 'open_view',
+        view: 'overview',
+      },
+    });
   },
 
   sendImportantUpdateEmail: async (params: {

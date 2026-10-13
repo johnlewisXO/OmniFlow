@@ -642,6 +642,28 @@ const MainAppLayout: React.FC = () => {
   const [isEmailCenterOpen, setIsEmailCenterOpen] = useState(false);
   const [emailCenterInitialTab, setEmailCenterInitialTab] = useState<'verify' | 'outbox'>('verify');
   const [scrollBounceState, setScrollBounceState] = useState<'none' | 'top' | 'bottom'>('none');
+  const [pendingJoinRequests, setPendingJoinRequests] = useState<any[]>([]);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+
+  const canManageRequests =
+    currentUser?.role === UserRole.OWNER ||
+    currentUser?.role === UserRole.ADMIN ||
+    currentUser?.role === UserRole.PROJECT_MANAGER;
+
+  useEffect(() => {
+    if (!currentUser?.organization_id || !canManageRequests) return;
+    const fetchRequests = async () => {
+      try {
+        const reqs = await supabaseService.getJoinRequestsForOrganization(currentUser.organization_id!);
+        setPendingJoinRequests(reqs.filter((r: any) => r.status === 'pending'));
+      } catch {}
+    };
+    fetchRequests();
+
+    const handleReqChange = () => fetchRequests();
+    window.addEventListener('omni_org_join_request_updated', handleReqChange);
+    return () => window.removeEventListener('omni_org_join_request_updated', handleReqChange);
+  }, [currentUser?.organization_id, currentUser?.role, canManageRequests]);
 
   useEffect(() => {
     const handleOpenLogMonitor = () => setIsSystemLogMonitorOpen(true);
@@ -856,6 +878,41 @@ const MainAppLayout: React.FC = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col gap-2 sm:gap-3 md:gap-4 min-w-0 h-full overflow-hidden">
         <Header />
+        {/* In-App Manager / Admin / Owner Join Request Approval Alert Banner */}
+        {canManageRequests && pendingJoinRequests.length > 0 && !isBannerDismissed && (
+          <div className="mx-2 sm:mx-3 md:mx-4 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-indigo-500/15 to-purple-500/15 border border-amber-500/30 flex items-center justify-between gap-3 shadow-md backdrop-blur-md animate-fadeIn flex-shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="flex h-2.5 w-2.5 relative flex-shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+              </span>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                <strong className="text-amber-500 dark:text-amber-400 mr-1.5 font-bold">
+                  {pendingJoinRequests.length} Pending Access Request{pendingJoinRequests.length > 1 ? 's' : ''}:
+                </strong>
+                {pendingJoinRequests.map(r => r.requester_name || r.requester_email).slice(0, 2).join(', ')}
+                {pendingJoinRequests.length > 2 ? ` and ${pendingJoinRequests.length - 2} more` : ''} requested to join this organization.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveView('team_management')}
+                className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white shadow-sm transition-all cursor-pointer"
+              >
+                Review & Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsBannerDismissed(true)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 transition-colors cursor-pointer text-xs"
+                title="Dismiss for this session"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
         <div
           data-main-scroll-view="true"
           className={`flex-1 flex flex-col glass-panel rounded-[32px] p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${

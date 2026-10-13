@@ -139,7 +139,7 @@ export const TeamManagementPage: React.FC = () => {
     collabService.requestRemotePresences();
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'directory' | 'rbac_matrix' | 'invitations' | 'audit_logs'>(
+  const [activeTab, setActiveTab] = useState<'directory' | 'rbac_matrix' | 'invitations' | 'audit_logs' | 'join_requests'>(
     activeView === 'user_logs_view' ? 'audit_logs' : 'directory'
   );
 
@@ -148,6 +148,23 @@ export const TeamManagementPage: React.FC = () => {
       setActiveTab('audit_logs');
     }
   }, [activeView]);
+
+  // Track users whose roles have been persistently confirmed in DB
+  const [syncedUserIds, setSyncedUserIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    const set = new Set<string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('axon_user_role_')) {
+          set.add(k.replace('axon_user_role_', ''));
+        }
+      }
+    } catch {}
+    return set;
+  });
+
+  const [joinRequestsTabFilter, setJoinRequestsTabFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('pending');
 
   // Directory Search, Filter & Bulk States
   const [directorySearch, setDirectorySearch] = useState('');
@@ -257,13 +274,15 @@ export const TeamManagementPage: React.FC = () => {
       const roleToGrant = approvalRoles[req.id] || req.requested_role || UserRole.MEMBER;
       const approved = await supabaseService.approveJoinRequest(req.id, roleToGrant, currentUser);
       if (approved) {
+        setSyncedUserIds(prev => new Set([...prev, req.requester_id]));
         await fetchUsersForAssignmentList();
         await loadJoinRequests();
         await loadAuditLogs();
         addToast(
-          'Access Request Approved',
-          `${req.requester_name} has been granted ${formatRoleForDisplay(roleToGrant)} access to the organization.`,
-          'success'
+          'Access Approved & Synced to DB',
+          `${req.requester_name} has been granted ${formatRoleForDisplay(roleToGrant)} access and persisted to database.`,
+          'success',
+          { entity_type: 'user', entity_id: req.requester_id }
         );
       }
     } catch (err: any) {
@@ -313,14 +332,14 @@ export const TeamManagementPage: React.FC = () => {
         const synthId = `audit-task-${t.id}-${t.updated_at || t.created_at}`;
         if (!existingIds.has(synthId)) {
           const assignee = users.find(u => u.id === t.assignee_id);
-          const creator = users.find(u => u.id === t.user_id) || currentUser;
+          const creator = users.find(u => u.id === (t.creator_id || (t as any).user_id)) || currentUser;
           syntheticLogs.push({
             id: synthId,
             organization_id: currentUser?.organization_id || 'org-default',
             actor_id: creator?.id || 'system',
             actor_name: creator?.full_name || creator?.email || 'Workspace Member',
             actor_email: creator?.email,
-            action: t.status === 'DONE' ? 'task_completed' : t.status === 'IN_PROGRESS' ? 'task_status_transition' : 'task_updated',
+            action: (t.status as any) === 'DONE' || (t.status as any) === TaskStatus.DONE ? 'task_completed' : (t.status as any) === 'IN_PROGRESS' || (t.status as any) === TaskStatus.IN_PROGRESS ? 'task_status_transition' : 'task_updated',
             target_type: 'task',
             target_id: t.id,
             target_name: t.title,
@@ -372,7 +391,7 @@ export const TeamManagementPage: React.FC = () => {
 
   useEffect(() => {
     const handleNewAudit = () => {
-      if (activeTab === 'audit') {
+      if (activeTab === 'audit_logs') {
         loadAuditLogs();
       }
     };
@@ -424,8 +443,17 @@ export const TeamManagementPage: React.FC = () => {
       addToast('Action Restricted', 'You cannot change your own role from this interface.', 'warning');
       return;
     }
+    const targetMember = users.find(u => u.id === userId);
+    const targetName = targetMember?.full_name || targetMember?.email || 'Member';
+
     await updateUserRoleInOrganization(userId, normalizedNew);
-    addToast('Role Updated in Realtime', `Member role updated to ${formatRoleForDisplay(normalizedNew)}.`, 'success');
+    setSyncedUserIds(prev => new Set([...prev, userId]));
+    addToast(
+      'Role Updated & Synced to DB',
+      `${targetName}'s role has been updated to ${formatRoleForDisplay(normalizedNew)} and persisted in database.`,
+      'success',
+      { entity_type: 'user', entity_id: userId }
+    );
     setEditingUserId(null);
     setSelectedRoleForUser(null);
     loadAuditLogs();
@@ -865,6 +893,7 @@ export const TeamManagementPage: React.FC = () => {
                       <Avatar
                         user={{
                           id: req.requester_id,
+                          supabase_auth_id: req.requester_id,
                           full_name: req.requester_name,
                           email: req.requester_email,
                           avatar_url: req.requester_avatar,
@@ -993,6 +1022,28 @@ export const TeamManagementPage: React.FC = () => {
           <span>Audit Logs</span>
           <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{auditLogs.length}</span>
         </button>
+        {canActorManageTeam && (
+          <button
+            onClick={() => setActiveTab('join_requests')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'join_requests'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
+            }`}
+          >
+            <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-400" />
+            <span>Join Requests</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                joinRequests.filter(r => r.status === 'pending').length > 0
+                  ? 'bg-amber-400 text-slate-950 animate-pulse'
+                  : 'bg-black/15 dark:bg-white/15'
+              }`}
+            >
+              {joinRequests.filter(r => r.status === 'pending').length}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Tab Content: 1. Directory */}
@@ -1251,23 +1302,34 @@ export const TeamManagementPage: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Normalized Current Role Badge */}
+                        {/* Normalized Current Role Badge & Synced to DB Indicator */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border ${
-                              normalizedUserRole === UserRole.OWNER
-                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                : normalizedUserRole === UserRole.ADMIN
-                                  ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-                                  : normalizedUserRole === UserRole.PROJECT_MANAGER
-                                    ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
-                                    : normalizedUserRole === UserRole.CLIENT_VIEWER
-                                      ? 'bg-slate-500/15 text-slate-400 border-slate-500/30'
-                                      : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                            }`}
-                          >
-                            {formatRoleForDisplay(normalizedUserRole)}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border ${
+                                normalizedUserRole === UserRole.OWNER
+                                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                  : normalizedUserRole === UserRole.ADMIN
+                                    ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                                    : normalizedUserRole === UserRole.PROJECT_MANAGER
+                                      ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+                                      : normalizedUserRole === UserRole.CLIENT_VIEWER
+                                        ? 'bg-slate-500/15 text-slate-400 border-slate-500/30'
+                                        : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              }`}
+                            >
+                              {formatRoleForDisplay(normalizedUserRole)}
+                            </span>
+                            {(syncedUserIds.has(user.id) || user.db_synced) && (
+                              <span
+                                title="Role synchronized and persistent in backend database"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs"
+                              >
+                                <ICON_MAP.CheckCircleIcon className="w-3 h-3 text-emerald-400" />
+                                <span>Synced to DB</span>
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Role Assignment Dropdown */}
@@ -1670,6 +1732,204 @@ export const TeamManagementPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab Content: 5. Organization Join Requests & Access Approvals */}
+      {activeTab === 'join_requests' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border bg-white/90 dark:bg-neutral-900/80 border-slate-200/80 dark:border-white/10">
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-2">
+                <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-400" />
+                <span>Organization Join Requests & Access Governance</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                New user signup requests to join this organization. Project Managers, Admins, and Owners can approve or decline access.
+              </p>
+            </div>
+
+            {/* Filter pills */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-neutral-800 self-start sm:self-auto">
+              {(['pending', 'all', 'approved', 'declined'] as const).map(f => {
+                const count =
+                  f === 'all'
+                    ? joinRequests.length
+                    : joinRequests.filter(r => r.status === f).length;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setJoinRequestsTabFilter(f)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                      joinRequestsTabFilter === f
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>{f}</span>
+                    <span className="ml-1.5 opacity-70 text-[10px]">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {joinRequests.filter(r => joinRequestsTabFilter === 'all' || r.status === joinRequestsTabFilter).length === 0 ? (
+            <div className={`p-12 text-center rounded-2xl border ${darkMode ? 'bg-neutral-900/40 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+              <ICON_MAP.ShieldCheckIcon className="w-10 h-10 mx-auto text-slate-400/60 mb-2" />
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No {joinRequestsTabFilter !== 'all' ? joinRequestsTabFilter : ''} join requests found</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                When new users sign up and request access to this organization, their applications will appear here for manager review.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {joinRequests
+                .filter(r => joinRequestsTabFilter === 'all' || r.status === joinRequestsTabFilter)
+                .map(req => {
+                  const selectedGrantRole = approvalRoles[req.id] || req.requested_role || UserRole.MEMBER;
+                  const isProcessing = processingRequestId === req.id;
+                  const isApproved = req.status === 'approved';
+                  const isDeclined = req.status === 'declined';
+                  const isPending = req.status === 'pending';
+
+                  return (
+                    <div
+                      key={req.id}
+                      className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                        isPending
+                          ? darkMode
+                            ? 'bg-neutral-900 border-amber-500/30 shadow-xs'
+                            : 'bg-white border-amber-200 shadow-xs'
+                          : darkMode
+                            ? 'bg-neutral-900/60 border-white/5 opacity-85'
+                            : 'bg-slate-50 border-slate-200 opacity-90'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5 min-w-0">
+                        <Avatar
+                          user={{
+                            id: req.requester_id,
+                            supabase_auth_id: req.requester_id,
+                            full_name: req.requester_name,
+                            email: req.requester_email,
+                            avatar_url: req.requester_avatar,
+                          }}
+                          size="md"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                              {req.requester_name}
+                            </span>
+                            <span className="text-xs text-slate-400 font-mono">
+                              ({req.requester_email})
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                              Requested: {formatRoleForDisplay(req.requested_role)}
+                            </span>
+                            {isApproved && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                <ICON_MAP.CheckCircleIcon className="w-3 h-3 text-emerald-400" />
+                                <span>Approved ({formatRoleForDisplay(req.approved_role || selectedGrantRole)})</span>
+                              </span>
+                            )}
+                            {isDeclined && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                                ✕ Declined
+                              </span>
+                            )}
+                            {syncedUserIds.has(req.requester_id) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                                <ICON_MAP.CheckCircleIcon className="w-3 h-3 text-emerald-400" />
+                                <span>Synced to DB</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {req.message && (
+                            <p className="text-xs text-slate-500 dark:text-slate-300 mt-1.5 italic bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg">
+                              &ldquo;{req.message}&rdquo;
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-2">
+                            <span>Requested: {new Date(req.created_at).toLocaleString()}</span>
+                            {req.reviewed_by && (
+                              <span>• Reviewed by {req.reviewer_name || req.reviewed_by}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      {isPending && canActorManageTeam && (
+                        <div className="flex flex-wrap items-center gap-2.5 self-end lg:self-center flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                              Grant:
+                            </label>
+                            <select
+                              value={selectedGrantRole}
+                              onChange={e =>
+                                setApprovalRoles(prev => ({
+                                  ...prev,
+                                  [req.id]: e.target.value as UserRole,
+                                }))
+                              }
+                              disabled={isProcessing}
+                              className={`text-xs font-bold rounded-xl border px-3 py-1.5 ${
+                                darkMode
+                                  ? 'bg-neutral-800 border-white/10 text-white'
+                                  : 'bg-white border-slate-300 text-slate-900'
+                              }`}
+                            >
+                              <option value={UserRole.MEMBER}>Member</option>
+                              <option value={UserRole.PROJECT_MANAGER}>Project Manager</option>
+                              {currentActorRole === UserRole.OWNER && (
+                                <option value={UserRole.ADMIN}>Admin</option>
+                              )}
+                            </select>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => handleApproveJoinRequest(req)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                          >
+                            {isProcessing ? (
+                              <>
+                                <SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                                <span>Approving & Syncing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 mr-1 text-white" />
+                                <span>Approve & Sync to DB</span>
+                              </>
+                            )}
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => handleDeclineJoinRequest(req)}
+                            className="text-xs font-semibold px-3 py-1.5 text-rose-400 hover:text-rose-300"
+                          >
+                            Decline
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>

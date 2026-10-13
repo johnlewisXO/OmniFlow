@@ -1,131 +1,144 @@
-# Workspace UI Simplification & Role-Tailored Dashboard Architecture
+# End-to-End RBAC Role Sync, Streamlined Google SSO & Multi-Role Org Approval Architecture
 
-Streamline the entire platform interface by removing redundant header clutter, isolating top-nav presence to external teammates, consolidating secondary tools into an on-demand slide-over drawer, and restructuring dashboards into role-tailored, high-clarity Bento grids.
+Deliver a production-grade identity, access control, and workspace onboarding system:
+1. Fix end-to-end RBAC role persistence across frontend, Express backend, and Supabase database, preventing role reversion to `CLIENT_VIEWER` on refresh, and providing an explicit inline "Synced to DB" confirmation badge.
+2. Replace cluttered test accounts on the Google SSO modal with a clean, focused single-click Google authentication flow utilizing Supabase OAuth.
+3. Implement a complete Organization Join Request pipeline allowing Project Managers, Admins, and Owners to review and approve join requests, powered by real-time in-app approval banners and SMTP email alerts.
+
+---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following design decisions were aligned and confirmed via interactive consultation:
-> - **Dashboard Simplification Strategy**: Clean Bento layout displaying role-tailored, high-priority widgets only (reducing cognitive load for each specific role).
-> - **Visual Aesthetics & Rounding**: Soft pill capsules, generous rounded cards (`28px`–`32px`), unified high-contrast charts, and single-elevation surfaces adhering to the Universal Frontend Design Constitution.
-> - **Secondary Utilities Placement**: The removed tools (`Split`, `Huddle`, `Graph`, `Scratchpad`) will reside inside a discreet slide-over "Quick Utilities" drawer accessible from a single header button or Command Palette (`⌘K`), keeping the primary top bar clean and minimal.
+> The following product decisions were confirmed during consultation:
+> - **Google SSO Flow**: Clean modal featuring a direct Google Workspace sign-in button using Supabase OAuth redirect, eliminating obsolete test credentials and redundant forms.
+> - **Role Sync UI Feedback**: Inline badge reading **"Synced to DB"** with a green status indicator and toast notification when an Admin, Owner, or Project Manager modifies a team member's role.
+> - **Join Request Notifications**: Both an in-app manager approval banner displayed to Project Managers, Admins, and Owners, plus transactional SMTP email alerts dispatched to leadership with 1-click review links.
 
-- **Confirmed Decision 1**: Filter the header avatar stack to strictly exclude the current logged-in user, showing only *other* active team members in their organization.
-- **Confirmed Decision 2**: Remove the four static button clusters (`◫ Split`, `🎧 Huddle`, `🕸️ Graph`, `📓 Scratchpad`) from the header top bar.
-- **Confirmed Decision 3**: Deliver role-specific dashboard views: Executive/Owner (Portfolio & Goals), Project Manager (Sprint Velocity & Workload), Member/Engineer (My Tasks & Focus), Admin (Governance & Directory), and Client (Milestones & Deliverables).
-
----
-
-## 1. Overview & Core Concept
-
-### What It Does
-1. **Header Cleanup & Organization Teammates Isolation**: Refactors the top navigation bar into a clean 3-zone contract. The presence avatar stack strictly excludes the current logged-in user, showing only other teammates currently active in the organization.
-2. **Header Decluttering**: Eliminates the four bulky utility buttons (`Split`, `Huddle`, `Graph`, `Scratchpad`) from the top navigation bar. In their place, a single sleek `⚡ Quick Utilities` icon button opens an animated slide-over drawer housing these multitasking tools.
-3. **Role-Tailored Bento Dashboards**: Restructures `TasklyBentoWorkspaceHub` so each user role (`OWNER`, `ADMIN`, `PROJECT_MANAGER`, `MEMBER`, `CLIENT_VIEWER`) receives an intentional, uncluttered view of only the metrics and widgets relevant to their daily workflow.
-4. **Visual Polish & Anti-Clutter Pass**: Refactors card geometry across all pages to generous 28px/32px super-rounded corners, clean hairline borders (`border-white/10` in dark mode, `border-slate-200/80` in light mode), unboxed text metadata, and unified interactive charts.
-
-### Target Audience & Persona Workflows
-- **Owner / Executive**: High-level portfolio progress, company delivery velocity, OKR rollups, and macro financial/time metrics without individual ticket clutter.
-- **Project Manager**: Sprint burndown trajectory, column WIP bottlenecks, team capacity balance, and milestone delivery dates.
-- **Engineer / Member**: "My Assigned Tasks" priority queue, integrated focus timer, active sprint items, and recent review requests.
-- **Admin**: Member provisioning, security audit events, seat allocations, and RBAC matrix governance.
-- **Client / Stakeholder**: Milestone roadmap, completed deliverables, and review items without internal agile overhead.
+- **Confirmed Decision 1**: Implement a resilient dual-layer role persistence bridge (Supabase Database + server-side `/api/users/role` endpoint) to ensure role promotions/demotions persist permanently across sessions and never revert to `CLIENT_VIEWER` on reload.
+- **Confirmed Decision 2**: Streamline the Google SSO modal in `AuthPage.tsx` to a single direct Google account selector button connecting to Supabase OAuth.
+- **Confirmed Decision 3**: Enable Project Managers, Admins, and Owners to approve or reject pending member join requests with customized role assignments, triggering real-time workspace admission and SMTP welcome emails.
 
 ---
 
-## 2. Technical Architecture & Component Structure
+## 1. System Architecture & Data Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                             TOP NAVIGATION BAR                              │
-│ ┌──────────────────────┐  ┌─────────────────────────┐  ┌──────────────────┐ │
-│ │ Project Breadcrumb / │  │ Teammates Presence (Ex- │  │ Single Utilities │ │
-│ │ Search Command (⌘K)  │  │ cludes Current User)    │  │ Drawer + Profile │ │
-│ └──────────────────────┘  └─────────────────────────┘  └─────────┬────────┘ │
-└──────────────────────────────────────────────────────────────────┼──────────┘
-                                                                   │ (Click)
-                                                                   ▼
-                                          ┌───────────────────────────────────┐
-                                          │     QUICK UTILITIES DRAWER        │
-                                          │ ┌───────────┐       ┌───────────┐ │
-                                          │ │ ◫ Split   │       │ 🎧 Huddle │ │
-                                          │ └───────────┘       └───────────┘ │
-                                          │ ┌───────────┐       ┌───────────┐ │
-                                          │ │ 🕸️ Graph   │       │ 📓 Notes  │ │
-                                          │ └───────────┘       └───────────┘ │
-                                          └───────────────────────────────────┘
+│                           AUTHENTICATION & SSO                              │
+│                                                                             │
+│  [ Login / Signup Form ] ──(Click "Continue with Google")──►                │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                    CLEAN GOOGLE SSO MODAL                             │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
+│  │  │ [G] Continue with Google Account (Supabase OAuth Redirect)      │  │  │
+│  │  └─────────────────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         ROLE-TAILORED BENTO CANVAS                          │
+│                     ORGANIZATION JOIN REQUEST PIPELINE                      │
 │                                                                             │
-│  [Role KPI Strip: 4 Focused Tabular Metric Capsules with Icons & Trends]     │
-│                                                                             │
-│  ┌───────────────────────────────┐     ┌──────────────────────────────────┐ │
-│  │ Primary Role Module           │     │ Secondary Role Module            │ │
-│  │ (e.g. My Tasks Queue for      │     │ (e.g. Velocity Gauge for PM;     │ │
-│  │ Members; Portfolio for Execs) │     │ OKR Progress for Execs)          │ │
-│  └───────────────────────────────┘     └──────────────────────────────────┘ │
-│                                                                             │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │ Compact Strategic Quick-Nav (Docs, Whiteboard, Heatmap, Triage)        │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
+│  New User (Email / Google) ──► Requests to Join Org (e.g. Acme Corp)       │
+│                                      │                                      │
+│                                      ▼                                      │
+│                [ Persistent Store: /api/join-requests ]                     │
+│                                      │                                      │
+│             ┌────────────────────────┴────────────────────────┐             │
+│             ▼                                                 ▼             │
+│   [ SMTP Email Alert ]                              [ In-App Banner ]       │
+│   Dispatched to PMs, Admins, & Owners               Visible to PM / Admin   │
+│   "New join request from John Doe"                  "1 Pending Join Req"    │
+│             │                                                 │             │
+│             └────────────────────────┬────────────────────────┘             │
+│                                      ▼                                      │
+│                      [ Leadership Approves in UI ]                          │
+│                                      │                                      │
+│                                      ▼                                      │
+│   ┌──────────────────────────────────────────────────────────────────────┐  │
+│   │                      END-TO-END RBAC PERSISTENCE                     │  │
+│   │  1. Server updates role in persistent registry (/api/users/role)     │  │
+│   │  2. Direct Supabase DB update: user_profiles.role = 'MEMBER'         │  │
+│   │  3. Frontend receives { syncedToDb: true }                           │  │
+│   │  4. UI displays animated "Synced to DB" badge + toast feedback        │  │
+│   │  5. Realtime broadcast admits applicant into workspace instantly     │  │
+│   └──────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Implementation Phases & Scope
+## 2. Implementation Phases & Technical Scope
 
-### Phase 1: Header Decluttering & Logged-In User Filtering
-- **File**: `components/layout/Header.tsx`
-- **Actions**:
-  1. Filter `uniquePresences` to explicitly exclude `p.userId === currentUser.id` and email matches with `currentUser.email`. Ensure the tooltip reads "Other active teammates in [Org Name]".
-  2. Remove the inline `Next-Gen Spatial Multitasking & UX Quick Bar` containing `◫ Split`, `🎧 Huddle`, `🕸️ Graph`, and `📓 Scratchpad`.
-  3. Introduce a compact, elegant icon button (`SparklesIcon` or `Squares2X2Icon`) with tooltip "Quick Utilities & Tools" that opens the slide-over drawer.
-  4. Ensure the Top Navigation adheres strictly to the single-row, three-zone contract with clean hairline borders and no overflowing badges.
-
-### Phase 2: Slide-Over Quick Utilities Drawer
-- **Files**: `components/layout/Header.tsx`, `components/shared/QuickUtilitiesDrawer.tsx`
-- **Actions**:
-  1. Create a dedicated `QuickUtilitiesDrawer` component with an animated backdrop and slide-over panel.
-  2. House the 4 secondary tools with rich descriptions, keyboard shortcuts, and launch buttons:
-     - **Split Dual-Pane Multitasking** (`⌘\`)
-     - **Ambient Voice & Screen Huddle**
-     - **Knowledge Backlinks & Graph**
-     - **Personal Scratchpad & Quick Notes** (`⌘J`)
-  3. Ensure each button cleanly dispatches the existing window custom events (`omni_toggle_split_pane`, `omni_toggle_ambient_huddle`, `omni_toggle_knowledge_graph`, `omni_toggle_scratchpad`).
-
-### Phase 3: Role-Tailored Dashboard Bento Layouts
-- **File**: `components/dashboards/TasklyBentoWorkspaceHub.tsx`
-- **Actions**:
-  1. Define curated default widget sets and order per role:
-     - **Owner / Exec**: `['project_status', 'calendar_schedule', 'task_overview', 'team_chat']`
-     - **Project Manager**: `['project_status', 'task_overview', 'calendar_schedule', 'team_chat']`
-     - **Member / Engineer**: `['task_overview', 'focus_timer_notes', 'team_chat', 'calendar_schedule']`
-     - **Client / Viewer**: `['project_status', 'calendar_schedule', 'task_overview']`
-  2. Remove noisy micro-labels, redundant headers, and decorative pulsing dots.
-  3. Simplify the top KPI strip into 4 crisp, non-cluttered capsules with clear icons, tabular numbers, and clean sub-labels.
-  4. Polish the bottom strategic module cards to be sleek, unified 1-line cards with clear icons and metric badges.
-
-### Phase 4: Across-the-Board UI Simplification & Roundness Alignment
-- **Files**: `components/tasks/KanbanBoard.tsx`, `components/reports/ReportsPage.tsx`, `components/team/TeamManagementPage.tsx`
-- **Actions**:
-  1. Standardize card and container border radius to generous `rounded-[28px]` or `rounded-[32px]` for major sections and `rounded-2xl` for child items.
-  2. Verify that metadata uses clean unboxed text rather than layered pill badges.
-  3. Ensure dark mode surfaces consistently use True Obsidian Black (`#050507` / `#0C0C10`) with `border-white/10`, and light mode surfaces use Studio Alabaster (`#F4F4F6` / `#FFFFFF`) with `border-slate-200/80`.
+### Phase 1: End-to-End Role RBAC Persistence & "Synced to DB" Feedback
+- **Problem**: When modifying a user's role in the Team Management UI, Row-Level Security (RLS) on Supabase's `user_profiles` restricts direct updates of another user's row from the client. As a result, the update remained in client-side memory, and upon page refresh or re-authentication, `ensureUserProfileForSession` retrieved the original database row (defaulting to `CLIENT_VIEWER` or unpromoted state).
+- **Backend Architecture (`server.ts`)**:
+  - Implement persistent endpoints:
+    - `POST /api/users/role`: Accepts `{ userId, role, organizationId, actorId }`. Validates that `actorId` is an `OWNER`, `ADMIN`, or `PROJECT_MANAGER`. Updates the persistent user role registry and executes server-side sync with the database.
+    - `GET /api/users/roles`: Retrieves all active role assignments and overrides for the organization.
+- **Client Service Layer (`services/supabaseService.ts`)**:
+  - Update `updateUserRole`: Call `/api/users/role` first, followed by best-effort Supabase client update. Return `{ success: boolean, syncedToDb: boolean, role: UserRole }`.
+  - Update `ensureUserProfileForSession` and `getUserProfile`: Query role overrides from `/api/users/roles` so any role set by an administrator immediately overrides any stale fallback on page reload.
+- **Team Management UI (`components/team/TeamManagementPage.tsx`)**:
+  - Add state tracking for newly updated roles: `syncedUserIds: Record<string, boolean>`.
+  - Render an inline green pill badge: `✓ Synced to DB` next to the updated member's role in the table/directory.
+  - Display feedback toast: `Role Synced to DB: [User Name] updated to [Role]`.
 
 ---
 
-## 4. Verification & Testing Plan
+### Phase 2: Streamlined Google SSO Modal
+- **Problem**: The existing Google SSO modal displayed mock test accounts (`Alex Morgan`, `Jordan Taylor`), plus manual full-name and email input fields, burying the actual Google OAuth flow.
+- **Refactor (`components/auth/AuthPage.tsx`)**:
+  - Simplify the modal into a clean, modern dialog adhering to official Google Workspace styling:
+    - Branded Google logo and clean header: "Sign in with Google Workspace".
+    - Single primary action button: `Continue with Google Account` that triggers `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: getProductionBaseUrl() } })`.
+    - Clean subtext explaining secure SSO authentication without mock inputs or confusing form fields.
 
-1. **Top Nav Avatar Stack Verification**:
-   - Verify that when logged in as user `A`, user `A`'s own avatar does NOT appear in the top-nav avatar stack.
-   - Verify that other active members from the same organization appear with live presence dots.
-2. **Header Tool Buttons Check**:
-   - Confirm that the buttons `◫ Split`, `🎧 Huddle`, `🕸️ Graph`, and `📓 Scratchpad` are no longer in the header bar.
-   - Confirm that clicking the Quick Utilities button opens the slide-over drawer and each action triggers its corresponding feature.
-3. **Role-Based Dashboard Check**:
-   - Switch user roles (e.g. Owner vs Member vs PM vs Client) and verify that the dashboard rearranges to display only relevant widgets and KPIs without clutter.
-4. **Compilation & Responsive Check**:
-   - Run `compile_applet` to ensure zero TypeScript or bundling errors.
-   - Verify layout on mobile (<768px), tablet (768px-1024px), and desktop (>1024px).
+---
+
+### Phase 3: Production-Grade Organization Join Request & Multi-Role Approval
+- **Problem**: When new users sign up via email or Google SSO and request to join an existing organization, leaders (PMs, Admins, Owners) need an immediate, foolproof way to review, approve, and grant appropriate roles.
+- **Approval Flow & Hierarchy**:
+  - Roles eligible to approve: `OWNER`, `ADMIN`, and `PROJECT_MANAGER`.
+  - `OWNER` can assign any role up to `ADMIN` or transfer `OWNER`.
+  - `ADMIN` and `PROJECT_MANAGER` can assign `PROJECT_MANAGER`, `MEMBER`, or `CLIENT_VIEWER`.
+- **In-App Manager Approval Banner (`App.tsx` & `components/dashboards/`)**:
+  - When active user is `OWNER`, `ADMIN`, or `PROJECT_MANAGER` and there are pending join requests for their organization:
+    - Render a sleek floating alert banner at the top of the workspace:
+      `🔔 Join Request: [Requester Name] requested to join [Org Name] as [Role] — [Review & Approve]`.
+- **Team Management Join Requests Tab (`components/team/TeamManagementPage.tsx`)**:
+  - Add or enrich the "Join Requests" sub-tab with count pill `Join Requests (N)`.
+  - Provide an interactive card for each applicant:
+    - Applicant name, email, avatar, request timestamp, and custom note.
+    - Role selector dropdown allowing the approver to change the assigned role (e.g., from `MEMBER` to `PROJECT_MANAGER`).
+    - Two clear action buttons: `Approve Access` and `Decline`.
+- **SMTP Email Alert Dispatch (`services/emailNotificationService.ts` & `server.ts`)**:
+  - When a user submits a join request:
+    - Query all PMs, Admins, and Owners of that organization.
+    - Dispatch transactional email: `[Omni Flow] New Workspace Join Request: [Applicant Name]`.
+    - Include direct 1-click CTA: `Review Join Request in Workspace`.
+  - When approved:
+    - Dispatch welcome email to the applicant: `Welcome to [Organization Name]! Your request has been approved.`.
+    - Broadcast real-time event across channels so if the applicant has the modal open, it auto-admits them into the workspace.
+
+---
+
+## 3. Verification Plan
+
+1. **RBAC Persistence & Reload Test**:
+   - Log in as Owner/Admin/PM.
+   - Change a team member's role from `CLIENT_VIEWER` to `MEMBER` (or `PROJECT_MANAGER`).
+   - Verify the `✓ Synced to DB` inline badge appears and the confirmation toast fires.
+   - Hard refresh the page (`F5` / reload) and verify the user's role remains `MEMBER`/`PROJECT_MANAGER` and does not revert to `CLIENT_VIEWER`.
+2. **Google SSO Modal Test**:
+   - Navigate to login or signup.
+   - Click "Continue with Google".
+   - Verify the modal shows only the clean direct Google SSO button and no mock account forms.
+3. **Organization Join Request & Approval Test**:
+   - Submit a join request as a newly signed-up user.
+   - Verify the in-app notification banner appears for Project Managers, Admins, and Owners.
+   - Check that the join request appears in `TeamManagementPage.tsx` with role selection.
+   - Approve the request, verify the applicant receives real-time admission and that their role persists in the database.
+4. **Applet Compilation**:
+   - Run `compile_applet` to ensure TypeScript compilation passes with zero errors.

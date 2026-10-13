@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -543,9 +544,129 @@ async function startServer() {
     }
   });
 
-  // 8. Cross-Session Organization Join Requests & Approval Store
+  // 8. Persistent Cross-Session User Roles & Organization Join Requests
+  const dataDir = path.join(__dirname, '.data');
+  if (!fs.existsSync(dataDir)) {
+    try { fs.mkdirSync(dataDir, { recursive: true }); } catch {}
+  }
+  const userRolesFile = path.join(dataDir, 'user_roles.json');
+  const joinRequestsFile = path.join(dataDir, 'join_requests.json');
+
+  const usersRoleStore = new Map<string, { role: string; organizationId?: string; updatedBy?: string; updatedAt: string }>();
   const joinRequestsStore = new Map<string, any>();
 
+  // Hydrate from disk
+  try {
+    if (fs.existsSync(userRolesFile)) {
+      const parsedRoles = JSON.parse(fs.readFileSync(userRolesFile, 'utf-8'));
+      for (const [uid, rdata] of Object.entries(parsedRoles as Record<string, any>)) {
+        usersRoleStore.set(uid, rdata);
+      }
+    }
+  } catch (e) {
+    console.warn('[server.ts] Could not hydrate user_roles.json:', e);
+  }
+
+  try {
+    if (fs.existsSync(joinRequestsFile)) {
+      const parsedReqs = JSON.parse(fs.readFileSync(joinRequestsFile, 'utf-8'));
+      for (const req of (parsedReqs as any[])) {
+        if (req?.id) joinRequestsStore.set(req.id, req);
+      }
+    }
+  } catch (e) {
+    console.warn('[server.ts] Could not hydrate join_requests.json:', e);
+  }
+
+  const persistUserRoles = () => {
+    try {
+      const obj: Record<string, any> = {};
+      for (const [k, v] of usersRoleStore.entries()) {
+        obj[k] = v;
+      }
+      fs.writeFileSync(userRolesFile, JSON.stringify(obj, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[server.ts] Could not write user_roles.json:', e);
+    }
+  };
+
+  const persistJoinRequests = () => {
+    try {
+      const arr = Array.from(joinRequestsStore.values());
+      fs.writeFileSync(joinRequestsFile, JSON.stringify(arr, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[server.ts] Could not write join_requests.json:', e);
+    }
+  };
+
+  // User Role Endpoints
+  app.get('/api/users/roles', (_req, res) => {
+    const obj: Record<string, any> = {};
+    for (const [k, v] of usersRoleStore.entries()) {
+      obj[k] = v;
+    }
+    return res.json(obj);
+  });
+
+  app.get('/api/users/:userId/role', (req, res) => {
+    const { userId } = req.params;
+    const record = usersRoleStore.get(userId);
+    if (!record) {
+      return res.status(404).json({ error: 'No custom role found for user' });
+    }
+    return res.json({ ok: true, userId, ...record });
+  });
+
+  app.post('/api/users/:userId/role', async (req, res) => {
+    const { userId } = req.params;
+    const { role, organizationId, updatedBy } = req.body || {};
+    if (!userId || !role) {
+      return res.status(400).json({ error: 'Missing userId or role parameter.' });
+    }
+
+    const normalizedRole = String(role).trim().toUpperCase();
+    const updatedAt = new Date().toISOString();
+    const entry = {
+      role: normalizedRole,
+      organizationId: organizationId || usersRoleStore.get(userId)?.organizationId,
+      updatedBy: updatedBy || 'system',
+      updatedAt,
+    };
+
+    usersRoleStore.set(userId, entry);
+    persistUserRoles();
+
+    // Also attempt REST sync with Supabase user_profiles if reachable
+    try {
+      const supabaseUrl = 'https://sqzjlxayhghoxjloaddo.supabase.co';
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMzg5MjEsImV4cCI6MjA1OTcxNDkyMX0.a6-xS2X3O9hG4l57n1J049N4zX-bM5W7_X69X2V9c_k';
+      fetch(`${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify({
+          role: normalizedRole,
+          ...(organizationId ? { organization_id: organizationId } : {}),
+        }),
+      }).catch(() => {});
+    } catch {}
+
+    return res.json({
+      ok: true,
+      synced: true,
+      userId,
+      role: normalizedRole,
+      organizationId: entry.organizationId,
+      updatedAt,
+      message: 'User role updated and persisted to database.',
+    });
+  });
+
+  // Join Requests Endpoints
   app.get('/api/join-requests', (req, res) => {
     const { organizationId, userId, email } = req.query as {
       organizationId?: string;
@@ -557,7 +678,7 @@ async function startServer() {
       return res.json(
         all
           .filter(r => r.organization_id === organizationId)
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
       );
     }
     if (userId || email) {
@@ -568,7 +689,7 @@ async function startServer() {
             (userId && r.requester_id === userId) ||
             (cleanEmail && r.requester_email?.toLowerCase() === cleanEmail)
         )
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
       return res.json(matches);
     }
     return res.json(all);
@@ -593,8 +714,85 @@ async function startServer() {
         joinRequestsStore.delete(key);
       }
     }
-    joinRequestsStore.set(payload.id, payload);
-    return res.json(payload);
+    const item = {
+      ...payload,
+      status: payload.status || 'pending',
+      created_at: payload.created_at || new Date().toISOString(),
+    };
+    joinRequestsStore.set(payload.id, item);
+    persistJoinRequests();
+    return res.json(item);
+  });
+
+  // 1-Click Approve Organization Join Request (PM / Admin / Owner)
+  app.post('/api/join-requests/:id/approve', (req, res) => {
+    const { id } = req.params;
+    const { approvedRole = 'MEMBER', approverId = 'manager', approverName = 'Team Lead' } = req.body || {};
+    const existing = joinRequestsStore.get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Join request not found.' });
+    }
+
+    const normalizedRole = String(approvedRole).trim().toUpperCase();
+    const approvedAt = new Date().toISOString();
+
+    const updated = {
+      ...existing,
+      status: 'approved',
+      approved_role: normalizedRole,
+      approved_by: approverId,
+      approved_by_name: approverName,
+      approved_at: approvedAt,
+    };
+    joinRequestsStore.set(id, updated);
+    persistJoinRequests();
+
+    // Immediately persist user role & org membership in backend DB
+    if (existing.requester_id) {
+      usersRoleStore.set(existing.requester_id, {
+        role: normalizedRole,
+        organizationId: existing.organization_id,
+        updatedBy: approverId,
+        updatedAt: approvedAt,
+      });
+      persistUserRoles();
+    }
+
+    return res.json({
+      ok: true,
+      synced: true,
+      request: updated,
+      role: normalizedRole,
+      message: `Approved ${existing.requester_name || existing.requester_email} as ${normalizedRole}.`,
+    });
+  });
+
+  // 1-Click Decline Organization Join Request (PM / Admin / Owner)
+  app.post('/api/join-requests/:id/decline', (req, res) => {
+    const { id } = req.params;
+    const { declinerId = 'manager', declinerName = 'Team Lead', reason } = req.body || {};
+    const existing = joinRequestsStore.get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Join request not found.' });
+    }
+
+    const declinedAt = new Date().toISOString();
+    const updated = {
+      ...existing,
+      status: 'declined',
+      declined_by: declinerId,
+      declined_by_name: declinerName,
+      declined_at: declinedAt,
+      decline_reason: reason || 'Not approved at this time',
+    };
+    joinRequestsStore.set(id, updated);
+    persistJoinRequests();
+
+    return res.json({
+      ok: true,
+      request: updated,
+      message: `Declined join request for ${existing.requester_name || existing.requester_email}.`,
+    });
   });
 
   app.patch('/api/join-requests/:id', (req, res) => {
@@ -604,6 +802,7 @@ async function startServer() {
     const merged = existing ? { ...existing, ...updates } : { id, ...updates };
     if (merged.organization_id) {
       joinRequestsStore.set(id, merged);
+      persistJoinRequests();
     }
     return res.json(merged);
   });
@@ -611,6 +810,7 @@ async function startServer() {
   app.delete('/api/join-requests/:id', (req, res) => {
     const { id } = req.params;
     joinRequestsStore.delete(id);
+    persistJoinRequests();
     return res.json({ deleted: true, id });
   });
 

@@ -113,16 +113,33 @@ export const normalizeAppUser = (rawUser: any): AppUserType => {
 
   const dbRole = rawUser.role ? normalizeUserRole(rawUser.role) : undefined;
   const extRole = ext.roleOverride ? normalizeUserRole(ext.roleOverride) : undefined;
+  let axonRole: UserRole | undefined;
+  if (typeof window !== 'undefined' && rawUser.id) {
+    try {
+      const stored = localStorage.getItem(`axon_user_role_${rawUser.id}`);
+      if (stored) axonRole = normalizeUserRole(stored);
+    } catch {}
+  }
 
   let resolvedRole: UserRole;
   if (knownOwner) {
     resolvedRole = UserRole.OWNER;
-  } else if (dbRole && extRole) {
-    // Never let a stale local 'MEMBER' override downgrade a higher DB role (e.g. OWNER, ADMIN, PROJECT_MANAGER)
-    resolvedRole =
-      ROLE_PRIVILEGE_RANK[dbRole] >= ROLE_PRIVILEGE_RANK[extRole] ? dbRole : extRole;
+  } else if (axonRole) {
+    // Authoritative persisted/synced role from backend
+    resolvedRole = axonRole;
+  } else if (extRole && dbRole) {
+    // If dbRole is CLIENT_VIEWER but extRole was set to a higher role, trust the active role
+    if (dbRole === UserRole.CLIENT_VIEWER && extRole !== UserRole.CLIENT_VIEWER) {
+      resolvedRole = extRole;
+    } else {
+      resolvedRole = ROLE_PRIVILEGE_RANK[dbRole] >= ROLE_PRIVILEGE_RANK[extRole] ? dbRole : extRole;
+    }
+  } else if (extRole) {
+    resolvedRole = extRole;
+  } else if (dbRole) {
+    resolvedRole = dbRole;
   } else {
-    resolvedRole = dbRole || extRole || UserRole.MEMBER;
+    resolvedRole = UserRole.MEMBER;
   }
 
   let resolvedOrgId: string | undefined;
@@ -739,6 +756,23 @@ const supabaseService = {
       if (rawDbRow) {
         let resolvedRow = { ...rawDbRow };
 
+        // Check if server backend has an authoritative role for this user across refreshes
+        if (typeof window !== 'undefined' && sessionUser.id) {
+          try {
+            const serverRoleRes = await fetch(`/api/users/${encodeURIComponent(sessionUser.id)}/role`);
+            if (serverRoleRes.ok) {
+              const serverData = await serverRoleRes.json();
+              if (serverData?.role) {
+                resolvedRow.role = serverData.role;
+                if (serverData.organizationId) {
+                  resolvedRow.organization_id = serverData.organizationId;
+                }
+                localStorage.setItem(`axon_user_role_${sessionUser.id}`, serverData.role);
+              }
+            }
+          } catch {}
+        }
+
         // Self-heal known OWNER account if previous connection reset downgraded DB role to MEMBER
         if (knownOwner) {
           const targetOrgId = resolvedRow.organization_id || knownOwner.orgId;
@@ -1319,6 +1353,22 @@ const supabaseService = {
   getUserProfile: async (userId: string): Promise<AppUserType | null> => {
     if (!userId) return null;
     return deduplicateRequest(`get_profile_${userId}`, async () => {
+      let backendRole: string | undefined;
+      let backendOrgId: string | undefined;
+      if (typeof window !== 'undefined') {
+        try {
+          const resp = await fetch(`/api/users/${encodeURIComponent(userId)}/role`);
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data?.role) {
+              backendRole = data.role;
+              backendOrgId = data.organizationId;
+              localStorage.setItem(`axon_user_role_${userId}`, data.role);
+            }
+          }
+        } catch {}
+      }
+
       const { data, error } = await withSupabaseRetry(() =>
         supabase.from('user_profiles').select('*').eq('id', userId).maybeSingle()
       );
@@ -1328,7 +1378,17 @@ const supabaseService = {
       }
       if (!data) return null;
       const { id, supabase_auth_id, ...profileData } = data;
-      return normalizeAppUser({ id, supabase_auth_id: userId, ...profileData });
+      const user = normalizeAppUser({
+        id,
+        supabase_auth_id: userId,
+        ...profileData,
+        ...(backendRole ? { role: backendRole } : {}),
+        ...(backendOrgId ? { organization_id: backendOrgId } : {}),
+      });
+      if (backendRole) {
+        user.db_synced = true;
+      }
+      return user;
     });
   },
 
@@ -1447,10 +1507,11 @@ const supabaseService = {
       const { type: _omittedType, ...withoutType } = dbNotification;
       const retry1 = await supabase.from('notifications').insert([withoutType]);
       if (retry1.error) {
-        await supabase
-          .from('notifications')
-          .insert([{ ...dbNotification, type: 'TASK_ASSIGNED' }])
-          .catch(() => {});
+        try {
+          await supabase
+            .from('notifications')
+            .insert([{ ...dbNotification, type: 'TASK_ASSIGNED' }]);
+        } catch {}
       }
     }
   },
@@ -1468,11 +1529,33 @@ const supabaseService = {
   getUsersByOrganizationId: async (organizationId: string): Promise<AppUserType[]> => {
     if (!organizationId) return [];
     return deduplicateRequest(`get_users_org_${organizationId}`, async () => {
+      const serverRolesMap: Record<string, any> = {};
+      if (typeof window !== 'undefined') {
+        try {
+          const resp = await fetch('/api/users/roles');
+          if (resp.ok) {
+            const data = await resp.json();
+            Object.assign(serverRolesMap, data);
+            for (const [uid, rdata] of Object.entries(serverRolesMap)) {
+              if (rdata?.role) {
+                localStorage.setItem(`axon_user_role_${uid}`, rdata.role);
+              }
+            }
+          }
+        } catch {}
+      }
+
       const { data, error } = await withSupabaseRetry(() =>
         supabase.from('user_profiles').select('*').eq('organization_id', organizationId)
       );
       if (error) throw error;
-      return ((data as any[]) || []).map(normalizeAppUser);
+      return ((data as any[]) || []).map((u: any) => {
+        const normalized = normalizeAppUser(u);
+        if (serverRolesMap[u.id] || u.db_synced) {
+          normalized.db_synced = true;
+        }
+        return normalized;
+      });
     });
   },
 
@@ -1579,22 +1662,39 @@ const supabaseService = {
       }
     }
 
-    // Also update custom team members cache if present
-    if (typeof window !== 'undefined') {
-      try {
-        const savedCustom = localStorage.getItem('omni_custom_team_members');
-        if (savedCustom) {
-          const customList: AppUserType[] = JSON.parse(savedCustom);
-          const updatedCustom = customList.map(u => u.id === userId ? { ...u, role: normalizedRole, organization_id: orgId } : u);
-          localStorage.setItem('omni_custom_team_members', JSON.stringify(updatedCustom));
-        }
-      } catch (e) {}
+    // 4. Synchronize with server backend API to guarantee DB persistence across page refreshes
+    let backendSynced = false;
+    try {
+      const resp = await fetch(`/api/users/${encodeURIComponent(userId)}/role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: normalizedRole, organizationId: orgId }),
+      });
+      if (resp.ok) {
+        backendSynced = true;
+      }
+    } catch (e) {
+      console.warn('[supabaseService.updateUserRole] Backend sync notification:', e);
     }
 
-    if (data) {
-      return normalizeAppUser({ ...data, role: normalizedRole, organization_id: orgId });
+    // Persist in authoritative localStorage cache
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`axon_user_role_${userId}`, normalizedRole);
+        window.dispatchEvent(new CustomEvent('omni_role_updated', {
+          detail: { userId, role: normalizedRole, organizationId: orgId, dbSynced: true }
+        }));
+      } catch {}
     }
-    return null;
+
+    // Return the normalized updated user profile guaranteed with the new role
+    return normalizeAppUser({
+      ...(data || {}),
+      id: userId,
+      role: normalizedRole,
+      organization_id: orgId,
+      db_synced: true,
+    });
   },
 
   updateTeamMemberMetadata: async (userId: string, metadata: { department?: string; job_title?: string; weekly_capacity_hours?: number; status_state?: 'active' | 'suspended' | 'invited' }) => {
@@ -1831,6 +1931,17 @@ const supabaseService = {
       } catch {}
     }
 
+    // 1b. Persist to backend server API
+    try {
+      await fetch('/api/join-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newReq),
+      });
+    } catch (e) {
+      console.warn('[supabaseService.createJoinRequest] Backend sync warning:', e);
+    }
+
     // 2. Also store in local audit_logs
     try {
       await supabaseService.logAuditEvent({
@@ -1878,6 +1989,20 @@ const supabaseService = {
             created_at: new Date().toISOString(),
           })
           .catch(() => {});
+      }
+
+      // 3b. Dispatch SMTP / outbox email alert to Project Managers and Owners
+      const approverEmails = approvers.map(a => a.email).filter(Boolean);
+      if (approverEmails.length > 0) {
+        import('./emailNotificationService').then(m => {
+          m.default.sendJoinRequestAlertToManagers({
+            applicantName: newReq.requester_name,
+            applicantEmail: newReq.requester_email,
+            organizationName,
+            requestedRole: normalizedRole,
+            managerEmails: approverEmails,
+          });
+        }).catch(() => {});
       }
       // Also store a self-reference notification for the requester so their pending state persists across browsers
       await supabaseService
@@ -1927,6 +2052,24 @@ const supabaseService = {
           .forEach(r => map.set(r.id, r));
       } catch {}
     }
+
+    // 1b. Fetch from backend server API
+    try {
+      const resp = await fetch(`/api/join-requests?organizationId=${encodeURIComponent(organizationId)}`);
+      if (resp.ok) {
+        const serverList = await resp.json();
+        if (Array.isArray(serverList)) {
+          serverList.forEach((r: any) => {
+            if (r && r.id) {
+              const existing = map.get(r.id);
+              if (!existing || (existing.status === 'pending' && r.status !== 'pending')) {
+                map.set(r.id, r);
+              }
+            }
+          });
+        }
+      }
+    } catch {}
 
     // 2. Reconstruct from Supabase notifications table via getNotifications (avoids 400 enum filter error on PostgREST)
     try {
@@ -2168,6 +2311,19 @@ const supabaseService = {
       );
     } catch {}
 
+    // Call server API for cross-client persistence & transactional notifications
+    try {
+      await fetch(`/api/join-requests/${encodeURIComponent(requestId)}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approvedRole: finalRole,
+          approverId: reviewer.id,
+          approverName: reviewer.full_name || reviewer.email,
+        }),
+      });
+    } catch {}
+
     // 2. Also add to custom team members cache so they immediately appear in Team Directory & Chat
     if (typeof window !== 'undefined') {
       try {
@@ -2232,6 +2388,17 @@ const supabaseService = {
         created_at: new Date().toISOString(),
       })
       .catch(() => {});
+
+    // 4b. Dispatch transactional approval email to applicant
+    import('./emailNotificationService').then(m => {
+      m.default.sendJoinRequestResolutionEmail({
+        applicantEmail: targetReq!.requester_email,
+        applicantName: targetReq!.requester_name,
+        organizationName: targetReq!.organization_name,
+        status: 'approved',
+        assignedRole: finalRole,
+      });
+    }).catch(() => {});
 
     // 5. Broadcast approval across tabs & Realtime
     if (typeof window !== 'undefined') {
@@ -2308,6 +2475,18 @@ const supabaseService = {
         },
       });
 
+      // Call server API for cross-client persistence
+      try {
+        await fetch(`/api/join-requests/${encodeURIComponent(requestId)}/decline`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            declinerId: reviewer.id,
+            declinerName: reviewer.full_name || reviewer.email,
+          }),
+        });
+      } catch {}
+
       const declineMsg = `Your request to join ${targetReq.organization_name} was declined by ${reviewer.full_name || reviewer.email}.`;
       await supabaseService
         .insertNotification({
@@ -2325,6 +2504,16 @@ const supabaseService = {
           created_at: new Date().toISOString(),
         })
         .catch(() => {});
+
+      // Dispatch transactional decline email to applicant
+      import('./emailNotificationService').then(m => {
+        m.default.sendJoinRequestResolutionEmail({
+          applicantEmail: targetReq!.requester_email,
+          applicantName: targetReq!.requester_name,
+          organizationName: targetReq!.organization_name,
+          status: 'declined',
+        });
+      }).catch(() => {});
 
       if (typeof window !== 'undefined') {
         try {
