@@ -160,3 +160,100 @@ CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = '
 CREATE POLICY "Authenticated users can upload attachments" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'task-attachments' AND auth.role() = 'authenticated');
 CREATE POLICY "Users can update their own attachments" ON storage.objects FOR UPDATE USING (bucket_id = 'task-attachments' AND auth.uid() = owner);
 CREATE POLICY "Users can delete their own attachments" ON storage.objects FOR DELETE USING (bucket_id = 'task-attachments' AND auth.uid() = owner);
+
+
+-- ==============================================================================
+-- 6. User Profiles Row Level Security (RLS) & Role Management Fix
+-- Run this in your Supabase SQL Editor to allow Owners, Admins, and Project Managers
+-- to update member roles without RLS permission errors or recursive lockups.
+-- ==============================================================================
+
+-- 1. Ensure public.user_profiles has RLS enabled
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- 2. Allow all users to view user profiles (needed for team member lists and assignment)
+DROP POLICY IF EXISTS "Allow read access to user profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "Users can view user_profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.user_profiles;
+CREATE POLICY "Allow read access to user profiles"
+ON public.user_profiles
+FOR SELECT
+TO public
+USING (true);
+
+-- 3. Allow users to update their own profile data
+DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "Allow users to update own profile" ON public.user_profiles;
+CREATE POLICY "Allow users to update own profile"
+ON public.user_profiles
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
+
+-- 4. Helper function to check if caller is an Owner, Admin, or Project Manager (SECURITY DEFINER avoids RLS recursion)
+CREATE OR REPLACE FUNCTION public.is_org_admin_or_manager()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_profiles
+    WHERE id = auth.uid()
+      AND role IN ('OWNER', 'ADMIN', 'PROJECT_MANAGER', 'owner', 'admin', 'project_manager')
+  );
+$$;
+
+-- 5. Allow Workspace Owners, Admins, and Project Managers to update organization member profiles
+DROP POLICY IF EXISTS "Admins and Owners can update organization members" ON public.user_profiles;
+DROP POLICY IF EXISTS "Allow role updates for authenticated users" ON public.user_profiles;
+CREATE POLICY "Admins and Owners can update organization members"
+ON public.user_profiles
+FOR UPDATE
+TO authenticated
+USING (
+  auth.uid() = id OR public.is_org_admin_or_manager()
+)
+WITH CHECK (
+  auth.uid() = id OR public.is_org_admin_or_manager()
+);
+
+-- 6. Elevated RPC function to update user role safely bypassing client RLS
+CREATE OR REPLACE FUNCTION public.update_user_role(target_user_id UUID, new_role TEXT)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  calling_user_id UUID;
+  calling_user_role TEXT;
+  updated_row RECORD;
+BEGIN
+  calling_user_id := auth.uid();
+
+  -- If called by authenticated user, verify role permissions
+  IF calling_user_id IS NOT NULL THEN
+    SELECT role INTO calling_user_role FROM public.user_profiles WHERE id = calling_user_id;
+    IF calling_user_role NOT IN ('OWNER', 'ADMIN', 'PROJECT_MANAGER', 'owner', 'admin', 'project_manager') THEN
+      RAISE EXCEPTION 'Unauthorized: only Owners, Admins, and Project Managers can update member roles';
+    END IF;
+  END IF;
+
+  UPDATE public.user_profiles
+  SET role = new_role, updated_at = now()
+  WHERE id = target_user_id
+  RETURNING * INTO updated_row;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User profile not found with ID %', target_user_id;
+  END IF;
+
+  RETURN to_jsonb(updated_row);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.update_user_role(UUID, TEXT) TO authenticated, anon;
+

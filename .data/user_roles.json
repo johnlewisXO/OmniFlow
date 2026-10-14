@@ -15,14 +15,16 @@
     "userId": "test-uuid-1",
     "email": "test@example.com",
     "role": "PROJECT_MANAGER",
+    "organizationId": "be2f60da-097a-47a3-859c-571c9139c14d",
     "updatedBy": "system",
-    "updatedAt": "2026-10-13T17:47:35.145Z"
+    "updatedAt": "2026-10-14T18:20:34.479Z"
   },
   "test@example.com": {
     "userId": "test-uuid-1",
     "email": "test@example.com",
     "role": "PROJECT_MANAGER",
+    "organizationId": "be2f60da-097a-47a3-859c-571c9139c14d",
     "updatedBy": "system",
-    "updatedAt": "2026-10-13T17:47:35.145Z"
+    "updatedAt": "2026-10-14T18:20:34.479Z"
   }
 }

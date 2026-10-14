@@ -959,7 +959,7 @@ export interface AppStore {
   setTasksError: (error: string | null) => void;
 
   // Team Management specific
-  updateUserRoleInOrganization: (userId: string, newRole: UserRole) => Promise<void>;
+  updateUserRoleInOrganization: (userId: string, newRole: UserRole) => Promise<any>;
   isUpdatingUserRole: boolean;
   updateUserRoleError: string | null;
 

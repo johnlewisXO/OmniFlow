@@ -30,6 +30,96 @@ const DEPARTMENTS = [
   'Customer Success',
 ];
 
+const SUPABASE_RLS_FIX_SQL = `-- ==============================================================================
+-- AXON WORKSPACE: Fix Supabase Row Level Security (RLS) on user_profiles
+-- Run this in your Supabase Dashboard: SQL Editor -> New Query -> Paste & Run
+-- ==============================================================================
+
+-- 1. Ensure public.user_profiles has RLS enabled
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- 2. Allow all users to read member profiles (for team directory and assignment)
+DROP POLICY IF EXISTS "Allow read access to user profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "Users can view user_profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.user_profiles;
+DROP POLICY IF EXISTS "Allow read for authenticated users" ON public.user_profiles;
+CREATE POLICY "Allow read access to user profiles"
+ON public.user_profiles
+FOR SELECT
+TO public
+USING (true);
+
+-- 3. Helper function to check if caller is an Owner, Admin, or Project Manager
+-- Using SECURITY DEFINER avoids infinite recursion in PostgreSQL RLS policies!
+CREATE OR REPLACE FUNCTION public.is_org_admin_or_manager()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_profiles
+    WHERE id = auth.uid()
+      AND role IN ('ORGANIZATION_OWNER', 'OWNER', 'ADMIN', 'PROJECT_MANAGER', 'owner', 'admin', 'project_manager')
+  );
+$$;
+
+-- 4. Unified policy for UPDATE:
+-- Allows users to update their own profile AND allows Owners/Admins/Project Managers to update members!
+DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "Allow users to update own profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "Admins and Owners can update organization members" ON public.user_profiles;
+DROP POLICY IF EXISTS "Allow role updates for authenticated users" ON public.user_profiles;
+DROP POLICY IF EXISTS "Admins and Managers can update member profiles" ON public.user_profiles;
+
+CREATE POLICY "Admins and Managers can update member profiles"
+ON public.user_profiles
+FOR UPDATE
+TO authenticated
+USING (
+  auth.uid() = id OR public.is_org_admin_or_manager()
+)
+WITH CHECK (
+  auth.uid() = id OR public.is_org_admin_or_manager()
+);
+
+-- 5. Elevated RPC function for direct, bulletproof role updates bypassing client RLS
+CREATE OR REPLACE FUNCTION public.update_user_role(target_user_id UUID, new_role TEXT)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  calling_user_id UUID := auth.uid();
+  calling_user_role TEXT;
+  updated_row RECORD;
+BEGIN
+  -- If invoked by authenticated user, verify caller is permitted
+  IF calling_user_id IS NOT NULL THEN
+    SELECT role INTO calling_user_role FROM public.user_profiles WHERE id = calling_user_id;
+    IF calling_user_role NOT IN ('ORGANIZATION_OWNER', 'OWNER', 'ADMIN', 'PROJECT_MANAGER', 'owner', 'admin', 'project_manager') THEN
+      RAISE EXCEPTION 'Unauthorized: only Owners, Admins, and Project Managers can update member roles';
+    END IF;
+  END IF;
+
+  UPDATE public.user_profiles
+  SET role = new_role, updated_at = now()
+  WHERE id = target_user_id
+  RETURNING * INTO updated_row;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User profile not found with ID %', target_user_id;
+  END IF;
+
+  RETURN to_jsonb(updated_row);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.update_user_role(UUID, TEXT) TO authenticated, anon, service_role;
+`;
+
 const RBAC_PERMISSION_MATRIX: {
   capability: string;
   category: string;
@@ -149,20 +239,12 @@ export const TeamManagementPage: React.FC = () => {
     }
   }, [activeView]);
 
-  // Track users whose roles have been persistently confirmed in DB
-  const [syncedUserIds, setSyncedUserIds] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set();
-    const set = new Set<string>();
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('axon_user_role_')) {
-          set.add(k.replace('axon_user_role_', ''));
-        }
-      }
-    } catch {}
-    return set;
-  });
+  // Track users whose roles were recently saved (temporary status, auto-closes after 4.5s)
+  const [recentlySyncedStatus, setRecentlySyncedStatus] = useState<Record<string, { role: UserRole; dbSynced: boolean; rlsBlocked: boolean; timestamp: number }>>({});
+  // Track staged role selections in dropdown awaiting explicit "Save role" click
+  const [stagedRoles, setStagedRoles] = useState<Record<string, UserRole>>({});
+  const [showRlsModal, setShowRlsModal] = useState(false);
+  const [hasCopiedRlsSql, setHasCopiedRlsSql] = useState(false);
 
   const [joinRequestsTabFilter, setJoinRequestsTabFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('pending');
 
@@ -274,7 +356,22 @@ export const TeamManagementPage: React.FC = () => {
       const roleToGrant = approvalRoles[req.id] || req.requested_role || UserRole.MEMBER;
       const approved = await supabaseService.approveJoinRequest(req.id, roleToGrant, currentUser);
       if (approved) {
-        setSyncedUserIds(prev => new Set([...prev, req.requester_id]));
+        setRecentlySyncedStatus(prev => ({
+          ...prev,
+          [req.requester_id]: {
+            role: roleToGrant,
+            dbSynced: true,
+            rlsBlocked: false,
+            timestamp: Date.now(),
+          },
+        }));
+        setTimeout(() => {
+          setRecentlySyncedStatus(prev => {
+            const next = { ...prev };
+            delete next[req.requester_id];
+            return next;
+          });
+        }, 4500);
         await fetchUsersForAssignmentList();
         await loadJoinRequests();
         await loadAuditLogs();
@@ -446,17 +543,72 @@ export const TeamManagementPage: React.FC = () => {
     const targetMember = users.find(u => u.id === userId);
     const targetName = targetMember?.full_name || targetMember?.email || 'Member';
 
-    await updateUserRoleInOrganization(userId, normalizedNew);
-    setSyncedUserIds(prev => new Set([...prev, userId]));
-    addToast(
-      'Role Updated & Synced to DB',
-      `${targetName}'s role has been updated to ${formatRoleForDisplay(normalizedNew)} and persisted in database.`,
-      'success',
-      { entity_type: 'user', entity_id: userId }
-    );
-    setEditingUserId(null);
-    setSelectedRoleForUser(null);
-    loadAuditLogs();
+    try {
+      const updateResult = await updateUserRoleInOrganization(userId, normalizedNew);
+      const isDbSynced = updateResult?.db_synced ?? false;
+      const isRlsBlocked = (updateResult as any)?.rls_blocked ?? false;
+
+      // Show temporary badge in UI that automatically closes off after 4.5 seconds
+      setRecentlySyncedStatus(prev => ({
+        ...prev,
+        [userId]: {
+          role: normalizedNew,
+          dbSynced: isDbSynced,
+          rlsBlocked: isRlsBlocked,
+          timestamp: Date.now(),
+        },
+      }));
+
+      // Automatically close off "✓ DB Verified & Synced" after 4.5 seconds
+      setTimeout(() => {
+        setRecentlySyncedStatus(prev => {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        });
+      }, 4500);
+
+      // Clear staged role selection
+      setStagedRoles(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+
+      if (isDbSynced) {
+        addToast(
+          '✓ DB Verified & Synced',
+          `${targetName}'s role has been updated to ${formatRoleForDisplay(normalizedNew)} and confirmed in Supabase database.`,
+          'success',
+          { entity_type: 'user', entity_id: userId }
+        );
+      } else if (isRlsBlocked) {
+        addToast(
+          'Saved in App (Supabase RLS Blocked)',
+          `${targetName} updated to ${formatRoleForDisplay(normalizedNew)}. Supabase RLS policy restricted direct database write. Click 'Supabase RLS Fix (SQL)' to apply the script.`,
+          'warning',
+          { entity_type: 'user', entity_id: userId }
+        );
+      } else {
+        addToast(
+          'Role Updated',
+          `${targetName}'s role has been updated to ${formatRoleForDisplay(normalizedNew)}.`,
+          'success',
+          { entity_type: 'user', entity_id: userId }
+        );
+      }
+
+      setEditingUserId(null);
+      setSelectedRoleForUser(null);
+      loadAuditLogs();
+    } catch (err: any) {
+      addToast(
+        'Failed to Update Role',
+        err?.message || 'An error occurred while updating the role.',
+        'error',
+        { entity_type: 'user', entity_id: userId }
+      );
+    }
   };
 
   const handleUpdateMemberDepartmentOrCapacity = async (
@@ -747,6 +899,15 @@ export const TeamManagementPage: React.FC = () => {
               </button>
             ) : (
               <>
+                <button
+                  type="button"
+                  onClick={() => setShowRlsModal(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold border border-amber-400/40 transition-all cursor-pointer shadow-xs"
+                  title="View Supabase Row Level Security (RLS) SQL Script to fix database role updates"
+                >
+                  <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-300" />
+                  <span>Supabase RLS Fix (SQL)</span>
+                </button>
                 {canActorManageTeam && (
                   <button
                     onClick={() => setShowAddMemberModal(true)}
@@ -1283,12 +1444,12 @@ export const TeamManagementPage: React.FC = () => {
                                 {memberActiveTasks.length} tasks <span className="text-slate-400 font-normal">({memberPoints} pts)</span>
                               </div>
                               <div className="flex items-center gap-1 mt-0.5">
-                                <span className="text-[10px] text-slate-400">Cap:</span>
+                                <span className="text-[10px] text-slate-400">Capacity:</span>
                                 {canActorManageTeam ? (
                                   <select
                                     value={weeklyCap}
                                     onChange={e => handleUpdateMemberDepartmentOrCapacity(user, { weekly_capacity_hours: Number(e.target.value) })}
-                                    className="text-[10px] font-semibold bg-transparent border-b border-dashed border-slate-500 focus:outline-hidden cursor-pointer"
+                                    className="text-[10px] font-semibold bg-transparent border-b border-dashed border-slate-900 focus:outline-hidden cursor-pointer"
                                   >
                                     {[20, 30, 35, 40, 45, 50].map(h => (
                                       <option key={h} value={h} className="bg-slate-900 text-white">{h}h/wk</option>
@@ -1320,46 +1481,118 @@ export const TeamManagementPage: React.FC = () => {
                             >
                               {formatRoleForDisplay(normalizedUserRole)}
                             </span>
-                            {(syncedUserIds.has(user.id) || user.db_synced) && (
-                              <span
-                                title="Role synchronized and persistent in backend database"
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs"
-                              >
-                                <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>✓ DB Verified &amp; Synced</span>
-                              </span>
+                            {/* "✓ DB Verified & Synced" only appears temporarily then closes off automatically */}
+                            {recentlySyncedStatus[user.id] && (
+                              <div className="transition-all duration-300 animate-fadeIn">
+                                {recentlySyncedStatus[user.id].dbSynced ? (
+                                  <span
+                                    title="Role synchronized and persistent in backend database"
+                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs"
+                                  >
+                                    <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>✓ DB Verified &amp; Synced</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowRlsModal(true)}
+                                    title="Saved in application state, but Supabase RLS blocked direct DB write. Click to view SQL fix."
+                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/30 shadow-xs transition-colors cursor-pointer"
+                                  >
+                                    <ICON_MAP.ExclamationIcon className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Saved (RLS Restricted) · Fix SQL ↗</span>
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>
 
-                        {/* Role Assignment Dropdown */}
+                        {/* Role Assignment Dropdown & Explicit Save role Requirement */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           {!isCurrentUserRow && userCanBeManaged ? (
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={activeSelectRole}
-                                onChange={async e => {
-                                  const nextRole = normalizeUserRole(e.target.value as UserRole);
-                                  if (nextRole === normalizedUserRole) return;
-                                  setEditingUserId(user.id);
-                                  setSelectedRoleForUser(nextRole);
-                                  await handleRoleChange(user.id, nextRole);
-                                }}
-                                disabled={(isUpdatingUserRole && editingUserId === user.id) || isThisUserBeingDeleted}
-                                className={`text-xs rounded-xl border px-3 py-1.5 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer ${
-                                  darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                                }`}
-                              >
-                                {assignableRolesForThisUser.map(role => (
-                                  <option key={role} value={role}>
-                                    {formatRoleForDisplay(role)}
-                                  </option>
-                                ))}
-                              </select>
-                              {isUpdatingUserRole && editingUserId === user.id && (
-                                <SpinnerIcon className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                              )}
-                            </div>
+                            (() => {
+                              const stagedRole = stagedRoles[user.id] ?? normalizedUserRole;
+                              const hasUnsavedRoleChange = stagedRole !== normalizedUserRole;
+                              const isSavingThisUser = isUpdatingUserRole && editingUserId === user.id;
+
+                              return (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <select
+                                    value={stagedRole}
+                                    onChange={e => {
+                                      const nextRole = normalizeUserRole(e.target.value as UserRole);
+                                      if (nextRole === normalizedUserRole) {
+                                        setStagedRoles(prev => {
+                                          const next = { ...prev };
+                                          delete next[user.id];
+                                          return next;
+                                        });
+                                      } else {
+                                        setStagedRoles(prev => ({ ...prev, [user.id]: nextRole }));
+                                      }
+                                    }}
+                                    disabled={isSavingThisUser || isThisUserBeingDeleted}
+                                    className={`text-xs rounded-xl border px-3 py-1.5 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-all ${
+                                      hasUnsavedRoleChange
+                                        ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-indigo-50/10'
+                                        : darkMode
+                                          ? 'bg-slate-800 border-slate-700 text-white'
+                                          : 'bg-white border-slate-300 text-slate-900'
+                                    }`}
+                                  >
+                                    {assignableRolesForThisUser.map(role => (
+                                      <option key={role} value={role}>
+                                        {formatRoleForDisplay(role)}
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  {/* Explicit Save role & Cancel buttons right next to dropdown */}
+                                  {hasUnsavedRoleChange && (
+                                    <div className="flex items-center gap-1.5 animate-fadeIn">
+                                      <Button
+                                        size="sm"
+                                        variant="primary"
+                                        onClick={async () => {
+                                          setEditingUserId(user.id);
+                                          await handleRoleChange(user.id, stagedRole);
+                                        }}
+                                        disabled={isSavingThisUser || isThisUserBeingDeleted}
+                                        className="!px-2.5 !py-1 text-xs font-bold inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                                        title="Save role change"
+                                      >
+                                        {isSavingThisUser ? (
+                                          <SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <ICON_MAP.CheckIcon className="w-3.5 h-3.5" />
+                                        )}
+                                        <span>Save role</span>
+                                      </Button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setStagedRoles(prev => {
+                                            const next = { ...prev };
+                                            delete next[user.id];
+                                            return next;
+                                          });
+                                        }}
+                                        disabled={isSavingThisUser}
+                                        className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors cursor-pointer"
+                                        title="Cancel unsaved change"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {isSavingThisUser && !hasUnsavedRoleChange && (
+                                    <SpinnerIcon className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                                  )}
+                                </div>
+                              );
+                            })()
                           ) : (
                             <span className="text-xs italic text-slate-400">
                               {isCurrentUserRow
@@ -1373,33 +1606,28 @@ export const TeamManagementPage: React.FC = () => {
 
                         {/* Action Buttons */}
                         <td className="px-4 py-3.5 whitespace-nowrap text-right space-x-2">
-                          {!isCurrentUserRow &&
-                            userCanBeManaged &&
-                            editingUserId === user.id &&
-                            selectedRoleForUser &&
-                            normalizeUserRole(selectedRoleForUser) !== normalizedUserRole && (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => handleRoleChange(user.id, selectedRoleForUser)}
-                                disabled={(isUpdatingUserRole && editingUserId === user.id) || isThisUserBeingDeleted}
-                              >
-                                {isUpdatingUserRole && editingUserId === user.id && (
-                                  <SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                                )}
-                                Save Role
-                              </Button>
-                            )}
-                          {!isCurrentUserRow && userCanBeManaged && normalizedUserRole !== UserRole.OWNER && (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => handleRemoveUserConfirm(user.id)}
-                              disabled={isThisUserBeingDeleted || (isUpdatingUserRole && editingUserId === user.id)}
-                              title={`Remove ${user.full_name || user.email} from organization`}
-                            >
-                              {isThisUserBeingDeleted ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <TrashIcon className="w-3.5 h-3.5" />}
-                            </Button>
+                          {!isCurrentUserRow && userCanBeManaged && (
+                            (() => {
+                              const stagedRole = stagedRoles[user.id] ?? normalizedUserRole;
+                              const hasUnsavedRoleChange = stagedRole !== normalizedUserRole;
+                              const isSavingThisUser = isUpdatingUserRole && editingUserId === user.id;
+
+                              return (
+                                <>
+                                  {normalizedUserRole !== UserRole.OWNER && (
+                                    <Button
+                                      size="sm"
+                                      variant="danger"
+                                      onClick={() => handleRemoveUserConfirm(user.id)}
+                                      disabled={isThisUserBeingDeleted || isSavingThisUser}
+                                      title={`Remove ${user.full_name || user.email} from organization`}
+                                    >
+                                      {isThisUserBeingDeleted ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <TrashIcon className="w-3.5 h-3.5" />}
+                                    </Button>
+                                  )}
+                                </>
+                              );
+                            })()
                           )}
                         </td>
                       </tr>
@@ -1846,7 +2074,7 @@ export const TeamManagementPage: React.FC = () => {
                                 ✕ Declined
                               </span>
                             )}
-                            {syncedUserIds.has(req.requester_id) && (
+                            {recentlySyncedStatus[req.requester_id]?.dbSynced && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
                                 <ICON_MAP.CheckCircleIcon className="w-3 h-3 text-emerald-400" />
                                 <span>Synced to DB</span>
@@ -2141,6 +2369,111 @@ export const TeamManagementPage: React.FC = () => {
               <Button variant="outline" onClick={() => setShowConfirmDeleteModal(null)}>Cancel</Button>
               <Button variant="danger" onClick={() => executeRemoveUser(showConfirmDeleteModal)}>
                 Yes, Remove User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supabase RLS Fix & Role Synchronization Modal */}
+      {showRlsModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 backdrop-blur-md animate-fadeIn p-4 overflow-y-auto">
+          <div className={`my-8 p-6 rounded-2xl shadow-2xl w-full max-w-2xl border ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <ICON_MAP.ShieldCheckIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold">Fix Supabase Row Level Security (RLS)</h3>
+                  <p className="text-xs text-slate-400">Enable database table persistence for user role changes</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRlsModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 my-4 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs leading-relaxed space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-amber-300">
+                  <ICON_MAP.ExclamationIcon className="w-4 h-4 shrink-0" />
+                  <span>Why the DB table row remains on CLIENT VIEWER:</span>
+                </div>
+                <p>
+                  By default in Supabase, <code>public.user_profiles</code> has Row Level Security enabled with <code>USING (auth.uid() = id)</code>. When an Admin or Project Manager attempts to update another user’s row, PostgreSQL evaluates the rule to <strong>FALSE</strong> and silently drops the update (0 rows affected).
+                </p>
+                <p>
+                  Running the SQL script below resolves this by adding a non-recursive <code>SECURITY DEFINER</code> authorization function and updating the RLS policy so Owners, Admins, and Project Managers can update member roles.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Supabase SQL Migration Script
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(SUPABASE_RLS_FIX_SQL);
+                      setHasCopiedRlsSql(true);
+                      setTimeout(() => setHasCopiedRlsSql(false), 2500);
+                      addToast('Copied to Clipboard', 'SQL migration script copied. Paste into Supabase SQL Editor.', 'success');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-xs active:scale-95"
+                  >
+                    {hasCopiedRlsSql ? (
+                      <>
+                        <ICON_MAP.CheckIcon className="w-3.5 h-3.5" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <ICON_MAP.ClipboardListIcon className="w-3.5 h-3.5" />
+                        <span>Copy SQL Script</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <pre className="p-3.5 rounded-xl bg-slate-950 text-indigo-300 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-56 border border-slate-800">
+                    <code>{SUPABASE_RLS_FIX_SQL}</code>
+                  </pre>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-2">
+                <div className="font-bold text-slate-900 dark:text-white">Quick 30-Second Setup:</div>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-300">
+                  <li>Click <strong>Copy SQL Script</strong> above.</li>
+                  <li>Open your <a href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new" target="_blank" rel="noreferrer" className="text-indigo-400 underline font-semibold hover:text-indigo-300">Supabase SQL Editor ↗</a>.</li>
+                  <li>Click <strong>New query</strong>, paste the script, and click <strong>Run</strong>.</li>
+                  <li>Back in Team Management, change the role and click <strong>Save role</strong> — it will immediately update in the Supabase table!</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
+              <a
+                href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1"
+              >
+                <span>Open Supabase SQL Editor</span>
+                <span>↗</span>
+              </a>
+              <Button
+                variant="primary"
+                onClick={() => setShowRlsModal(false)}
+              >
+                Done
               </Button>
             </div>
           </div>

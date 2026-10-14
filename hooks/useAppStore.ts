@@ -1840,7 +1840,7 @@ const appActionsCreator = (
       }));
 
       try {
-        await supabaseService.updateUserRole(userId, normalizedTargetNewRole, currentUser.organization_id, targetUser?.email);
+        const updatedProfile = await supabaseService.updateUserRole(userId, normalizedTargetNewRole, currentUser.organization_id, targetUser?.email);
 
         // Broadcast role update in real-time across all connected clients
         collabService.broadcastTeamMemberUpdated({
@@ -1875,10 +1875,12 @@ const appActionsCreator = (
 
         // Emit event for notification
         get().emitEvent('USER_ROLE_UPDATED', { userId, newRole: normalizedTargetNewRole });
+        return updatedProfile;
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to update role for user ${userId}.`);
         console.error(`[useAppStore] updateUserRoleInOrganization: Error for user ${userId} - ${message}`, error);
         updateState(s => ({ ...s, isUpdatingUserRole: false, updateUserRoleError: message }));
+        throw error;
       }
     },
     deleteUserFromOrganization: async (userId: string) => {

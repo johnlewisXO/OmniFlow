@@ -114,10 +114,16 @@ export const normalizeAppUser = (rawUser: any): AppUserType => {
   const dbRole = rawUser.role ? normalizeUserRole(rawUser.role) : undefined;
   const extRole = ext.roleOverride ? normalizeUserRole(ext.roleOverride) : undefined;
   let axonRole: UserRole | undefined;
-  if (typeof window !== 'undefined' && rawUser.id) {
+  if (typeof window !== 'undefined') {
     try {
-      const stored = localStorage.getItem(`axon_user_role_${rawUser.id}`);
-      if (stored) axonRole = normalizeUserRole(stored);
+      if (rawUser.id) {
+        const stored = localStorage.getItem(`axon_user_role_${rawUser.id}`);
+        if (stored) axonRole = normalizeUserRole(stored);
+      }
+      if (!axonRole && cleanEmail) {
+        const storedEmail = localStorage.getItem(`axon_user_role_${cleanEmail}`);
+        if (storedEmail) axonRole = normalizeUserRole(storedEmail);
+      }
     } catch {}
   }
 
@@ -757,9 +763,10 @@ const supabaseService = {
         let resolvedRow = { ...rawDbRow };
 
         // Check if server backend has an authoritative role for this user across refreshes (dual-keyed by UUID and email)
+        const effectiveEmail = cleanEmail || (rawDbRow.email || '').trim().toLowerCase();
         if (typeof window !== 'undefined' && sessionUser.id) {
           try {
-            const serverRoleRes = await fetch(`/api/users/${encodeURIComponent(sessionUser.id)}/role?email=${encodeURIComponent(cleanEmail)}`);
+            const serverRoleRes = await fetch(`/api/users/${encodeURIComponent(sessionUser.id)}/role?email=${encodeURIComponent(effectiveEmail)}`);
             if (serverRoleRes.ok) {
               const serverData = await serverRoleRes.json();
               if (serverData?.role) {
@@ -768,8 +775,19 @@ const supabaseService = {
                   resolvedRow.organization_id = serverData.organizationId;
                 }
                 localStorage.setItem(`axon_user_role_${sessionUser.id}`, serverData.role);
-                if (cleanEmail) {
-                  localStorage.setItem(`axon_user_role_${cleanEmail}`, serverData.role);
+                if (effectiveEmail) {
+                  localStorage.setItem(`axon_user_role_${effectiveEmail}`, serverData.role);
+                }
+                saveUserProfileExtension(sessionUser.id, {
+                  roleOverride: serverData.role,
+                  organization_id: resolvedRow.organization_id,
+                });
+                if (rawDbRow.id && rawDbRow.id !== sessionUser.id) {
+                  localStorage.setItem(`axon_user_role_${rawDbRow.id}`, serverData.role);
+                  saveUserProfileExtension(rawDbRow.id, {
+                    roleOverride: serverData.role,
+                    organization_id: resolvedRow.organization_id,
+                  });
                 }
               }
             }
@@ -1556,11 +1574,7 @@ const supabaseService = {
         const uEmail = (u.email || '').trim().toLowerCase();
         const serverRoleEntry = serverRolesMap[u.id] || (uEmail ? serverRolesMap[uEmail] : null);
         const resolvedRole = serverRoleEntry?.role || u.role;
-        const normalized = normalizeAppUser({ ...u, role: resolvedRole });
-        if (serverRoleEntry || u.db_synced) {
-          normalized.db_synced = true;
-        }
-        return normalized;
+        return normalizeAppUser({ ...u, role: resolvedRole });
       });
     });
   },
@@ -1633,54 +1647,68 @@ const supabaseService = {
     // Persist immediately in local extension store for instant resilience
     saveUserProfileExtension(userId, { roleOverride: normalizedRole, organization_id: orgId });
 
-    // 1. Try updating with uppercase enum value (e.g., 'PROJECT_MANAGER', 'MEMBER') and associating orgId if missing
-    let { data, error } = await supabase
-      .from('user_profiles')
-      .update({ role: normalizedRole, organization_id: orgId })
-      .eq('id', userId)
-      .select()
-      .maybeSingle();
+    let dbActuallyUpdated = false;
+    let rlsBlockedDetected = false;
+    let data: any = null;
 
-    // 2. If DB has a lowercase enum constraint (e.g., 'member' instead of 'MEMBER'), retry with lowercase
-    if (error && (error.message?.toLowerCase().includes('enum') || error.code === '22P02')) {
-      const lowerRole = normalizedRole.toLowerCase();
-      const retry = await supabase
+    // 0. Try elevated RPC function if defined in Supabase (runs with SECURITY DEFINER to bypass client RLS)
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('update_user_role', {
+        target_user_id: userId,
+        new_role: normalizedRole,
+      });
+      if (!rpcError && rpcData) {
+        dbActuallyUpdated = true;
+        data = rpcData;
+      }
+    } catch {}
+
+    // 1. Try updating directly via Supabase client with uppercase enum value
+    if (!dbActuallyUpdated) {
+      let { data: directData, error: directError } = await supabase
         .from('user_profiles')
-        .update({ role: lowerRole as any, organization_id: orgId })
+        .update({ role: normalizedRole, organization_id: orgId })
         .eq('id', userId)
         .select()
         .maybeSingle();
-      data = retry.data;
-      error = retry.error;
-    }
 
-    // 3. If RLS blocked updating organization_id on an existing member, try updating just the role column
-    if (error || !data) {
-      const roleOnly = await supabase
-        .from('user_profiles')
-        .update({ role: normalizedRole })
-        .eq('id', userId)
-        .select()
-        .maybeSingle();
-      if (!roleOnly.error && roleOnly.data) {
-        data = roleOnly.data;
-        error = null;
-      } else if (roleOnly.error && (roleOnly.error.message?.toLowerCase().includes('enum') || roleOnly.error.code === '22P02')) {
-        const lowerRetry = await supabase
+      // If DB has a lowercase enum constraint, retry with lowercase
+      if (directError && (directError.message?.toLowerCase().includes('enum') || directError.code === '22P02')) {
+        const lowerRole = normalizedRole.toLowerCase();
+        const retry = await supabase
           .from('user_profiles')
-          .update({ role: normalizedRole.toLowerCase() as any })
+          .update({ role: lowerRole as any, organization_id: orgId })
           .eq('id', userId)
           .select()
           .maybeSingle();
-        if (!lowerRetry.error && lowerRetry.data) {
-          data = lowerRetry.data;
-          error = null;
+        directData = retry.data;
+        directError = retry.error;
+      }
+
+      if (directData && (directData as any).id) {
+        dbActuallyUpdated = true;
+        data = directData;
+      } else {
+        // Try role-only update if organization_id column update was restricted
+        const roleOnly = await supabase
+          .from('user_profiles')
+          .update({ role: normalizedRole })
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+
+        if (roleOnly.data && (roleOnly.data as any).id) {
+          dbActuallyUpdated = true;
+          data = roleOnly.data;
+        } else if (roleOnly.error?.code === '42501' || (!roleOnly.error && !roleOnly.data)) {
+          // Code 42501 or 0 rows returned indicates RLS policy is restricting update on user_profiles
+          rlsBlockedDetected = true;
         }
       }
     }
 
-    // 4. Synchronize with server backend API (both UUID and email) to guarantee DB persistence across page refreshes
-    let backendSynced = false;
+    // 2. Synchronize with server backend API (both UUID and email) to ensure server-side persistence
+    let serverSynced = false;
     try {
       const resp = await fetch(`/api/users/${encodeURIComponent(userId)}/role`, {
         method: 'POST',
@@ -1688,7 +1716,14 @@ const supabaseService = {
         body: JSON.stringify({ role: normalizedRole, organizationId: orgId, email: cleanEmail }),
       });
       if (resp.ok) {
-        backendSynced = true;
+        serverSynced = true;
+        const serverJson = await resp.json().catch(() => null);
+        if (serverJson?.supabaseTableUpdated) {
+          dbActuallyUpdated = true;
+        }
+        if (serverJson?.rlsBlockedDetected) {
+          rlsBlockedDetected = true;
+        }
       }
     } catch (e) {
       console.warn('[supabaseService.updateUserRole] Backend sync notification:', e);
@@ -1702,19 +1737,30 @@ const supabaseService = {
           localStorage.setItem(`axon_user_role_${cleanEmail}`, normalizedRole);
         }
         window.dispatchEvent(new CustomEvent('omni_role_updated', {
-          detail: { userId, email: cleanEmail, role: normalizedRole, organizationId: orgId, dbSynced: true }
+          detail: {
+            userId,
+            email: cleanEmail,
+            role: normalizedRole,
+            organizationId: orgId,
+            dbSynced: dbActuallyUpdated,
+            serverSynced,
+            rlsBlocked: !dbActuallyUpdated && rlsBlockedDetected,
+          }
         }));
       } catch {}
     }
 
-    // Return the normalized updated user profile guaranteed with the new role
-    return normalizeAppUser({
+    // Return the normalized updated user profile
+    const normalizedUser = normalizeAppUser({
       ...(data || {}),
       id: userId,
       role: normalizedRole,
       organization_id: orgId,
-      db_synced: true,
     });
+    normalizedUser.db_synced = dbActuallyUpdated;
+    (normalizedUser as any).rls_blocked = !dbActuallyUpdated && rlsBlockedDetected;
+
+    return normalizedUser;
   },
 
   updateTeamMemberMetadata: async (userId: string, metadata: { department?: string; job_title?: string; weekly_capacity_hours?: number; status_state?: 'active' | 'suspended' | 'invited' }) => {

@@ -662,50 +662,109 @@ async function startServer() {
     }
     persistUserRoles();
 
-    // Also attempt REST sync with Supabase user_profiles if reachable (both by UUID and email)
+    // Also attempt direct sync with Supabase user_profiles (both RPC and REST PATCH)
+    let supabaseTableUpdated = false;
+    let rlsBlockedDetected = false;
     try {
-      const supabaseUrl = 'https://sqzjlxayhghoxjloaddo.supabase.co';
-      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMzg5MjEsImV4cCI6MjA1OTcxNDkyMX0.a6-xS2X3O9hG4l57n1J049N4zX-bM5W7_X69X2V9c_k';
-      fetch(`${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}`, {
-        method: 'PATCH',
-        headers: {
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation',
-        },
-        body: JSON.stringify({
-          role: normalizedRole,
-          ...(organizationId ? { organization_id: organizationId } : {}),
-        }),
-      }).catch(() => {});
+      const supabaseUrl = process.env.SUPABASE_URL || 'https://sqzjlxayhghoxjloaddo.supabase.co';
+      // Prefer service role key if configured to bypass RLS, otherwise fallback to anon key
+      const supabaseAuthKey = process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        process.env.SUPABASE_ANON_KEY ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NDQ4MDksImV4cCI6MjA2NjAyMDgwOX0.80rrMJ7AC-XrcUNozIlMa1kh8SFnKagakG_4XOwVbTY';
 
-      if (cleanEmail) {
-        fetch(`${supabaseUrl}/rest/v1/user_profiles?email=eq.${encodeURIComponent(cleanEmail)}`, {
+      // 1. Try elevated RPC function if installed in Supabase
+      try {
+        const rpcRes = await fetch(`${supabaseUrl}/rest/v1/rpc/update_user_role`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseAuthKey,
+            'Authorization': `Bearer ${supabaseAuthKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            target_user_id: userId,
+            new_role: normalizedRole,
+          }),
+        });
+        if (rpcRes.ok) {
+          const rpcData = await rpcRes.json();
+          if (rpcData && (rpcData.id || rpcData.role)) {
+            supabaseTableUpdated = true;
+          }
+        }
+      } catch {}
+
+      // 2. Try REST PATCH by user UUID
+      if (!supabaseTableUpdated) {
+        const patchRes = await fetch(`${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}`, {
           method: 'PATCH',
           headers: {
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'apikey': supabaseAuthKey,
+            'Authorization': `Bearer ${supabaseAuthKey}`,
             'Content-Type': 'application/json',
             'Prefer': 'return=representation',
           },
           body: JSON.stringify({
             role: normalizedRole,
             ...(organizationId ? { organization_id: organizationId } : {}),
+            updated_at: updatedAt,
           }),
-        }).catch(() => {});
+        });
+
+        if (patchRes.ok) {
+          const patchJson = await patchRes.json().catch(() => []);
+          if (Array.isArray(patchJson) && patchJson.length > 0) {
+            supabaseTableUpdated = true;
+          } else {
+            // 200 OK with empty array [] means RLS silently filtered the row!
+            rlsBlockedDetected = true;
+          }
+        } else if (patchRes.status === 401 || patchRes.status === 403) {
+          rlsBlockedDetected = true;
+        }
       }
-    } catch {}
+
+      // 3. If still not updated and cleanEmail is provided, try REST PATCH by email
+      if (!supabaseTableUpdated && cleanEmail) {
+        const patchEmailRes = await fetch(`${supabaseUrl}/rest/v1/user_profiles?email=eq.${encodeURIComponent(cleanEmail)}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': supabaseAuthKey,
+            'Authorization': `Bearer ${supabaseAuthKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            role: normalizedRole,
+            ...(organizationId ? { organization_id: organizationId } : {}),
+            updated_at: updatedAt,
+          }),
+        });
+
+        if (patchEmailRes.ok) {
+          const emailJson = await patchEmailRes.json().catch(() => []);
+          if (Array.isArray(emailJson) && emailJson.length > 0) {
+            supabaseTableUpdated = true;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[server.ts /api/users/:userId/role] Supabase sync attempt error:', err);
+    }
 
     return res.json({
       ok: true,
       synced: true,
+      supabaseTableUpdated,
+      rlsBlockedDetected,
       userId,
       email: cleanEmail,
       role: normalizedRole,
       organizationId: entry.organizationId,
       updatedAt,
-      message: 'User role updated and persisted to database.',
+      message: supabaseTableUpdated
+        ? 'User role updated and persisted to Supabase database table.'
+        : 'User role persisted to server store; Supabase RLS policy fix required for direct table row update.',
     });
   });
 
