@@ -242,6 +242,16 @@ export interface Organization {
   id: string;
   name: string;
   slug?: string;
+  domain?: string;
+  corporate_domain?: string;
+  corporateDomain?: string;
+  defaultSprintDurationDays?: number;
+  default_sprint_duration_days?: number;
+  defaultTaskStatus?: TaskStatus;
+  autoAssignCreator?: boolean;
+  requireAcceptanceChecklist?: boolean;
+  enablePublicInviteLinks?: boolean;
+  settings?: Record<string, any>;
   created_at?: string;
   updated_at?: string;
 }
@@ -966,6 +976,18 @@ export interface AppStore {
   deleteUserFromOrganization: (userId: string) => Promise<void>;
   isDeletingUser: string | null; // Stores ID of user being deleted
   deleteUserError: string | null;
+
+  // Organization Governance & Config Settings
+  updateOrganizationSettings: (updates: {
+    orgDisplayName: string;
+    corporateDomain?: string;
+    defaultSprintDurationDays?: number;
+    defaultTaskStatus?: TaskStatus;
+    autoAssignCreator?: boolean;
+    requireAcceptanceChecklist?: boolean;
+    enablePublicInviteLinks?: boolean;
+  }) => Promise<any>;
+  isUpdatingOrgSettings: boolean;
 
   notifications: Notification[];
   addToast: (

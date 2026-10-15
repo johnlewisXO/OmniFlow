@@ -1,0 +1,26 @@
+{
+  "org-test-123": {
+    "id": "org-test-123",
+    "name": "Acme Global",
+    "slug": "acme-global",
+    "domain": "acme.com",
+    "corporate_domain": "acme.com",
+    "corporateDomain": "acme.com",
+    "defaultSprintDurationDays": 21,
+    "default_sprint_duration_days": 21,
+    "defaultTaskStatus": "TODO",
+    "autoAssignCreator": true,
+    "requireAcceptanceChecklist": true,
+    "enablePublicInviteLinks": true,
+    "settings": {
+      "corporateDomain": "acme.com",
+      "defaultSprintDurationDays": 21,
+      "defaultTaskStatus": "TODO",
+      "autoAssignCreator": true,
+      "requireAcceptanceChecklist": true,
+      "enablePublicInviteLinks": true
+    },
+    "updated_at": "2026-10-15T18:21:09.590Z",
+    "updatedAt": "2026-10-15T18:21:09.591Z"
+  }
+}

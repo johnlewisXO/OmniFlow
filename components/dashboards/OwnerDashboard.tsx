@@ -61,6 +61,8 @@ export const OwnerDashboard: React.FC = () => {
     darkMode,
     setActiveView,
     updateUserRoleInOrganization,
+    updateOrganizationSettings,
+    isUpdatingOrgSettings,
     addToast,
   } = useAppStore();
 
@@ -122,6 +124,54 @@ export const OwnerDashboard: React.FC = () => {
 
   // 4. Governance / Ownership Transfer State
   const [transferTargetUserId, setTransferTargetUserId] = useState('');
+
+  // 5. Organization Governance Settings
+  const [orgDisplayName, setOrgDisplayName] = useState(currentOrganization?.name || 'Omni Flow Enterprise Workspace');
+  const [corporateDomain, setCorporateDomain] = useState(
+    currentOrganization?.corporateDomain || currentOrganization?.domain || currentOrganization?.corporate_domain || currentUser?.email?.split('@')[1] || 'workspace.live'
+  );
+  const [defaultSprintLength, setDefaultSprintLength] = useState(
+    currentOrganization?.defaultSprintDurationDays || currentOrganization?.default_sprint_duration_days || 14
+  );
+  const [autoAssignCreator, setAutoAssignCreator] = useState(currentOrganization?.autoAssignCreator ?? true);
+  const [requireAcceptanceChecklist, setRequireAcceptanceChecklist] = useState(currentOrganization?.requireAcceptanceChecklist ?? true);
+  const [enablePublicInviteLinks, setEnablePublicInviteLinks] = useState(currentOrganization?.enablePublicInviteLinks ?? true);
+
+  useEffect(() => {
+    if (currentOrganization) {
+      if (currentOrganization.name) setOrgDisplayName(currentOrganization.name);
+      if (currentOrganization.corporateDomain || currentOrganization.domain) {
+        setCorporateDomain(currentOrganization.corporateDomain || currentOrganization.domain || '');
+      }
+      if (currentOrganization.defaultSprintDurationDays || currentOrganization.default_sprint_duration_days) {
+        setDefaultSprintLength(currentOrganization.defaultSprintDurationDays || currentOrganization.default_sprint_duration_days || 14);
+      }
+      if (currentOrganization.autoAssignCreator !== undefined) setAutoAssignCreator(currentOrganization.autoAssignCreator);
+      if (currentOrganization.requireAcceptanceChecklist !== undefined) setRequireAcceptanceChecklist(currentOrganization.requireAcceptanceChecklist);
+      if (currentOrganization.enablePublicInviteLinks !== undefined) setEnablePublicInviteLinks(currentOrganization.enablePublicInviteLinks);
+    }
+  }, [currentOrganization]);
+
+  const handleSaveOrgGovernance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateOrganizationSettings({
+        orgDisplayName: orgDisplayName.trim(),
+        corporateDomain: corporateDomain.trim(),
+        defaultSprintDurationDays: Number(defaultSprintLength) || 14,
+        autoAssignCreator,
+        requireAcceptanceChecklist,
+        enablePublicInviteLinks,
+      });
+      addToast(
+        'Organization Governance Saved',
+        `Successfully updated "${orgDisplayName.trim()}" governance settings and sprint length defaults.`,
+        'success'
+      );
+    } catch (err: any) {
+      addToast('Update Failed', err?.message || 'Could not update organization settings.', 'error');
+    }
+  };
 
   const saveBillingState = (next: BillingState) => {
     setBilling(next);
@@ -361,7 +411,7 @@ export const OwnerDashboard: React.FC = () => {
       <div className={`p-4 md:p-6 border-b ${darkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-white/60'}`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="p-3 rounded-2xl bg-amber-500/15 text-amber-500 border border-amber-500/30 flex-shrink-0">
+            <div className="p-3 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/30 flex-shrink-0">
               <ICON_MAP.ShieldCheckIcon className="w-7 h-7" />
             </div>
             <div>
@@ -423,7 +473,7 @@ export const OwnerDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Card 1: Subscription & Billing */}
               <div
-                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                className={`p-5 rounded-xl border flex flex-col justify-between ${
                   darkMode ? 'bg-amber-950/20 border-amber-700/40' : 'bg-amber-50/70 border-amber-200'
                 }`}
               >
@@ -443,7 +493,7 @@ export const OwnerDashboard: React.FC = () => {
 
               {/* Card 2: Security & User Activity Audit */}
               <div
-                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                className={`p-5 rounded-xl border flex flex-col justify-between ${
                   darkMode ? 'bg-indigo-950/25 border-indigo-700/40' : 'bg-indigo-50/70 border-indigo-200'
                 }`}
               >
@@ -465,7 +515,7 @@ export const OwnerDashboard: React.FC = () => {
 
               {/* Card 3: Advanced Security & API */}
               <div
-                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                className={`p-5 rounded-xl border flex flex-col justify-between ${
                   darkMode ? 'bg-sky-950/25 border-sky-700/40' : 'bg-sky-50/70 border-sky-200'
                 }`}
               >
@@ -487,7 +537,7 @@ export const OwnerDashboard: React.FC = () => {
 
               {/* Card 4: Exception & Console Log Telemetry */}
               <div
-                className={`p-5 rounded-[28px] border flex flex-col justify-between ${
+                className={`p-5 rounded-xl border flex flex-col justify-between ${
                   darkMode ? 'bg-rose-950/25 border-rose-700/40' : 'bg-rose-50/70 border-rose-200'
                 }`}
               >
@@ -515,7 +565,7 @@ export const OwnerDashboard: React.FC = () => {
       {activeTab === 'audit_security' && (
         <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
           <div
-            className={`p-5 rounded-2xl border flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+            className={`p-5 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
               darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
             }`}
           >
@@ -594,7 +644,7 @@ export const OwnerDashboard: React.FC = () => {
 
           {/* Audit Table */}
           <div
-            className={`rounded-2xl border overflow-hidden ${
+            className={`rounded-xl border overflow-hidden ${
               darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
             }`}
           >
@@ -684,7 +734,7 @@ export const OwnerDashboard: React.FC = () => {
               return (
                 <div
                   key={planKey}
-                  className={`p-5 rounded-2xl border flex flex-col justify-between ${
+                  className={`p-5 rounded-xl border flex flex-col justify-between ${
                     isCurrent
                       ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/5'
                       : darkMode
@@ -730,7 +780,7 @@ export const OwnerDashboard: React.FC = () => {
           {/* Seat Utilization & Payment Method */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div
-              className={`p-5 rounded-2xl border space-y-4 ${
+              className={`p-5 rounded-xl border space-y-4 ${
                 darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
               }`}
             >
@@ -759,7 +809,7 @@ export const OwnerDashboard: React.FC = () => {
             </div>
 
             <div
-              className={`p-5 rounded-2xl border space-y-4 ${
+              className={`p-5 rounded-xl border space-y-4 ${
                 darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
               }`}
             >
@@ -840,7 +890,7 @@ export const OwnerDashboard: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* SSO & Authentication Policies */}
             <div
-              className={`p-5 rounded-2xl border space-y-4 ${
+              className={`p-5 rounded-xl border space-y-4 ${
                 darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
               }`}
             >
@@ -897,7 +947,7 @@ export const OwnerDashboard: React.FC = () => {
 
             {/* Organization API Keys */}
             <div
-              className={`p-5 rounded-2xl border space-y-4 ${
+              className={`p-5 rounded-xl border space-y-4 ${
                 darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
               }`}
             >
@@ -971,8 +1021,125 @@ export const OwnerDashboard: React.FC = () => {
       {/* TAB 6: ORGANIZATION GOVERNANCE & DANGER ZONE */}
       {activeTab === 'governance' && (
         <div className="p-4 md:p-6 space-y-5 animate-fadeIn">
+          {/* Organization Governance Form */}
+          <form
+            onSubmit={handleSaveOrgGovernance}
+            className={`p-5 rounded-xl border space-y-4 ${
+              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="text-base font-bold">Organization Governance & Agile Parameters</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Update your organization display name, verified domain, sprint length, and workflow requirements.
+                </p>
+              </div>
+              <span className="text-xs font-mono text-indigo-400 font-semibold">
+                ID: {currentOrganization?.id?.slice(0, 8) || 'local'}...
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-400">Organization Display Name</label>
+                <input
+                  type="text"
+                  required
+                  value={orgDisplayName}
+                  onChange={e => setOrgDisplayName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-400">Verified Corporate Domain</label>
+                <input
+                  type="text"
+                  value={corporateDomain}
+                  onChange={e => setCorporateDomain(e.target.value)}
+                  placeholder="e.g. acme.com"
+                  className="w-full p-2.5 rounded-xl border"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-400">Default Sprint Length</label>
+                <select
+                  value={defaultSprintLength}
+                  onChange={e => setDefaultSprintLength(Number(e.target.value))}
+                  className="w-full p-2.5 rounded-xl border"
+                >
+                  <option value={7}>1 Week (7 Days)</option>
+                  <option value={14}>2 Weeks (14 Days · Agile Standard)</option>
+                  <option value={21}>3 Weeks (21 Days)</option>
+                  <option value={28}>4 Weeks (28 Days)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+              <label
+                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer ${
+                  darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={autoAssignCreator}
+                  onChange={e => setAutoAssignCreator(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <div className="font-semibold text-slate-200">Auto-Assign Unassigned</div>
+                  <div className="text-[10px] text-slate-400">Assign newly created tasks to creator</div>
+                </div>
+              </label>
+
+              <label
+                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer ${
+                  darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={requireAcceptanceChecklist}
+                  onChange={e => setRequireAcceptanceChecklist(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <div className="font-semibold text-slate-200">Enforce QA Checklists</div>
+                  <div className="text-[10px] text-slate-400">Require acceptance criteria for reviews</div>
+                </div>
+              </label>
+
+              <label
+                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer ${
+                  darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={enablePublicInviteLinks}
+                  onChange={e => setEnablePublicInviteLinks(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <div className="font-semibold text-slate-200">Tokenized Invite Links</div>
+                  <div className="text-[10px] text-slate-400">Enable shareable invite tokens</div>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
+              <Button variant="primary" size="sm" type="submit" disabled={isUpdatingOrgSettings}>
+                {isUpdatingOrgSettings ? 'Saving Governance...' : 'Save Organization Governance'}
+              </Button>
+            </div>
+          </form>
+
           <div
-            className={`p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+            className={`p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
               darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
             }`}
           >
@@ -988,7 +1155,7 @@ export const OwnerDashboard: React.FC = () => {
           </div>
 
           <div
-            className={`p-5 rounded-2xl border space-y-4 ${
+            className={`p-5 rounded-xl border space-y-4 ${
               darkMode ? 'bg-rose-950/20 border-rose-800/50' : 'bg-rose-50/50 border-rose-200'
             }`}
           >

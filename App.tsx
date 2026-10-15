@@ -51,6 +51,7 @@ import { OKRsGoalsPage } from './components/okrs/OKRsGoalsPage';
 import { TriageIntakePage } from './components/triage/TriageIntakePage';
 import { WorkloadCapacityPage } from './components/workload/WorkloadCapacityPage';
 import { WhiteboardStudioPage } from './components/whiteboard/WhiteboardStudioPage';
+import { ChromaticGeometryCanvas } from './components/shared/ChromaticGeometryCanvas';
 
 // Initialize global exception and console log monitoring immediately
 if (typeof logMonitorService?.init === 'function') {
@@ -915,7 +916,7 @@ const MainAppLayout: React.FC = () => {
         )}
         <div
           data-main-scroll-view="true"
-          className={`flex-1 flex flex-col glass-panel rounded-[32px] p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
+          className={`flex-1 flex flex-col glass-panel rounded-[15px] p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
             scrollBounceState === 'top'
               ? 'animate-bubbleStretchTop'
               : scrollBounceState === 'bottom'
@@ -1621,8 +1622,14 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden p-2 sm:p-3 md:p-4 animate-fadeIn">
-       <MainAppLayout />
+    <div className="relative h-screen w-screen overflow-hidden p-2 sm:p-3 md:p-5 lg:p-6 select-none animate-fadeIn">
+      {/* 1. Behind the window: Chromatic Geometry Canvas */}
+      <ChromaticGeometryCanvas />
+
+      {/* 2. Floating Master Glass Frame Window */}
+      <div className="relative z-10 w-full h-full glass-master-window p-2 sm:p-3 md:p-3.5 flex flex-col overflow-hidden">
+        <MainAppLayout />
+      </div>
     </div>
   );
 }

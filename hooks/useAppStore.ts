@@ -72,6 +72,7 @@ interface StoreState {
   updateUserRoleError: string | null;
   isDeletingUser: string | null; // ID of user being deleted
   deleteUserError: string | null;
+  isUpdatingOrgSettings: boolean;
 
   // Password Update
   isPasswordUpdateModalOpen: boolean;
@@ -158,6 +159,7 @@ const initialStoreStateValues: StoreState = {
   updateUserRoleError: null,
   isDeletingUser: null,
   deleteUserError: null,
+  isUpdatingOrgSettings: false,
 
   // Password Update
   isPasswordUpdateModalOpen: false,
@@ -1939,6 +1941,97 @@ const appActionsCreator = (
         const message = parseErrorMessage(error, `Failed to remove user ${userId} from organization.`);
         console.error(`[useAppStore] deleteUserFromOrganization: Error for user ${userId} - ${message}`, error);
         updateState(s => ({ ...s, isDeletingUser: null, deleteUserError: message }));
+      }
+    },
+
+    updateOrganizationSettings: async (updates: {
+      orgDisplayName: string;
+      corporateDomain?: string;
+      defaultSprintDurationDays?: number;
+      defaultTaskStatus?: TaskStatus;
+      autoAssignCreator?: boolean;
+      requireAcceptanceChecklist?: boolean;
+      enablePublicInviteLinks?: boolean;
+    }) => {
+      const { currentUser, currentOrganization } = get();
+      const orgId = currentOrganization?.id || currentUser?.organization_id || 'org-enterprise-workspace';
+
+      if (currentUser && !currentUser.organization_id) {
+        const updatedUser = { ...currentUser, organization_id: orgId };
+        updateState(s => ({ ...s, currentUser: updatedUser }));
+        try {
+          localStorage.setItem(`omni_user_profile_${currentUser.id}`, JSON.stringify(updatedUser));
+        } catch {}
+      }
+
+      updateState(s => ({ ...s, isUpdatingOrgSettings: true }));
+      try {
+        const updatedOrg = await supabaseService.updateOrganization(orgId, {
+          name: updates.orgDisplayName,
+          orgDisplayName: updates.orgDisplayName,
+          corporateDomain: updates.corporateDomain,
+          defaultSprintDurationDays: updates.defaultSprintDurationDays,
+          defaultTaskStatus: updates.defaultTaskStatus,
+          autoAssignCreator: updates.autoAssignCreator,
+          requireAcceptanceChecklist: updates.requireAcceptanceChecklist,
+          enablePublicInviteLinks: updates.enablePublicInviteLinks,
+        });
+
+        const mergedOrganization: Organization = {
+          ...(currentOrganization || { id: orgId, name: updates.orgDisplayName }),
+          ...updatedOrg,
+          name: updates.orgDisplayName,
+          domain: updates.corporateDomain,
+          corporate_domain: updates.corporateDomain,
+          corporateDomain: updates.corporateDomain,
+          defaultSprintDurationDays: updates.defaultSprintDurationDays,
+          default_sprint_duration_days: updates.defaultSprintDurationDays,
+          defaultTaskStatus: updates.defaultTaskStatus,
+          autoAssignCreator: updates.autoAssignCreator,
+          requireAcceptanceChecklist: updates.requireAcceptanceChecklist,
+          enablePublicInviteLinks: updates.enablePublicInviteLinks,
+        };
+
+        // Update local state and currentOrganization across app
+        updateState(s => ({
+          ...s,
+          currentOrganization: mergedOrganization,
+          isUpdatingOrgSettings: false,
+        }));
+
+        // Log audit event
+        if (currentUser) {
+          supabaseService.logAuditEvent({
+            organization_id: orgId,
+            actor_id: currentUser.id,
+            actor_name: currentUser.full_name || currentUser.email,
+            actor_email: currentUser.email,
+            action: 'organization_settings_updated',
+            target_type: 'organization',
+            target_id: orgId,
+            target_name: updates.orgDisplayName,
+            details: updates,
+          });
+        }
+
+        // Broadcast organization update to other tabs/sessions
+        try {
+          if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('omni_collab_sync');
+            bc.postMessage({
+              type: 'ORGANIZATION_UPDATED',
+              organizationId: orgId,
+              name: updates.orgDisplayName,
+              settings: updates,
+            });
+            bc.close();
+          }
+        } catch {}
+
+        return mergedOrganization;
+      } catch (error: any) {
+        updateState(s => ({ ...s, isUpdatingOrgSettings: false }));
+        throw error;
       }
     },
 

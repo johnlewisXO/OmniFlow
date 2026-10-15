@@ -135,89 +135,89 @@
   .font-semibold { font-weight: 600 !important; }
   .font-bold, .font-extrabold, .font-black { font-weight: 700 !important; letter-spacing: -0.02em; }
 
-  html.dark body {
+  html.dark body, html.dark #root, html.dark .app-obsidian-canvas {
     color: #F8FAFC;
-    background-color: #0B0D17;
-    background-image: 
-      radial-gradient(at 15% 15%, rgba(105, 87, 255, 0.25) 0px, transparent 50%),
-      radial-gradient(at 85% 20%, rgba(56, 189, 248, 0.16) 0px, transparent 50%),
-      radial-gradient(at 50% 80%, rgba(139, 92, 246, 0.18) 0px, transparent 50%),
-      linear-gradient(135deg, #090B14 0%, #0F1322 50%, #13172A 100%);
-    background-size: 160% 160%;
-    background-attachment: fixed;
-    animation: animateBackgroundMesh 30s ease-in-out infinite;
+    background-color: #060913 !important;
+    background-image: none !important;
   }
 
-  /* Taskly & Soft Glass Panels, Sidebar, Header (32px / 2rem super-rounded bento radius) */
-  .glass-panel, .auth-panel, aside { 
-    background: rgba(255, 255, 255, 0.84) !important;
-    backdrop-filter: blur(28px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  /* Versa UI Floating Master Glass Window */
+  .glass-master-window {
+    background: rgba(10, 14, 26, 0.24) !important;
+    backdrop-filter: blur(26px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 
+      0 24px 60px -12px rgba(0, 0, 0, 0.70),
+      0 1px 1px 0 rgba(255, 255, 255, 0.20) inset !important;
+    border-radius: 25px !important;
+  }
+
+  html:not(.dark) .glass-master-window {
+    background: rgba(255, 255, 255, 0.197) !important;
+    backdrop-filter: blur(26px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(36px) saturate(190%) !important;
+    border: 1px solid rgba(157, 157, 157, 0.9) !important;
+    box-shadow: 
+      0 20px 50px -10px rgba(15, 23, 42, 0.08),
+      0 1px 1px 0 rgba(255, 255, 255, 0.95) inset !important;
+    border-radius: 15px !important;
+  }
+
+  /* Taskly & Ultra-Glossy Glass Panels, Header, Sidebar, Workspace Cards (15px uniform radius) */
+  .glass-panel, .auth-panel, aside, header.workspace-header { 
+    background: rgba(255, 255, 255, 0.254) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
     border: 1px solid rgba(255, 255, 255, 0.88) !important;
     box-shadow: 
-      0 14px 36px rgba(15, 23, 42, 0.045),
-      0 1px 1px rgba(255, 255, 255, 0.95) inset !important;
-    border-radius: 32px !important;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      0 12px 36px rgba(15, 23, 42, 0.05),
+      0 1px 1px 0 rgba(255, 255, 255, 0.95) inset !important;
+    border-radius: 15px !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  header.workspace-header {
-    background: rgba(255, 255, 255, 0.84) !important;
-    backdrop-filter: blur(28px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.88) !important;
-    box-shadow: 
-      0 10px 28px rgba(15, 23, 42, 0.04),
-      0 1px 1px rgba(255, 255, 255, 0.95) inset !important;
-    border-radius: 9999px !important;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  html.dark .glass-panel, html.dark .auth-panel, html.dark aside {
-    background: rgba(17, 21, 36, 0.82) !important;
-    backdrop-filter: blur(28px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.09) !important;
-    box-shadow: 
-      0 14px 38px rgba(0, 0, 0, 0.42),
-      0 1px 0.5px rgba(255, 255, 255, 0.12) inset !important;
-    border-radius: 32px !important;
-  }
-
+  html.dark .glass-panel, 
+  html.dark .auth-panel, 
+  html.dark aside, 
   html.dark header.workspace-header {
-    background: rgba(17, 21, 36, 0.82) !important;
-    backdrop-filter: blur(28px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    background: rgba(13, 18, 32, 0.271) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(210%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.11) !important;
     box-shadow: 
-      0 10px 30px rgba(0, 0, 0, 0.40),
-      0 1px 0.5px rgba(255, 255, 255, 0.12) inset !important;
-    border-radius: 9999px !important;
+      0 16px 40px -8px rgba(0, 0, 0, 0.55),
+      0 1px 1px 0 rgba(255, 255, 255, 0.18) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.03) !important;
+    border-radius: 15px !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .bento-card-32 {
-    border-radius: 32px !important;
+  .bento-card-32, 
+  .bento-card-24, 
+  .rounded-\[32px\], 
+  .rounded-\[28px\], 
+  .rounded-\[24px\],
+  .rounded-2xl,
+  .rounded-3xl {
+    border-radius: 15px !important;
   }
 
-  .bento-card-24 {
-    border-radius: 24px !important;
-  }
-
-  /* Form Inputs (clean padding, consistent 16px radius) */
+  /* Form Inputs (clean padding, consistent 15px radius) */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), textarea, select {
     width: 100%;
     padding: 0.55rem 0.9rem !important;
     box-sizing: border-box !important;
     font-size: 0.8125rem;
     line-height: 1.4;
-    border-radius: 16px !important;
+    border-radius: 15px !important;
     background: rgba(255, 255, 255, 0.78) !important;
     backdrop-filter: blur(12px) saturate(160%) !important;
     -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
     border: 1px solid rgba(226, 232, 240, 0.9) !important;
     color: #0F172A !important;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02), inset 0 1px 1px rgba(255, 255, 255, 0.7) !important;
-    transition: all 0.2s ease-out;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   textarea {
@@ -226,10 +226,12 @@
   }
 
   html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), html.dark textarea, html.dark select {
-    background: rgba(15, 23, 42, 0.68) !important;
+    background: rgba(13, 17, 30, 0.58) !important;
+    backdrop-filter: blur(16px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
     color: #F8FAFC !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
   }
 
   input:focus, textarea:focus, select:focus {
@@ -239,14 +241,14 @@
   }
 
   html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
-    background: rgba(15, 23, 42, 0.88) !important;
-    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.28), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
+    background: rgba(15, 21, 38, 0.78) !important;
+    box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.28), inset 0 1px 2px rgba(255, 255, 255, 0.12) !important;
   }
 
-  /* Modals & Slide-Over Drawers (32px radius) */
+  /* Modals & Slide-Over Drawers (15px uniform radius, ultra-glossy glass) */
   .animate-modal-appear, [role="dialog"] {
-    border-radius: 32px !important;
-    background: rgba(255, 255, 255, 0.92) !important;
+    border-radius: 20px !important;
+    background: rgba(255, 255, 255, 0.90) !important;
     backdrop-filter: blur(32px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
     border: 1px solid rgba(255, 255, 255, 0.8) !important;
@@ -254,42 +256,66 @@
   }
 
   html.dark .animate-modal-appear, html.dark [role="dialog"] {
-    background: rgba(15, 19, 34, 0.92) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(255, 255, 255, 0.08) inset !important;
+    background: rgba(13, 17, 30, 0.82) !important;
+    backdrop-filter: blur(32px) saturate(210%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.13) !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 1px 1px rgba(255, 255, 255, 0.18) inset !important;
   }
 
-  /* Nested Bento Cards (24px radius) */
+  /* Nested Bento Cards (15px uniform radius) */
   .bg-slate-100\/70, .bg-slate-800\/50, .bg-white\/80, .bg-slate-700\/70, .bg-slate-900\/40, .bg-white\/90 {
-    border-radius: 24px !important;
+    border-radius: 20px !important;
     backdrop-filter: blur(20px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   }
 
-  html:not(.dark) .bg-slate-100\/70, html:not(.dark) .bg-white\/80, html:not(.dark) .bg-white\/90 {
-    background-color: rgba(255, 255, 255, 0.78) !important;
+  html:not(.dark) .bg-slate-100\/70, 
+  html:not(.dark) .bg-white\/80, 
+  html:not(.dark) .bg-white\/88, 
+  html:not(.dark) .bg-white\/90 {
+    background-color: rgba(255, 255, 255, 0.62) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
     border-color: rgba(255, 255, 255, 0.85) !important;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035), inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
   }
 
-  html.dark .bg-slate-800\/50, html.dark .bg-slate-700\/70, html.dark .bg-slate-900\/40 {
-    background-color: rgba(20, 26, 44, 0.68) !important;
+  html.dark .bg-slate-800\/50, 
+  html.dark .bg-slate-700\/70, 
+  html.dark .bg-slate-900\/40, 
+  html.dark .bg-slate-900\/70, 
+  html.dark .bg-slate-900\/75, 
+  html.dark .bg-slate-900\/80, 
+  html.dark .bg-slate-900\/90 {
+    background-color: rgba(13, 18, 32, 0.42) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
+    border-radius: 20px !important;
   }
 
-  /* Buttons (9999px rounded pill & glossy glass) */
+  /* Tactile Spring Micro-Motion on All Clicks */
+  button:not(:disabled):active, 
+  [role="button"]:not([aria-disabled="true"]):active,
+  a.active:active {
+    transform: scale(0.978) !important;
+    transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  /* Buttons (15px rounded & glossy glass) */
   button.bg-gradient-to-br, button[type="submit"], .hero-cta-primary {
-    border-radius: 9999px !important;
+    border-radius: 15px !important;
     background: linear-gradient(135deg, #7668FF 0%, #6957FF 50%, #5B4AEE 100%) !important;
-    box-shadow: 0 8px 20px rgba(105, 87, 255, 0.28), 0 2px 4px rgba(255, 255, 255, 0.35) inset !important;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 6px 18px rgba(105, 87, 255, 0.28), 0 1px 2px rgba(255, 255, 255, 0.35) inset !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
   }
 
   button.bg-gradient-to-br:hover, button[type="submit"]:hover, .hero-cta-primary:hover {
-    transform: translateY(-1px) scale(1.02) !important;
-    box-shadow: 0 12px 28px rgba(105, 87, 255, 0.38), 0 2px 4px rgba(255, 255, 255, 0.45) inset !important;
+    transform: translateY(-1.5px) scale(1.015) !important;
+    box-shadow: 0 10px 24px rgba(105, 87, 255, 0.38), 0 1px 2px rgba(255, 255, 255, 0.45) inset !important;
     background: linear-gradient(135deg, #857CFF 0%, #7668FF 50%, #6957FF 100%) !important;
   }
 
@@ -323,14 +349,30 @@
     background-color: rgba(105, 87, 255, 0.6); 
   }
 
-  /* Dropdowns (20px radius) */
+  /* Dropdowns & Popovers (15px uniform radius) */
   .rounded-squircle-md, [role="menu"] {
-    border-radius: 20px !important;
+    border-radius: 15px !important;
   }
 
-  /* Badges & Progress Bars (9999px radius) */
-  .rounded-full {
+  /* Badges & Pill Tags (Kept pill for status badges only) */
+  .badge-pill {
     border-radius: 9999px !important;
+  }
+
+  /* Spring Pop-In Entrance for Popups and Dialogs */
+  @keyframes springPopIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.96) translateY(5px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .animate-spring-pop {
+    animation: springPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   /* State-Update Visual Indication & Smooth Transition Effects */

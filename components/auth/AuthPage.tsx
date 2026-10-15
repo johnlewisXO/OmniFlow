@@ -657,7 +657,7 @@ export const AuthPage: React.FC = () => {
             </button>
           </div>
         </div>
-        <div className={`w-full max-w-md auth-panel p-6 sm:p-8 md:p-10 space-y-5 rounded-[32px] animate-modal-appear`}>
+        <div className={`w-full max-w-md auth-panel p-6 sm:p-8 md:p-10 space-y-5 rounded-[15px] animate-modal-appear`}>
           <div className="text-center">
               <div className="flex justify-center mb-3">
                 <AIBotFace mood={authLoading || isResetting || isResendingConfirmation ? 'thinking' : 'happy'} size="lg" />

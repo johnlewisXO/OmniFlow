@@ -73,7 +73,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     if (!triggerRef.current || typeof window === 'undefined') return;
     const rect = triggerRef.current.getBoundingClientRect();
     const cardW = 296;
-    const cardH = 240;
+    const cardH = 285;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
@@ -251,7 +251,7 @@ export const Avatar: React.FC<AvatarProps> = ({
               width: '296px',
               zIndex: 9999,
             }}
-            className={`rounded-2xl border p-3.5 shadow-2xl backdrop-blur-xl animate-popup-in text-left ${
+            className={`rounded-xl border p-3.5 shadow-2xl backdrop-blur-xl animate-popup-in text-left ${
               darkMode
                 ? 'bg-slate-900/95 border-slate-700/90 text-slate-100 shadow-black/60'
                 : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-slate-900/15'
@@ -367,31 +367,92 @@ export const Avatar: React.FC<AvatarProps> = ({
 
             {/* Quick Collaboration Actions */}
             {!isMe && (
-              <div className="mt-2.5 flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsHovered(false);
-                    setActiveView('team_chat_view');
-                    setTimeout(() => {
-                      if (isSameOrg) {
-                        window.dispatchEvent(
-                          new CustomEvent('omni_select_chat_contact', { detail: { userId: user.id } })
-                        );
-                      } else {
-                        addToast(
-                          'External User',
-                          'Send an organization invite link in Teams Chat to message external users.',
-                          'info'
-                        );
-                      }
-                    }, 90);
-                  }}
-                  className="flex-1 py-1.5 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />
-                  <span>{isSameOrg ? 'Direct Message' : 'Invite to Org'}</span>
-                </button>
+              <div className="mt-2.5 space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHovered(false);
+                      setActiveView('team_chat_view');
+                      setTimeout(() => {
+                        if (isSameOrg) {
+                          window.dispatchEvent(
+                            new CustomEvent('omni_select_chat_contact', { detail: { userId: user.id } })
+                          );
+                        } else {
+                          addToast(
+                            'External User',
+                            'Send an organization invite link in Teams Chat to message external users.',
+                            'info'
+                          );
+                        }
+                      }, 90);
+                    }}
+                    className="flex-1 py-1.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs min-w-0"
+                    title={isSameOrg ? `Direct message ${displayName}` : 'Invite to Organization'}
+                  >
+                    <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{isSameOrg ? 'Direct Message' : 'Invite'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHovered(false);
+                      window.dispatchEvent(
+                        new CustomEvent('omni_start_video_call', {
+                          detail: {
+                            showLobby: true,
+                            title: `Audio Call with ${displayName}`,
+                            type: 'direct',
+                            directUser: user,
+                            invitedUsers: [user],
+                            initialVideo: false,
+                            initialAudio: true,
+                          },
+                        })
+                      );
+                    }}
+                    className={`py-1.5 px-2.5 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0 ${
+                      darkMode
+                        ? 'border-slate-700 bg-slate-800/90 hover:bg-emerald-600/20 hover:border-emerald-500/50 hover:text-emerald-300 text-slate-200'
+                        : 'border-slate-200 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 text-slate-700'
+                    }`}
+                    title={`Audio call ${displayName} (preview devices first)`}
+                  >
+                    <ICON_MAP.PhoneIcon className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Call</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHovered(false);
+                      window.dispatchEvent(
+                        new CustomEvent('omni_start_video_call', {
+                          detail: {
+                            showLobby: true,
+                            title: `Video Call with ${displayName}`,
+                            type: 'direct',
+                            directUser: user,
+                            invitedUsers: [user],
+                            initialVideo: true,
+                            initialAudio: true,
+                          },
+                        })
+                      );
+                    }}
+                    className={`py-1.5 px-2.5 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0 ${
+                      darkMode
+                        ? 'border-slate-700 bg-slate-800/90 hover:bg-indigo-600/20 hover:border-indigo-500/50 hover:text-indigo-300 text-slate-200'
+                        : 'border-slate-200 bg-slate-100 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 text-slate-700'
+                    }`}
+                    title={`Video call ${displayName} (preview devices first)`}
+                  >
+                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Video</span>
+                  </button>
+                </div>
 
                 {focusedTask && (
                   <button
@@ -400,14 +461,15 @@ export const Avatar: React.FC<AvatarProps> = ({
                       setIsHovered(false);
                       openViewTaskModal(focusedTask);
                     }}
-                    className={`py-1.5 px-2.5 rounded-xl border text-[11px] font-bold transition-colors cursor-pointer ${
+                    className={`w-full py-1.5 px-2.5 rounded-xl border text-[11px] font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                       darkMode
                         ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200'
                         : 'border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                     title={`Open "${focusedTask.title}"`}
                   >
-                    Jump to Task
+                    <span>Jump to Task:</span>
+                    <strong className="truncate max-w-[170px]">{focusedTask.title}</strong>
                   </button>
                 )}
               </div>

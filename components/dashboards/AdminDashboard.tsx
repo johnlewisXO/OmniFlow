@@ -71,6 +71,8 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
     createProject,
     createTask,
     addToast,
+    updateOrganizationSettings,
+    isUpdatingOrgSettings,
   } = useAppStore();
 
   const [activeAdminPanel, setActiveAdminPanel] = useState<'none' | 'org_settings' | 'templates' | 'audit'>('none');
@@ -85,20 +87,29 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
     } catch {}
     return {
       orgDisplayName: currentOrganization?.name || 'Omni Flow Enterprise Workspace',
-      corporateDomain: currentUser?.email?.split('@')[1] || 'workspace.live',
-      defaultSprintDurationDays: 14,
-      defaultTaskStatus: TaskStatus.TODO,
-      autoAssignCreator: true,
-      requireAcceptanceChecklist: true,
-      enablePublicInviteLinks: true,
+      corporateDomain: currentOrganization?.corporateDomain || currentOrganization?.domain || currentOrganization?.corporate_domain || currentUser?.email?.split('@')[1] || 'workspace.live',
+      defaultSprintDurationDays: currentOrganization?.defaultSprintDurationDays || currentOrganization?.default_sprint_duration_days || 14,
+      defaultTaskStatus: currentOrganization?.defaultTaskStatus || TaskStatus.TODO,
+      autoAssignCreator: currentOrganization?.autoAssignCreator ?? true,
+      requireAcceptanceChecklist: currentOrganization?.requireAcceptanceChecklist ?? true,
+      enablePublicInviteLinks: currentOrganization?.enablePublicInviteLinks ?? true,
     };
   });
 
   useEffect(() => {
-    if (currentOrganization?.name && orgSettings.orgDisplayName === 'Omni Flow Enterprise Workspace') {
-      setOrgSettings(prev => ({ ...prev, orgDisplayName: currentOrganization.name }));
+    if (currentOrganization) {
+      setOrgSettings(prev => ({
+        ...prev,
+        orgDisplayName: currentOrganization.name || prev.orgDisplayName,
+        corporateDomain: currentOrganization.corporateDomain || currentOrganization.domain || currentOrganization.corporate_domain || prev.corporateDomain,
+        defaultSprintDurationDays: currentOrganization.defaultSprintDurationDays || currentOrganization.default_sprint_duration_days || prev.defaultSprintDurationDays,
+        defaultTaskStatus: currentOrganization.defaultTaskStatus || prev.defaultTaskStatus,
+        autoAssignCreator: currentOrganization.autoAssignCreator !== undefined ? currentOrganization.autoAssignCreator : prev.autoAssignCreator,
+        requireAcceptanceChecklist: currentOrganization.requireAcceptanceChecklist !== undefined ? currentOrganization.requireAcceptanceChecklist : prev.requireAcceptanceChecklist,
+        enablePublicInviteLinks: currentOrganization.enablePublicInviteLinks !== undefined ? currentOrganization.enablePublicInviteLinks : prev.enablePublicInviteLinks,
+      }));
     }
-  }, [currentOrganization?.name]);
+  }, [currentOrganization]);
 
   const loadRecentAuditActivity = async () => {
     setIsLoadingLogs(true);
@@ -159,26 +170,36 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
     loadRecentAuditActivity();
   }, [currentUser?.organization_id, tasks.length, users.length]);
 
-  const handleSaveOrgSettings = (e: React.FormEvent) => {
+  const handleSaveOrgSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       localStorage.setItem(ORG_SETTINGS_STORAGE_KEY, JSON.stringify(orgSettings));
     } catch {}
-    if (currentUser?.organization_id) {
-      supabaseService.logAuditEvent({
-        organization_id: currentUser.organization_id,
-        actor_id: currentUser.id,
-        actor_name: currentUser.full_name || currentUser.email,
-        actor_email: currentUser.email,
-        action: 'organization_settings_updated',
-        target_type: 'organization',
-        target_id: currentUser.organization_id,
-        target_name: orgSettings.orgDisplayName,
-        details: orgSettings,
+
+    try {
+      await updateOrganizationSettings({
+        orgDisplayName: orgSettings.orgDisplayName.trim(),
+        corporateDomain: (orgSettings.corporateDomain || '').trim(),
+        defaultSprintDurationDays: Number(orgSettings.defaultSprintDurationDays) || 14,
+        defaultTaskStatus: orgSettings.defaultTaskStatus,
+        autoAssignCreator: orgSettings.autoAssignCreator,
+        requireAcceptanceChecklist: orgSettings.requireAcceptanceChecklist,
+        enablePublicInviteLinks: orgSettings.enablePublicInviteLinks,
       });
+
+      addToast(
+        'Organization Settings Saved',
+        `Successfully updated "${orgSettings.orgDisplayName.trim()}" workspace & sprint governance parameters.`,
+        'success'
+      );
+      setActiveAdminPanel('none');
+    } catch (err: any) {
+      addToast(
+        'Save Failed',
+        err?.message || 'Failed to update organization governance parameters.',
+        'error'
+      );
     }
-    addToast('Organization Settings Saved', 'Global workspace governance parameters updated.', 'success');
-    setActiveAdminPanel('none');
   };
 
   const handleDeployProjectTemplate = async (template: (typeof PROJECT_TEMPLATES)[0]) => {
@@ -243,7 +264,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
         {/* 1. User & RBAC Management */}
         <div
-          className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${
+          className={`p-5 rounded-xl border flex flex-col justify-between transition-all ${
             darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200/80 shadow-xs'
           }`}
         >
@@ -275,7 +296,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
 
         {/* 2. Organization Governance Settings */}
         <div
-          className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${
+          className={`p-5 rounded-xl border flex flex-col justify-between transition-all ${
             activeAdminPanel === 'org_settings'
               ? 'border-indigo-500 ring-1 ring-indigo-500/30'
               : darkMode
@@ -311,7 +332,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
 
         {/* 3. Global Project Templates */}
         <div
-          className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${
+          className={`p-5 rounded-xl border flex flex-col justify-between transition-all ${
             activeAdminPanel === 'templates'
               ? 'border-indigo-500 ring-1 ring-indigo-500/30'
               : darkMode
@@ -350,7 +371,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
       {activeAdminPanel === 'org_settings' && (
         <form
           onSubmit={handleSaveOrgSettings}
-          className={`p-6 rounded-2xl border space-y-5 animate-modal-appear ${
+          className={`p-6 rounded-xl border space-y-5 animate-modal-appear ${
             darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200 shadow-md'
           }`}
         >
@@ -447,8 +468,8 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
             <Button variant="outline" size="sm" type="button" onClick={() => setActiveAdminPanel('none')}>
               Cancel
             </Button>
-            <Button variant="primary" size="sm" type="submit">
-              Save Organization Governance
+            <Button variant="primary" size="sm" type="submit" disabled={isUpdatingOrgSettings}>
+              {isUpdatingOrgSettings ? 'Saving Governance...' : 'Save Organization Governance'}
             </Button>
           </div>
         </form>
@@ -457,7 +478,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
       {/* Expandable Panel B: Enterprise Project Templates */}
       {activeAdminPanel === 'templates' && (
         <div
-          className={`p-6 rounded-2xl border space-y-4 animate-modal-appear ${
+          className={`p-6 rounded-xl border space-y-4 animate-modal-appear ${
             darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200 shadow-md'
           }`}
         >

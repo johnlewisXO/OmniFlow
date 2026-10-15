@@ -12,8 +12,7 @@ import { UserPresence, normalizeUserRole, WORKSPACE_ACCENT_PRESETS, WorkspaceAcc
 export const StatusDynamicIcon: React.FC<{ status: 'available' | 'away' | 'busy'; className?: string }> = ({ status, className = 'w-4 h-4' }) => {
   if (status === 'available') {
     return (
-      <span className={`relative inline-flex items-center justify-center ${className}`}>
-        <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 opacity-60"></span>
+      <span className={`relative inline-flex items-center justify-center shrink-0 ${className}`}>
         <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-emerald-500">
           <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
         </svg>
@@ -258,13 +257,13 @@ export const Header: React.FC = () => {
   const statusLabelText = myStatus === 'available' ? 'Available' : myStatus === 'away' ? 'Away' : 'Busy / DND';
 
   return (
-    <header className="workspace-header glass-panel rounded-full px-3 sm:px-5 py-2 relative z-20">
+    <header className="workspace-header glass-panel rounded-[15px] px-3 sm:px-5 py-2 relative z-20">
       <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {/* Mobile Hamburger Button */}
           <button
             onClick={toggleMobileSidebar}
-            className={`md:hidden p-2 rounded-full transition-all flex-shrink-0 ${
+            className={`md:hidden p-2 rounded-xl transition-all flex-shrink-0 ${
               darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
             aria-label="Open sidebar navigation"
@@ -287,7 +286,7 @@ export const Header: React.FC = () => {
           <button
             type="button"
             onClick={openCommandPalette}
-            className={`hidden lg:flex items-center justify-between gap-4 px-3.5 py-1.5 rounded-full border text-xs transition-all cursor-pointer ml-2 min-w-[220px] xl:min-w-[270px] ${
+            className={`hidden lg:flex items-center justify-between gap-4 px-3.5 py-1.5 rounded-[15px] border text-xs transition-all cursor-pointer ml-2 min-w-[220px] xl:min-w-[270px] ${
               darkMode
                 ? 'bg-slate-900/70 hover:bg-slate-800/90 border-white/10 text-slate-400'
                 : 'bg-slate-100/80 hover:bg-white border-slate-200/80 text-slate-500 shadow-2xs'
@@ -517,7 +516,7 @@ export const Header: React.FC = () => {
             <AnimatedPopover
               isOpen={isThemeMenuOpen}
               direction="down"
-              className={`absolute right-0 mt-2.5 w-64 rounded-2xl shadow-2xl p-3.5 z-50 border backdrop-blur-xl ${
+              className={`absolute right-0 mt-2.5 w-64 rounded-[15px] shadow-2xl p-3.5 z-50 border backdrop-blur-xl ${
                 darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
               }`}
             >
@@ -635,7 +634,7 @@ export const Header: React.FC = () => {
                 aria-haspopup="true"
                 className="relative rounded-full focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ring-offset-background cursor-pointer"
               >
-                <Avatar user={currentUser} size="md" />
+                <Avatar user={currentUser} size="md" disableHoverCard />
                 <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white dark:bg-slate-900 p-0.5 shadow-xs">
                   <StatusDynamicIcon status={myStatus} className="w-2.5 h-2.5" />
                 </span>
@@ -649,7 +648,7 @@ export const Header: React.FC = () => {
             <AnimatedPopover
               isOpen={Boolean(isProfileMenuOpen && currentUser)}
               direction="down"
-              className={`absolute right-0 mt-2.5 w-72 rounded-2xl shadow-2xl py-2 z-50 border backdrop-blur-xl ${
+              className={`absolute right-0 mt-2.5 w-72 rounded-[15px] shadow-2xl py-2 z-50 border backdrop-blur-xl ${
                 darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
               }`}
             >
@@ -659,7 +658,7 @@ export const Header: React.FC = () => {
                 <div className={`px-4 py-3 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <Avatar user={currentUser} size="md" />
+                      <Avatar user={currentUser} size="md" disableHoverCard />
                       <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white dark:bg-slate-900 p-0.5">
                         <StatusDynamicIcon status={myStatus} className="w-3 h-3" />
                       </span>

@@ -1927,6 +1927,31 @@ const supabaseService = {
       });
     }
     return deduplicateRequest(`get_org_${orgId}`, async () => {
+      // 1. Authoritative backend store lookup
+      try {
+        const res = await fetch(`/api/organizations/${encodeURIComponent(orgId)}`);
+        if (res.ok) {
+          const body = await res.json();
+          if (body?.organization) {
+            cacheKnownOrganization(body.organization);
+            return body.organization as AppOrganizationType;
+          }
+        }
+      } catch (e) {}
+
+      // 2. Client-side persisted storage cache
+      try {
+        const raw = localStorage.getItem(`omni_org_governance_settings_${orgId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.id) {
+            cacheKnownOrganization(parsed);
+            return parsed as AppOrganizationType;
+          }
+        }
+      } catch (e) {}
+
+      // 3. Supabase query fallback
       const { data, error } = await withSupabaseRetry(() =>
         supabase.from('organizations').select('*').eq('id', orgId).maybeSingle()
       );
@@ -1946,6 +1971,77 @@ const supabaseService = {
       }
       return null;
     });
+  },
+
+  updateOrganization: async (
+    orgId: string,
+    updates: {
+      name?: string;
+      orgDisplayName?: string;
+      slug?: string;
+      corporateDomain?: string;
+      defaultSprintDurationDays?: number;
+      defaultTaskStatus?: string;
+      autoAssignCreator?: boolean;
+      requireAcceptanceChecklist?: boolean;
+      enablePublicInviteLinks?: boolean;
+      settings?: any;
+    }
+  ): Promise<AppOrganizationType> => {
+    const finalName = updates.name || updates.orgDisplayName || 'Omni Flow Enterprise Workspace';
+    const finalSlug = updates.slug || supabaseService.generateSlug(finalName);
+
+    // 1. Persist to server API for deterministic persistence across reloads & team
+    let serverUpdated: any = null;
+    try {
+      const res = await fetch(`/api/organizations/${encodeURIComponent(orgId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...updates,
+          name: finalName,
+          slug: finalSlug,
+        }),
+      });
+      if (res.ok) {
+        const body = await res.json();
+        serverUpdated = body.organization;
+      }
+    } catch (e) {
+      console.warn('[supabaseService] Server sync for organization notice:', e);
+    }
+
+    // 2. Update directly in Supabase organizations table
+    try {
+      await withSupabaseRetry(() =>
+        supabase
+          .from('organizations')
+          .update({
+            name: finalName,
+            slug: finalSlug,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', orgId)
+      );
+    } catch (err: any) {
+      console.warn('[supabaseService] Supabase organizations table update notice:', err?.message || err);
+    }
+
+    const mergedOrg: AppOrganizationType = {
+      id: orgId,
+      name: finalName,
+      slug: finalSlug,
+      ...(serverUpdated || {}),
+      ...updates,
+    };
+
+    cacheKnownOrganization(mergedOrg);
+
+    try {
+      localStorage.setItem(`omni_org_governance_settings_${orgId}`, JSON.stringify(mergedOrg));
+    } catch {}
+
+    return mergedOrg;
   },
 
   // ============================================================================

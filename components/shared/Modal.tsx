@@ -112,8 +112,8 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         className={`shadow-2xl w-full ${
           isDrawer
-            ? 'max-w-full sm:max-w-[540px] lg:max-w-[620px] h-full rounded-none sm:rounded-[32px] p-5 sm:p-6 flex flex-col'
-            : `${sizeClasses[size]} p-4 sm:p-6 my-auto rounded-[32px] max-h-[95vh] flex flex-col`
+            ? 'max-w-full sm:max-w-[540px] lg:max-w-[620px] h-full rounded-none sm:rounded-[15px] p-5 sm:p-6 flex flex-col'
+            : `${sizeClasses[size]} p-4 sm:p-6 my-auto rounded-[15px] max-h-[95vh] flex flex-col`
         } transform ${modalTextColor} border ${
           isDrawer
             ? isClosing

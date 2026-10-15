@@ -551,9 +551,14 @@ async function startServer() {
   }
   const userRolesFile = path.join(dataDir, 'user_roles.json');
   const joinRequestsFile = path.join(dataDir, 'join_requests.json');
+  const organizationsFile = path.join(dataDir, 'organizations.json');
+
+  const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sqzjlxayhghoxjloaddo.supabase.co';
+  const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NDQ4MDksImV4cCI6MjA2NjAyMDgwOX0.80rrMJ7AC-XrcUNozIlMa1kh8SFnKagakG_4XOwVbTY';
 
   const usersRoleStore = new Map<string, { userId?: string; email?: string; role: string; organizationId?: string; updatedBy?: string; updatedAt: string }>();
   const joinRequestsStore = new Map<string, any>();
+  const organizationsStore = new Map<string, any>();
 
   // Hydrate from disk
   try {
@@ -578,6 +583,17 @@ async function startServer() {
     console.warn('[server.ts] Could not hydrate join_requests.json:', e);
   }
 
+  try {
+    if (fs.existsSync(organizationsFile)) {
+      const parsedOrgs = JSON.parse(fs.readFileSync(organizationsFile, 'utf-8'));
+      for (const [orgId, odata] of Object.entries(parsedOrgs as Record<string, any>)) {
+        organizationsStore.set(orgId, odata);
+      }
+    }
+  } catch (e) {
+    console.warn('[server.ts] Could not hydrate organizations.json:', e);
+  }
+
   const persistUserRoles = () => {
     try {
       const obj: Record<string, any> = {};
@@ -596,6 +612,18 @@ async function startServer() {
       fs.writeFileSync(joinRequestsFile, JSON.stringify(arr, null, 2), 'utf-8');
     } catch (e) {
       console.warn('[server.ts] Could not write join_requests.json:', e);
+    }
+  };
+
+  const persistOrganizations = () => {
+    try {
+      const obj: Record<string, any> = {};
+      for (const [k, v] of organizationsStore.entries()) {
+        obj[k] = v;
+      }
+      fs.writeFileSync(organizationsFile, JSON.stringify(obj, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[server.ts] Could not write organizations.json:', e);
     }
   };
 
@@ -914,6 +942,137 @@ async function startServer() {
     joinRequestsStore.delete(id);
     persistJoinRequests();
     return res.json({ deleted: true, id });
+  });
+
+  // Organization Governance & Config Settings Endpoints
+  app.get('/api/organizations', (_req, res) => {
+    const list = Array.from(organizationsStore.values());
+    return res.json({ ok: true, organizations: list });
+  });
+
+  app.get('/api/organizations/:id', (req, res) => {
+    const { id } = req.params;
+    let org = organizationsStore.get(id);
+    if (!org) {
+      org = {
+        id,
+        name: 'Omni Flow Enterprise Workspace',
+        slug: 'workspace',
+        domain: 'workspace.live',
+        corporateDomain: 'workspace.live',
+        corporate_domain: 'workspace.live',
+        defaultSprintDurationDays: 14,
+        default_sprint_duration_days: 14,
+        defaultTaskStatus: 'TODO',
+        autoAssignCreator: true,
+        requireAcceptanceChecklist: true,
+        enablePublicInviteLinks: true,
+        settings: {
+          corporateDomain: 'workspace.live',
+          defaultSprintDurationDays: 14,
+          defaultTaskStatus: 'TODO',
+          autoAssignCreator: true,
+          requireAcceptanceChecklist: true,
+          enablePublicInviteLinks: true,
+        },
+        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      organizationsStore.set(id, org);
+      persistOrganizations();
+    }
+    return res.json({ ok: true, organization: org });
+  });
+
+  app.put('/api/organizations/:id', async (req, res) => {
+    const { id } = req.params;
+    const body = req.body || {};
+    const existing = organizationsStore.get(id) || {};
+    const updated = {
+      ...existing,
+      id,
+      name: body.name || body.orgDisplayName || existing.name || 'Omni Flow Enterprise Workspace',
+      slug: body.slug || existing.slug || (body.name ? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'workspace'),
+      domain: body.domain || body.corporateDomain || existing.domain || '',
+      corporate_domain: body.corporateDomain || body.corporate_domain || existing.corporate_domain || '',
+      corporateDomain: body.corporateDomain || body.corporate_domain || existing.corporateDomain || '',
+      defaultSprintDurationDays: Number(body.defaultSprintDurationDays) || existing.defaultSprintDurationDays || 14,
+      default_sprint_duration_days: Number(body.defaultSprintDurationDays) || existing.default_sprint_duration_days || 14,
+      defaultTaskStatus: body.defaultTaskStatus || existing.defaultTaskStatus || 'TODO',
+      autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : existing.autoAssignCreator ?? true,
+      requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : existing.requireAcceptanceChecklist ?? true,
+      enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : existing.enablePublicInviteLinks ?? true,
+      settings: {
+        ...(existing.settings || {}),
+        ...(body.settings || {}),
+        corporateDomain: body.corporateDomain || existing.corporateDomain,
+        defaultSprintDurationDays: Number(body.defaultSprintDurationDays) || existing.defaultSprintDurationDays || 14,
+        defaultTaskStatus: body.defaultTaskStatus || existing.defaultTaskStatus || 'TODO',
+        autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : existing.autoAssignCreator ?? true,
+        requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : existing.requireAcceptanceChecklist ?? true,
+        enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : existing.enablePublicInviteLinks ?? true,
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    organizationsStore.set(id, updated);
+    persistOrganizations();
+
+    // If Supabase credentials exist, also attempt updating in Supabase organizations table
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      try {
+        const patchUrl = `${SUPABASE_URL}/rest/v1/organizations?id=eq.${encodeURIComponent(id)}`;
+        await fetch(patchUrl, {
+          method: 'PATCH',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+          },
+          body: JSON.stringify({
+            name: updated.name,
+            slug: updated.slug,
+            updated_at: updated.updated_at,
+          }),
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('[server.ts] Supabase organizations table sync notice:', err);
+      }
+    }
+
+    return res.json({ ok: true, synced: true, organization: updated });
+  });
+
+  app.patch('/api/organizations/:id', async (req, res) => {
+    const { id } = req.params;
+    const body = req.body || {};
+    const existing = organizationsStore.get(id) || {};
+    const updated = {
+      ...existing,
+      id,
+      name: body.name || body.orgDisplayName || existing.name,
+      slug: body.slug || existing.slug,
+      domain: body.domain || body.corporateDomain || existing.domain,
+      corporate_domain: body.corporateDomain || body.corporate_domain || existing.corporate_domain,
+      corporateDomain: body.corporateDomain || body.corporate_domain || existing.corporateDomain,
+      defaultSprintDurationDays: body.defaultSprintDurationDays !== undefined ? Number(body.defaultSprintDurationDays) : existing.defaultSprintDurationDays,
+      default_sprint_duration_days: body.defaultSprintDurationDays !== undefined ? Number(body.defaultSprintDurationDays) : existing.default_sprint_duration_days,
+      defaultTaskStatus: body.defaultTaskStatus || existing.defaultTaskStatus,
+      autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : existing.autoAssignCreator,
+      requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : existing.requireAcceptanceChecklist,
+      enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : existing.enablePublicInviteLinks,
+      settings: {
+        ...(existing.settings || {}),
+        ...(body.settings || {}),
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    organizationsStore.set(id, updated);
+    persistOrganizations();
+    return res.json({ ok: true, synced: true, organization: updated });
   });
 
   // 9. Unified Edge Function Compute Endpoints (/api/edge/*)
