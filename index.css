@@ -150,83 +150,159 @@
     box-shadow: 
       0 24px 60px -12px rgba(0, 0, 0, 0.70),
       0 1px 1px 0 rgba(255, 255, 255, 0.20) inset !important;
-    border-radius: 25px !important;
+    border-radius: 20px !important;
   }
 
   html:not(.dark) .glass-master-window {
-    background: rgba(255, 255, 255, 0.197) !important;
+    background: rgba(255, 255, 255, 0.18) !important;
     backdrop-filter: blur(26px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(36px) saturate(190%) !important;
-    border: 1px solid rgba(157, 157, 157, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.75) !important;
     box-shadow: 
       0 20px 50px -10px rgba(15, 23, 42, 0.08),
       0 1px 1px 0 rgba(255, 255, 255, 0.95) inset !important;
-    border-radius: 15px !important;
+    border-radius: 20px !important;
   }
 
-  /* Taskly & Ultra-Glossy Glass Panels, Header, Sidebar, Workspace Cards (15px uniform radius) */
-  .glass-panel, .auth-panel, aside, header.workspace-header { 
-    background: rgba(255, 255, 255, 0.254) !important;
-    backdrop-filter: blur(24px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.88) !important;
+  /* Taskly & Ultra-Sheer Translucent Glass Panels, Header, Sidebar, Workspace Cards (20px uniform radius) */
+  .glass-panel, .auth-panel, aside, header.workspace-header, .glass-card, .overview-card, .bento-card-32, .bento-card-24 { 
+    background: rgba(255, 255, 255, 0.20) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.65) !important;
     box-shadow: 
-      0 12px 36px rgba(15, 23, 42, 0.05),
+      0 12px 36px rgba(15, 23, 42, 0.04),
       0 1px 1px 0 rgba(255, 255, 255, 0.95) inset !important;
-    border-radius: 15px !important;
+    border-radius: 20px !important;
     transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   html.dark .glass-panel, 
   html.dark .auth-panel, 
   html.dark aside, 
-  html.dark header.workspace-header {
-    background: rgba(13, 18, 32, 0.271) !important;
-    backdrop-filter: blur(24px) saturate(190%) !important;
+  html.dark header.workspace-header,
+  html.dark .glass-card,
+  html.dark .overview-card,
+  html.dark .bento-card-32,
+  html.dark .bento-card-24 {
+    background: rgba(13, 18, 32, 0.22) !important;
+    backdrop-filter: blur(24px) saturate(210%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(210%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.11) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
     box-shadow: 
-      0 16px 40px -8px rgba(0, 0, 0, 0.55),
-      0 1px 1px 0 rgba(255, 255, 255, 0.18) inset,
+      0 16px 40px -8px rgba(0, 0, 0, 0.50),
+      0 1px 1px 0 rgba(255, 255, 255, 0.16) inset,
       0 0 0 1px rgba(255, 255, 255, 0.03) !important;
-    border-radius: 15px !important;
+    border-radius: 20px !important;
     transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /* Universal 20px Border Radius across cards, pills, buttons, and containers */
   .bento-card-32, 
   .bento-card-24, 
   .rounded-\[32px\], 
   .rounded-\[28px\], 
   .rounded-\[24px\],
   .rounded-2xl,
-  .rounded-3xl {
-    border-radius: 15px !important;
+  .rounded-3xl,
+  .rounded-xl,
+  .rounded-\[15px\] {
+    border-radius: 20px !important;
   }
 
-  /* Form Inputs (clean padding, consistent 15px radius) */
+  /* Content Cards & Tables inside Workspace Window: Translucent so Chromatic Background Bursts Through */
+  .glass-master-window div[class*="bg-gradient-to-r from-slate-900"] {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.32) 0%, rgba(30, 27, 75, 0.25) 100%) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 20px !important;
+  }
+
+  html:not(.dark) .glass-master-window div[class*="bg-gradient-to-r from-slate-900"] {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.30) 0%, rgba(238, 242, 255, 0.25) 100%) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.70) !important;
+    color: #0F172A !important;
+  }
+
+  html:not(.dark) .glass-master-window div[class*="bg-gradient-to-r from-slate-900"] h1,
+  html:not(.dark) .glass-master-window div[class*="bg-gradient-to-r from-slate-900"] h2,
+  html:not(.dark) .glass-master-window div[class*="bg-gradient-to-r from-slate-900"] p,
+  html:not(.dark) .glass-master-window div[class*="bg-gradient-to-r from-slate-900"] span:not([class*="bg-"]) {
+    color: #0F172A !important;
+  }
+
+  /* Make white and dark opaque cards sheer frosted glass in the workspace */
+  .glass-master-window .bg-white:not(button):not(input):not(select):not(textarea):not(.badge-pill),
+  .glass-master-window .bg-white\/95,
+  .glass-master-window .bg-white\/90,
+  .glass-master-window .bg-white\/88,
+  .glass-master-window .bg-white\/80,
+  .glass-master-window .bg-white\/75,
+  .glass-master-window .bg-white\/70,
+  .glass-master-window .bg-slate-50\/90,
+  .glass-master-window .bg-slate-50\/70,
+  .glass-master-window .bg-slate-50\/50,
+  .glass-master-window .bg-slate-100:not(button):not(input):not(select):not(textarea):not(.badge-pill) {
+    background-color: rgba(255, 255, 255, 0.22) !important;
+    backdrop-filter: blur(24px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+    border-color: rgba(255, 255, 255, 0.65) !important;
+    border-radius: 20px !important;
+  }
+
+  html.dark .glass-master-window .bg-slate-900:not(button):not(input):not(select):not(textarea):not(.badge-pill),
+  html.dark .glass-master-window .bg-slate-900\/95,
+  html.dark .glass-master-window .bg-slate-900\/90,
+  html.dark .glass-master-window .bg-slate-900\/80,
+  html.dark .glass-master-window .bg-slate-900\/75,
+  html.dark .glass-master-window .bg-slate-900\/70,
+  html.dark .glass-master-window .bg-slate-900\/60,
+  html.dark .glass-master-window .bg-slate-800:not(button):not(input):not(select):not(textarea):not(.badge-pill),
+  html.dark .glass-master-window .bg-slate-800\/90,
+  html.dark .glass-master-window .bg-slate-800\/80,
+  html.dark .glass-master-window .bg-slate-800\/70,
+  html.dark .glass-master-window .bg-slate-800\/60,
+  html.dark .glass-master-window .bg-slate-950,
+  html.dark .glass-master-window .bg-slate-950\/60,
+  html.dark .glass-master-window .bg-slate-950\/40,
+  html.dark .glass-master-window .bg-neutral-900,
+  html.dark .glass-master-window .bg-neutral-900\/80,
+  html.dark .glass-master-window .bg-\[\#090A0F\],
+  html.dark .glass-master-window .bg-\[\#0B0F19\] {
+    background-color: rgba(13, 18, 32, 0.24) !important;
+    backdrop-filter: blur(24px) saturate(210%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(210%) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    border-radius: 20px !important;
+  }
+
+  /* Form Inputs (clean padding, consistent 20px radius) */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), textarea, select {
     width: 100%;
-    padding: 0.55rem 0.9rem !important;
+    padding: 0.55rem 0.95rem !important;
     box-sizing: border-box !important;
     font-size: 0.8125rem;
     line-height: 1.4;
-    border-radius: 15px !important;
-    background: rgba(255, 255, 255, 0.78) !important;
-    backdrop-filter: blur(12px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
-    border: 1px solid rgba(226, 232, 240, 0.9) !important;
+    border-radius: 20px !important;
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(16px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+    border: 1px solid rgba(226, 232, 240, 0.85) !important;
     color: #0F172A !important;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02), inset 0 1px 1px rgba(255, 255, 255, 0.7) !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   textarea {
-    padding: 0.65rem 0.9rem !important;
+    padding: 0.65rem 0.95rem !important;
     min-height: 72px;
   }
 
   html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]), html.dark textarea, html.dark select {
-    background: rgba(13, 17, 30, 0.58) !important;
+    background: rgba(13, 17, 30, 0.50) !important;
     backdrop-filter: blur(16px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -236,64 +312,31 @@
 
   input:focus, textarea:focus, select:focus {
     border-color: #6957FF !important;
-    background: rgba(255, 255, 255, 0.95) !important;
+    background: rgba(255, 255, 255, 0.90) !important;
     box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.20), inset 0 1px 2px rgba(255, 255, 255, 0.7) !important;
   }
 
   html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
-    background: rgba(15, 21, 38, 0.78) !important;
+    background: rgba(15, 21, 38, 0.72) !important;
     box-shadow: 0 0 0 3px rgba(105, 87, 255, 0.28), inset 0 1px 2px rgba(255, 255, 255, 0.12) !important;
   }
 
-  /* Modals & Slide-Over Drawers (15px uniform radius, ultra-glossy glass) */
-  .animate-modal-appear, [role="dialog"] {
+  /* Modals & Popovers (20px uniform radius, ultra-glossy glass) */
+  .animate-modal-appear, [role="dialog"], [data-popover="true"] {
     border-radius: 20px !important;
-    background: rgba(255, 255, 255, 0.90) !important;
+    background: rgba(255, 255, 255, 0.85) !important;
     backdrop-filter: blur(32px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.75) !important;
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(255, 255, 255, 0.5) inset !important;
   }
 
-  html.dark .animate-modal-appear, html.dark [role="dialog"] {
-    background: rgba(13, 17, 30, 0.82) !important;
+  html.dark .animate-modal-appear, html.dark [role="dialog"], html.dark [data-popover="true"] {
+    background: rgba(13, 17, 30, 0.75) !important;
     backdrop-filter: blur(32px) saturate(210%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
     border: 1px solid rgba(255, 255, 255, 0.13) !important;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 1px 1px rgba(255, 255, 255, 0.18) inset !important;
-  }
-
-  /* Nested Bento Cards (15px uniform radius) */
-  .bg-slate-100\/70, .bg-slate-800\/50, .bg-white\/80, .bg-slate-700\/70, .bg-slate-900\/40, .bg-white\/90 {
-    border-radius: 20px !important;
-    backdrop-filter: blur(20px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  }
-
-  html:not(.dark) .bg-slate-100\/70, 
-  html:not(.dark) .bg-white\/80, 
-  html:not(.dark) .bg-white\/88, 
-  html:not(.dark) .bg-white\/90 {
-    background-color: rgba(255, 255, 255, 0.62) !important;
-    backdrop-filter: blur(20px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-    border-color: rgba(255, 255, 255, 0.85) !important;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035), inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
-  }
-
-  html.dark .bg-slate-800\/50, 
-  html.dark .bg-slate-700\/70, 
-  html.dark .bg-slate-900\/40, 
-  html.dark .bg-slate-900\/70, 
-  html.dark .bg-slate-900\/75, 
-  html.dark .bg-slate-900\/80, 
-  html.dark .bg-slate-900\/90 {
-    background-color: rgba(13, 18, 32, 0.42) !important;
-    backdrop-filter: blur(24px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
-    border-radius: 20px !important;
   }
 
   /* Tactile Spring Micro-Motion on All Clicks */
@@ -304,9 +347,17 @@
     transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
-  /* Buttons (15px rounded & glossy glass) */
+  /* Consistent 20px Radius on All Buttons across the UI */
+  button, 
+  [role="button"], 
+  .btn-pill, 
+  .hero-cta-primary,
+  button.bg-gradient-to-br, 
+  button[type="submit"] {
+    border-radius: 20px !important;
+  }
+
   button.bg-gradient-to-br, button[type="submit"], .hero-cta-primary {
-    border-radius: 15px !important;
     background: linear-gradient(135deg, #7668FF 0%, #6957FF 50%, #5B4AEE 100%) !important;
     box-shadow: 0 6px 18px rgba(105, 87, 255, 0.28), 0 1px 2px rgba(255, 255, 255, 0.35) inset !important;
     transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -349,9 +400,9 @@
     background-color: rgba(105, 87, 255, 0.6); 
   }
 
-  /* Dropdowns & Popovers (15px uniform radius) */
+  /* Dropdowns & Popovers (20px uniform radius) */
   .rounded-squircle-md, [role="menu"] {
-    border-radius: 15px !important;
+    border-radius: 20px !important;
   }
 
   /* Badges & Pill Tags (Kept pill for status badges only) */

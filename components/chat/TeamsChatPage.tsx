@@ -1310,8 +1310,8 @@ export const TeamsChatPage: React.FC = () => {
       {/* 1. Sleek Workspace Chat Header */}
       <div className="px-3 sm:px-6 pt-3 sm:pt-4 pb-0">
         <div
-          className={`rounded-2xl px-4 py-2.5 sm:px-5 sm:py-3 border shadow-xs flex items-center justify-between gap-2 ${
-            darkMode ? 'bg-[#090A0F] border-white/10' : 'bg-white border-slate-200/80'
+          className={`rounded-[20px] px-4 py-2.5 sm:px-5 sm:py-3 border shadow-xs flex items-center justify-between gap-2 ${
+            darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
           }`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
@@ -1344,7 +1344,7 @@ export const TeamsChatPage: React.FC = () => {
               type="button"
               onClick={() => setMobilePaneView(prev => (prev === 'list' ? 'chat' : 'list'))}
               title={mobilePaneView === 'list' ? 'Open Active Conversation' : 'Browse Channels & Direct Messages'}
-              className={`lg:hidden relative group flex items-center gap-1.5 px-2.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+              className={`lg:hidden relative group flex items-center gap-1.5 px-3 py-2 rounded-[20px] border text-xs font-bold transition-all cursor-pointer ${
                 darkMode
                   ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
                   : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
@@ -1367,7 +1367,7 @@ export const TeamsChatPage: React.FC = () => {
               type="button"
               onClick={() => setActiveView('calendar_view')}
               title="Calendar & RSVPs"
-              className={`relative group flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
+              className={`relative group flex items-center justify-center p-2 rounded-[20px] border transition-all cursor-pointer ${
                 darkMode
                   ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
                   : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
@@ -1381,7 +1381,7 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setIsChannelMembersModalOpen(true)}
                 title={`Channel Members (${activeChannelMembers.length})`}
-                className={`relative group flex items-center gap-1 px-2.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                className={`relative group flex items-center gap-1 px-3 py-2 rounded-[20px] border text-xs font-semibold transition-all cursor-pointer ${
                   darkMode
                     ? 'bg-white/5 hover:bg-white/10 border-white/10 text-indigo-300'
                     : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
@@ -1396,7 +1396,7 @@ export const TeamsChatPage: React.FC = () => {
               type="button"
               onClick={() => setIsNewChannelModalOpen(true)}
               title="Create New Channel"
-              className={`relative group flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
+              className={`relative group flex items-center justify-center p-2 rounded-[20px] border transition-all cursor-pointer ${
                 darkMode
                   ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
                   : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
@@ -1409,7 +1409,7 @@ export const TeamsChatPage: React.FC = () => {
               type="button"
               onClick={() => setIsAddPersonModalOpen(true)}
               title="Start Direct Message"
-              className="relative group flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="relative group flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
             >
               <ICON_MAP.UserPlusIcon className="w-4 h-4" />
               <span className="hidden xl:inline">New DM</span>
@@ -1424,8 +1424,8 @@ export const TeamsChatPage: React.FC = () => {
         <div
           className={`${
             mobilePaneView === 'list' ? 'flex w-full' : 'hidden'
-          } lg:flex lg:w-72 xl:w-80 flex-col flex-shrink-0 rounded-3xl border shadow-sm overflow-hidden ${
-            darkMode ? 'bg-[#090A0F] border-white/10' : 'bg-white border-slate-200/80'
+          } lg:flex lg:w-72 xl:w-80 flex-col flex-shrink-0 rounded-[20px] border shadow-sm overflow-hidden ${
+            darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
           }`}
         >
           {/* Non-overlapping Search Bar */}
@@ -1437,7 +1437,7 @@ export const TeamsChatPage: React.FC = () => {
                 placeholder="Search channels or people..."
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                className="w-full pl-10 pr-8 py-2 text-xs rounded-xl"
+                className="w-full pl-10 pr-8 py-2 text-xs rounded-[20px] bg-white/40 dark:bg-slate-800/50 border border-white/40 dark:border-white/10"
               />
               {searchFilter && (
                 <button
@@ -1841,8 +1841,8 @@ export const TeamsChatPage: React.FC = () => {
         <div
           className={`${
             mobilePaneView === 'chat' ? 'flex' : 'hidden lg:flex'
-          } flex-1 flex-col min-w-0 rounded-3xl border shadow-sm overflow-hidden ${
-            darkMode ? 'bg-[#090A0F] border-white/10' : 'bg-white border-slate-200/80'
+          } flex-1 flex-col min-w-0 rounded-[20px] border shadow-sm overflow-hidden ${
+            darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
           }`}
         >
           {/* Conversation Header */}
@@ -1853,7 +1853,7 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setMobilePaneView('list')}
                 title="Back to Channels & Direct Messages"
-                className="lg:hidden p-1.5 rounded-xl bg-slate-200/70 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 cursor-pointer flex-shrink-0"
+                className="lg:hidden p-2 rounded-[20px] bg-white/40 dark:bg-white/10 hover:bg-white/60 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 cursor-pointer flex-shrink-0"
               >
                 <ICON_MAP.ChevronLeftIcon className="w-5 h-5" />
               </button>
@@ -3001,8 +3001,8 @@ export const TeamsChatPage: React.FC = () => {
         {/* Right Collapsible Details Inspector Drawer (Inspired by Snazzy Studio & HYPER screenshots) */}
         {isDetailsDrawerOpen && (
           <div
-            className={`hidden xl:flex xl:w-72 2xl:w-80 flex-col flex-shrink-0 rounded-3xl border shadow-sm overflow-hidden ${
-              darkMode ? 'bg-[#090A0F] border-white/10' : 'bg-white border-slate-200/80'
+            className={`hidden xl:flex xl:w-72 2xl:w-80 flex-col flex-shrink-0 rounded-[20px] border shadow-sm overflow-hidden ${
+              darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
             }`}
           >
             {/* Details Header */}

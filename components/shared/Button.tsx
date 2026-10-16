@@ -14,7 +14,7 @@ export const Button: React.FC<ButtonProps> = ({
   className,
   ...props
 }) => {
-  const baseStyles = "inline-flex items-center justify-center rounded-[15px] font-semibold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background transition-all duration-200 ease-out transform hover:scale-[1.015] active:scale-[0.97] cursor-pointer";
+  const baseStyles = "inline-flex items-center justify-center gap-1.5 rounded-[20px] font-semibold text-xs sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background transition-all duration-200 ease-out transform hover:scale-[1.015] active:scale-[0.97] cursor-pointer";
 
   const variantStyles = {
     primary: "bg-gradient-to-br from-accent to-accent-dark text-white shadow-glass hover:from-accent-light hover:to-accent focus:ring-accent",

@@ -478,33 +478,33 @@ export const CalendarMeetingsPage: React.FC = () => {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto w-full">
       {/* 1. TOP HEADER BAR */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-white/10">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Calendar, Meetings & Sprint Prep
+          <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Calendar & Team Meetings
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Schedule team meetings, prepare sprint agendas, manage attendee RSVPs, and launch HD video rooms.
+            Schedule meetings, plan team events, and launch video rooms.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           {/* Segmented View Toggle */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/70">
+          <div className="flex items-center gap-1 p-1 rounded-[20px] bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 backdrop-blur-md">
             {(
               [
-                { id: 'month', label: 'Month Grid' },
-                { id: 'agenda', label: 'Agenda & RSVPs' },
-                { id: 'sprint_prep', label: 'Sprint & Project Prep' },
+                { id: 'month', label: 'Month' },
+                { id: 'agenda', label: 'Agenda' },
+                { id: 'sprint_prep', label: 'Planning' },
               ] as const
             ).map(tab => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setViewMode(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-[20px] text-xs font-semibold transition-colors cursor-pointer ${
                   viewMode === tab.id
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    ? 'bg-indigo-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -529,14 +529,14 @@ export const CalendarMeetingsPage: React.FC = () => {
                 })
               );
             }}
-            className={`px-3.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`px-3.5 py-2 rounded-[20px] border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
               darkMode
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-emerald-400'
-                : 'bg-white hover:bg-slate-50 border-slate-200 text-emerald-700'
+                ? 'bg-slate-800/80 hover:bg-slate-700/80 border-white/10 text-emerald-400'
+                : 'bg-white/80 hover:bg-white border-slate-200 text-emerald-700 shadow-2xs'
             }`}
           >
-            <ICON_MAP.VideoCameraIcon className="w-4 h-4" />
-            <span>Meet Now</span>
+            <ICON_MAP.VideoCameraIcon className="w-4 h-4 text-emerald-500" />
+            <span>Meet</span>
           </button>
 
           <Button
@@ -544,10 +544,10 @@ export const CalendarMeetingsPage: React.FC = () => {
             variant="primary"
             size="sm"
             onClick={() => openScheduleModalWithDefaults()}
-            className="rounded-xl gap-1.5 py-2 px-4"
+            className="rounded-[20px] gap-1.5 py-2 px-4 shadow-md text-xs font-semibold"
           >
             <ICON_MAP.PlusIcon className="w-4 h-4" />
-            <span>Schedule Meeting</span>
+            <span>New Meeting</span>
           </Button>
         </div>
       </div>
@@ -555,10 +555,10 @@ export const CalendarMeetingsPage: React.FC = () => {
       {/* 2. PENDING RSVP INVITATIONS BANNER */}
       {myPendingInvites.length > 0 && (
         <div
-          className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+          className={`p-4 rounded-[20px] border flex flex-col md:flex-row md:items-center justify-between gap-4 backdrop-blur-xl transition-all ${
             darkMode
-              ? 'bg-indigo-950/30 border-indigo-500/30 text-slate-100'
-              : 'bg-indigo-50/70 border-indigo-200 text-slate-900'
+              ? 'bg-indigo-950/25 border-indigo-500/30 text-slate-100'
+              : 'bg-white/30 border-white/40 text-slate-900 shadow-xs'
           }`}
         >
           <div className="space-y-1">
@@ -584,28 +584,28 @@ export const CalendarMeetingsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => handleUserRsvp(myPendingInvites[0], 'going')}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-[20px] bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
-              Accept (Going)
+              Accept
             </button>
             <button
               type="button"
               onClick={() => handleUserRsvp(myPendingInvites[0], 'maybe')}
-              className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-semibold transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-[20px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-semibold transition-colors cursor-pointer"
             >
               Maybe
             </button>
             <button
               type="button"
               onClick={() => handleUserRsvp(myPendingInvites[0], 'declined')}
-              className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-[20px] bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer"
             >
               Decline
             </button>
             <button
               type="button"
               onClick={() => setSelectedEventId(myPendingInvites[0].id)}
-              className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
+              className="px-3.5 py-1.5 rounded-[20px] bg-white/40 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-white/30 dark:border-slate-700 text-xs font-semibold cursor-pointer"
             >
               View Agenda
             </button>
@@ -623,7 +623,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                 prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
               )
             }
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs cursor-pointer"
+            className="p-2 rounded-[20px] border border-white/40 dark:border-slate-700 bg-white/30 dark:bg-slate-800/60 hover:bg-white/50 dark:hover:bg-slate-800 text-xs cursor-pointer"
           >
             ←
           </button>
@@ -637,7 +637,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                 prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
               )
             }
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs cursor-pointer"
+            className="p-2 rounded-[20px] border border-white/40 dark:border-slate-700 bg-white/30 dark:bg-slate-800/60 hover:bg-white/50 dark:hover:bg-slate-800 text-xs cursor-pointer"
           >
             →
           </button>
@@ -658,18 +658,18 @@ export const CalendarMeetingsPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-1.5">
           {(
             [
-              { id: 'ALL', label: 'All Events' },
-              { id: 'sprint_planning', label: 'Sprint Planning' },
-              { id: 'project_update', label: 'Project Updates' },
-              { id: 'daily_standup', label: 'Standups' },
-              { id: 'one_on_one', label: '1:1 Syncs' },
+              { id: 'ALL', label: 'All' },
+              { id: 'sprint_planning', label: 'Planning' },
+              { id: 'project_update', label: 'Updates' },
+              { id: 'daily_standup', label: 'Check-ins' },
+              { id: 'one_on_one', label: 'One-on-Ones' },
             ] as const
           ).map(cat => (
             <button
               key={cat.id}
               type="button"
               onClick={() => setCategoryFilter(cat.id)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-[20px] text-xs font-semibold transition-all cursor-pointer ${
                 categoryFilter === cat.id
                   ? 'bg-indigo-600 text-white'
                   : darkMode
@@ -686,16 +686,18 @@ export const CalendarMeetingsPage: React.FC = () => {
       {/* 4A. MONTH GRID VIEW */}
       {viewMode === 'month' && (
         <div
-          className={`rounded-2xl border overflow-hidden ${
-            darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+          className={`rounded-[20px] border overflow-hidden shadow-lg backdrop-blur-2xl transition-all ${
+            darkMode
+              ? 'bg-slate-900/25 border-white/10'
+              : 'bg-white/25 border-white/60 shadow-xs'
           }`}
         >
           {/* Weekday Headers */}
-          <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/80">
+          <div className="grid grid-cols-7 border-b border-white/20 dark:border-white/10 bg-white/20 dark:bg-slate-950/40 backdrop-blur-md">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
               <div
                 key={day}
-                className="py-2.5 px-3 text-xs font-semibold text-slate-500 dark:text-slate-400 text-center"
+                className="py-2.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-300 text-center"
               >
                 {day}
               </div>
@@ -703,7 +705,7 @@ export const CalendarMeetingsPage: React.FC = () => {
           </div>
 
           {/* Calendar Cells */}
-          <div className="grid grid-cols-7 divide-x divide-y divide-slate-200/70 dark:divide-slate-800/80">
+          <div className="grid grid-cols-7 divide-x divide-y divide-white/20 dark:divide-white/10">
             {calendarDays.map(cell => {
               const dayEvents = filteredEvents.filter(
                 ev => ev.startTime.slice(0, 10) === cell.dateStr
@@ -718,8 +720,8 @@ export const CalendarMeetingsPage: React.FC = () => {
                   onClick={() => openScheduleModalWithDefaults({ dateStr: cell.dateStr })}
                   className={`min-h-[120px] p-2 transition-colors cursor-pointer flex flex-col justify-between ${
                     !cell.isCurrentMonth
-                      ? 'opacity-40 bg-slate-50/40 dark:bg-slate-950/30'
-                      : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                      ? 'opacity-35 bg-white/5 dark:bg-slate-950/20'
+                      : 'hover:bg-white/30 dark:hover:bg-white/5'
                   }`}
                 >
                   <div className="flex items-center justify-between">

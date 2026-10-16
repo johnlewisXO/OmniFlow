@@ -257,13 +257,13 @@ export const Header: React.FC = () => {
   const statusLabelText = myStatus === 'available' ? 'Available' : myStatus === 'away' ? 'Away' : 'Busy / DND';
 
   return (
-    <header className="workspace-header glass-panel rounded-[15px] px-3 sm:px-5 py-2 relative z-20">
+    <header className="workspace-header glass-panel rounded-[20px] px-3 sm:px-5 py-2 relative z-20">
       <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {/* Mobile Hamburger Button */}
           <button
             onClick={toggleMobileSidebar}
-            className={`md:hidden p-2 rounded-xl transition-all flex-shrink-0 ${
+            className={`md:hidden p-2 rounded-[20px] transition-all flex-shrink-0 ${
               darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
             aria-label="Open sidebar navigation"
@@ -277,16 +277,16 @@ export const Header: React.FC = () => {
             </h1>
             {activeProject && (
               <p className={`text-[10px] ${subTextColor} truncate hidden lg:block`}>
-                {activeProject.name} · Live Sprint Board
+                {activeProject.name} · Active Board
               </p>
             )}
           </div>
 
-          {/* Pill Search Bar Trigger on Desktop (lg+) */}
+          {/* Search Bar Trigger on Desktop (lg+) */}
           <button
             type="button"
             onClick={openCommandPalette}
-            className={`hidden lg:flex items-center justify-between gap-4 px-3.5 py-1.5 rounded-[15px] border text-xs transition-all cursor-pointer ml-2 min-w-[220px] xl:min-w-[270px] ${
+            className={`hidden lg:flex items-center justify-between gap-4 px-3.5 py-1.5 rounded-[20px] border text-xs transition-all cursor-pointer ml-2 min-w-[220px] xl:min-w-[270px] ${
               darkMode
                 ? 'bg-slate-900/70 hover:bg-slate-800/90 border-white/10 text-slate-400'
                 : 'bg-slate-100/80 hover:bg-white border-slate-200/80 text-slate-500 shadow-2xs'
@@ -294,7 +294,7 @@ export const Header: React.FC = () => {
           >
             <span className="flex items-center gap-2 truncate">
               <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-              <span>Search tasks, projects, or Co-Pilot...</span>
+              <span>Search workspace...</span>
             </span>
             <kbd className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
               darkMode ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'
@@ -516,7 +516,7 @@ export const Header: React.FC = () => {
             <AnimatedPopover
               isOpen={isThemeMenuOpen}
               direction="down"
-              className={`absolute right-0 mt-2.5 w-64 rounded-[15px] shadow-2xl p-3.5 z-50 border backdrop-blur-xl ${
+              className={`absolute right-0 mt-2.5 w-64 rounded-[20px] shadow-2xl p-3.5 z-50 border backdrop-blur-xl ${
                 darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
               }`}
             >
@@ -648,7 +648,7 @@ export const Header: React.FC = () => {
             <AnimatedPopover
               isOpen={Boolean(isProfileMenuOpen && currentUser)}
               direction="down"
-              className={`absolute right-0 mt-2.5 w-72 rounded-[15px] shadow-2xl py-2 z-50 border backdrop-blur-xl ${
+              className={`absolute right-0 mt-2.5 w-72 rounded-[20px] shadow-2xl py-2 z-50 border backdrop-blur-xl ${
                 darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
               }`}
             >

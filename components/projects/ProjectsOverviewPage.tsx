@@ -55,92 +55,92 @@ export const ProjectsOverviewPage: React.FC = () => {
   return (
     <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
       
-      {/* 1. Analytics Hero Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-slate-700/60 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#60a5fa_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+      {/* 1. Analytics Hero Section (Ultra-sheer frosted glass) */}
+      <div className="glass-panel bg-white/20 dark:bg-slate-900/35 backdrop-blur-2xl text-slate-800 dark:text-white rounded-[20px] p-6 shadow-xl border border-white/35 dark:border-white/10 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#60a5fa_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
         
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400 ring-1 ring-blue-400/30">
+              <span className="p-1.5 rounded-[20px] bg-blue-500/15 text-blue-500 dark:text-blue-400 ring-1 ring-blue-400/30">
                 <FolderIcon className="w-5 h-5" />
               </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-blue-300">
-                {currentOrganization?.name || 'Workspace'} · Project Portfolio
+              <span className="text-xs font-bold tracking-wider uppercase text-blue-600 dark:text-blue-300">
+                {currentOrganization?.name || 'Workspace'} · Projects
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Projects & Portfolios
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Projects
             </h1>
-            <p className="text-sm text-slate-300 max-w-xl leading-relaxed">
-              Track project delivery pipelines, cross-functional sprints, and milestone health in one unified portfolio view.
+            <p className="text-sm text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
+              Track project progress, active tasks, and team milestones in one easy view.
             </p>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={() => setActiveView('ai_copilot_view')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[20px] bg-white/30 dark:bg-white/10 hover:bg-white/45 dark:hover:bg-white/20 border border-white/35 dark:border-white/20 text-slate-800 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
-              <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
-              <span>AI Blueprint Architect</span>
+              <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-500 dark:text-amber-300" />
+              <span>AI Planner</span>
             </button>
             <button
               onClick={openCreateProjectModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[20px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
             >
               <PlusIcon className="w-4 h-4" />
-              <span>Create Project</span>
+              <span>New Project</span>
             </button>
           </div>
         </div>
 
-        {/* Analytics Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-slate-700/60">
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Projects</span>
+        {/* Analytics Metric Cards (Ultra-sheer frosted cards) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-slate-200/50 dark:border-slate-700/60">
+          <div className="bg-white/30 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/40 dark:border-white/10 shadow-xs">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Total</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">{projectMetrics.total}</span>
-              <span className="text-xs text-slate-400">portfolios</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{projectMetrics.total}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">projects</span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              {projectMetrics.active} actively in progress
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              {projectMetrics.active} in progress
             </p>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Active Delivery</span>
+          <div className="bg-white/30 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/40 dark:border-white/10 shadow-xs">
+            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-emerald-400">{projectMetrics.active}</span>
-              <span className="text-xs text-slate-400">active</span>
+              <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{projectMetrics.active}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">working</span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              {projectMetrics.completed} successfully shipped
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              {projectMetrics.completed} finished
             </p>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Avg Completion</span>
+          <div className="bg-white/30 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/40 dark:border-white/10 shadow-xs">
+            <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider">Progress</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">{projectMetrics.avgProgress}%</span>
-              <span className="text-xs text-indigo-300">overall</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{projectMetrics.avgProgress}%</span>
+              <span className="text-xs text-indigo-500 dark:text-indigo-300">average</span>
             </div>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div className="w-full bg-slate-200/50 dark:bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
               <div 
-                className="bg-indigo-400 h-full rounded-full transition-all duration-500" 
+                className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
                 style={{ width: `${projectMetrics.avgProgress}%` }}
               />
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">Pipeline Health</span>
+          <div className="bg-white/30 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/40 dark:border-white/10 shadow-xs">
+            <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Paused</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-amber-300">{projectMetrics.onHold}</span>
-              <span className="text-xs text-slate-400">on hold</span>
+              <span className="text-2xl font-black text-amber-600 dark:text-amber-300">{projectMetrics.onHold}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">on hold</span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              {projectMetrics.active + projectMetrics.completed > 0 ? 'Healthy flow' : 'No activity'}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              {projectMetrics.active + projectMetrics.completed > 0 ? 'On schedule' : 'No activity'}
             </p>
           </div>
         </div>
@@ -149,16 +149,16 @@ export const ProjectsOverviewPage: React.FC = () => {
       {/* Portfolio AI Insights Engine */}
       <AIInsightsEngineWidget compact />
 
-      {/* 2. Controls & Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-xs">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl">
+      {/* 2. Controls & Filter Bar (Ultra-sheer frosted glass) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/30 dark:bg-slate-900/40 backdrop-blur-xl p-3.5 rounded-[20px] border border-white/40 dark:border-white/10 shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-white/40 dark:bg-slate-800/60 rounded-[20px]">
           {(['all', 'active', 'on hold', 'completed'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-[20px] capitalize transition-all cursor-pointer ${
                 statusFilter === tab
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-slate-700/80 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -173,7 +173,7 @@ export const ProjectsOverviewPage: React.FC = () => {
             placeholder="Search projects..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500/40"
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-[20px] bg-white/40 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/40"
           />
           <SearchIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>
@@ -183,14 +183,14 @@ export const ProjectsOverviewPage: React.FC = () => {
       {isLoadingProjects && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className={`p-6 rounded-2xl border shadow-xs animate-pulse ${darkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
+            <div key={i} className={`p-6 rounded-[20px] border shadow-xs animate-pulse ${darkMode ? 'bg-slate-800/30 border-slate-700/30' : 'bg-white/30 border-white/40'}`}>
               <div className="flex items-center mb-4">
-                <div className={`w-8 h-8 rounded-lg mr-3 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
-                <div className={`h-5 w-32 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
+                <div className={`w-8 h-8 rounded-[20px] mr-3 ${darkMode ? 'bg-slate-700/50' : 'bg-slate-200/50'}`} />
+                <div className={`h-5 w-32 rounded-[20px] ${darkMode ? 'bg-slate-700/50' : 'bg-slate-200/50'}`} />
               </div>
-              <div className={`h-4 w-24 rounded mb-3 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
-              <div className={`h-3 w-full rounded mb-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
-              <div className={`h-2 w-full rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} mt-4`} />
+              <div className={`h-4 w-24 rounded-[20px] mb-3 ${darkMode ? 'bg-slate-700/50' : 'bg-slate-200/50'}`} />
+              <div className={`h-3 w-full rounded-[20px] mb-1 ${darkMode ? 'bg-slate-700/50' : 'bg-slate-200/50'}`} />
+              <div className={`h-2 w-full rounded-full ${darkMode ? 'bg-slate-700/50' : 'bg-slate-200/50'} mt-4`} />
             </div>
           ))}
         </div>
@@ -198,16 +198,16 @@ export const ProjectsOverviewPage: React.FC = () => {
 
       {/* Error state */}
       {projectsError && !isLoadingProjects && (
-        <div className={`text-center p-6 rounded-2xl ${darkMode ? 'bg-red-900/20 border-red-700/40' : 'bg-red-50 border-red-200'} border shadow-xs`}>
+        <div className={`text-center p-6 rounded-[20px] ${darkMode ? 'bg-red-900/20 border-red-700/40' : 'bg-red-50/70 border-red-200'} border shadow-xs`}>
           <ExclamationIcon className="w-12 h-12 mx-auto mb-3 text-red-500" />
-          <h2 className="text-lg font-bold text-red-600 dark:text-red-400">Error Loading Projects</h2>
+          <h2 className="text-lg font-bold text-red-600 dark:text-red-400">Unable to Load Projects</h2>
           <p className="text-xs text-red-500 dark:text-red-300 mt-1">{projectsError}</p>
         </div>
       )}
 
       {/* Empty State */}
       {!isLoadingProjects && !projectsError && filteredProjects.length === 0 && (
-        <div className="text-center py-16 bg-white dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+        <div className="text-center py-16 bg-white/25 dark:bg-slate-900/35 backdrop-blur-xl rounded-[20px] border border-dashed border-white/40 dark:border-slate-700/60">
           <FolderIcon className="w-16 h-16 mx-auto mb-3 text-slate-400 opacity-60" />
           <h2 className="text-base font-bold text-slate-700 dark:text-slate-300">
             {searchQuery ? 'No matching projects found' : 'No Projects Found'}
@@ -217,14 +217,15 @@ export const ProjectsOverviewPage: React.FC = () => {
           </p>
           <button
             onClick={openCreateProjectModal}
-            className="mt-4 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs cursor-pointer"
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-[20px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs cursor-pointer"
           >
-            Create New Project
+            <PlusIcon className="w-4 h-4" />
+            <span>New Project</span>
           </button>
         </div>
       )}
 
-      {/* 3. Project Cards Grid */}
+      {/* 3. Project Cards Grid (Ultra-sheer frosted glass) */}
       {!isLoadingProjects && !projectsError && filteredProjects.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredProjects.map(project => {
@@ -235,44 +236,44 @@ export const ProjectsOverviewPage: React.FC = () => {
             return (
               <div 
                 key={project.id} 
-                className={`p-5 rounded-2xl cursor-pointer transition-all duration-200 ease-out transform hover:-translate-y-1 hover:shadow-lg
-                           ${darkMode ? 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-blue-500/50' 
-                                     : 'bg-white hover:bg-slate-50/80 border-slate-200/90 hover:border-blue-300'} 
-                           border shadow-xs flex flex-col justify-between`}
+                className={`p-5 rounded-[20px] cursor-pointer transition-all duration-200 ease-out transform hover:-translate-y-1 hover:shadow-lg
+                           ${darkMode ? 'bg-slate-900/35 hover:bg-slate-900/50 border-white/10 hover:border-blue-500/50' 
+                                     : 'bg-white/25 hover:bg-white/40 border-white/35 hover:border-blue-400/50'} 
+                           backdrop-blur-xl border shadow-xs flex flex-col justify-between`}
                 onClick={() => setActiveProject(project.id)}
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2.5">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                      <div className="p-2 rounded-[20px] bg-blue-500/15 text-blue-600 dark:text-blue-400 flex-shrink-0">
                         <FolderIcon className="w-5 h-5" />
                       </div>
                       <h3 className="text-base font-bold truncate text-slate-900 dark:text-white">
                         {project.name}
                       </h3>
                     </div>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md flex-shrink-0 ${
-                      project.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
-                      project.status === 'completed' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' :
-                      'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                    <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-[20px] flex-shrink-0 ${
+                      project.status === 'active' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' :
+                      project.status === 'completed' ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30' :
+                      'bg-slate-100/70 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300'
                     }`}>
                       {project.status}
                     </span>
                   </div>
 
                   {project.description && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-4 leading-relaxed">
                       {project.description}
                     </p>
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 space-y-2 mt-2">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-                    <span>Delivery Progress</span>
+                <div className="pt-3 border-t border-slate-200/50 dark:border-slate-700/60 space-y-2 mt-2">
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 font-semibold">
+                    <span>Progress</span>
                     <span>{progress}%</span>
                   </div>
-                  <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-200/50 dark:bg-slate-800/80 h-2 rounded-full overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-500 ${
                         progress === 100 ? 'bg-emerald-500' : 'bg-blue-500'
@@ -280,9 +281,9 @@ export const ProjectsOverviewPage: React.FC = () => {
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                    <span>{projectTaskCount} total tasks</span>
-                    <span>{completedCount} shipped</span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                    <span>{projectTaskCount} tasks</span>
+                    <span>{completedCount} done</span>
                   </div>
                 </div>
               </div>

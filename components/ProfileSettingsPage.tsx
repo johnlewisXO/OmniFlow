@@ -350,30 +350,30 @@ export const ProfileSettingsPage: React.FC = () => {
 
   const TABS: { id: SettingsTabId; label: string; icon: React.FC<{ className?: string }>; desc: string }[] = [
     { id: 'identity', label: 'Identity & Profile', icon: ICON_MAP.UserCircleIcon, desc: 'Bio, role, skills & contact' },
-    { id: 'capacity', label: 'Workspace & Capacity', icon: ICON_MAP.RocketLaunchIcon, desc: 'Sprint velocity & schedule' },
-    { id: 'notifications', label: 'Notifications & Alerts', icon: ICON_MAP.BellIcon, desc: 'Real-time & digest rules' },
-    { id: 'ai_copilot', label: 'AI Co-Pilot Parameters', icon: ICON_MAP.SparklesIcon, desc: 'Estimation & tone tuning' },
-    { id: 'security', label: 'Security & Access', icon: ICON_MAP.ShieldCheckIcon, desc: 'Password, 2FA & API keys' },
+    { id: 'capacity', label: 'Work Schedule', icon: ICON_MAP.RocketLaunchIcon, desc: 'Hours & weekly capacity' },
+    { id: 'notifications', label: 'Notifications', icon: ICON_MAP.BellIcon, desc: 'Alerts & updates' },
+    { id: 'ai_copilot', label: 'AI Settings', icon: ICON_MAP.SparklesIcon, desc: 'Tone & assistance' },
+    { id: 'security', label: 'Security & Password', icon: ICON_MAP.ShieldCheckIcon, desc: 'Password & account safety' },
   ];
 
-  const inputClass = `w-full px-3.5 py-2.5 text-sm rounded-xl border focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all ${
-    darkMode ? 'bg-slate-900/70 border-slate-700/80 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+  const inputClass = `w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-[20px] border focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all ${
+    darkMode ? 'bg-slate-900/40 border-white/10 text-white placeholder-slate-500' : 'bg-white/60 border-white/60 text-slate-900 placeholder-slate-400'
   }`;
 
-  const cardClass = `p-6 rounded-2xl border shadow-xs ${
-    darkMode ? 'bg-slate-900/60 border-slate-800 text-slate-100' : 'bg-white border-slate-200/80 text-slate-800'
+  const cardClass = `p-5 sm:p-6 rounded-[20px] border shadow-xs transition-all ${
+    darkMode ? 'bg-slate-900/30 border-white/10 text-slate-100 backdrop-blur-2xl' : 'bg-white/30 border-white/60 text-slate-800 backdrop-blur-2xl'
   }`;
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto w-full space-y-6 animate-fadeIn">
-      {/* Top Executive Identity Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/50 relative overflow-hidden">
+    <div className="p-3 sm:p-5 md:p-6 max-w-6xl mx-auto w-full space-y-6 animate-fadeIn">
+      {/* Top Executive Identity Banner (Ultra-sheer frosted glass) */}
+      <div className="bg-gradient-to-r from-slate-900/40 via-indigo-950/35 to-slate-900/40 text-white rounded-[20px] p-5 sm:p-6 shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="relative group">
-              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-indigo-400/50 bg-indigo-500/20 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[20px] overflow-hidden border-2 border-indigo-400/50 bg-indigo-500/20 flex items-center justify-center text-xl sm:text-2xl font-bold text-white shadow-lg">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={fullName} className="w-full h-full object-cover" />
                 ) : (
@@ -381,20 +381,20 @@ export const ProfileSettingsPage: React.FC = () => {
                 )}
               </div>
               <span className="absolute -bottom-1 -right-1 rounded-full bg-slate-900 p-1 shadow-md border border-slate-700">
-                <StatusDynamicIcon status={myStatus} className="w-4 h-4" />
+                <StatusDynamicIcon status={myStatus} className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+                <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-white">
                   {fullName || currentUser.email}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-500/25 text-indigo-300 border border-indigo-400/30">
+                <span className="px-2.5 py-0.5 rounded-[20px] text-[10px] font-bold uppercase tracking-wider bg-indigo-500/25 text-indigo-200 border border-indigo-400/30">
                   {normalizedRole.replace(/_/g, ' ')}
                 </span>
                 {currentOrganization?.name && (
-                  <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                  <span className="px-2.5 py-0.5 rounded-[20px] text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                     <ICON_MAP.CheckBadgeIcon className="w-3 h-3" />
                     {currentOrganization.name}
                   </span>
@@ -403,24 +403,24 @@ export const ProfileSettingsPage: React.FC = () => {
               <p className="text-xs text-indigo-200/90 font-medium">
                 {prefs.jobTitle} • {prefs.department} • {prefs.location}
               </p>
-              <p className="text-[11px] text-slate-400 font-mono">{currentUser.email}</p>
+              <p className="text-[11px] text-slate-300/80 font-mono truncate">{currentUser.email}</p>
             </div>
           </div>
 
           {/* Quick Status & Capacity Summary in Banner */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-white/5 border border-white/10 rounded-xl px-3.5 py-2">
-              <span className="text-[10px] uppercase tracking-wider text-indigo-300 font-bold block">Live Availability</span>
+            <div className="bg-white/10 dark:bg-white/5 border border-white/15 rounded-[20px] px-3.5 py-2 backdrop-blur-md">
+              <span className="text-[10px] uppercase tracking-wider text-indigo-200 font-bold block">Status</span>
               <div className="flex items-center gap-1.5 mt-1">
                 {(['available', 'away', 'busy'] as const).map(st => (
                   <button
                     key={st}
                     type="button"
                     onClick={() => handleStatusChange(st)}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-[20px] text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
                       myStatus === st
                         ? 'bg-indigo-500 text-white shadow-xs'
-                        : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                        : 'bg-white/10 text-slate-200 hover:bg-white/20'
                     }`}
                   >
                     <StatusDynamicIcon status={st} className="w-3 h-3" />
@@ -430,12 +430,12 @@ export const ProfileSettingsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-right">
-              <span className="text-[10px] uppercase tracking-wider text-emerald-300 font-bold block">Sprint Load</span>
+            <div className="bg-white/10 dark:bg-white/5 border border-white/15 rounded-[20px] px-4 py-2 text-right backdrop-blur-md">
+              <span className="text-[10px] uppercase tracking-wider text-emerald-300 font-bold block">Work Load</span>
               <div className="text-sm font-black text-white mt-0.5">
                 {activeAssignedPoints} / {prefs.maxStoryPointsPerSprint || 21} <span className="text-[11px] font-normal text-slate-300">pts</span>
               </div>
-              <span className="text-[10px] text-slate-400">{prefs.weeklyCapacityHours}h / week capacity</span>
+              <span className="text-[10px] text-slate-300/80">{prefs.weeklyCapacityHours}h / week</span>
             </div>
           </div>
         </div>
@@ -462,7 +462,7 @@ export const ProfileSettingsPage: React.FC = () => {
       {/* Main Layout: Left Sub-Navigation + Right Parameter Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Navigation Column */}
-        <div className={`lg:col-span-3 p-2.5 rounded-2xl border space-y-1 ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/80'}`}>
+        <div className={`lg:col-span-3 p-2.5 rounded-[20px] border space-y-1 backdrop-blur-2xl ${darkMode ? 'bg-slate-900/30 border-white/10' : 'bg-white/30 border-white/60'}`}>
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -471,12 +471,12 @@ export const ProfileSettingsPage: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all cursor-pointer ${
+                className={`w-full flex items-start gap-3 p-3 rounded-[20px] text-left transition-all cursor-pointer ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                     : darkMode
-                      ? 'text-slate-300 hover:bg-slate-800/70'
-                      : 'text-slate-700 hover:bg-slate-100'
+                      ? 'text-slate-300 hover:bg-white/5'
+                      : 'text-slate-700 hover:bg-white/50'
                 }`}
               >
                 <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isActive ? 'text-white' : 'text-indigo-500'}`} />
@@ -490,8 +490,8 @@ export const ProfileSettingsPage: React.FC = () => {
             );
           })}
 
-          <div className={`pt-3 mt-3 border-t px-3 pb-2 ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Account Telemetry</div>
+          <div className={`pt-3 mt-3 border-t px-3 pb-2 ${darkMode ? 'border-white/10' : 'border-white/40'}`}>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Your Activity</div>
             <div className="space-y-1.5 text-[11px] text-slate-400">
               <div className="flex justify-between">
                 <span>Projects Access:</span>
@@ -502,8 +502,8 @@ export const ProfileSettingsPage: React.FC = () => {
                 <span className="font-semibold text-slate-200">{myAssignedTasksList.length}</span>
               </div>
               <div className="flex justify-between">
-                <span>Encryption:</span>
-                <span className="font-semibold text-emerald-400">AES-GCM 256</span>
+                <span>Privacy:</span>
+                <span className="font-semibold text-emerald-400">Encrypted</span>
               </div>
             </div>
           </div>
@@ -525,8 +525,8 @@ export const ProfileSettingsPage: React.FC = () => {
 
                   <div className="space-y-5">
                     {/* Avatar Upload Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
-                      <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-indigo-500/40 bg-indigo-500/10 flex items-center justify-center text-xl font-bold text-indigo-400 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-[20px] border border-white/30 dark:border-white/10 bg-white/30 dark:bg-slate-900/30 backdrop-blur-md">
+                      <div className="relative w-16 h-16 rounded-[20px] overflow-hidden border-2 border-indigo-500/40 bg-indigo-500/10 flex items-center justify-center text-xl font-bold text-indigo-400 flex-shrink-0">
                         {avatarUrl ? (
                           <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
@@ -541,20 +541,20 @@ export const ProfileSettingsPage: React.FC = () => {
 
                       <div className="flex-1 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <label className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl border cursor-pointer transition-colors ${
-                            darkMode ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                          <label className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-[20px] border cursor-pointer transition-colors ${
+                            darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200 hover:bg-slate-700' : 'bg-white/80 border-slate-200 text-slate-700 hover:bg-white shadow-2xs'
                           }`}>
                             <ICON_MAP.PaperClipIcon className="w-3.5 h-3.5 text-indigo-400" />
-                            <span>{isUploading ? 'Uploading...' : 'Upload New Photo'}</span>
+                            <span>{isUploading ? 'Uploading...' : 'Upload'}</span>
                             <input type="file" accept="image/*" onChange={handleFileUpload} disabled={isUploading} className="hidden" />
                           </label>
                           {avatarUrl && (
                             <button
                               type="button"
                               onClick={() => setAvatarUrl('')}
-                              className="px-2.5 py-1.5 text-xs font-medium text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
+                              className="px-2.5 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-[20px] transition-colors cursor-pointer"
                             >
-                              Remove Photo
+                              Remove
                             </button>
                           )}
                         </div>
@@ -1106,27 +1106,27 @@ export const ProfileSettingsPage: React.FC = () => {
               )}
 
               {/* Save Bar for Identity / Capacity / Notifications / AI */}
-              <div className={`sticky bottom-3 z-20 p-3.5 rounded-2xl border backdrop-blur-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-lg ${
-                darkMode ? 'bg-slate-900/90 border-slate-700/80' : 'bg-white/90 border-slate-200/90'
+              <div className={`sticky bottom-3 z-20 p-3.5 rounded-[20px] border backdrop-blur-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xl ${
+                darkMode ? 'bg-slate-900/40 border-white/15' : 'bg-white/40 border-white/60'
               }`}>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  Changes sync immediately across your profile, team directory, and AI Co-Pilot preferences.
+                <div className="text-xs text-slate-600 dark:text-slate-300">
+                  Changes save immediately across your profile and workspace.
                 </div>
                 <div className="flex items-center gap-2 sm:pr-14">
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-2 rounded-[20px] bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     {isSaving ? (
                       <>
                         <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
-                        <span>Saving Parameters...</span>
+                        <span>Saving...</span>
                       </>
                     ) : (
                       <>
                         <ICON_MAP.CheckIcon className="w-4 h-4" />
-                        <span>Save Profile & Preferences</span>
+                        <span>Save Changes</span>
                       </>
                     )}
                   </button>

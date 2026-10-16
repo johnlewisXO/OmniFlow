@@ -857,64 +857,65 @@ export const TeamManagementPage: React.FC = () => {
   return (
     <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
       {/* 1. Analytics Hero Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
+      {/* 1. Analytics Hero Section (Ultra-sheer frosted glass) */}
+      <div className="bg-gradient-to-r from-slate-900/40 via-indigo-950/35 to-slate-900/40 text-white rounded-[20px] p-5 sm:p-6 shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
+              <span className="p-1.5 rounded-[20px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
                 {activeTab === 'audit_logs' ? <ICON_MAP.ClockIcon className="w-5 h-5" /> : <UserGroupIcon className="w-5 h-5" />}
               </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
+              <span className="text-xs font-bold tracking-wider uppercase text-indigo-200">
                 {activeTab === 'audit_logs'
-                  ? 'Security & User Activity Audit'
+                  ? 'Activity History'
                   : activeTab === 'rbac_matrix'
-                    ? 'Enterprise Governance & Access Hierarchy'
-                    : 'Organization Access Control & Directory'}
+                    ? 'Permissions & Roles'
+                    : 'Team Directory'}
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight text-white">
               {activeTab === 'audit_logs'
-                ? 'User Activity & Audit Logs'
+                ? 'Activity History'
                 : activeTab === 'rbac_matrix'
-                  ? 'RBAC Hierarchy & Permission Matrix'
-                  : 'Team Directory, Roles & Capacity'}
+                  ? 'Permissions & Roles'
+                  : 'Team Members & Roles'}
             </h1>
-            <p className="text-sm text-indigo-200/80 max-w-xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-indigo-200/90 max-w-xl leading-relaxed">
               {activeTab === 'audit_logs'
-                ? 'Immutable audit trail of team actions, task transitions, role assignments, and security events.'
-                : 'Manage member seats, normalized RBAC permissions, department allocations, and sprint capacity in real time.'}
+                ? 'Recent actions, task updates, and security logs in your team.'
+                : 'Manage team members, roles, department assignments, and workloads.'}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {activeTab === 'audit_logs' ? (
               <button
                 onClick={loadAuditLogs}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition-all cursor-pointer"
               >
-                <ICON_MAP.ArrowPathIcon className="w-4 h-4 mr-1" />
-                <span>Refresh Audit Logs</span>
+                <ICON_MAP.ArrowPathIcon className="w-4 h-4 mr-0.5" />
+                <span>Refresh</span>
               </button>
             ) : (
               <>
                 <button
                   type="button"
                   onClick={() => setShowRlsModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold border border-amber-400/40 transition-all cursor-pointer shadow-xs"
-                  title="View Supabase Row Level Security (RLS) SQL Script to fix database role updates"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold border border-amber-400/40 transition-all cursor-pointer shadow-xs"
+                  title="View Database Fix for role updates"
                 >
                   <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-300" />
-                  <span>Supabase RLS Fix (SQL)</span>
+                  <span>Database Fix</span>
                 </button>
                 {canActorManageTeam && (
                   <button
                     onClick={() => setShowAddMemberModal(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition-all cursor-pointer"
                   >
                     <ICON_MAP.UserPlusIcon className="w-4 h-4" />
-                    <span>Provision Member</span>
+                    <span>+ Member</span>
                   </button>
                 )}
                 <button
@@ -922,10 +923,10 @@ export const TeamManagementPage: React.FC = () => {
                     setShowInviteModal(true);
                     setGeneratedInviteLink(null);
                   }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold shadow-lg shadow-indigo-500/30 transition-all transform active:scale-95 cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-[20px] bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95 cursor-pointer"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  <span>Invite via Link</span>
+                  <span>Invite</span>
                 </button>
               </>
             )}
@@ -935,7 +936,7 @@ export const TeamManagementPage: React.FC = () => {
         {/* Analytics KPI Metric Cards */}
         {activeTab === 'audit_logs' ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Total Audit Events</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-white">{auditLogs.length}</span>
@@ -944,7 +945,7 @@ export const TeamManagementPage: React.FC = () => {
               <p className="text-[11px] text-indigo-200/70 mt-1">Logged user operations</p>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider">Active Actors</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-purple-300">{distinctActorsCount}</span>
@@ -953,7 +954,7 @@ export const TeamManagementPage: React.FC = () => {
               <p className="text-[11px] text-indigo-200/70 mt-1">Initiating operations</p>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider">RBAC & Security</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-amber-300">{securityEventCount}</span>
@@ -962,7 +963,7 @@ export const TeamManagementPage: React.FC = () => {
               <p className="text-[11px] text-indigo-200/70 mt-1">Roles & access updates</p>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Task & Sprint Events</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-emerald-400">{taskEventCount}</span>
@@ -973,7 +974,7 @@ export const TeamManagementPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Total Members</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-white">{users.length}</span>
@@ -982,7 +983,7 @@ export const TeamManagementPage: React.FC = () => {
               <p className="text-[11px] text-indigo-200/70 mt-1">Active accounts in workspace</p>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider">Owners & Admins</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-purple-300">{adminCount}</span>
@@ -991,7 +992,7 @@ export const TeamManagementPage: React.FC = () => {
               <p className="text-[11px] text-indigo-200/70 mt-1">Full workspace authority</p>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-blue-300 uppercase tracking-wider">Project Managers</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-blue-400">{pmCount}</span>
@@ -1000,7 +1001,7 @@ export const TeamManagementPage: React.FC = () => {
               <p className="text-[11px] text-indigo-200/70 mt-1">Can manage all non-Owner roles</p>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
+            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
               <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Members & Viewers</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-black text-emerald-400">{memberCount}</span>
@@ -1015,7 +1016,7 @@ export const TeamManagementPage: React.FC = () => {
       {/* Pending Organization Join Requests Approval Banner (Visible to OWNER, ADMIN, PROJECT_MANAGER) */}
       {canActorManageTeam && joinRequests.filter(r => r.status === 'pending').length > 0 && (
         <div
-          className={`p-5 rounded-2xl border shadow-lg ${
+          className={`p-5 rounded-[20px] border backdrop-blur-xl shadow-lg ${
             darkMode
               ? 'bg-indigo-950/40 border-indigo-500/40'
               : 'bg-indigo-50/90 border-indigo-200'
@@ -1044,7 +1045,7 @@ export const TeamManagementPage: React.FC = () => {
                 return (
                   <div
                     key={req.id}
-                    className={`p-4 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                    className={`p-4 rounded-[20px] border backdrop-blur-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
                       darkMode
                         ? 'bg-slate-900/90 border-slate-800'
                         : 'bg-white border-slate-200'
@@ -1135,13 +1136,13 @@ export const TeamManagementPage: React.FC = () => {
       )}
 
       {/* Icon-First Navigation Sub-Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 dark:border-white/10 pb-3">
         <button
           onClick={() => setActiveTab('directory')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'directory'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
+              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
           }`}
         >
           <UserGroupIcon className="w-4 h-4" />
@@ -1150,21 +1151,21 @@ export const TeamManagementPage: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('rbac_matrix')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'rbac_matrix'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
+              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
           }`}
         >
           <ICON_MAP.CheckBadgeIcon className="w-4 h-4" />
-          <span>RBAC Matrix</span>
+          <span>Permissions</span>
         </button>
         <button
           onClick={() => setActiveTab('invitations')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'invitations'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
+              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
           }`}
         >
           <ICON_MAP.MailIcon className="w-4 h-4" />
@@ -1173,27 +1174,27 @@ export const TeamManagementPage: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('audit_logs')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'audit_logs'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
+              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
           }`}
         >
           <ICON_MAP.ClockIcon className="w-4 h-4" />
-          <span>Audit Logs</span>
+          <span>Activity</span>
           <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{auditLogs.length}</span>
         </button>
         {canActorManageTeam && (
           <button
             onClick={() => setActiveTab('join_requests')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'join_requests'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800'
+                : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
             }`}
           >
             <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-400" />
-            <span>Join Requests</span>
+            <span>Requests</span>
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                 joinRequests.filter(r => r.status === 'pending').length > 0
@@ -1210,17 +1211,17 @@ export const TeamManagementPage: React.FC = () => {
       {/* Tab Content: 1. Directory */}
       {activeTab === 'directory' && (
         <div className="space-y-4">
-          {/* Directory Filter & Search Bar */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 rounded-2xl border bg-white/90 dark:bg-neutral-900/80 border-slate-200/80 dark:border-white/10">
+          {/* Directory Filter & Search Bar (Ultra-sheer frosted glass) */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 rounded-[20px] border shadow-xs bg-white/25 dark:bg-slate-900/25 backdrop-blur-2xl border-white/60 dark:border-white/10">
             <div className="relative flex-1 max-w-md flex items-center">
               <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
               <input
                 type="text"
-                placeholder="Search members by name, email, or department..."
+                placeholder="Search by name, email, or team..."
                 value={directorySearch}
                 onChange={e => setDirectorySearch(e.target.value)}
-                className={`w-full !pl-10 !pr-8 !py-2 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
-                  darkMode ? 'bg-neutral-950 border-white/10 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                className={`w-full !pl-10 !pr-8 !py-2 text-xs rounded-[20px] border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
+                  darkMode ? 'bg-slate-900/40 border-white/10 text-white placeholder-slate-500' : 'bg-white/60 border-white/60 text-slate-900 placeholder-slate-400'
                 }`}
               />
               {directorySearch && (
@@ -1238,8 +1239,8 @@ export const TeamManagementPage: React.FC = () => {
               <select
                 value={roleFilter}
                 onChange={e => setRoleFilter(e.target.value)}
-                className={`text-xs rounded-xl border px-3 py-2 font-semibold ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700'
+                className={`text-xs rounded-[20px] border px-3 py-2 font-semibold ${
+                  darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200' : 'bg-white/80 border-slate-200 text-slate-700'
                 }`}
               >
                 <option value="all">All Roles</option>
@@ -1251,8 +1252,8 @@ export const TeamManagementPage: React.FC = () => {
               <select
                 value={departmentFilter}
                 onChange={e => setDepartmentFilter(e.target.value)}
-                className={`text-xs rounded-xl border px-3 py-2 font-semibold ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700'
+                className={`text-xs rounded-[20px] border px-3 py-2 font-semibold ${
+                  darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200' : 'bg-white/80 border-slate-200 text-slate-700'
                 }`}
               >
                 <option value="all">All Departments</option>
@@ -1264,8 +1265,8 @@ export const TeamManagementPage: React.FC = () => {
               <select
                 value={availabilityFilter}
                 onChange={e => setAvailabilityFilter(e.target.value)}
-                className={`text-xs rounded-xl border px-3 py-2 font-semibold ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700'
+                className={`text-xs rounded-[20px] border px-3 py-2 font-semibold ${
+                  darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200' : 'bg-white/80 border-slate-200 text-slate-700'
                 }`}
               >
                 <option value="all">All Statuses</option>
@@ -1275,8 +1276,8 @@ export const TeamManagementPage: React.FC = () => {
 
               <button
                 onClick={fetchUsersForAssignmentList}
-                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer"
-                title="Refresh Team Directory"
+                className="p-2 rounded-[20px] border border-white/20 dark:border-white/10 bg-white/30 dark:bg-white/5 hover:bg-white/50 text-xs font-semibold cursor-pointer"
+                title="Refresh Directory"
               >
                 <ICON_MAP.ArrowPathIcon className="w-4 h-4" />
               </button>
@@ -1284,12 +1285,12 @@ export const TeamManagementPage: React.FC = () => {
           </div>
 
           {updateUserRoleError && (
-            <div className={`my-2 p-3 text-center rounded-xl text-xs font-semibold border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+            <div className={`my-2 p-3 text-center rounded-[20px] text-xs font-semibold border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
               {updateUserRoleError}
             </div>
           )}
           {deleteUserError && (
-            <div className={`my-2 p-3 text-center rounded-xl text-xs font-semibold border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+            <div className={`my-2 p-3 text-center rounded-[20px] text-xs font-semibold border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
               {deleteUserError}
             </div>
           )}
@@ -1297,26 +1298,26 @@ export const TeamManagementPage: React.FC = () => {
           {isLoadingUsersForAssignment ? (
             <div className="text-center py-10">
               <SpinnerIcon className="w-10 h-10 mx-auto text-indigo-500 animate-spin" />
-              <p className="mt-3 text-sm text-slate-400">Synchronizing organization directory...</p>
+              <p className="mt-3 text-sm text-slate-400">Loading team members...</p>
             </div>
           ) : filteredDirectoryUsers.length === 0 ? (
-            <div className="text-center py-12 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="text-center py-12 rounded-[20px] border border-white/20 dark:border-white/10 bg-white/20 dark:bg-slate-900/20 backdrop-blur-xl">
               <UserGroupIcon className="w-12 h-12 mx-auto mb-3 text-slate-400 opacity-60" />
-              <h2 className="text-base font-bold">No Matching Team Members</h2>
-              <p className="text-xs text-slate-400 mt-1">Adjust your search filters or invite a new member to your workspace.</p>
+              <h2 className="text-base font-bold">No Members Found</h2>
+              <p className="text-xs text-slate-400 mt-1">Try clearing your filters or invite a new teammate.</p>
             </div>
           ) : (
-            <div className={`shadow-xs rounded-2xl overflow-x-auto border ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/80'}`}>
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
-                <thead className={darkMode ? 'bg-slate-950/50' : 'bg-slate-50'}>
+            <div className={`shadow-lg rounded-[20px] overflow-x-auto border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/25 border-white/10' : 'bg-white/25 border-white/60'}`}>
+              <table className="min-w-full divide-y divide-white/20 dark:divide-white/10">
+                <thead className={darkMode ? 'bg-slate-950/40' : 'bg-white/20'}>
                   <tr>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">Member</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">Live Status</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">Department</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">Workload & Capacity</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">Current Role</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400 min-w-[200px]">Assign Role (RBAC)</th>
-                    <th scope="col" className="px-4 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-slate-400">Actions</th>
+                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Member</th>
+                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Status</th>
+                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Department</th>
+                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Workload</th>
+                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Role</th>
+                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 min-w-[180px]">Change Role</th>
+                    <th scope="col" className="px-4 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/70">
@@ -1643,7 +1644,7 @@ export const TeamManagementPage: React.FC = () => {
       {/* Tab Content: 2. RBAC Permission Matrix */}
       {activeTab === 'rbac_matrix' && (
         <div className="space-y-4">
-          <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <div className={`p-5 rounded-[20px] border backdrop-blur-xl ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-200 dark:border-slate-800">
               <div>
                 <h2 className="text-base font-bold flex items-center gap-2">
@@ -1748,7 +1749,7 @@ export const TeamManagementPage: React.FC = () => {
               <p className="text-xs mt-1">Click "Create Invite" to generate a secure join link for a new team member.</p>
             </div>
           ) : (
-            <div className={`shadow-glass rounded-xl overflow-x-auto border ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className={`shadow-lg rounded-[20px] overflow-x-auto border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/25 border-white/10' : 'bg-white/25 border-white/60'}`}>
               <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                 <thead className={darkMode ? 'bg-slate-900/40' : 'bg-slate-50'}>
                   <tr>
@@ -1973,7 +1974,7 @@ export const TeamManagementPage: React.FC = () => {
       {/* Tab Content: 5. Organization Join Requests & Access Approvals */}
       {activeTab === 'join_requests' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border bg-white/90 dark:bg-neutral-900/80 border-slate-200/80 dark:border-white/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border bg-white/30 dark:bg-slate-900/40 backdrop-blur-xl border-white/40 dark:border-white/10">
             <div>
               <h2 className="text-sm font-bold flex items-center gap-2">
                 <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-400" />
@@ -2031,7 +2032,7 @@ export const TeamManagementPage: React.FC = () => {
                   return (
                     <div
                       key={req.id}
-                      className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                      className={`p-4 sm:p-5 rounded-[20px] border backdrop-blur-xl transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
                         isPending
                           ? darkMode
                             ? 'bg-neutral-900 border-amber-500/30 shadow-xs'
@@ -2171,7 +2172,7 @@ export const TeamManagementPage: React.FC = () => {
       {/* Provision / Add Member Modal */}
       {showAddMemberModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
-          <div className={`p-6 rounded-2xl shadow-2xl w-full max-w-lg border ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+          <div className={`p-6 rounded-[20px] shadow-2xl w-full max-w-lg border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/80 border-white/10 text-white' : 'bg-white/85 border-white/60 text-slate-900'}`}>
             <div className="flex justify-between items-center mb-4 border-b pb-3 border-slate-200 dark:border-slate-800">
               <h3 className="text-base font-bold flex items-center gap-2">
                 <ICON_MAP.UserPlusIcon className="w-5 h-5 text-indigo-400" />
@@ -2360,7 +2361,7 @@ export const TeamManagementPage: React.FC = () => {
 
       {showConfirmDeleteModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
-          <div className={`p-6 rounded-2xl shadow-2xl w-full max-w-md border ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+          <div className={`p-6 rounded-[20px] shadow-2xl w-full max-w-md border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/80 border-white/10 text-white' : 'bg-white/85 border-white/60 text-slate-900'}`}>
             <h3 className="text-lg font-semibold text-status-error mb-3">Confirm Removal</h3>
             <p className="text-sm mb-5">
               Are you sure you want to remove <strong className="font-medium">{users.find(u => u.id === showConfirmDeleteModal)?.full_name || 'this user'}</strong> from the organization? They will lose access to all organization projects and data.
@@ -2378,7 +2379,7 @@ export const TeamManagementPage: React.FC = () => {
       {/* Supabase RLS Fix & Role Synchronization Modal */}
       {showRlsModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 backdrop-blur-md animate-fadeIn p-4 overflow-y-auto">
-          <div className={`my-8 p-6 rounded-2xl shadow-2xl w-full max-w-2xl border ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+          <div className={`my-8 p-6 rounded-[20px] shadow-2xl w-full max-w-2xl border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/80 border-white/10 text-white' : 'bg-white/85 border-white/60 text-slate-900'}`}>
             <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">

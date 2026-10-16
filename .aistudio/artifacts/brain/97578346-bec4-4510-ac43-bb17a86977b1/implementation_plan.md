@@ -1,86 +1,107 @@
-# Versa UI Glassmorphism & Chromatic Geometry Overhaul
+# Implementation Plan: Ultra-Sheer Glassmorphism, 20px Button Geometry & Jargon-Free UX
 
-## 1. Executive Summary & Design Diagnosis
+## 1. Executive Summary & Design Audit
 
-### Why the Current Glass Effect Lacked Depth
-As revealed by the reference images, authentic glassmorphism requires **contrastive, chromatic geometry behind the glass**. Without vibrant background objects passing behind the blurred layer, a translucent panel simply appears as a flat, dark grey or black box.
-
-In the Versa UI reference images:
-1. **Background Geometry Anchors**: Behind the floating application window, distinct geometric elements glow against the deep obsidian canvas:
-   - **Top-Left Electric Cyan Orb**: A vibrant cyan/sky-blue circle (`#00C2FF` / `#0070F3`) behind the top navigation and sidebar.
-   - **Top-Right Angled Royal Indigo Prism**: A rounded diagonal geometric slab (`#3B82F6` to `#6366F1`) passing behind the search bar and upper card row.
-   - **Bottom-Left Sunset Coral Sphere**: A rich coral/peach sphere (`#FF5E62` to `#FF8A65`) illuminating the bottom of the sidebar.
-   - **Center Warm Amber Underglow**: A subtle diffused warm orange glow (`rgba(249, 115, 22, 0.12)`) warming the space between the cards.
-   - **Upper-Right Silver Moon Orb**: A soft cool white circular element at the top edge.
-2. **Floating Master Glass Frame**: The entire dashboard floats comfortably within the viewport with an intentional outer margin (`p-3 sm:p-5 md:p-6 lg:p-7`), allowing the colorful backdrop shapes to frame the workspace and visibly refract through the frosted glass.
-3. **Multi-Tier Translucency**: The outer workspace container, sidebar, and inner cards all use calibrated opacities (`rgba(11, 15, 28, 0.45)` to `0.55`) so the colorful backdrop elements illuminate the entire interface from within.
+Based on the uploaded screenshots and your feedback:
+1. **Opaque & Solid Panels**: While the floating master frame, header, and left navigation sidebar now possess translucent glass qualities, the inner content panels—such as the hero banner headers, calendar month grid, member directory tables, filter containers, settings forms, chat hub columns, and project insight cards—still render with opaque fills (`bg-white` or `bg-slate-900`/`bg-slate-950`). This blocks the electric cyan, royal indigo, sunset coral, and amber background geometry from radiating through the body of the application.
+2. **Button Roundness & Icon-First Styling**: Buttons across various views currently mix different border radii (`rounded-full`, `rounded-md`, `rounded-xl`, `rounded-[15px]`). All buttons and interactive pills will be unified to a consistent, tactile **20px border radius** (`rounded-[20px]`) with **icon-first minimal labels** (1–2 words max) and smooth spring micro-interactions.
+3. **Typography & Jargon Simplification**: High-density titles, developer jargon, and complex agile terminology (e.g., *"Autonomous Delivery Intelligence"*, *"Predictive Risk & Bottleneck Telemetry"*, *"RBAC Matrix"*, *"Audit Logs Telemetry"*, *"E2EE"*, *"Story pts"*, *"Operating Nominally"*) will be replaced with clear, welcoming, everyday human language that anyone can easily understand. Typography will be enhanced with fluid responsive text sizing (`text-base sm:text-lg md:text-xl`, etc.) so it looks crisp and balanced across mobile and desktop.
 
 ---
 
-## 2. Proposed Architectural & Visual Changes
+## 2. User Review & Clarifications Confirmed
 
-### 2.1 Fixed Chromatic Geometry Canvas (`App.tsx` & `index.css`)
-- Remove the previous radial indigo/violet gradient wash.
-- Introduce a dedicated, fixed **Chromatic Geometry Backdrop** layer behind the app:
-  ```tsx
-  {/* Still Chromatic Geometry Canvas */}
-  <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 select-none">
-    {/* Base Obsidian Fill */}
-    <div className="absolute inset-0 bg-[#060913] dark:bg-[#060913]" />
-
-    {/* Top-Left Electric Cyan Circle */}
-    <div className="absolute -top-16 -left-16 w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 opacity-60 dark:opacity-45 blur-xs" />
-
-    {/* Top-Right Angled Royal Indigo Prism */}
-    <div className="absolute -top-24 right-1/4 w-[500px] h-80 rounded-[48px] rotate-[-18deg] bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 opacity-55 dark:opacity-35" />
-
-    {/* Bottom-Left Sunset Coral Sphere */}
-    <div className="absolute -bottom-20 -left-12 w-72 h-72 sm:w-88 sm:h-88 rounded-full bg-gradient-to-tr from-rose-500 via-coral-500 to-amber-400 opacity-70 dark:opacity-50" />
-
-    {/* Center-Bottom Warm Amber Atmospheric Glow */}
-    <div className="absolute bottom-10 left-1/3 w-[460px] h-72 rounded-full bg-amber-500/20 dark:bg-amber-500/15 blur-3xl" />
-
-    {/* Upper-Right Soft Pale Orb */}
-    <div className="absolute top-12 right-20 w-32 h-32 rounded-full bg-slate-200/80 dark:bg-blue-100/30 blur-xs" />
-  </div>
-  ```
-- In light mode, the base transitions to cool sky-periwinkle (`#EBF1FA`) with the same vibrant geometry creating crisp, colorful refraction.
-
-### 2.2 Floating Master Glass Frame Architecture (`App.tsx`)
-- Wrap the entire application workspace in a floating master glass canvas:
-  ```tsx
-  <div className="relative z-10 h-screen w-screen p-2.5 sm:p-4 md:p-6 lg:p-7 flex flex-col overflow-hidden">
-    <div className="flex-1 w-full h-full glass-master-window rounded-[15px] border border-white/15 dark:border-white/10 shadow-2xl flex overflow-hidden backdrop-blur-3xl">
-      <MainAppLayout />
-    </div>
-  </div>
-  ```
-- This directly matches the floating window architecture of the Versa UI reference.
-
-### 2.3 Refined Glass Tokens & Card Styling (`index.css`)
-- **Master Window Glass**:
-  - `background: rgba(10, 14, 26, 0.48) !important;` in dark mode.
-  - `backdrop-filter: blur(36px) saturate(190%) !important;`
-  - Specular hairline border: `border: 1px solid rgba(255, 255, 255, 0.12) !important;`
-  - Inset top highlight: `box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.18), 0 24px 60px -12px rgba(0, 0, 0, 0.65) !important;`
-- **Inner Content Cards**:
-  - `background: rgba(15, 21, 38, 0.42) !important;` in dark mode, allowing the colorful background shapes to bleed through cleanly.
-  - `backdrop-filter: blur(20px) saturate(180%) !important;`
-  - Border: `1px solid rgba(255, 255, 255, 0.08) !important;`
-  - Uniform 15px radius on all cards, inputs, buttons, and dialogs.
-- **Header & Navigation Bar**:
-  - Integrated directly inside the master glass window, with `background: rgba(13, 17, 30, 0.35) !important;`, `rounded-[15px]`, and `border: 1px solid rgba(255, 255, 255, 0.08)`.
+- **Translucency Level**: Ultra-sheer frosted glass (`rgba` opacity 0.15–0.30 in light mode, 0.18–0.35 in dark mode) with `backdrop-filter: blur(24px) saturate(200%)`, allowing background chromatic shapes to burst through all dashboard cards, headers, tables, and dialogs.
+- **Terminology Simplification**: Complete simplification across all dashboards and views into intuitive, friendly, jargon-free labels.
+- **Button Presentation**: Icon-first with brief 1–2 word labels across all buttons, with uniform 20px curvature.
 
 ---
 
-## 3. Verification & Acceptance Testing Plan
+## 3. Proposed Architectural Changes
 
-1. **Chromatic Geometry & Bleed-Through Verification**:
-   - Inspect the viewport behind the floating master window. Confirm the presence of the electric cyan circle at the top-left, the angled royal indigo prism across the top, the sunset coral sphere at the bottom-left, and the warm amber glow at the center.
-   - Verify that as these shapes pass behind the frosted glass, they diffuse into luminous, silky color washes that illuminate the sidebar, cards, and header.
-2. **Floating Frame Layout Test**:
-   - Verify that the workspace renders as a floating window with comfortable outer margin on desktop/tablet, and adapts smoothly on mobile without clipping.
-3. **Card Contrast & Legibility Test**:
-   - Confirm WCAG AA text contrast: typography remains crisp and legible over the translucent card surfaces.
-4. **Build Compilation**:
-   - Run `compile_applet` to verify a 100% clean TypeScript build.
+### 3.1 Global CSS & Glass Styling Tokens (`index.css`)
+- **Ultra-Sheer Card & Panel Token**:
+  - Update `.glass-panel`, `.auth-panel`, `.bento-card-32`, `.bento-card-24`, `.bg-white`, `.bg-slate-900`, `aside`, and nested container classes to sheer translucent glass.
+  - In light mode: `background: rgba(255, 255, 255, 0.28) !important; backdrop-filter: blur(24px) saturate(200%) !important; border: 1px solid rgba(255, 255, 255, 0.65) !important;`
+  - In dark mode: `background: rgba(12, 17, 32, 0.28) !important; backdrop-filter: blur(24px) saturate(210%) !important; border: 1px solid rgba(255, 255, 255, 0.10) !important;`
+- **Global 20px Button & Interactive Token**:
+  - Apply `border-radius: 20px !important;` to all button elements, action links, interactive segmented toggles, filter controls, inputs, and modals.
+  - Button styling defaults to `inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-[20px]`.
+- **Contrast & Legibility Safeguards**:
+  - Maintain WCAG AA readability with crisp text colors (`text-slate-900 dark:text-white`), subtle specular inner highlights (`box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2)`), and clean hairline borders.
+
+### 3.2 View-by-View Translucency & Jargon Overhaul
+
+#### A. Profile & Settings (`components/ProfileSettingsPage.tsx`)
+- **Visuals**:
+  - Replace the heavy dark hero banner with a sheer translucent glass container (`bg-indigo-950/20 dark:bg-white/5 backdrop-blur-2xl border border-white/20`).
+  - Convert the left identity tab column and right personal bio cards from solid white boxes to sheer frosted cards.
+  - Translucent photo upload container and floating action bar with 20px rounded button.
+- **Language**:
+  - Replace *"Account Telemetry"* → *"Your Activity"*.
+  - Replace *"AI Co-Pilot Parameters (Estimation & tone tuning)"* → *"AI Settings"*.
+  - Replace *"Sprint velocity & schedule"* → *"Work Schedule"*.
+
+#### B. Calendar & Meetings (`components/calendar/CalendarPrepPage.tsx`)
+- **Visuals**:
+  - Transform the Month Grid from opaque solid white to ultra-sheer frosted glass cells with translucent borders (`border-white/10 dark:border-white/5`), letting the electric cyan and indigo background colors illuminate the calendar grid.
+  - Calendar overview header converted to sheer glass.
+  - Profile popup menu styled with sheer translucent glass (`bg-white/60 dark:bg-slate-900/60 backdrop-blur-3xl rounded-[20px] border border-white/20`).
+- **Buttons**:
+  - `+ Schedule Meeting` → Icon-first `+ Meeting` with 20px roundness.
+  - `Meet Now` → Icon-first `Video Meet`.
+- **Language**:
+  - Replace *"Calendar, Meetings & Sprint Prep"* → *"Calendar & Team Meetings"*.
+  - Replace *"Sprint Planning"* → *"Upcoming Work"*.
+
+#### C. Team & Directory (`components/team/TeamManagementPage.tsx`)
+- **Visuals**:
+  - Filter bar card converted to ultra-sheer glass (`bg-white/25 dark:bg-slate-900/25 backdrop-blur-2xl border border-white/15`).
+  - Member table wrapper and rows converted to transparent glass rows with subtle hover glow, allowing the sunset coral and ambient glows to shine through.
+- **Buttons**:
+  - All role dropdowns, invite buttons, and tab toggles styled with 20px roundness.
+- **Language**:
+  - Replace *"RBAC Matrix"* → *"Permissions"*.
+  - Replace *"Audit Logs 21"* → *"Activity History"*.
+  - Replace *"Join Requests"* → *"Requests"*.
+  - Replace *"Workload & Capacity"* → *"Workload"*.
+  - Replace *"Assign Role (RBAC)"* → *"Change Role"*.
+
+#### D. Projects & Portfolio (`components/projects/ProjectsOverviewPage.tsx`)
+- **Visuals**:
+  - Project hero section changed from dark navy box to sheer glass hero card (`bg-slate-900/20 dark:bg-white/5 backdrop-blur-2xl border border-white/15`).
+  - AI Insights Engine card updated from opaque solid white to luminous translucent frosted glass.
+- **Buttons**:
+  - `AI Blueprint Architect` → Icon-first `AI Planner` (`rounded-[20px]`).
+  - `+ Create Project` → Icon-first `+ Project` (`rounded-[20px]`).
+  - `Open AI PM Studio` → Icon-first `AI Studio` (`rounded-[20px]`).
+- **Language**:
+  - Replace *"Autonomous Delivery Intelligence"* → *"Project Insights"*.
+  - Replace *"Predictive Risk & Bottleneck Telemetry"* → *"Overview & Health"*.
+  - Replace *"Workspace Delivery Pipeline Operating Nominally"* → *"Projects Are On Track"*.
+  - Replace *"Projected velocity of 16 story pts/sprint"* → *"Team pace: 16 points per cycle"*.
+
+#### E. Teams Hub / Chat (`components/chat/ChatHubPage.tsx`)
+- **Visuals**:
+  - Channel list panel on left made sheer frosted glass (`bg-white/25 dark:bg-slate-900/25 backdrop-blur-2xl`).
+  - Message thread panel on right made sheer frosted glass, letting the ambient geometry illuminate the chat interface.
+- **Buttons**:
+  - Call, video, calendar, and send buttons styled with 20px roundness and icon-first presentation.
+- **Language**:
+  - Replace *"E2EE"* → *"Private"*.
+  - Simplify bot welcoming text to clean, welcoming human copy.
+
+---
+
+## 4. Verification & Quality Assurance Plan
+
+1. **Vivid Backdrop Bleed-Through Test**:
+   - Verify in both Light Mode and Dark Mode that the electric cyan orb, indigo prism, sunset coral sphere, and warm amber glow visibly shine through all cards, tables, calendars, and headers across every view.
+2. **Button Roundness & Icon-First Verification**:
+   - Inspect all primary, secondary, and tertiary action buttons across the app to confirm strict 20px roundness (`border-radius: 20px`) and icon-first minimal copy (1–2 words).
+3. **Plain-English UX Audit**:
+   - Confirm that jargon-heavy terms (RBAC, Telemetry, Autonomous Delivery Intelligence, E2EE, Story pts) are replaced with user-friendly terminology.
+4. **Mobile Responsive Typography Test**:
+   - Resize viewport from desktop to mobile screens (375px–768px) to verify fluid typography scaling, no clipping, and touch targets $\ge 40$px.
+5. **Compilation & Build**:
+   - Run `compile_applet` to ensure error-free TypeScript and Vite compilation.

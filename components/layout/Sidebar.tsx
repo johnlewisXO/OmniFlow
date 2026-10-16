@@ -1132,7 +1132,7 @@ export const Sidebar: React.FC = () => {
           setIsHovered(false);
           setProfileMenuOpen(false);
         }}
-        className={`hidden md:flex glass-panel rounded-[15px] flex-col h-full p-3.5 space-y-3 transition-all duration-300 ease-in-out z-30 select-none ${
+        className={`hidden md:flex glass-panel rounded-[20px] flex-col h-full p-3.5 space-y-3 transition-all duration-300 ease-in-out z-30 select-none ${
           isExpanded ? 'w-64' : 'w-16'
         }`}
       >
