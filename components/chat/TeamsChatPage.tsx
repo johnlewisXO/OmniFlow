@@ -264,6 +264,7 @@ export const TeamsChatPage: React.FC = () => {
   const [endedCallVersion, setEndedCallVersion] = useState(0);
   // Default to Channels & DMs selection list on mobile and tablet
   const [mobilePaneView, setMobilePaneView] = useState<'list' | 'chat'>('list');
+  const [filterTab, setFilterTab] = useState<'all' | 'channels' | 'direct' | 'starred'>('all');
   const [conversationSubTab, setConversationSubTab] = useState<'messages' | 'canvas' | 'files'>('messages');
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState<boolean>(true);
   const [detailsActiveTab, setDetailsActiveTab] = useState<'info' | 'pins' | 'files' | 'tasks'>('info');
@@ -1306,130 +1307,74 @@ export const TeamsChatPage: React.FC = () => {
   const currentTyping = isCurrentDirectPeerOnline ? typingUsers[currentTargetId] || [] : [];
 
   return (
-    <div className={`flex-1 flex flex-col min-h-full pb-3 sm:pb-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      {/* 1. Sleek Workspace Chat Header */}
-      <div className="px-3 sm:px-6 pt-3 sm:pt-4 pb-0">
-        <div
-          className={`rounded-[20px] px-4 py-2.5 sm:px-5 sm:py-3 border shadow-xs flex items-center justify-between gap-2 ${
-            darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
-          }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="p-2 rounded-xl bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 flex-shrink-0">
-              <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">
-                  Teams Hub
-                </h1>
-                <span
-                  title="End-to-End Encrypted 1:1 Direct Messages (AES-256-GCM)"
-                  className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                >
-                  <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
-                  E2EE
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate hidden sm:block tabular-nums">
-                {channels.length} channels · {directMessageUsers.length + 1} members
-              </p>
-            </div>
-          </div>
-
-          {/* Icon-first Action Toolbar with Hover Tooltips */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Mobile & Tablet Toggle between Channels/DMs list and Active Chat */}
-            <button
-              type="button"
-              onClick={() => setMobilePaneView(prev => (prev === 'list' ? 'chat' : 'list'))}
-              title={mobilePaneView === 'list' ? 'Open Active Conversation' : 'Browse Channels & Direct Messages'}
-              className={`lg:hidden relative group flex items-center gap-1.5 px-3 py-2 rounded-[20px] border text-xs font-bold transition-all cursor-pointer ${
-                darkMode
-                  ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
-                  : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
-              }`}
-            >
-              {mobilePaneView === 'list' ? (
-                <>
-                  <ICON_MAP.ChatBubbleLeftIcon className="w-4 h-4 text-indigo-500" />
-                  <span className="text-[11px]">Active Chat</span>
-                </>
-              ) : (
-                <>
-                  <ICON_MAP.ChevronLeftIcon className="w-4 h-4 text-indigo-500" />
-                  <span className="text-[11px]">Channels & DMs</span>
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('calendar_view')}
-              title="Calendar & RSVPs"
-              className={`relative group flex items-center justify-center p-2 rounded-[20px] border transition-all cursor-pointer ${
-                darkMode
-                  ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
-                  : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
-              }`}
-            >
-              <ICON_MAP.CalendarIcon className="w-4 h-4 text-indigo-500" />
-            </button>
-
-            {!activeDirectUserId && activeChannel && (
-              <button
-                type="button"
-                onClick={() => setIsChannelMembersModalOpen(true)}
-                title={`Channel Members (${activeChannelMembers.length})`}
-                className={`relative group flex items-center gap-1 px-3 py-2 rounded-[20px] border text-xs font-semibold transition-all cursor-pointer ${
-                  darkMode
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-indigo-300'
-                    : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
-                }`}
-              >
-                <ICON_MAP.UsersIcon className="w-4 h-4" />
-                <span className="text-[11px] font-mono tabular-nums">{activeChannelMembers.length}</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setIsNewChannelModalOpen(true)}
-              title="Create New Channel"
-              className={`relative group flex items-center justify-center p-2 rounded-[20px] border transition-all cursor-pointer ${
-                darkMode
-                  ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
-                  : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
-              }`}
-            >
-              <ICON_MAP.PlusIcon className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsAddPersonModalOpen(true)}
-              title="Start Direct Message"
-              className="relative group flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
-            >
-              <ICON_MAP.UserPlusIcon className="w-4 h-4" />
-              <span className="hidden xl:inline">New DM</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Main 3-Pane Responsive Layout (Left Directory, Center Conversation/Canvas/Files, Right Details Inspector) */}
-      <div className="flex p-3 sm:p-4 md:p-6 h-[calc(100vh-6rem)] min-h-[560px] min-w-0 gap-3.5 overflow-hidden">
+    <div className={`flex-1 flex flex-col h-full min-h-0 overflow-hidden ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+      {/* Fluent 3-Pane Responsive Layout (Inspired by modern teams & chat suites) */}
+      <div className="flex-1 flex p-2 sm:p-3 md:p-4 h-full min-h-0 min-w-0 gap-3 overflow-hidden">
         {/* Left Sidebar: Channels & Direct Messages (Default view on Mobile & Tablet < lg, persistent sidebar on Desktop lg+) */}
         <div
           className={`${
             mobilePaneView === 'list' ? 'flex w-full' : 'hidden'
-          } lg:flex lg:w-72 xl:w-80 flex-col flex-shrink-0 rounded-[20px] border shadow-sm overflow-hidden ${
-            darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
+          } lg:flex lg:w-72 xl:w-80 flex-col flex-shrink-0 rounded-[22px] border shadow-sm overflow-hidden ${
+            darkMode ? 'bg-slate-900/40 border-white/10 backdrop-blur-2xl' : 'bg-white/40 border-slate-200/80 backdrop-blur-2xl shadow-xs'
           }`}
         >
-          {/* Non-overlapping Search Bar */}
-          <div className="p-3 border-b border-slate-200/70 dark:border-white/10">
+          {/* Fluent Left Directory Header */}
+          <div className="px-3.5 py-3 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                <ICON_MAP.ChatBubbleLeftIcon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                    Teams Hub
+                  </h2>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse" title="Live sync" />
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate tabular-nums">
+                  {channels.length} channels · {directMessageUsers.length + 1} members
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsNewChannelModalOpen(true)}
+                title="Create New Channel"
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  darkMode
+                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                }`}
+              >
+                <ICON_MAP.PlusIcon className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddPersonModalOpen(true)}
+                title="Start Direct Message"
+                className="p-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <ICON_MAP.UserPlusIcon className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView('calendar_view')}
+                title="Calendar & RSVPs"
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  darkMode
+                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                }`}
+              >
+                <ICON_MAP.CalendarIcon className="w-4 h-4 text-indigo-500" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar + Filter Tabs (Inspired by image_9aff3ae0 and image_330ac4dd) */}
+          <div className="p-3 border-b border-slate-200/70 dark:border-white/10 space-y-2">
             <div className="relative">
               <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
               <input
@@ -1437,18 +1382,59 @@ export const TeamsChatPage: React.FC = () => {
                 placeholder="Search channels or people..."
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                className="w-full search-input !pl-10 !pr-8 py-2 text-xs rounded-[20px] bg-white/40 dark:bg-slate-800/50 border border-white/40 dark:border-white/10"
+                className="w-full search-input !pl-10 !pr-8 py-2 text-xs rounded-xl bg-white/60 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/10"
               />
               {searchFilter && (
                 <button
                   type="button"
                   onClick={() => setSearchFilter('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   title="Clear search"
                 >
                   <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
                 </button>
               )}
+            </div>
+
+            {/* Fluent Category Filter Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pt-0.5">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'channels', label: 'Channels', count: channels.length },
+                { id: 'direct', label: 'Direct', count: directMessageUsers.length },
+                { id: 'starred', label: '★ Starred', count: favouriteIds.length },
+              ].map(tab => {
+                const active = filterTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterTab(tab.id as any)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      active
+                        ? 'bg-indigo-600 text-white shadow-2xs font-bold'
+                        : darkMode
+                        ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    {typeof tab.count === 'number' && (
+                      <span
+                        className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full ${
+                          active
+                            ? 'bg-white/25 text-white'
+                            : darkMode
+                            ? 'bg-white/10 text-slate-400'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1511,7 +1497,8 @@ export const TeamsChatPage: React.FC = () => {
           {/* Navigation Directory List */}
           <div data-bubble-scroll="true" className="flex-1 overflow-y-auto p-2.5 space-y-4 scrollbar-thin">
             {/* Pinned Favourites Section */}
-            {favouriteIds.length > 0 && !searchFilter.trim() && (
+            {/* Pinned Favourites Section */}
+            {(filterTab === 'all' || filterTab === 'starred') && favouriteIds.length > 0 && !searchFilter.trim() && (
               <div>
                 <div className="flex items-center justify-between px-2 mb-1.5">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500 flex items-center gap-1">
@@ -1603,177 +1590,53 @@ export const TeamsChatPage: React.FC = () => {
               </div>
             )}
 
+            {/* Empty Starred Notice */}
+            {filterTab === 'starred' && favouriteIds.length === 0 && (
+              <div className="py-8 px-4 text-center text-slate-400 space-y-1.5">
+                <div className="text-2xl text-amber-400">★</div>
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">No Starred Chats Yet</p>
+                <p className="text-[11px]">Hover over any channel or colleague and click the star icon to pin your top chats here for quick access.</p>
+              </div>
+            )}
+
             {/* Channels Section */}
-            <div>
-              <div className="flex items-center justify-between px-2 mb-1">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Channels ({filteredChannels.length})
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsNewChannelModalOpen(true)}
-                  title="Create New Channel"
-                  className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
-                >
-                  <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            {(filterTab === 'all' || filterTab === 'channels') && (
+              <div>
+                <div className="flex items-center justify-between px-2 mb-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                    Channels ({filteredChannels.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsNewChannelModalOpen(true)}
+                    title="Create New Channel"
+                    className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                  >
+                    <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
 
-              <div className="space-y-0.5">
-                {filteredChannels.map(channel => {
-                  const isActive = !activeDirectUserId && activeChannelId === channel.id;
-                  const favKey = `channel:${channel.id}`;
-                  const isFav = favouriteIds.includes(favKey);
-                  const memberCount =
-                    channel.memberIds && channel.memberIds.length > 0
-                      ? channel.memberIds.length
-                      : directMessageUsers.length + 1;
-                  const hasLiveCallInChannel = ongoingOrgCalls.some(
-                    c =>
-                      c.channelId === channel.id &&
-                      (c.participants || []).some(p => p.connectionState === 'connected')
-                  );
-                  return (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveChannelId(channel.id);
-                        setActiveDirectUserId(null);
-                        setMobilePaneView('chat');
-                      }}
-                      className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
-                        isActive
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
-                            isActive
-                              ? 'bg-white/20 text-white'
-                              : 'bg-indigo-500/10 text-indigo-500'
-                          }`}
-                        >
-                          #
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate font-bold">{channel.name}</span>
-                            {hasLiveCallInChannel && (
-                              <span
-                                title="Active video call in channel"
-                                className="w-2 h-2 rounded-full bg-emerald-400 animate-ping flex-shrink-0"
-                              />
-                            )}
-                          </div>
-                          <span
-                            className={`text-[10px] block truncate font-normal ${
-                              isActive ? 'text-indigo-100' : 'text-slate-400'
-                            }`}
-                          >
-                            {channel.department} · {memberCount} members
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span
-                          onClick={e => toggleFavourite(favKey, e)}
-                          title={isFav ? 'Unstar channel' : 'Star to Favourites'}
-                          className={`text-xs transition-opacity ${
-                            isFav
-                              ? 'text-amber-400 opacity-100'
-                              : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-slate-400'
-                          }`}
-                        >
-                          {isFav ? '★' : '☆'}
-                        </span>
-                        {channel.isPrivate && (
-                          <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5 opacity-60 flex-shrink-0" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Direct Messages (1:1) Section */}
-            <div>
-              <div className="px-2 mb-1 flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Direct Messages ({filteredUsers.length})
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsAddPersonModalOpen(true)}
-                  title="Start New Direct Message"
-                  className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
-                >
-                  <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="space-y-0.5">
-                {filteredUsers.length === 0 ? (
-                  <div className="px-3 py-2 space-y-2">
-                    <p className="text-[11px] text-slate-400 italic">No colleagues found</p>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddPersonModalOpen(true)}
-                      className="w-full py-1.5 px-2.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
-                      Add Person
-                    </button>
-                  </div>
-                ) : (
-                  filteredUsers.map(user => {
-                    const isActive = activeDirectUserId === user.id;
-                    const favKey = `dm:${user.id}`;
+                <div className="space-y-0.5">
+                  {filteredChannels.map(channel => {
+                    const isActive = !activeDirectUserId && activeChannelId === channel.id;
+                    const favKey = `channel:${channel.id}`;
                     const isFav = favouriteIds.includes(favKey);
-                    const userPresence = findPresenceForUser(user);
-                    const isOnline = Boolean(userPresence);
-                    const lsInfo = formatAccurateLastSeen(userPresence, user.id, user.email, false);
-                    const isUserTyping = isOnline && Boolean(typingUsers[user.id] && typingUsers[user.id].length > 0);
-                    const userAvailability: 'available' | 'away' | 'busy' = lsInfo.isAwayFromTab
-                      ? 'away'
-                      : getAvailabilityForUser(user, userPresence);
-
-                    const statusDotClass = !isOnline
-                      ? 'bg-slate-400'
-                      : userAvailability === 'away'
-                      ? 'bg-amber-400'
-                      : userAvailability === 'busy'
-                      ? 'bg-rose-500'
-                      : 'bg-emerald-500';
-
-                    const simpleStatusText = isUserTyping
-                      ? 'Typing...'
-                      : !isOnline
-                      ? 'Offline'
-                      : userAvailability === 'away'
-                      ? 'Away'
-                      : userAvailability === 'busy'
-                      ? 'Busy'
-                      : 'Online';
-
+                    const memberCount =
+                      channel.memberIds && channel.memberIds.length > 0
+                        ? channel.memberIds.length
+                        : directMessageUsers.length + 1;
+                    const hasLiveCallInChannel = ongoingOrgCalls.some(
+                      c =>
+                        c.channelId === channel.id &&
+                        (c.participants || []).some(p => p.connectionState === 'connected')
+                    );
                     return (
                       <button
-                        key={user.id}
+                        key={channel.id}
                         type="button"
                         onClick={() => {
-                          if (currentUser && (activeDirectUserId || activeChannelId)) {
-                            chatService.broadcastTyping(
-                              activeDirectUserId || activeChannelId,
-                              currentUser,
-                              false,
-                              Boolean(activeDirectUserId)
-                            );
-                          }
-                          setActiveDirectUserId(user.id);
-                          setActiveChannelId('');
+                          setActiveChannelId(channel.id);
+                          setActiveDirectUserId(null);
                           setMobilePaneView('chat');
                         }}
                         className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
@@ -1782,58 +1645,195 @@ export const TeamsChatPage: React.FC = () => {
                             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 truncate">
-                          <div className="relative flex-shrink-0">
-                            <Avatar user={user} size="sm" />
-                            <span
-                              className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#090A0F] ${statusDotClass}`}
-                            />
-                          </div>
-                          <div className="truncate">
-                            <span className="block truncate font-bold">{safeName(user)}</span>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                              isActive
+                                ? 'bg-white/20 text-white'
+                                : 'bg-indigo-500/10 text-indigo-500'
+                            }`}
+                          >
+                            #
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate font-bold">{channel.name}</span>
+                              {hasLiveCallInChannel && (
+                                <span
+                                  title="Active video call in channel"
+                                  className="w-2 h-2 rounded-full bg-emerald-400 animate-ping flex-shrink-0"
+                                />
+                              )}
+                            </div>
                             <span
                               className={`text-[10px] block truncate font-normal ${
-                                isUserTyping
-                                  ? isActive
-                                    ? 'text-amber-200 font-semibold'
-                                    : 'text-indigo-500 dark:text-indigo-400 font-semibold'
-                                  : isActive
-                                  ? 'text-indigo-100'
-                                  : 'text-slate-400'
+                                isActive ? 'text-indigo-100' : 'text-slate-400'
                               }`}
                             >
-                              {simpleStatusText} · {normalizeUserRole(user.role).replace(/_/g, ' ')}
+                              {channel.department} · {memberCount} members
                             </span>
                           </div>
                         </div>
-                        <span
-                          onClick={e => toggleFavourite(favKey, e)}
-                          title={isFav ? 'Unstar teammate' : 'Star to Favourites'}
-                          className={`text-xs transition-opacity shrink-0 ${
-                            isFav
-                              ? 'text-amber-400 opacity-100'
-                              : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-slate-400'
-                          }`}
-                        >
-                          {isFav ? '★' : '☆'}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span
+                            onClick={e => toggleFavourite(favKey, e)}
+                            title={isFav ? 'Unstar channel' : 'Star to Favourites'}
+                            className={`text-xs transition-opacity ${
+                              isFav
+                                ? 'text-amber-400 opacity-100'
+                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-slate-400'
+                            }`}
+                          >
+                            {isFav ? '★' : '☆'}
+                          </span>
+                          {channel.isPrivate && (
+                            <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5 opacity-60 flex-shrink-0" />
+                          )}
+                        </div>
                       </button>
                     );
-                  })
-                )}
+                  })}
+                </div>
+              </div>
+            )}
 
-                <div className="pt-1.5 px-1">
+            {/* Direct Messages (1:1) Section */}
+            {(filterTab === 'all' || filterTab === 'direct') && (
+              <div>
+                <div className="px-2 mb-1 flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                    Direct Messages ({filteredUsers.length})
+                  </span>
                   <button
                     type="button"
                     onClick={() => setIsAddPersonModalOpen(true)}
-                    className="w-full py-2 px-2.5 rounded-xl border border-dashed border-indigo-400/40 hover:border-indigo-500 bg-indigo-500/5 hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Start New Direct Message"
+                    className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
                   >
-                    <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-                    <span>+ Add Teammate</span>
+                    <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
+
+                <div className="space-y-0.5">
+                  {filteredUsers.length === 0 ? (
+                    <div className="px-3 py-2 space-y-2">
+                      <p className="text-[11px] text-slate-400 italic">No colleagues found</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddPersonModalOpen(true)}
+                        className="w-full py-1.5 px-2.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+                        Add Person
+                      </button>
+                    </div>
+                  ) : (
+                    filteredUsers.map(user => {
+                      const isActive = activeDirectUserId === user.id;
+                      const favKey = `dm:${user.id}`;
+                      const isFav = favouriteIds.includes(favKey);
+                      const userPresence = findPresenceForUser(user);
+                      const isOnline = Boolean(userPresence);
+                      const lsInfo = formatAccurateLastSeen(userPresence, user.id, user.email, false);
+                      const isUserTyping = isOnline && Boolean(typingUsers[user.id] && typingUsers[user.id].length > 0);
+                      const userAvailability: 'available' | 'away' | 'busy' = lsInfo.isAwayFromTab
+                        ? 'away'
+                        : getAvailabilityForUser(user, userPresence);
+
+                      const statusDotClass = !isOnline
+                        ? 'bg-slate-400'
+                        : userAvailability === 'away'
+                        ? 'bg-amber-400'
+                        : userAvailability === 'busy'
+                        ? 'bg-rose-500'
+                        : 'bg-emerald-500';
+
+                      const simpleStatusText = isUserTyping
+                        ? 'Typing...'
+                        : !isOnline
+                        ? 'Offline'
+                        : userAvailability === 'away'
+                        ? 'Away'
+                        : userAvailability === 'busy'
+                        ? 'Busy'
+                        : 'Online';
+
+                      return (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => {
+                            if (currentUser && (activeDirectUserId || activeChannelId)) {
+                              chatService.broadcastTyping(
+                                activeDirectUserId || activeChannelId,
+                                currentUser,
+                                false,
+                                Boolean(activeDirectUserId)
+                              );
+                            }
+                            setActiveDirectUserId(user.id);
+                            setActiveChannelId('');
+                            setMobilePaneView('chat');
+                          }}
+                          className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                            isActive
+                              ? 'bg-indigo-600 text-white shadow-xs'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <div className="relative flex-shrink-0">
+                              <Avatar user={user} size="sm" />
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#090A0F] ${statusDotClass}`}
+                              />
+                            </div>
+                            <div className="truncate">
+                              <span className="block truncate font-bold">{safeName(user)}</span>
+                              <span
+                                className={`text-[10px] block truncate font-normal ${
+                                  isUserTyping
+                                    ? isActive
+                                     ? 'text-amber-200 font-semibold'
+                                      : 'text-indigo-500 dark:text-indigo-400 font-semibold'
+                                    : isActive
+                                    ? 'text-indigo-100'
+                                    : 'text-slate-400'
+                                }`}
+                              >
+                                {simpleStatusText} · {normalizeUserRole(user.role).replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            onClick={e => toggleFavourite(favKey, e)}
+                            title={isFav ? 'Unstar teammate' : 'Star to Favourites'}
+                            className={`text-xs transition-opacity shrink-0 ${
+                              isFav
+                                ? 'text-amber-400 opacity-100'
+                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-slate-400'
+                            }`}
+                          >
+                            {isFav ? '★' : '☆'}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+
+                  <div className="pt-1.5 px-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddPersonModalOpen(true)}
+                      className="w-full py-2 px-2.5 rounded-xl border border-dashed border-indigo-400/40 hover:border-indigo-500 bg-indigo-500/5 hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
+                      <span>+ Add Teammate</span>
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -2678,30 +2678,53 @@ export const TeamsChatPage: React.FC = () => {
                                   );
                                 }
 
+                                const ext = att.name.split('.').pop()?.toUpperCase() || 'FILE';
                                 return (
-                                  <a
+                                  <div
                                     key={`${msg.id}-att-${idx}`}
-                                    href={att.url}
-                                    download={att.name}
-                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl border text-xs transition-colors max-w-[260px] sm:max-w-[300px] ${
+                                    className={`p-3 rounded-2xl border shadow-xs max-w-[280px] sm:max-w-[340px] transition-all ${
                                       isMe
-                                        ? 'bg-indigo-700/80 border-indigo-400/30 text-white hover:bg-indigo-700'
-                                        : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200/70 dark:hover:bg-slate-700'
+                                        ? 'bg-blue-600 border-blue-500 text-white'
+                                        : darkMode
+                                        ? 'bg-slate-800/90 border-slate-700/80 text-slate-100'
+                                        : 'bg-white border-slate-200/90 text-slate-900'
                                     }`}
                                   >
-                                    <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 flex-shrink-0">
-                                      <ICON_MAP.DocumentTextIcon className="w-4 h-4" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="font-semibold truncate">{att.name}</div>
-                                      {att.size && (
-                                        <div className="text-[10px] opacity-75 font-mono">
-                                          {formatFileSize(att.size)}
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                          isMe ? 'bg-white/20 text-white' : 'bg-blue-500/15 text-blue-500 dark:text-blue-400'
+                                        }`}>
+                                          <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
                                         </div>
-                                      )}
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-1.5 truncate">
+                                            <span className="font-bold text-xs truncate">{att.name}</span>
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                                              isMe ? 'bg-white/25 text-white' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                                            }`}>
+                                              {ext}
+                                            </span>
+                                          </div>
+                                          <p className={`text-[10px] mt-0.5 truncate ${isMe ? 'text-blue-100' : 'text-slate-400'}`}>
+                                            {ext} Document {att.size ? `· ${formatFileSize(att.size)}` : ''}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <a
+                                        href={att.url}
+                                        download={att.name}
+                                        title={`Download ${att.name}`}
+                                        className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
+                                          isMe
+                                            ? 'bg-white/20 hover:bg-white/30 text-white'
+                                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-600 dark:text-slate-200'
+                                        }`}
+                                      >
+                                        <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4" />
+                                      </a>
                                     </div>
-                                    <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4 opacity-80 flex-shrink-0" />
-                                  </a>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -2909,37 +2932,25 @@ export const TeamsChatPage: React.FC = () => {
                   </div>
                 ) : (
                   <form onSubmit={handleSendMessage} className="space-y-1.5">
-                    <div className="flex items-end gap-1.5 sm:gap-2">
+                    <div className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl border shadow-xs transition-all ${
+                      darkMode ? 'bg-slate-900/70 border-white/10' : 'bg-white border-slate-200/90 shadow-2xs'
+                    }`}>
                       {/* Attach File / Image Button */}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         title="Attach files or images"
-                        className={`p-2.5 rounded-xl border transition-colors cursor-pointer flex-shrink-0 ${
+                        className={`p-2 rounded-xl transition-colors cursor-pointer flex-shrink-0 ${
                           darkMode
-                            ? 'bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10'
-                            : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            ? 'text-slate-400 hover:text-white hover:bg-white/10'
+                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                         }`}
                       >
-                        <ICON_MAP.PaperClipIcon className="w-4 h-4" />
-                      </button>
-
-                      {/* Record Voice Note Button */}
-                      <button
-                        type="button"
-                        onClick={startVoiceRecording}
-                        title="Record voice note"
-                        className={`p-2.5 rounded-xl border transition-colors cursor-pointer flex-shrink-0 ${
-                          darkMode
-                            ? 'bg-white/5 border-white/10 text-indigo-400 hover:text-indigo-300 hover:bg-white/10'
-                            : 'bg-white border-slate-200 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50'
-                        }`}
-                      >
-                        <ICON_MAP.MicrophoneIcon className="w-4 h-4" />
+                        <ICON_MAP.PlusIcon className="w-4 h-4" />
                       </button>
 
                       {/* Text Input */}
-                      <div className="relative flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                         <textarea
                           value={inputText}
                           onChange={handleInputChange}
@@ -2947,25 +2958,41 @@ export const TeamsChatPage: React.FC = () => {
                           rows={1}
                           placeholder={
                             activeDirectUser
-                              ? `Message ${safeName(activeDirectUser)}...`
-                              : `Message #${activeChannel?.name || 'channel'}...`
+                              ? `Write a message to ${safeName(activeDirectUser)}...`
+                              : `Write a message in #${activeChannel?.name || 'channel'}...`
                           }
-                          className="w-full py-2.5 pl-3.5 pr-12 rounded-xl border text-xs resize-none min-h-[42px]"
+                          className="w-full py-1.5 px-2 bg-transparent text-xs resize-none focus:outline-none placeholder:text-slate-400 max-h-24 leading-relaxed"
+                          style={{ border: 'none', boxShadow: 'none' }}
                         />
-
-                        <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1">
-                          <Button
-                            type="submit"
-                            variant="primary"
-                            size="sm"
-                            disabled={!inputText.trim() && pendingAttachments.length === 0}
-                            className="rounded-xl p-2"
-                            title="Send Message (Enter)"
-                          >
-                            <ICON_MAP.ArrowRightIcon className="w-4 h-4" />
-                          </Button>
-                        </div>
                       </div>
+
+                      {/* Record Voice Note Button */}
+                      <button
+                        type="button"
+                        onClick={startVoiceRecording}
+                        title="Record voice note"
+                        className={`p-2 rounded-xl transition-colors cursor-pointer flex-shrink-0 ${
+                          darkMode
+                            ? 'text-slate-400 hover:text-indigo-400 hover:bg-white/10'
+                            : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <ICON_MAP.MicrophoneIcon className="w-4 h-4" />
+                      </button>
+
+                      {/* Send Button */}
+                      <button
+                        type="submit"
+                        disabled={!inputText.trim() && pendingAttachments.length === 0}
+                        title="Send Message"
+                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
+                          inputText.trim() || pendingAttachments.length > 0
+                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs active:scale-95'
+                            : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        <ICON_MAP.ArrowRightIcon className="w-4 h-4" />
+                      </button>
                     </div>
 
                     <div className="hidden sm:flex items-center justify-between text-[10px] text-slate-400 px-1">
@@ -2998,251 +3025,306 @@ export const TeamsChatPage: React.FC = () => {
           )}
         </div>
 
-        {/* Right Collapsible Details Inspector Drawer (Inspired by Snazzy Studio & HYPER screenshots) */}
+        {/* Right Collapsible Details Inspector Drawer (Inspired by image_9aff3ae0 & image_ae1041ec) */}
         {isDetailsDrawerOpen && (
           <div
-            className={`hidden xl:flex xl:w-72 2xl:w-80 flex-col flex-shrink-0 rounded-[20px] border shadow-sm overflow-hidden ${
-              darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
+            className={`hidden xl:flex xl:w-80 2xl:w-84 flex-col flex-shrink-0 rounded-[22px] border shadow-sm overflow-hidden ${
+              darkMode ? 'bg-slate-900/40 border-white/10 backdrop-blur-2xl' : 'bg-white/40 border-slate-200/80 backdrop-blur-2xl shadow-xs'
             }`}
           >
-            {/* Details Header */}
-            <div className="p-3.5 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between">
-              <span className="text-xs font-extrabold tracking-tight">Details</span>
+            {/* Details Header with Close button */}
+            <div className="px-4 py-3 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                {activeDirectUser ? 'User Details' : 'Channel Details'}
+              </span>
               <button
                 type="button"
                 onClick={() => setIsDetailsDrawerOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 title="Close Details"
               >
                 <ICON_MAP.XMarkIcon className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Segmented Details Tabs: Info | Pins | Files | Tasks */}
-            <div className="px-3 pt-2.5">
-              <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-[11px] font-bold">
-                {(
-                  [
-                    { id: 'info', label: 'Info' },
-                    { id: 'pins', label: `Pins (${pinnedMessageIds.length})` },
-                    {
-                      id: 'files',
-                      label: `Files (${messages.reduce((a, m) => a + (m.attachments?.length || 0), 0)})`,
-                    },
-                    { id: 'tasks', label: 'Tasks' },
-                  ] as const
-                ).map(t => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setDetailsActiveTab(t.id)}
-                    className={`py-1 rounded-lg truncate transition-all cursor-pointer ${
-                      detailsActiveTab === t.id
-                        ? darkMode
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white text-slate-900 shadow-2xs'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Details Body */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-4 scrollbar-thin text-xs">
-              {detailsActiveTab === 'info' && (
+            {/* Scrollable Details Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+              {activeDirectUser ? (
                 <>
-                  {/* Metadata Card */}
-                  <div
-                    className={`p-3.5 rounded-2xl border space-y-2.5 ${
-                      darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/80 border-slate-200/70'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Type</span>
-                      <span className="font-bold">
-                        {activeDirectUser ? '1:1 Direct Message' : `#${activeChannel?.name || 'general'}`}
-                      </span>
+                  {/* Centered Profile Hero (Matches image_9aff3ae0.png) */}
+                  <div className="flex flex-col items-center text-center pt-2 pb-1 space-y-2">
+                    <div className="relative">
+                      <Avatar user={activeDirectUser} size="lg" />
+                      <span
+                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${
+                          Boolean(findPresenceForUser(activeDirectUser)) ? 'bg-emerald-500' : 'bg-slate-400'
+                        }`}
+                      />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Department</span>
-                      <span className="font-semibold">
-                        {activeDirectUser
-                          ? normalizeUserRole(activeDirectUser.role).replace(/_/g, ' ')
-                          : activeChannel?.department || 'Workspace'}
-                      </span>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        {safeName(activeDirectUser)}
+                      </h3>
+                      <div className="mt-1 flex items-center justify-center gap-1.5">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          Boolean(findPresenceForUser(activeDirectUser))
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
+                            : 'bg-slate-500/15 text-slate-500 dark:text-slate-400 border border-slate-500/20'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${Boolean(findPresenceForUser(activeDirectUser)) ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                          {Boolean(findPresenceForUser(activeDirectUser)) ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">{activeDirectUser.email}</p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Security</span>
-                      <span className="inline-flex items-center gap-1 text-emerald-500 font-bold text-[11px]">
-                        <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />
-                        <span>AES-256-GCM</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Status</span>
-                      <span className="inline-flex items-center gap-1.5 font-bold text-emerald-500">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span>Active</span>
-                      </span>
+
+                    {/* Quick Action Buttons (Call / Video pills matching image_9aff3ae0.png) */}
+                    <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!currentUser) return;
+                          window.dispatchEvent(
+                            new CustomEvent('omni_start_video_call', {
+                              detail: {
+                                title: `Voice Call with ${safeName(activeDirectUser)}`,
+                                type: 'direct',
+                                directUser: activeDirectUser,
+                                invitedUsers: [activeDirectUser],
+                                initialVideo: false,
+                                initialAudio: true,
+                                showLobby: false,
+                              },
+                            })
+                          );
+                        }}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                      >
+                        <ICON_MAP.PhoneIcon className="w-3.5 h-3.5" />
+                        <span>Call</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!currentUser) return;
+                          window.dispatchEvent(
+                            new CustomEvent('omni_start_video_call', {
+                              detail: {
+                                title: `1:1 Video Call with ${safeName(activeDirectUser)}`,
+                                type: 'direct',
+                                directUser: activeDirectUser,
+                                invitedUsers: [activeDirectUser],
+                                initialVideo: true,
+                                initialAudio: true,
+                                showLobby: false,
+                              },
+                            })
+                          );
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                          darkMode
+                            ? 'border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300'
+                            : 'border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700'
+                        }`}
+                      >
+                        <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                        <span>Video</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Members Grid / Cards */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                        Members ({activeDirectUser ? 2 : activeChannelMembers.length})
-                      </span>
-                      {!activeDirectUser && activeChannel && (
-                        <button
-                          type="button"
-                          onClick={() => setIsChannelMembersModalOpen(true)}
-                          className="text-[11px] font-bold text-indigo-500 hover:underline cursor-pointer"
-                        >
-                          Manage
-                        </button>
-                      )}
+                  {/* Contact Information Card (Matching image_9aff3ae0.png) */}
+                  <div className={`p-3.5 rounded-2xl border space-y-2.5 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-indigo-500" />
+                      <span>Contact Information</span>
                     </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-start gap-2">
+                        <span className="text-slate-400 w-20 shrink-0 text-[11px]">Username</span>
+                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">@{activeDirectUser.email.split('@')[0]}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-slate-400 w-20 shrink-0 text-[11px]">Email</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{activeDirectUser.email}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-slate-400 w-20 shrink-0 text-[11px]">Role</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300 capitalize">{normalizeUserRole(activeDirectUser.role).replace(/_/g, ' ')}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      {(activeDirectUser && currentUser
-                        ? [currentUser, activeDirectUser]
-                        : activeChannelMembers.slice(0, 6)
-                      ).map(member => {
-                        const online =
-                          member.id === currentUser?.id || Boolean(findPresenceForUser(member));
-                        return (
-                          <div
-                            key={`card-${member.id}`}
-                            onClick={() => {
-                              if (member.id !== currentUser?.id) {
-                                setActiveDirectUserId(member.id);
-                                setActiveChannelId('');
-                              }
-                            }}
-                            className={`p-2.5 rounded-2xl border flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer ${
-                              darkMode
-                                ? 'bg-white/[0.03] hover:bg-white/[0.06] border-white/10'
-                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200/70'
-                            }`}
-                          >
-                            <div className="relative">
-                              <Avatar user={member} size="md" />
-                              <span
-                                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#090A0F] ${
-                                  online ? 'bg-emerald-500' : 'bg-slate-400'
-                                }`}
-                              />
-                            </div>
-                            <div className="min-w-0 w-full">
-                              <div className="text-[11px] font-bold truncate">{safeName(member)}</div>
-                              <div className="text-[9px] text-slate-400 truncate">
-                                {normalizeUserRole(member.role).replace(/_/g, ' ')}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {/* Activity Section (Matching image_9aff3ae0.png) */}
+                  <div className={`p-3.5 rounded-2xl border space-y-2.5 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+                      <ICON_MAP.ClockIcon className="w-4 h-4 text-indigo-500" />
+                      <span>Activity</span>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px]">Last seen</span>
+                        <span className="font-semibold">{Boolean(findPresenceForUser(activeDirectUser)) ? 'Active now' : 'Recently'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px]">Local time</span>
+                        <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </>
-              )}
-
-              {detailsActiveTab === 'pins' && (
-                <div className="space-y-2">
-                  {messages.filter(m => pinnedMessageIds.includes(m.id)).length === 0 ? (
-                    <div className="py-10 text-center text-slate-400">
-                      <p className="font-semibold">No pinned messages</p>
-                      <p className="text-[11px] mt-1">Hover any message and click 📌 to pin important notes.</p>
+              ) : activeChannel ? (
+                <>
+                  {/* Channel Hero */}
+                  <div className="flex flex-col items-center text-center pt-2 pb-1 space-y-2">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-2xl font-black">
+                      #
                     </div>
-                  ) : (
-                    messages
-                      .filter(m => pinnedMessageIds.includes(m.id))
-                      .map(m => (
-                        <div
-                          key={`pin-${m.id}`}
-                          className={`p-3 rounded-2xl border space-y-1 ${
-                            darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-amber-50/50 border-amber-200/80'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between text-[10px] text-slate-400">
-                            <span className="font-bold text-slate-700 dark:text-slate-200">{m.sender_name}</span>
-                            <button
-                              type="button"
-                              onClick={() => togglePinMessage(m.id)}
-                              className="text-amber-500 hover:underline cursor-pointer"
-                            >
-                              Unpin
-                            </button>
-                          </div>
-                          <p className="text-xs line-clamp-3">
-                            {(m.content || '').replace(/^\[QUOTE:\{.*?\}\]\n?/, '')}
-                          </p>
-                        </div>
-                      ))
-                  )}
-                </div>
-              )}
-
-              {detailsActiveTab === 'files' && (
-                <div className="space-y-2">
-                  {messages.flatMap(m => m.attachments || []).length === 0 ? (
-                    <div className="py-10 text-center text-slate-400">
-                      <p className="font-semibold">No shared files yet</p>
-                      <p className="text-[11px] mt-1">Shared images, voice notes, and docs appear here.</p>
-                    </div>
-                  ) : (
-                    messages
-                      .flatMap(m => m.attachments || [])
-                      .map((att, i) => (
-                        <a
-                          key={`drawer-att-${i}`}
-                          href={att.url}
-                          download={att.name}
-                          className={`flex items-center justify-between p-2.5 rounded-xl border ${
-                            darkMode
-                              ? 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]'
-                              : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100'
-                          }`}
-                        >
-                          <span className="truncate font-semibold max-w-[160px]">{att.name}</span>
-                          <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4 text-indigo-500 shrink-0" />
-                        </a>
-                      ))
-                  )}
-                </div>
-              )}
-
-              {detailsActiveTab === 'tasks' && (
-                <div className="space-y-2">
-                  {(tasks || []).slice(0, 6).map(t => (
-                    <button
-                      key={`drawer-task-${t.id}`}
-                      type="button"
-                      onClick={() => openViewTaskModal(t)}
-                      className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                        darkMode
-                          ? 'bg-white/[0.03] border-white/10 hover:border-indigo-500/40'
-                          : 'bg-slate-50 border-slate-200/80 hover:border-indigo-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-bold truncate">{t.title}</span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-bold shrink-0">
-                          {t.status}
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        #{activeChannel.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{activeChannel.description || 'Channel conversation'}</p>
+                      <div className="mt-1 flex items-center justify-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                          {activeChannel.department}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {activeChannelMembers.length} members
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
-                        <span>Priority: {t.priority}</span>
-                        <span>Inspect ↗</span>
-                      </div>
-                    </button>
-                  ))}
+                    </div>
+
+                    {/* Quick Channel Call Buttons */}
+                    <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!currentUser) return;
+                          const onlinePeers = activeChannelMembers.filter(m => m.id !== currentUser.id && Boolean(findPresenceForUser(m)));
+                          window.dispatchEvent(
+                            new CustomEvent('omni_start_video_call', {
+                              detail: {
+                                title: `#${activeChannel.name} Team Huddle`,
+                                type: 'channel',
+                                channelId: activeChannel.id,
+                                invitedUsers: onlinePeers,
+                                initialVideo: true,
+                                initialAudio: true,
+                                showLobby: false,
+                              },
+                            })
+                          );
+                        }}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                      >
+                        <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                        <span>Huddle</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsChannelMembersModalOpen(true)}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                          darkMode
+                            ? 'border-white/10 bg-white/5 hover:bg-white/10 text-slate-200'
+                            : 'border-slate-200 bg-white hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <ICON_MAP.UsersIcon className="w-3.5 h-3.5" />
+                        <span>Members ({activeChannelMembers.length})</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+
+              {/* Shared Files & Attachments Section (Inspired by image_ae1041ec.png) */}
+              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
+                <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white">
+                  <div className="flex items-center gap-1.5">
+                    <ICON_MAP.FolderIcon className="w-4 h-4 text-indigo-500" />
+                    <span>Uploaded Files</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {messages.reduce((a, m) => a + (m.attachments?.length || 0), 0)} files
+                  </span>
                 </div>
-              )}
+                <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin">
+                  {messages.flatMap(m => m.attachments || []).length === 0 ? (
+                    <p className="text-[11px] text-slate-400 italic py-1">No uploaded files in this conversation</p>
+                  ) : (
+                    messages.flatMap(m => m.attachments || []).slice(0, 6).map((att, i) => (
+                      <a
+                        key={`drawer-att-file-${i}`}
+                        href={att.url}
+                        download={att.name}
+                        className={`flex items-center justify-between p-2 rounded-xl border transition-colors text-xs ${
+                          darkMode
+                            ? 'bg-white/[0.02] border-white/8 hover:bg-white/10 text-slate-200'
+                            : 'bg-white border-slate-200/70 hover:bg-slate-100 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <span className="truncate max-w-[150px] font-medium">{att.name}</span>
+                        </div>
+                        <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      </a>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Actions Section (Matching image_9aff3ae0.png) */}
+              <div className={`p-3.5 rounded-2xl border space-y-2 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+                  <ICON_MAP.CogIcon className="w-4 h-4 text-indigo-500" />
+                  <span>Actions</span>
+                </div>
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeDirectUser) {
+                        toggleFavourite(`dm:${activeDirectUser.id}`);
+                      } else if (activeChannel) {
+                        toggleFavourite(`channel:${activeChannel.id}`);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                      darkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>★</span>
+                      <span>
+                        {((activeDirectUser && favouriteIds.includes(`dm:${activeDirectUser.id}`)) ||
+                          (activeChannel && favouriteIds.includes(`channel:${activeChannel.id}`)))
+                          ? 'Remove from Starred'
+                          : 'Star Conversation'}
+                      </span>
+                    </span>
+                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addToast('Notifications Muted', 'Conversation notifications muted for 8 hours.', 'info');
+                    }}
+                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                      darkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <ICON_MAP.BellSlashIcon className="w-4 h-4 text-slate-400" />
+                      <span>Mute Notifications</span>
+                    </span>
+                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
