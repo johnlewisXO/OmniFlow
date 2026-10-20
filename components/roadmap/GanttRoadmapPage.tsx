@@ -432,14 +432,14 @@ export const GanttRoadmapPage: React.FC = () => {
 
         {/* Center Filters & Zoom Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <div className="relative flex items-center">
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Filter roadmap..."
-              className="pl-8 pr-3 py-1 text-xs rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-40"
+              className="search-input !pl-10 !pr-4 !py-1 text-xs rounded-[20px] bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-48"
             />
           </div>
 

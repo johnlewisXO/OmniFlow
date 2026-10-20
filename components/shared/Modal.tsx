@@ -101,7 +101,7 @@ export const Modal: React.FC<ModalProps> = ({
       className={`fixed inset-0 z-50 flex ${
         isDrawer ? 'items-stretch justify-end p-0 sm:p-2.5' : 'items-center justify-center p-2 sm:p-4 overflow-y-auto'
       } ${
-        backdropBlur ? 'bg-black/35 backdrop-blur-sm' : 'bg-slate-950/20 backdrop-blur-none'
+        backdropBlur ? 'bg-black/55 backdrop-blur-md' : 'bg-slate-950/20 backdrop-blur-none'
       } transition-opacity duration-200 ${
         isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
       }`}
@@ -112,8 +112,8 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         className={`shadow-2xl w-full ${
           isDrawer
-            ? 'max-w-full sm:max-w-[540px] lg:max-w-[620px] h-full rounded-none sm:rounded-[15px] p-5 sm:p-6 flex flex-col'
-            : `${sizeClasses[size]} p-4 sm:p-6 my-auto rounded-[15px] max-h-[95vh] flex flex-col`
+            ? 'max-w-full sm:max-w-[540px] lg:max-w-[620px] h-full rounded-none sm:rounded-[20px] p-5 sm:p-6 flex flex-col'
+            : `${sizeClasses[size]} p-4 sm:p-6 my-auto rounded-[20px] max-h-[95vh] flex flex-col`
         } transform ${modalTextColor} border ${
           isDrawer
             ? isClosing

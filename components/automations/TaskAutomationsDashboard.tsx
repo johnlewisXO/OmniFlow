@@ -545,14 +545,13 @@ export const TaskAutomationsDashboard: React.FC = () => {
           {/* Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="relative flex-1 min-w-[200px] max-w-md">
-              <ICON_MAP.MagnifyingGlassIcon className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+              <ICON_MAP.MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
               <input
                 type="text"
                 placeholder="Search trigger rules..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ paddingLeft: '2.5rem', paddingRight: '2rem' }}
-                className={`w-full py-2 rounded-lg border text-xs font-medium outline-hidden transition-all ${
+                className={`w-full search-input !pl-10 !pr-8 py-2 rounded-[20px] border text-xs font-medium outline-hidden transition-all ${
                   darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-accent' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-accent'
                 }`}
               />

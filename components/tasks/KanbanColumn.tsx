@@ -119,8 +119,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   return (
     <div 
-      style={columnBackgroundStyle}
-      className={`${responsiveWidthClass} rounded-[28px] p-3 sm:p-3.5 md:p-4 shadow-glass ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
+      className={`${responsiveWidthClass} rounded-[20px] p-3 sm:p-3.5 md:p-4 backdrop-blur-2xl ${darkMode ? 'bg-slate-900/25 border-white/10' : 'bg-white/20 border-white/40 shadow-xs'} ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}

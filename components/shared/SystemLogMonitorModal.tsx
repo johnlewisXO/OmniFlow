@@ -245,17 +245,17 @@ export const SystemLogMonitorPanel: React.FC<SystemLogMonitorPanelProps> = ({ co
 
       {/* Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        <div className="relative flex-1">
+        <div className="relative flex-1 flex items-center">
+          <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Filter stack traces, error codes, sources, or console output..."
-            className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border font-mono ${
+            className={`w-full search-input !pl-10 !pr-4 !py-2 text-xs rounded-[20px] border font-mono ${
               darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
             }`}
           />
-          <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>
 
         <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 overflow-x-auto">

@@ -487,18 +487,24 @@
         }
 
         /* Preserve explicit Tailwind horizontal padding utilities so search bar icons and text NEVER overlap */
-        input.pl-7, .pl-7 { padding-left: 1.85rem !important; }
-        input.pl-8, .pl-8 { padding-left: 2.15rem !important; }
-        input.pl-9, .pl-9 { padding-left: 2.45rem !important; }
-        input.pl-10, .pl-10 { padding-left: 2.65rem !important; }
-        input.pl-11, .pl-11 { padding-left: 2.9rem !important; }
-        input.pl-12, .pl-12 { padding-left: 3.15rem !important; }
-        input.pr-7, .pr-7 { padding-right: 1.85rem !important; }
-        input.pr-8, .pr-8 { padding-right: 2.15rem !important; }
-        input.pr-9, .pr-9 { padding-right: 2.45rem !important; }
-        input.pr-10, .pr-10 { padding-right: 2.65rem !important; }
-        input.pr-11, .pr-11 { padding-right: 2.9rem !important; }
-        input.pr-12, .pr-12 { padding-right: 3.15rem !important; }
+        input.pl-7, .pl-7, input[class*="pl-7"], input[class*="!pl-7"] { padding-left: 2rem !important; }
+        input.pl-8, .pl-8, input[class*="pl-8"], input[class*="!pl-8"] { padding-left: 2.35rem !important; }
+        input.pl-9, .pl-9, input[class*="pl-9"], input[class*="!pl-9"] { padding-left: 2.55rem !important; }
+        input.pl-10, .pl-10, input[class*="pl-10"], input[class*="!pl-10"] { padding-left: 2.75rem !important; }
+        input.pl-11, .pl-11, input[class*="pl-11"], input[class*="!pl-11"] { padding-left: 3rem !important; }
+        input.pl-12, .pl-12, input[class*="pl-12"], input[class*="!pl-12"] { padding-left: 3.25rem !important; }
+        input.pr-7, .pr-7, input[class*="pr-7"], input[class*="!pr-7"] { padding-right: 2rem !important; }
+        input.pr-8, .pr-8, input[class*="pr-8"], input[class*="!pr-8"] { padding-right: 2.25rem !important; }
+        input.pr-9, .pr-9, input[class*="pr-9"], input[class*="!pr-9"] { padding-right: 2.5rem !important; }
+        input.pr-10, .pr-10, input[class*="pr-10"], input[class*="!pr-10"] { padding-right: 2.75rem !important; }
+
+        .relative > svg.absolute ~ input,
+        .relative > span.absolute ~ input,
+        .relative > div.absolute ~ input,
+        input.search-input,
+        input[type="search"] {
+          padding-left: 2.75rem !important;
+        }
 
         textarea {
           padding: 0.85rem 1.05rem;

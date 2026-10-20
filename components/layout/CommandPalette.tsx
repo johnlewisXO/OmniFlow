@@ -571,17 +571,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 bg-black/50 backdrop-blur-sm transition-opacity duration-200 ${
+      className={`fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 transition-opacity duration-200 ${
+        darkMode ? 'bg-slate-950/70 backdrop-blur-md' : 'bg-slate-900/40 backdrop-blur-md'
+      } ${
         isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
       }`}
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-2xl rounded-2xl shadow-2xl border overflow-hidden transition-all ${
+        data-command-palette="true"
+        className={`w-full max-w-2xl command-palette-surface rounded-[20px] shadow-2xl border overflow-hidden transition-all ${
           isClosing ? 'animate-modal-disappear' : 'animate-modal-appear'
         } ${
           darkMode ? 'bg-slate-900 border-slate-700/80 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
         }`}
+        style={{
+          backgroundColor: darkMode ? '#0F172A' : '#FFFFFF',
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* Top Command Input Bar */}
@@ -594,7 +600,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
               items[selectedIndex].action();
             }
           }}
-          className={`flex items-center px-4 py-3.5 border-b ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}
+          className={`flex items-center px-4 py-3.5 border-b ${
+            darkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'
+          }`}
         >
           <AIBotFace mood={isAIThinking ? 'thinking' : aiResponse ? 'speaking' : 'idle'} size="sm" className="mr-3 flex-shrink-0" />
           <input
@@ -731,7 +739,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         )}
 
         {/* Results List */}
-        <div ref={listRef} className="max-h-[340px] sm:max-h-[380px] overflow-y-auto p-2 scrollbar-thin">
+        <div ref={listRef} className={`max-h-[340px] sm:max-h-[380px] overflow-y-auto p-2 scrollbar-thin ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
           {items.length === 0 ? (
             <div className="py-10 text-center space-y-2">
               <ICON_MAP.SparklesIcon className="w-7 h-7 mx-auto text-indigo-500 opacity-70" />

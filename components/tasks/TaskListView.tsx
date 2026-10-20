@@ -818,7 +818,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       >
         <div className="relative flex-1 min-w-[150px] max-w-sm">
           <ICON_MAP.MagnifyingGlassIcon
-            className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${
+            className={`w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${
               darkMode ? 'text-slate-400' : 'text-slate-500'
             }`}
           />
@@ -827,8 +827,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             placeholder="Filter tasks..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            style={{ paddingLeft: '2.25rem', paddingRight: '1.75rem' }}
-            className="!py-1.5 text-xs"
+            className="search-input !pl-10 !pr-8 !py-1.5 text-xs rounded-[20px]"
           />
           {searchQuery && (
             <button

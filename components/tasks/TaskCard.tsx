@@ -181,8 +181,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       data-task-id={task.id} 
-      style={cardBackgroundStyle}
-      className={`p-4 rounded-[22px] shadow-glass border cursor-grab hover:shadow-glass-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group
+      className={`p-4 rounded-[20px] border backdrop-blur-xl cursor-grab hover:shadow-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group ${darkMode ? 'bg-slate-900/35 border-white/10' : 'bg-white/30 border-white/40 shadow-xs'}
                   ${isSelected ? 'ring-2 ring-accent border-accent bg-accent/[0.04]' : ''}
                   ${isFocused && !isSelected ? 'ring-2 ring-indigo-400/80 border-indigo-400/70' : ''}
                   ${isHighlighted ? 'animate-state-updated ring-2 ring-emerald-500/60 shadow-emerald-500/20' : ''}

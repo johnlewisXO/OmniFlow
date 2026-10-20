@@ -630,15 +630,15 @@ export const OwnerDashboard: React.FC = () => {
               ))}
             </div>
 
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative flex-1 max-w-sm flex items-center">
+              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
               <input
                 type="text"
                 placeholder="Search actor, event, or target..."
                 value={auditSearch}
                 onChange={e => setAuditSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border"
+                className="w-full search-input !pl-10 !pr-4 !py-2 text-xs rounded-[20px] border"
               />
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
           </div>
 

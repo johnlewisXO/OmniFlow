@@ -249,15 +249,15 @@ export const MyTasksPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="relative w-full sm:w-64">
+        <div className="relative w-full sm:w-64 flex items-center">
+          <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
           <input
             type="text"
             placeholder="Search my tasks..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40"
+            className="w-full search-input !pl-10 !pr-4 !py-1.5 text-xs rounded-[20px] bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40"
           />
-          <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>
       </div>
 

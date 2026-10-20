@@ -377,7 +377,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         {
           label: 'My Assigned Tasks',
           value: myAssignedCount || allWorkspaceTasks.length,
-          sub: 'Click to inspect queue',
+          sub: 'Click to view',
           icon: ICON_MAP.ClipboardListIcon,
           badgeBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
           onClick: () => setActiveView('my_tasks_view'),
@@ -401,7 +401,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         {
           label: 'Active Projects',
           value: projects.length,
-          sub: 'Live Sprint Boards',
+          sub: 'Active projects',
           icon: ICON_MAP.FolderIcon,
           badgeBg: 'bg-violet-500/15 text-violet-600 dark:text-violet-300',
           onClick: () => setActiveView('projects_overview'),
@@ -422,7 +422,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         {
           label: 'Overall Delivery',
           value: `${ringMetrics.donePct}%`,
-          sub: 'Concentric Velocity',
+          sub: 'Progress',
           icon: ICON_MAP.CheckIcon,
           badgeBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
           onClick: () => setActiveView('reports_view'),
@@ -451,15 +451,15 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         {
           label: 'Team Members & Seats',
           value: Math.max(1, users.length),
-          sub: 'Directory & Accounts',
+          sub: 'Team accounts',
           icon: ICON_MAP.UsersIcon,
           badgeBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-300',
           onClick: () => setActiveView('team_management'),
         },
         {
-          label: 'RBAC Access Matrix',
+          label: 'Team Roles',
           value: '5 Roles',
-          sub: 'Access Control',
+          sub: 'Roles & permissions',
           icon: ICON_MAP.CheckBadgeIcon,
           badgeBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-300',
           onClick: () => setActiveView('team_management'),
@@ -467,13 +467,13 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         {
           label: 'Active Projects',
           value: projects.length,
-          sub: 'Managed Workspaces',
+          sub: 'Workspaces',
           icon: ICON_MAP.FolderIcon,
           badgeBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
           onClick: () => setActiveView('projects_overview'),
         },
         {
-          label: 'Platform Velocity',
+          label: 'Progress',
           value: `${ringMetrics.donePct}%`,
           sub: `${statusCounts[TaskStatus.DONE]} Delivered`,
           icon: ICON_MAP.CheckIcon,
@@ -486,7 +486,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
     if (normalizedRole === UserRole.PROJECT_MANAGER) {
       return [
         {
-          label: 'In-Flight Sprint Scope',
+          label: 'Active Tasks',
           value: inFlightCount,
           sub: `${statusCounts[TaskStatus.IN_PROGRESS]} in progress`,
           icon: ICON_MAP.RocketLaunchIcon,
@@ -494,7 +494,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           onClick: () => setActiveView('kanban'),
         },
         {
-          label: 'Sprint Velocity',
+          label: 'Progress',
           value: `${ringMetrics.donePct}%`,
           sub: `${statusCounts[TaskStatus.DONE]} Completed`,
           icon: ICON_MAP.CheckIcon,
@@ -502,9 +502,9 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           onClick: () => setActiveView('reports_view'),
         },
         {
-          label: 'Review & QA Queue',
+          label: 'In Review',
           value: statusCounts[TaskStatus.REVIEW],
-          sub: 'Needs Verification',
+          sub: 'Needs review',
           icon: ICON_MAP.ClipboardListIcon,
           badgeBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
           onClick: () => setActiveView('kanban'),
@@ -530,7 +530,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         onClick: () => setActiveView('projects_overview'),
       },
       {
-        label: 'In-Flight Tasks',
+        label: 'Active Tasks',
         value: inFlightCount,
         sub: `${statusCounts[TaskStatus.IN_PROGRESS]} In Progress`,
         icon: ICON_MAP.ClipboardListIcon,
@@ -538,7 +538,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         onClick: () => setActiveView('my_tasks_view'),
       },
       {
-        label: 'Delivery Velocity',
+        label: 'Progress',
         value: `${ringMetrics.donePct}%`,
         sub: `${statusCounts[TaskStatus.DONE]} Tasks Done`,
         icon: ICON_MAP.CheckIcon,
@@ -546,7 +546,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
         onClick: () => setActiveView('reports_view'),
       },
       {
-        label: 'Team & RBAC Seats',
+        label: 'Team Members',
         value: Math.max(1, users.length),
         sub: roleBadgeLabel || 'Active Collaborators',
         icon: ICON_MAP.UsersIcon,
@@ -709,7 +709,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
     return (
       <div className="flex items-center gap-1">
         {isCustomizingLayout && (
-          <div className="flex items-center gap-0.5 bg-indigo-500/10 border border-indigo-500/30 rounded-full px-1.5 py-0.5">
+          <div className="flex items-center gap-0.5 bg-indigo-500/10 border border-indigo-500/30 rounded-[20px] px-1.5 py-0.5">
             <button
               type="button"
               disabled={idx <= 0}
@@ -779,10 +779,10 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           <div
             key={widgetId}
             {...wrapperProps}
-            className={`${colSpan} p-5 sm:p-6 rounded-[32px] border flex flex-col justify-between space-y-4 transition-all ${
+            className={`${colSpan} p-5 sm:p-6 rounded-[20px] border flex flex-col justify-between space-y-4 transition-all ${
               darkMode
-                ? 'bg-slate-900/75 border-white/10'
-                : 'bg-white/88 border-white shadow-sm'
+                ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl'
+                : 'bg-white/25 border-white/35 backdrop-blur-2xl shadow-xs'
             } ${dragStateClasses}`}
           >
             <div className="space-y-3">
@@ -814,7 +814,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                       setOnlyMyTasks(prev => !prev);
                       pulseWidget('task_overview');
                     }}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all cursor-pointer hidden sm:inline-flex items-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-[20px] text-[11px] font-semibold border transition-all cursor-pointer hidden sm:inline-flex items-center gap-1 ${
                       onlyMyTasks
                         ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-indigo-500/40'
                         : darkMode
@@ -887,7 +887,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             {/* Super-Rounded 24px Task Cards List */}
             {filteredTasks.length === 0 ? (
               <div
-                className={`p-8 rounded-[24px] border border-dashed text-center space-y-2 ${
+                className={`p-8 rounded-[20px] border border-dashed text-center space-y-2 ${
                   darkMode ? 'border-slate-800 bg-slate-950/30' : 'border-slate-200 bg-slate-50/60'
                 }`}
               >
@@ -931,7 +931,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                         soundService.play('click_soft');
                         openViewTaskModal(task, true);
                       }}
-                      className={`group p-4 rounded-[24px] border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                      className={`group p-4 rounded-[20px] border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                         isTaskHighlighted ? 'animate-state-updated' : ''
                       } ${
                         darkMode
@@ -1007,10 +1007,10 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           <div
             key={widgetId}
             {...wrapperProps}
-            className={`${colSpan} p-5 sm:p-6 rounded-[32px] border flex flex-col justify-between space-y-4 transition-all ${
+            className={`${colSpan} p-5 sm:p-6 rounded-[20px] border flex flex-col justify-between space-y-4 transition-all ${
               darkMode
-                ? 'bg-slate-900/75 border-white/10'
-                : 'bg-white/88 border-white shadow-sm'
+                ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl'
+                : 'bg-white/25 border-white/35 backdrop-blur-2xl shadow-xs'
             } ${dragStateClasses}`}
           >
             <div className="flex items-center justify-between gap-2">
@@ -1164,10 +1164,10 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           <div
             key={widgetId}
             {...wrapperProps}
-            className={`${colSpan} p-5 sm:p-6 rounded-[32px] border space-y-5 transition-all ${
+            className={`${colSpan} p-5 sm:p-6 rounded-[20px] border space-y-5 transition-all ${
               darkMode
-                ? 'bg-slate-900/75 border-white/10'
-                : 'bg-white/88 border-white shadow-sm'
+                ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl'
+                : 'bg-white/25 border-white/35 backdrop-blur-2xl shadow-xs'
             } ${dragStateClasses}`}
           >
             {/* Mini Month Calendar */}
@@ -1343,10 +1343,10 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           <div
             key={widgetId}
             {...wrapperProps}
-            className={`${colSpan} p-5 rounded-[32px] border flex flex-col justify-between space-y-4 transition-all ${
+            className={`${colSpan} p-5 rounded-[20px] border flex flex-col justify-between space-y-4 transition-all ${
               darkMode
-                ? 'bg-slate-900/75 border-white/10'
-                : 'bg-white/88 border-white shadow-sm'
+                ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl'
+                : 'bg-white/25 border-white/35 backdrop-blur-2xl shadow-xs'
             } ${dragStateClasses}`}
           >
             <div className="space-y-3">
@@ -1369,7 +1369,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
               </div>
 
               {/* Camera / Studio Stage Preview */}
-              <div className="relative h-32 rounded-[24px] overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950 border border-white/10 flex items-center justify-center">
+              <div className="relative h-32 rounded-[20px] overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950 border border-white/10 flex items-center justify-center">
                 {camOff ? (
                   <div className="text-center space-y-1">
                     <div className="w-11 h-11 rounded-full bg-indigo-600/30 border border-indigo-400/40 text-white font-bold text-sm flex items-center justify-center mx-auto">
@@ -1446,10 +1446,10 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           <div
             key={widgetId}
             {...wrapperProps}
-            className={`${colSpan} p-5 rounded-[32px] border flex flex-col justify-between space-y-3 transition-all ${
+            className={`${colSpan} p-5 rounded-[20px] border flex flex-col justify-between space-y-3 transition-all ${
               darkMode
-                ? 'bg-slate-900/75 border-white/10'
-                : 'bg-white/88 border-white shadow-sm'
+                ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl'
+                : 'bg-white/25 border-white/35 backdrop-blur-2xl shadow-xs'
             } ${dragStateClasses}`}
           >
             <div className="flex items-center justify-between">
@@ -1521,10 +1521,10 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           >
             {/* Pastel Lavender Focus Timer Card */}
             <div
-              className={`p-4 sm:p-5 rounded-[32px] border flex flex-col justify-between space-y-3 ${
+              className={`p-4 sm:p-5 rounded-[20px] border flex flex-col justify-between space-y-3 ${
                 darkMode
-                  ? 'bg-gradient-to-br from-indigo-950/80 via-violet-950/60 to-slate-900 border-indigo-500/30'
-                  : 'bg-gradient-to-br from-[#EDE9FE] via-[#F3E8FF] to-[#E0E7FF] border-white shadow-sm'
+                  ? 'bg-slate-900/35 border-white/10 backdrop-blur-xl'
+                  : 'bg-white/25 border-white/35 backdrop-blur-xl shadow-xs'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -1568,7 +1568,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                       soundService.play('state_updated');
                       setIsTimerRunning(prev => !prev);
                     }}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
                       isTimerRunning
                         ? 'bg-amber-500 text-white'
                         : 'bg-slate-900 dark:bg-indigo-500 text-white shadow-sm'
@@ -1582,7 +1582,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                       soundService.play('click_soft');
                       setTimerSeconds(prev => prev + 5 * 60);
                     }}
-                    className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-[20px] text-[11px] font-bold cursor-pointer ${
                       darkMode
                         ? 'bg-white/10 text-white hover:bg-white/20'
                         : 'bg-white/80 text-slate-800 hover:bg-white'
@@ -1596,10 +1596,10 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
 
             {/* Pastel Rose Quick Sticky Notes Card */}
             <div
-              className={`p-4 sm:p-5 rounded-[32px] border flex-1 flex flex-col justify-between space-y-2 ${
+              className={`p-4 sm:p-5 rounded-[20px] border flex-1 flex flex-col justify-between space-y-2 ${
                 darkMode
-                  ? 'bg-gradient-to-br from-rose-950/50 via-purple-950/40 to-slate-900 border-rose-500/25'
-                  : 'bg-gradient-to-br from-[#FCE7F3] via-[#F5D0FE]/60 to-[#EDE9FE] border-white shadow-sm'
+                  ? 'bg-slate-900/35 border-white/10 backdrop-blur-xl'
+                  : 'bg-white/25 border-white/35 backdrop-blur-xl shadow-xs'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -1679,7 +1679,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
       {/* Customize Mode Drawer: Show/Hide Widgets & Quick Reorder */}
       {isCustomizingLayout && (
         <div
-          className={`p-3.5 rounded-[24px] border animate-fadeIn flex flex-wrap items-center justify-between gap-3 ${
+          className={`p-3.5 rounded-[20px] border animate-fadeIn flex flex-wrap items-center justify-between gap-3 ${
             darkMode
               ? 'bg-neutral-900/95 border-indigo-500/30 text-slate-200'
               : 'bg-indigo-50/80 border-indigo-200 text-slate-800'
@@ -1728,15 +1728,15 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                 soundService.play('click_soft');
                 capsule.onClick();
               }}
-              className={`group w-full text-left px-4 py-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              className={`group w-full text-left px-4 py-3 rounded-[20px] border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                 darkMode
-                  ? 'bg-neutral-900/90 hover:bg-neutral-900 border-white/10 shadow-lg shadow-black/40'
-                  : 'bg-white hover:bg-slate-50/80 border-slate-200/80 shadow-xs hover:shadow-md'
+                  ? 'bg-slate-900/35 hover:bg-slate-900/50 border-white/10 backdrop-blur-xl'
+                  : 'bg-white/25 hover:bg-white/40 border-white/35 backdrop-blur-xl shadow-xs'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105 ${capsule.badgeBg}`}
+                  className={`w-10 h-10 rounded-[20px] flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105 ${capsule.badgeBg}`}
                 >
                   <IconComp className="w-5 h-5" />
                 </div>

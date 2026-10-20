@@ -1437,7 +1437,7 @@ export const TeamsChatPage: React.FC = () => {
                 placeholder="Search channels or people..."
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                className="w-full pl-10 pr-8 py-2 text-xs rounded-[20px] bg-white/40 dark:bg-slate-800/50 border border-white/40 dark:border-white/10"
+                className="w-full search-input !pl-10 !pr-8 py-2 text-xs rounded-[20px] bg-white/40 dark:bg-slate-800/50 border border-white/40 dark:border-white/10"
               />
               {searchFilter && (
                 <button

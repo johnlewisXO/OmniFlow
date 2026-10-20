@@ -352,13 +352,13 @@ export const ProjectDocsWikiPage: React.FC = () => {
           }`}
         >
           <div className="relative">
-            <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search specs, PRDs, runbooks..."
-              className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none ${
+              className={`w-full search-input !pl-10 !pr-4 !py-2 rounded-[20px] border text-xs outline-none ${
                 darkMode
                   ? 'bg-slate-800/90 border-slate-700 text-slate-100 focus:border-accent'
                   : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-accent'

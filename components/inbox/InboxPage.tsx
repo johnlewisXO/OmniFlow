@@ -441,7 +441,7 @@ export const InboxPage: React.FC = () => {
               placeholder="Search actor, task, project..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-8 py-1.5 text-xs rounded-xl"
+              className="w-full search-input !pl-10 !pr-8 !py-1.5 text-xs rounded-[20px]"
             />
             {searchQuery && (
               <button

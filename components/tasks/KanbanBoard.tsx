@@ -265,7 +265,7 @@ export const KanbanBoard: React.FC = () => {
       // M -> Assign to Me
       if (e.key.toLowerCase() === 'm' && currentUser) {
         e.preventDefault();
-        updateTask(activeTask.id, { assignee_id: currentUser.id, assigneeId: currentUser.id });
+        updateTask(activeTask.id, { assignee_id: currentUser.id });
         addToast('Assigned to You (M)', `"${activeTask.title}" assigned to ${currentUser.full_name || currentUser.email}.`, 'success');
         return;
       }
@@ -422,7 +422,7 @@ export const KanbanBoard: React.FC = () => {
         
         {/* Left: Icon-First View Mode Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto max-w-full scrollbar-none">
-          <div className={`flex p-1 rounded-full border flex-shrink-0 ${darkMode ? 'bg-neutral-900/90 border-white/10' : 'bg-slate-200/70 border-slate-300/60'}`}>
+          <div className={`flex p-1 rounded-full border flex-shrink-0 ${darkMode ? 'bg-slate-900/40 border-white/10' : 'bg-white/30 border-white/40'}`}>
             <button
               onClick={() => setViewMode('kanban')}
               title="Kanban Board View"
@@ -485,7 +485,7 @@ export const KanbanBoard: React.FC = () => {
             <div
               title="Group Kanban Swimlanes"
               className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium flex-shrink-0 ${
-                darkMode ? 'bg-neutral-900/90 border-white/10 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+                darkMode ? 'bg-slate-900/40 border-white/10 text-slate-300' : 'bg-white/35 border-white/40 text-slate-700 shadow-2xs'
               }`}
             >
               <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-accent flex-shrink-0" />
@@ -496,9 +496,9 @@ export const KanbanBoard: React.FC = () => {
                   darkMode ? 'text-slate-200' : 'text-slate-900'
                 }`}
               >
-                <option value="none" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Standard Columns</option>
-                <option value="assignee" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Swimlanes: Assignee</option>
-                <option value="priority" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Swimlanes: Priority</option>
+                <option value="none" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Standard</option>
+                <option value="assignee" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Group by Teammate</option>
+                <option value="priority" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Group by Priority</option>
               </select>
             </div>
           )}
@@ -550,7 +550,7 @@ export const KanbanBoard: React.FC = () => {
           {viewMode === 'kanban' && swimlaneMode === 'none' && (
             <div
               className={`hidden md:flex xl:hidden items-center p-0.5 rounded-full border text-[11px] font-semibold ${
-                darkMode ? 'bg-neutral-900/90 border-white/10' : 'bg-slate-200/70 border-slate-300/60'
+                darkMode ? 'bg-slate-900/40 border-white/10' : 'bg-white/30 border-white/40'
               }`}
             >
               <button
@@ -579,7 +579,10 @@ export const KanbanBoard: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <ICON_MAP.ViewColumnsIcon className="w-3.5 h-3.5" />
+                {(() => {
+                  const Icon = (ICON_MAP as any).ViewColumnsIcon || (ICON_MAP as any).TableCellsIcon || ICON_MAP.Squares2X2Icon;
+                  return <Icon className="w-3.5 h-3.5" />;
+                })()}
               </button>
             </div>
           )}
@@ -589,7 +592,7 @@ export const KanbanBoard: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsWipModalOpen(true)}
-              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+              className={`p-2 rounded-[20px] border transition-all cursor-pointer flex items-center justify-center ${
                 darkMode
                   ? 'bg-neutral-900/90 border-white/10 text-slate-300 hover:text-white hover:bg-neutral-800'
                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
@@ -606,7 +609,7 @@ export const KanbanBoard: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsAutomationsOpen(true)}
-              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+              className={`p-2 rounded-[20px] border transition-all cursor-pointer flex items-center justify-center ${
                 darkMode
                   ? 'bg-neutral-900/90 border-white/10 text-slate-300 hover:text-white hover:bg-neutral-800'
                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
@@ -621,19 +624,19 @@ export const KanbanBoard: React.FC = () => {
       </div>
 
       {/* Responsive Quick Filters Bar with Non-Overlapping Search Input */}
-      <div className={`p-2 sm:p-2.5 mb-2 rounded-2xl border text-xs transition-all ${
-        darkMode ? 'bg-neutral-900/70 border-white/10' : 'bg-white/90 border-slate-200/80 shadow-2xs'
+      <div className={`p-2 sm:p-2.5 mb-2 rounded-[20px] border text-xs transition-all ${
+        darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-xl' : 'bg-white/25 border-white/35 backdrop-blur-xl shadow-xs'
       }`}>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Search Filter Input */}
           <div className="relative flex-1 min-w-[180px] lg:max-w-xs flex items-center">
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter tasks..."
-              className={`w-full !pl-9 !pr-7 !py-1.5 rounded-xl border text-xs outline-none transition-all ${
+              className={`w-full search-input !pl-10 !pr-8 !py-1.5 rounded-[20px] border text-xs outline-none transition-all ${
                 darkMode 
                   ? 'bg-neutral-950 border-white/10 text-slate-200 focus:border-accent' 
                   : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-accent'
@@ -1022,7 +1025,6 @@ export const KanbanBoard: React.FC = () => {
                 const assigneeVal = val === 'unassigned' ? undefined : val;
                 await bulkUpdateTasks(selectedTaskIds, {
                   assignee_id: assigneeVal,
-                  assigneeId: assigneeVal,
                 });
                 clearSelectedTasks();
               }}

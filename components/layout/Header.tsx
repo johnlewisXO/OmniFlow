@@ -516,8 +516,8 @@ export const Header: React.FC = () => {
             <AnimatedPopover
               isOpen={isThemeMenuOpen}
               direction="down"
-              className={`absolute right-0 mt-2.5 w-64 rounded-[20px] shadow-2xl p-3.5 z-50 border backdrop-blur-xl ${
-                darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
+              className={`popover-elevated-surface absolute right-0 mt-2.5 w-64 rounded-[20px] shadow-2xl p-3.5 z-50 border backdrop-blur-2xl ${
+                darkMode ? 'bg-slate-900/98 border-slate-700/80 text-slate-100' : 'bg-white/98 border-slate-200/90 text-slate-800'
               }`}
             >
               <div className="space-y-3">
@@ -611,18 +611,6 @@ export const Header: React.FC = () => {
               <span className="absolute top-1 right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
             )}
           </button>
-
-          <Button 
-            variant="primary" 
-            size="sm" 
-            onClick={handleAddTaskClick}
-            disabled={!currentUser}
-            title={!activeProject ? "Select a project to add tasks" : (!currentUser ? "Login to add tasks" : "Add new task")}
-            className="px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold shrink-0"
-          >
-            <PlusIcon className="w-4 h-4 sm:mr-1" /> 
-            <span className="hidden md:inline">Add Task</span>
-          </Button>
           
           {/* Rich Profile Dropdown Menu */}
           <div className="relative" ref={profileMenuRef} data-tour-id="tour-header-profile">
@@ -648,8 +636,8 @@ export const Header: React.FC = () => {
             <AnimatedPopover
               isOpen={Boolean(isProfileMenuOpen && currentUser)}
               direction="down"
-              className={`absolute right-0 mt-2.5 w-72 rounded-[20px] shadow-2xl py-2 z-50 border backdrop-blur-xl ${
-                darkMode ? 'bg-slate-900/95 border-slate-700/80 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
+              className={`popover-elevated-surface absolute right-0 mt-2.5 w-72 rounded-[20px] shadow-2xl py-2 z-50 border backdrop-blur-2xl ${
+                darkMode ? 'bg-slate-900/98 border-slate-700/80 text-slate-100' : 'bg-white/98 border-slate-200/90 text-slate-800'
               }`}
             >
               {currentUser && (

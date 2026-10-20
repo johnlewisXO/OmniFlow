@@ -652,15 +652,15 @@ export const Sidebar: React.FC = () => {
         {/* Quick Sidebar Filter Input when expanded */}
         {(expanded || isMobile) && (
           <div className="relative flex items-center">
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <input
               type="text"
               value={sidebarFilter}
               onChange={e => setSidebarFilter(e.target.value)}
               placeholder="Filter menu & projects..."
-              className={`w-full !pl-9 !pr-7 !py-1.5 rounded-xl text-xs border outline-none transition-all ${
+              className={`w-full search-input !pl-10 !pr-8 !py-1.5 rounded-[20px] text-xs border outline-none transition-all ${
                 darkMode
-                  ? 'bg-neutral-900/90 border-white/10 text-slate-200 placeholder-slate-500 focus:border-accent'
+                  ? 'bg-neutral-900/95 border-white/10 text-slate-200 placeholder-slate-500 focus:border-accent'
                   : 'bg-white border-slate-200/90 text-slate-800 placeholder-slate-400 focus:border-accent'
               }`}
             />
@@ -904,8 +904,9 @@ export const Sidebar: React.FC = () => {
         <AnimatedPopover
           isOpen={Boolean(isProfileMenuOpen && currentUser)}
           direction="up"
-          className={`absolute bottom-full left-0 ${(expanded || isMobile) ? 'right-0 w-full min-w-[240px]' : 'left-full ml-2 w-64'} mb-2 rounded-2xl shadow-2xl py-2 z-50 
-                     border ${darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'} backdrop-blur-xl`}
+          className={`popover-elevated-surface absolute bottom-full left-0 ${(expanded || isMobile) ? 'right-0 w-full min-w-[240px]' : 'left-full ml-2 w-64'} mb-2 rounded-[20px] shadow-2xl py-2 z-50 border backdrop-blur-2xl ${
+            darkMode ? 'bg-slate-900/98 border-slate-700 text-slate-100' : 'bg-white/98 border-slate-200 text-slate-800'
+          }`}
         >
           {currentUser && (
             <>
