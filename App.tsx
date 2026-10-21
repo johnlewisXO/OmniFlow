@@ -51,6 +51,9 @@ import { OKRsGoalsPage } from './components/okrs/OKRsGoalsPage';
 import { TriageIntakePage } from './components/triage/TriageIntakePage';
 import { WorkloadCapacityPage } from './components/workload/WorkloadCapacityPage';
 import { WhiteboardStudioPage } from './components/whiteboard/WhiteboardStudioPage';
+import { AsyncClipsStudioPage } from './components/clips/AsyncClipsStudioPage';
+import { GanttRoadmapPage } from './components/roadmap/GanttRoadmapPage';
+import { ClientPortalChangelogPage } from './components/portal/ClientPortalChangelogPage';
 import { ChromaticGeometryCanvas } from './components/shared/ChromaticGeometryCanvas';
 
 // Initialize global exception and console log monitoring immediately
@@ -860,6 +863,12 @@ const MainAppLayout: React.FC = () => {
         return <WorkloadCapacityPage />;
       case 'whiteboard_view':
         return <WhiteboardStudioPage />;
+      case 'gantt_roadmap_view':
+        return <GanttRoadmapPage />;
+      case 'async_clips_view':
+        return <AsyncClipsStudioPage />;
+      case 'client_portal_view':
+        return <ClientPortalChangelogPage />;
       case 'admin_settings':
         if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.OWNER) {
           return <AdminDashboard />;
@@ -1084,12 +1093,12 @@ function App() {
       sprints: 'sprints_view',
       'my-tasks': 'my_tasks_view',
       chat: 'team_chat_view',
-      calendar: 'calendar_meetings_view',
+      calendar: 'calendar_view',
       inbox: 'inbox_view',
       reports: 'reports_view',
       team: 'team_management',
-      automations: 'automations_view',
-      'ai-copilot': 'ai_copilot_studio',
+      automations: 'task_automations',
+      'ai-copilot': 'ai_copilot_view',
       profile: 'profile_settings',
       admin: 'admin_settings',
       logs: 'user_logs_view',
@@ -1098,15 +1107,29 @@ function App() {
       triage: 'triage_intake_view',
       workload: 'workload_capacity_view',
       whiteboard: 'whiteboard_view',
+      clips: 'async_clips_view',
+      'async-clips': 'async_clips_view',
+      roadmap: 'gantt_roadmap_view',
+      gantt: 'gantt_roadmap_view',
+      'gantt-roadmap': 'gantt_roadmap_view',
+      portal: 'client_portal_view',
+      changelog: 'client_portal_view',
+      'client-portal': 'client_portal_view',
     };
 
     const syncRouteFromBrowser = () => {
       const newHash = window.location.hash || '/';
       if (
-        newHash.includes('access_token=') ||
         newHash.includes('type=signup') ||
-        newHash.includes('type=recovery') ||
         newHash.includes('verify-email=') ||
+        newHash.includes('confirmed=true')
+      ) {
+        setCurrentRoute('#/login');
+        return;
+      }
+      if (
+        newHash.includes('access_token=') ||
+        newHash.includes('type=recovery') ||
         newHash.includes('join-token=')
       ) {
         setCurrentRoute('#/app');
@@ -1251,11 +1274,17 @@ function App() {
           });
           if (data?.user && isSignupConfirm) {
             const prof = await supabaseService.ensureUserProfileForSession(data.user);
+            const userEmail = prof?.email || data.user.email || '';
             if (prof) {
               await emailNotificationService.verifyUserEmail(prof);
-              useAppStore.getState().addToast('Email Confirmed!', `Your email (${prof.email}) is now verified.`, 'success');
             }
-            window.history.replaceState(null, '', window.location.pathname + '#/app');
+            // Seamless flow: sign-up -> confirmation -> direct user to login
+            try {
+              await supabase.auth.signOut();
+            } catch {}
+            useAppStore.getState().setCurrentUser(null);
+            window.location.hash = `#/login?confirmed=true&email=${encodeURIComponent(userEmail)}`;
+            return;
           }
         } catch {}
       } else if (tokenHashMatch?.[1] && isSignupConfirm) {
@@ -1266,11 +1295,17 @@ function App() {
           });
           if (data?.user) {
             const prof = await supabaseService.ensureUserProfileForSession(data.user);
+            const userEmail = prof?.email || data.user.email || '';
             if (prof) {
               await emailNotificationService.verifyUserEmail(prof);
-              useAppStore.getState().addToast('Email Confirmed!', `Your email (${prof.email}) is now verified.`, 'success');
             }
-            window.history.replaceState(null, '', window.location.pathname + '#/app');
+            // Seamless flow: sign-up -> confirmation -> direct user to login
+            try {
+              await supabase.auth.signOut();
+            } catch {}
+            useAppStore.getState().setCurrentUser(null);
+            window.location.hash = `#/login?confirmed=true&email=${encodeURIComponent(userEmail)}`;
+            return;
           }
         } catch {}
       }

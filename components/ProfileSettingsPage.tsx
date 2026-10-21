@@ -39,6 +39,7 @@ export const ProfileSettingsPage: React.FC = () => {
   const {
     currentUser,
     currentOrganization,
+    openOrganizationModal,
     darkMode,
     toggleDarkMode,
     accentColor,
@@ -755,6 +756,61 @@ export const ProfileSettingsPage: React.FC = () => {
                             </button>
                           );
                         })}
+                      </div>
+                    </div>
+
+                    {/* Active Organization & Workspace Switching Section */}
+                    <div className="pt-5 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Organization & Active Workspace
+                          </h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Manage which organization you are active in or switch between company workspaces.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openOrganizationModal('join')}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow-xs transition"
+                          >
+                            ⇄ Switch Organization
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openOrganizationModal('create')}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                              darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            ✦ Create Workspace
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Active Workspace</span>
+                          <div className="text-sm font-extrabold flex items-center gap-2">
+                            <span>{currentOrganization?.name || 'Personal Workspace'}</span>
+                            {currentOrganization?.slug && (
+                              <span className="text-[11px] font-mono text-indigo-400">/{currentOrganization.slug}</span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400">
+                            Your role: <strong className="text-emerald-400 capitalize">{normalizedRole.replace(/_/g, ' ')}</strong>
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Active Session
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

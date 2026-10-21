@@ -222,7 +222,21 @@ export const AuthPage: React.FC = () => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
       const search = window.location.search;
+      const combined = `${hash}&${search}`;
       if (
+        combined.includes('confirmed=true') ||
+        combined.includes('email-confirmed=true')
+      ) {
+        setAuthMode('login');
+        const emailMatch = combined.match(/[?&]email=([^&]+)/);
+        if (emailMatch && emailMatch[1]) {
+          try {
+            setEmail(decodeURIComponent(emailMatch[1]));
+          } catch {}
+        }
+        setPassword('');
+        setResetSuccessMessage('✓ Email confirmed successfully! Please enter your credentials to sign in.');
+      } else if (
         hash.includes('type=recovery') ||
         hash.includes('reset-password') ||
         search.includes('type=recovery')
@@ -260,11 +274,17 @@ export const AuthPage: React.FC = () => {
             const prof = await supabaseService.ensureUserProfileForSession(data.user);
             if (prof) {
               await emailNotificationService.verifyUserEmail(prof);
-              if (!prof.organization_id && typeof window !== 'undefined') {
-                sessionStorage.setItem('omni_just_registered', 'true');
-              }
-              useAppStore.getState().setCurrentUser(prof);
-              addToast('Email Confirmed!', `Welcome to ${APP_TITLE}, ${prof.full_name || prof.email}!`, 'success');
+              try {
+                await supabase.auth.signOut();
+              } catch {}
+              useAppStore.getState().setCurrentUser(null);
+              setEmail(prof.email || email);
+              setPassword('');
+              setEnteredVerificationCode('');
+              setPendingVerificationInfo(null);
+              setAuthMode('login');
+              setResetSuccessMessage('✓ Email confirmed successfully! Please enter your credentials to sign in.');
+              addToast('Email Confirmed!', 'Please enter your password to sign in.', 'success');
               return;
             }
           }
@@ -277,11 +297,17 @@ export const AuthPage: React.FC = () => {
             const prof = await supabaseService.ensureUserProfileForSession(data.user);
             if (prof) {
               await emailNotificationService.verifyUserEmail(prof);
-              if (!prof.organization_id && typeof window !== 'undefined') {
-                sessionStorage.setItem('omni_just_registered', 'true');
-              }
-              useAppStore.getState().setCurrentUser(prof);
-              addToast('Email Confirmed!', `Welcome to ${APP_TITLE}, ${prof.full_name || prof.email}!`, 'success');
+              try {
+                await supabase.auth.signOut();
+              } catch {}
+              useAppStore.getState().setCurrentUser(null);
+              setEmail(prof.email || email);
+              setPassword('');
+              setEnteredVerificationCode('');
+              setPendingVerificationInfo(null);
+              setAuthMode('login');
+              setResetSuccessMessage('✓ Email confirmed successfully! Please enter your credentials to sign in.');
+              addToast('Email Confirmed!', 'Please enter your password to sign in.', 'success');
               return;
             }
           }
@@ -291,7 +317,7 @@ export const AuthPage: React.FC = () => {
       }
     }
 
-    // 2. Verify 6-digit OTP code (tries Supabase OTP verification first, then Omni Flow verification code)
+    // 2. Verify token/code if entered
     const targetEmail = (pendingVerificationInfo?.email || email).trim().toLowerCase();
     const targetProfile =
       pendingVerificationInfo?.profile ||
@@ -317,11 +343,17 @@ export const AuthPage: React.FC = () => {
             const prof = await supabaseService.ensureUserProfileForSession(otpData.user);
             if (prof) {
               await emailNotificationService.verifyUserEmail(prof);
-              if (!prof.organization_id && typeof window !== 'undefined') {
-                sessionStorage.setItem('omni_just_registered', 'true');
-              }
-              useAppStore.getState().setCurrentUser(prof);
-              addToast('Email Verified!', `Welcome to ${APP_TITLE}, ${prof.full_name || prof.email}!`, 'success');
+              try {
+                await supabase.auth.signOut();
+              } catch {}
+              useAppStore.getState().setCurrentUser(null);
+              setEmail(prof.email || targetEmail);
+              setPassword('');
+              setEnteredVerificationCode('');
+              setPendingVerificationInfo(null);
+              setAuthMode('login');
+              setResetSuccessMessage('✓ Email confirmed successfully! Please enter your credentials to sign in.');
+              addToast('Email Confirmed!', 'Please enter your password to sign in.', 'success');
               return;
             }
           }
@@ -335,17 +367,23 @@ export const AuthPage: React.FC = () => {
         (await emailNotificationService.verifyUserEmail(targetProfile, codeToCheck));
 
       if (!isOk) {
-        setFormError('Invalid verification code. Use the 6-digit code shown below or click Instant Verify.');
+        setFormError('Invalid verification link or code. Please check your confirmation email.');
         return;
       }
 
       await emailNotificationService.verifyUserEmail(targetProfile);
       supabaseService.saveLocalAccountProfile(targetEmail, targetProfile);
-      if (!targetProfile.organization_id && typeof window !== 'undefined') {
-        sessionStorage.setItem('omni_just_registered', 'true');
-      }
-      useAppStore.getState().setCurrentUser(targetProfile);
-      addToast('Email Verified!', `Welcome to ${APP_TITLE}, ${targetProfile.full_name || targetProfile.email}!`, 'success');
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      useAppStore.getState().setCurrentUser(null);
+      setEmail(targetEmail);
+      setPassword('');
+      setEnteredVerificationCode('');
+      setPendingVerificationInfo(null);
+      setAuthMode('login');
+      setResetSuccessMessage('✓ Email confirmed successfully! Please enter your credentials to sign in.');
+      addToast('Email Confirmed!', 'Please enter your password to sign in.', 'success');
     } finally {
       setIsResetting(false);
     }
@@ -474,10 +512,10 @@ export const AuthPage: React.FC = () => {
               verifyUrl,
               smtpFallbackUsed: false,
             });
-            setEnteredVerificationCode(otpCode);
+            setEnteredVerificationCode('');
             setAuthError(null);
             setAuthMode('verify_email');
-            addToast('Email Confirmation Required', `Verify ${cleanEmail} below to complete sign-in.`, 'info');
+            addToast('Email Confirmation Required', `Check ${cleanEmail} for your confirmation link to complete sign-in.`, 'info');
             return;
           }
           throw loginErr;
@@ -507,23 +545,15 @@ export const AuthPage: React.FC = () => {
               smtpFallbackUsed: Boolean(signUpResult.smtpFallbackUsed),
               smtpErrorMessage: signUpResult.smtpErrorMessage,
             });
-            setEnteredVerificationCode(otpCode);
+            setEnteredVerificationCode('');
             setShowSmtpChecklist(Boolean(signUpResult.smtpFallbackUsed));
             setAuthMode('verify_email');
 
-            if (signUpResult.smtpFallbackUsed) {
-              addToast(
-                'Verification Code Ready',
-                `Supabase Brevo SMTP returned an error, so a 6-digit verification code (${otpCode}) was generated for ${email.trim()}.`,
-                'info'
-              );
-            } else {
-              addToast(
-                'Confirmation Email Sent!',
-                `Check ${email.trim()} for your Brevo confirmation link or enter code ${otpCode} below.`,
-                'success'
-              );
-            }
+            addToast(
+              'Confirmation Email Sent!',
+              `Check ${email.trim()} for your confirmation link to activate your workspace.`,
+              'success'
+            );
             return;
           }
         }
@@ -707,42 +737,17 @@ export const AuthPage: React.FC = () => {
                       {pendingVerificationInfo?.email || email}
                     </p>
                   </div>
-                  {pendingVerificationInfo?.otpCode && (
-                    <div className="text-right flex-shrink-0">
-                      <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        Verification Code
-                      </span>
-                      <span className="inline-block mt-0.5 font-mono text-sm font-extrabold tracking-widest px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-xs">
-                        {pendingVerificationInfo.otpCode}
-                      </span>
-                    </div>
-                  )}
+                  <div className="text-right flex-shrink-0">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                      Awaiting Confirmation
+                    </span>
+                  </div>
                 </div>
 
-                {!pendingVerificationInfo?.smtpFallbackUsed ? (
-                  <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5">
-                    ✓ Supabase dispatched a confirmation email via your SMTP provider to <strong>{pendingVerificationInfo?.email || email}</strong>. Click the link in your email, paste the link below, or verify using your 6-digit code.
-                  </p>
-                ) : (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-[11px] flex items-center gap-1.5">
-                        <ICON_MAP.ExclamationIcon className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                        Supabase SMTP Notice: &ldquo;{pendingVerificationInfo.smtpErrorMessage || 'Error sending confirmation email'}&rdquo;
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowSmtpChecklist(prev => !prev)}
-                        className="text-[10px] font-bold underline cursor-pointer flex-shrink-0"
-                      >
-                        {showSmtpChecklist ? 'Hide Fix Guide' : 'How to Fix Brevo'}
-                      </button>
-                    </div>
-                    <p className="text-[11px] opacity-90 leading-relaxed">
-                      Your account is ready and can be verified immediately using code <strong>{pendingVerificationInfo.otpCode}</strong> below while you finalize your Brevo SMTP settings in Supabase.
-                    </p>
-                  </div>
-                )}
+                <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                  ✓ A confirmation email was sent to <strong>{pendingVerificationInfo?.email || email}</strong>. Please check your inbox (and spam folder) and click the link to activate your workspace. Once confirmed, you will be redirected to sign in with your credentials.
+                </p>
 
                 {smtpRetryStatus && (
                   <div className={`p-2.5 rounded-xl border text-[11px] font-medium ${
@@ -755,60 +760,17 @@ export const AuthPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Interactive Brevo + Supabase SMTP Diagnostic Checklist */}
-                {showSmtpChecklist && (
-                  <div className={`p-3 rounded-xl border space-y-2 text-[11px] ${
-                    darkMode ? 'bg-slate-900/90 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-                  }`}>
-                    <div className="font-bold text-slate-900 dark:text-white flex items-center justify-between">
-                      <span>Brevo + Supabase SMTP Checklist (Fixes &ldquo;Error sending confirmation email&rdquo;)</span>
-                    </div>
-                    <ol className="list-decimal list-inside space-y-1.5 leading-snug">
-                      <li>
-                        <strong>SMTP Host &amp; Port:</strong> Set Host to <code className="font-mono px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800">smtp-relay.brevo.com</code> and Port to <code className="font-mono px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800">587</code> (or <code className="font-mono">465</code>).
-                      </li>
-                      <li>
-                        <strong>SMTP Username (Login):</strong> In Brevo (<em>SMTP &amp; API → SMTP tab</em>), copy the generated <strong>SMTP Login</strong> (looks like <code className="font-mono px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800">7a8b9c01@smtp-brevo.com</code>) — do <em>not</em> use your personal email unless Brevo shows it as your SMTP login.
-                      </li>
-                      <li>
-                        <strong>SMTP Password:</strong> Generate an <strong>SMTP Key</strong> (<code className="font-mono px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800">xsmtpsib-...</code>) under Brevo&apos;s <em>SMTP</em> tab — do <em>not</em> use a REST v3 API key (<code className="font-mono">xkeysib-...</code>) or your account password.
-                      </li>
-                      <li>
-                        <strong>Verified Sender Email:</strong> The <strong>Sender email</strong> in Supabase SMTP Settings <em>must</em> be an active, verified sender in <strong>Brevo → Senders, Domains &amp; Dedicated IPs → Senders</strong>. (If using a Gmail address as Sender, Brevo may also require a custom domain or verified sender alignment).
-                      </li>
-                      <li>
-                        <strong>Supabase Site URL &amp; Redirect URLs:</strong> In <em>Supabase → Authentication → URL Configuration</em>, add this app URL so confirmation links redirect here:
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <code className="flex-1 truncate p-1.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[10px]">
-                            {getProductionBaseUrl()}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard?.writeText(getProductionBaseUrl());
-                              addToast('Copied App URL', 'Add this URL to Supabase Auth → URL Configuration → Site URL & Redirect URLs.', 'info');
-                            }}
-                            className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[10px] cursor-pointer flex-shrink-0"
-                          >
-                            Copy URL
-                          </button>
-                        </div>
-                      </li>
-                    </ol>
-                  </div>
-                )}
-
-                {/* Enter 6-Digit Code or Paste Confirmation Link */}
+                {/* Resend or Paste Email Confirmation Link */}
                 <div className="space-y-2 pt-1">
                   <label className="block text-[11px] font-bold">
-                    Enter 6-Digit Verification Code or Paste Email Confirmation Link:
+                    Paste Confirmation Link (if opened in another browser):
                   </label>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={enteredVerificationCode}
                       onChange={e => setEnteredVerificationCode(e.target.value)}
-                      placeholder="6-digit code or http://localhost:3000/#access_token=..."
+                      placeholder="Paste link from confirmation email..."
                       className="flex-1 px-3 py-2 rounded-xl border font-mono text-xs"
                     />
                     <button
@@ -821,7 +783,7 @@ export const AuthPage: React.FC = () => {
                           : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700'
                       }`}
                     >
-                      {isResendingConfirmation ? 'Sending...' : 'Retry Brevo SMTP'}
+                      {isResendingConfirmation ? 'Sending...' : 'Resend Email'}
                     </button>
                   </div>
                 </div>
@@ -831,10 +793,10 @@ export const AuthPage: React.FC = () => {
                     type="button"
                     variant="primary"
                     className="w-full py-2.5 text-xs font-bold"
-                    disabled={isResetting}
+                    disabled={isResetting || !enteredVerificationCode.trim()}
                     onClick={() => handleCompleteEmailVerification()}
                   >
-                    {isResetting ? 'Verifying...' : '✓ Verify Email & Enter Workspace →'}
+                    {isResetting ? 'Verifying...' : '✓ Confirm Email & Continue to Login →'}
                   </Button>
                 </div>
               </div>

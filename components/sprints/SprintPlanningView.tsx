@@ -9,6 +9,7 @@ import { collabService } from '../../services/collabService';
 export const SprintPlanningView: React.FC = () => {
   const {
     activeProject,
+    projects,
     tasks,
     sprints,
     users,
@@ -25,6 +26,8 @@ export const SprintPlanningView: React.FC = () => {
     presences
   } = useAppStore();
 
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>(activeProject?.id || 'all');
+  const [targetProjectId, setTargetProjectId] = useState<string>(activeProject?.id || 'all');
   const [isCreateSprintOpen, setIsCreateSprintOpen] = useState(false);
   const [sprintName, setSprintName] = useState('');
   const [sprintGoal, setSprintGoal] = useState('');
@@ -36,53 +39,58 @@ export const SprintPlanningView: React.FC = () => {
   const [batchSprintTarget, setBatchSprintTarget] = useState<string>('');
   const [sprintViewTab, setSprintViewTab] = useState<'all' | 'active' | 'planned' | 'completed'>('all');
 
-  // Filter project sprints
-  const projectSprints = useMemo(() => {
-    if (!activeProject) return [];
-    return sprints.filter(s => s.projectId === activeProject.id);
-  }, [sprints, activeProject]);
+  const getProjectName = (projId?: string | null) => {
+    if (!projId || projId === 'all') return 'Cross-Project';
+    return projects.find(p => p.id === projId)?.name || 'Project';
+  };
+
+  // Filter sprints for selected project or cross-project view
+  const visibleSprints = useMemo(() => {
+    if (selectedProjectFilter === 'all') return sprints;
+    return sprints.filter(s => !s.projectId || s.projectId === 'all' || s.projectId === selectedProjectFilter);
+  }, [sprints, selectedProjectFilter]);
 
   // Active Sprint
   const activeSprint = useMemo(() => {
-    return projectSprints.find(s => s.status === 'active') || null;
-  }, [projectSprints]);
+    return visibleSprints.find(s => s.status === 'active') || null;
+  }, [visibleSprints]);
 
   // Planned Sprints
   const plannedSprints = useMemo(() => {
-    return projectSprints.filter(s => s.status === 'planned');
-  }, [projectSprints]);
+    return visibleSprints.filter(s => s.status === 'planned');
+  }, [visibleSprints]);
 
   // Completed Sprints
   const completedSprints = useMemo(() => {
-    return projectSprints.filter(s => s.status === 'completed');
-  }, [projectSprints]);
+    return visibleSprints.filter(s => s.status === 'completed');
+  }, [visibleSprints]);
 
-  // Project tasks
-  const projectTasks = useMemo(() => {
-    if (!activeProject) return [];
-    return tasks.filter(t => t.projectId === activeProject.id);
-  }, [tasks, activeProject]);
+  // Tasks eligible for backlog display based on current project filter
+  const eligibleTasks = useMemo(() => {
+    if (selectedProjectFilter === 'all') return tasks;
+    return tasks.filter(t => t.projectId === selectedProjectFilter);
+  }, [tasks, selectedProjectFilter]);
 
   // Backlog tasks (tasks not assigned to any active or planned sprint)
   const backlogTasks = useMemo(() => {
-    return projectTasks.filter(t => {
+    return eligibleTasks.filter(t => {
       const matchesSearch = !searchQuery.trim() ||
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesPriority = priorityFilter === 'all' || t.priority === priorityFilter;
-      const isUnassignedToSprint = !t.sprintId || !projectSprints.some(s => s.id === t.sprintId && s.status !== 'completed');
+      const isUnassignedToSprint = !t.sprintId || !sprints.some(s => s.id === t.sprintId && s.status !== 'completed');
       return matchesSearch && matchesPriority && isUnassignedToSprint;
     });
-  }, [projectTasks, searchQuery, priorityFilter, projectSprints]);
+  }, [eligibleTasks, searchQuery, priorityFilter, sprints]);
 
   // Active teammates online across the platform
   const activeCollabs = useMemo(() => {
     return presences.filter(p => p.userId !== currentUser?.id);
   }, [presences, currentUser]);
 
-  // Helper for sprint statistics
+  // Helper for sprint statistics (counts tasks from any project assigned to this sprint)
   const getSprintStats = (sprintId: string) => {
-    const sprintTasks = projectTasks.filter(t => t.sprintId === sprintId);
+    const sprintTasks = tasks.filter(t => t.sprintId === sprintId);
     const total = sprintTasks.length;
     const done = sprintTasks.filter(t => t.status === TaskStatus.DONE).length;
     const inProgress = sprintTasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length;
@@ -108,16 +116,17 @@ export const SprintPlanningView: React.FC = () => {
       totalBacklogPoints,
       groomingPercentage,
       activeSprintStats: activeStats,
-      totalSprints: projectSprints.length
+      totalSprints: visibleSprints.length
     };
-  }, [backlogTasks, activeSprint, projectSprints]);
+  }, [backlogTasks, activeSprint, visibleSprints]);
 
   const handleCreateSprintSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeProject || !sprintName.trim()) return;
+    if (!sprintName.trim()) return;
 
     await createSprint({
-      projectId: activeProject.id,
+      projectId: targetProjectId || 'all',
+      projectName: getProjectName(targetProjectId),
       name: sprintName.trim(),
       goal: sprintGoal.trim() || undefined,
       status: 'planned',
@@ -155,18 +164,6 @@ export const SprintPlanningView: React.FC = () => {
     setSelectedTaskIds([]);
   };
 
-  if (!activeProject) {
-    return (
-      <div className="p-8 text-center bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 max-w-lg mx-auto mt-12 shadow-sm">
-        <ICON_MAP.RocketLaunchIcon className="w-12 h-12 text-accent mx-auto mb-3 opacity-60" />
-        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">No Active Project Selected</h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Select or create a project to manage agile sprints and grooming backlogs.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 pb-12 p-4 md:p-6">
 
@@ -189,12 +186,31 @@ export const SprintPlanningView: React.FC = () => {
               Sprint Planning & Backlog
             </h1>
             <p className="text-sm text-indigo-200/80 max-w-2xl leading-relaxed">
-              Track delivery velocity, groom user stories with Fibonacci points, and manage iterations for <span className="font-semibold text-white">{activeProject.name}</span>.
+              Track delivery velocity, groom user stories with Fibonacci points, and manage iterations for{' '}
+              <span className="font-semibold text-white">
+                {selectedProjectFilter === 'all' ? 'All Workspace Projects' : getProjectName(selectedProjectFilter)}
+              </span>.
             </p>
           </div>
 
-          {/* Action Button & Active Online Teammates */}
+          {/* Action Button, Project Filter & Active Online Teammates */}
           <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-2 rounded-xl border border-white/15">
+              <ICON_MAP.FolderIcon className="w-4 h-4 text-indigo-300" />
+              <span className="text-xs text-indigo-200 font-semibold hidden sm:inline">Scope:</span>
+              <select
+                value={selectedProjectFilter}
+                onChange={e => setSelectedProjectFilter(e.target.value)}
+                aria-label="Filter sprints and backlog by project scope"
+                className="text-xs bg-slate-900/80 border border-white/20 text-white rounded-lg px-2.5 py-1 focus:outline-hidden cursor-pointer"
+              >
+                <option value="all">🌐 All Projects (Workspace)</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>📁 {p.name}</option>
+                ))}
+              </select>
+            </div>
+
             {activeCollabs.length > 0 && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white">
                 <span className="relative flex h-2 w-2 items-center justify-center">
@@ -306,10 +322,13 @@ export const SprintPlanningView: React.FC = () => {
                 <div className="bg-white dark:bg-slate-800/90 rounded-2xl border-2 border-emerald-500/40 dark:border-emerald-500/40 p-5 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                           Active Sprint Cycle
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          {getProjectName(activeSprint.projectId)}
                         </span>
                         {activeSprint.startDate && activeSprint.endDate && (
                           <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -398,7 +417,7 @@ export const SprintPlanningView: React.FC = () => {
                                       : 'border-slate-200/80 dark:border-slate-700/80 hover:shadow-xs'
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap">
+                              <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                   task.status === TaskStatus.DONE ? 'bg-emerald-500' :
                                   task.status === TaskStatus.IN_PROGRESS ? 'bg-blue-500' :
@@ -410,6 +429,11 @@ export const SprintPlanningView: React.FC = () => {
                                 >
                                   {task.title}
                                 </span>
+                                {task.projectId && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                    📁 {getProjectName(task.projectId)}
+                                  </span>
+                                )}
                                 <TaskLivePresenceBadge taskId={task.id} compact />
                               </div>
 
@@ -469,9 +493,12 @@ export const SprintPlanningView: React.FC = () => {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                             Planned
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                            {getProjectName(sprint.projectId)}
                           </span>
                           {sprint.startDate && sprint.endDate && (
                             <span className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -518,13 +545,18 @@ export const SprintPlanningView: React.FC = () => {
                             key={t.id}
                             className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/60 text-xs border border-slate-200/50 dark:border-slate-700/50"
                           >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
                               <span
                                 onClick={() => openViewTaskModal(t.id)}
                                 className="font-medium text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 truncate cursor-pointer"
                               >
                                 {t.title}
                               </span>
+                              {t.projectId && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                  {getProjectName(t.projectId)}
+                                </span>
+                              )}
                               <TaskLivePresenceBadge taskId={t.id} compact />
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0 ml-2">
@@ -681,6 +713,11 @@ export const SprintPlanningView: React.FC = () => {
                               >
                                 {task.title}
                               </span>
+                              {task.projectId && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                  📁 {getProjectName(task.projectId)}
+                                </span>
+                              )}
                               <TaskLivePresenceBadge taskId={task.id} compact />
                             </div>
                             {task.description && (
@@ -784,6 +821,26 @@ export const SprintPlanningView: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateSprintSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Sprint Scope / Project
+                </label>
+                <select
+                  value={targetProjectId}
+                  onChange={e => setTargetProjectId(e.target.value)}
+                  aria-label="Select Sprint Scope or Project"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="all">🌐 Workspace Sprint (Supports Tasks From All Projects)</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>📁 {p.name}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                  Workspace sprints allow pulling user stories and tasks from multiple projects into a unified iteration.
+                </p>
+              </div>
+
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Sprint Name *

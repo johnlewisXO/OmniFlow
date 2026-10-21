@@ -223,14 +223,14 @@ export const ClientPortalChangelogPage: React.FC = () => {
       const created = await createTask({
         title: `[Customer Portal] ${req.title}`,
         description: `${req.description}\n\nRequested by: ${req.requesterName} (${req.requesterOrg}) • ${req.votes} Votes`,
-        priority: req.impactScore === 'critical' ? TaskPriority.URGENT : TaskPriority.HIGH,
+        priority: req.impactScore === 'critical' ? TaskPriority.CRITICAL : TaskPriority.HIGH,
         status: TaskStatus.TODO,
         projectId: targetProjectId,
       });
       setRequests(prev =>
         prev.map(r =>
           r.id === req.id
-            ? { ...r, status: 'planned', linkedTaskId: created?.id || 'linked' }
+            ? { ...r, status: 'planned', linkedTaskId: (created as any)?.id || 'linked' }
             : r
         )
       );
@@ -259,7 +259,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
       title: `${activeProject?.name || 'Workspace'} Sprint Release ${version}`,
       summary: `Automated release notes compiled from ${doneTasks.length || 2} completed engineering tasks and stakeholder roadmap items.`,
       releaseDate: new Date().toISOString().split('T')[0],
-      authorName: currentUser?.name || 'Release Bot',
+      authorName: currentUser?.full_name || currentUser?.email || 'Release Bot',
       published: true,
       features,
       improvements: [

@@ -165,7 +165,7 @@ export const GanttRoadmapPage: React.FC = () => {
       const isCrit =
         item.blockedByIds.length > 0 ||
         dependedOnIds.has(item.task.id) ||
-        item.task.priority === TaskPriority.URGENT ||
+        item.task.priority === TaskPriority.CRITICAL ||
         item.task.priority === TaskPriority.HIGH;
       return { ...item, isCriticalPath: isCrit };
     }).filter(item => (!showCriticalPathOnly ? true : item.isCriticalPath));
@@ -296,8 +296,7 @@ export const GanttRoadmapPage: React.FC = () => {
 
         const targetTask = tasks.find(t => t.id === dragState.taskId);
         if (targetTask) {
-          updateTask({
-            ...targetTask,
+          updateTask(targetTask.id, {
             startDate: startIso,
             dueDate: dueIso,
             due_date: dueIso,
@@ -375,7 +374,7 @@ export const GanttRoadmapPage: React.FC = () => {
       await createTask({
         title: quickTitle.trim(),
         description: quickIsMilestone ? 'Strategic Roadmap Milestone' : 'Scheduled from Gantt Roadmap',
-        priority: quickIsMilestone ? TaskPriority.URGENT : TaskPriority.HIGH,
+        priority: quickIsMilestone ? TaskPriority.CRITICAL : TaskPriority.HIGH,
         status: TaskStatus.TODO,
         projectId: targetProjectId,
         dueDate: endObj.toISOString().split('T')[0],

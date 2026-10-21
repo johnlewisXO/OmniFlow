@@ -77,6 +77,10 @@ interface StoreState {
   // Password Update
   isPasswordUpdateModalOpen: boolean;
 
+  // Organization Switching Modal
+  isOrgModalOpen: boolean;
+  orgModalInitialMode: 'join' | 'create';
+
   isCommandPaletteOpen: boolean;
   isMobileSidebarOpen: boolean;
 
@@ -163,6 +167,10 @@ const initialStoreStateValues: StoreState = {
 
   // Password Update
   isPasswordUpdateModalOpen: false,
+
+  // Organization Switching Modal
+  isOrgModalOpen: false,
+  orgModalInitialMode: 'join',
 
   isCommandPaletteOpen: false,
 
@@ -2038,6 +2046,45 @@ const appActionsCreator = (
     // Password Update Actions
     openPasswordUpdateModal: () => updateState(s => ({ ...s, isPasswordUpdateModalOpen: true })),
     closePasswordUpdateModal: () => updateState(s => ({ ...s, isPasswordUpdateModalOpen: false, authError: null })),
+
+    // Organization Switching Actions
+    openOrganizationModal: (mode: 'join' | 'create' = 'join') =>
+      updateState(s => ({ ...s, isOrgModalOpen: true, orgModalInitialMode: mode })),
+    closeOrganizationModal: () =>
+      updateState(s => ({ ...s, isOrgModalOpen: false })),
+    switchOrganization: async (orgId: string, orgName?: string) => {
+      const { currentUser } = get();
+      if (!currentUser || !orgId) return;
+      updateState(s => ({ ...s, authLoading: true, authError: null }));
+      try {
+        saveUserProfileExtension(currentUser.id, {
+          organization_id: orgId,
+          organization_name: orgName,
+          removedFromOrgId: null,
+        });
+        await supabaseService.updateUserRole(
+          currentUser.id,
+          currentUser.role || UserRole.MEMBER,
+          orgId
+        );
+        const nextUser = normalizeAppUser({
+          ...currentUser,
+          organization_id: orgId,
+        });
+        get().setCurrentUser(nextUser);
+        updateState(s => ({ ...s, isOrgModalOpen: false, authLoading: false }));
+        get().addToast('Workspace Switched', `Switched active organization to ${orgName || 'selected workspace'}.`, 'success');
+        setTimeout(() => {
+          selfActions.fetchCurrentOrganization();
+          selfActions.fetchUsersForAssignmentList();
+          selfActions.fetchProjects();
+        }, 50);
+      } catch (err: any) {
+        updateState(s => ({ ...s, authLoading: false, authError: err.message }));
+        get().addToast('Switch Failed', err.message || 'Could not switch organization.', 'error');
+        throw err;
+      }
+    },
     updatePassword: async (password: string) => {
       updateState(s => ({ ...s, authLoading: true, authError: null }));
       try {

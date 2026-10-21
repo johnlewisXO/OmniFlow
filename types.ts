@@ -301,7 +301,8 @@ export type AppUserType = User;
 
 export interface Sprint {
   id: string;
-  projectId: string;
+  projectId?: string | null;
+  projectName?: string;
   name: string;
   goal?: string;
   status: 'planned' | 'active' | 'completed';
@@ -1053,6 +1054,13 @@ export interface AppStore {
   triggerUndo: () => Promise<void>;
   bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => Promise<void>;
   bulkDeleteTasks: (taskIds: string[]) => Promise<void>;
+
+  // Organization Management & Switching
+  isOrgModalOpen: boolean;
+  orgModalInitialMode: 'join' | 'create';
+  openOrganizationModal: (mode?: 'join' | 'create') => void;
+  closeOrganizationModal: () => void;
+  switchOrganization: (orgId: string, orgName?: string) => Promise<void>;
 }
 
 export interface ClipCommentPin {

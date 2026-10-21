@@ -23,8 +23,13 @@ const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) =
 export const CreateOrJoinOrganizationModal: React.FC = () => {
   const {
     currentUser,
+    currentOrganization,
     setCurrentUser,
     joinOrCreateOrganization,
+    switchOrganization,
+    isOrgModalOpen,
+    orgModalInitialMode,
+    closeOrganizationModal,
     signOut,
     authLoading,
     appLoading,
@@ -33,7 +38,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     addToast,
   } = useAppStore();
 
-  const [setupMode, setSetupMode] = useState<'join' | 'create'>('join');
+  const [setupMode, setSetupMode] = useState<'join' | 'create'>(orgModalInitialMode || 'join');
   const [organizationName, setOrganizationName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.MEMBER);
   const [requestNote, setRequestNote] = useState('');
@@ -42,6 +47,12 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
   const [inviteStatusMsg, setInviteStatusMsg] = useState<string | null>(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState<boolean>(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (orgModalInitialMode) {
+      setSetupMode(orgModalInitialMode);
+    }
+  }, [orgModalInitialMode, isOrgModalOpen]);
 
   const [searchResults, setSearchResults] = useState<
     Array<{ id: string; name: string; slug: string; memberCount?: number; leadName?: string }>
@@ -410,37 +421,29 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     }
 
     if (setupMode === 'join' && !targetExistingOrgId) {
-      // Check if any organization exists in DB at all (in case RLS hid the name of the single workspace)
-      const allKnown = await supabaseService.searchOrganizations('');
-      if (allKnown.length > 0) {
-        const fallbackOrg = allKnown[0];
-        setIsSubmittingRequest(true);
-        try {
-          const joinReq = await supabaseService.createJoinRequest({
-            organizationId: fallbackOrg.id,
-            organizationName: cleanName,
-            requester: currentUser,
-            requestedRole:
-              selectedRole === UserRole.PROJECT_MANAGER ? UserRole.PROJECT_MANAGER : UserRole.MEMBER,
-            message: requestNote,
-          });
-          setPendingJoinRequest(joinReq);
-          addToast(
-            'Join Request Sent!',
-            `Requested to join ${cleanName} as ${selectedRole.replace(/_/g, ' ')}. A Project Manager will review your request.`,
-            'success'
-          );
-          return;
-        } catch (err: any) {
-          setFormError(err.message || 'Failed to submit join request.');
-        } finally {
-          setIsSubmittingRequest(false);
-        }
-      } else {
-        setFormError(
-          `Could not find an existing organization named "${cleanName}". Switch to "Create New Organization" above if you want to create it.`
-        );
+      setFormError(
+        `Please select a valid existing organization from the list below, or switch to "Create New Workspace" above to create "${cleanName}".`
+      );
+      return;
+    }
+
+    // If user is already in this organization
+    if (setupMode === 'join' && targetExistingOrgId === currentUser.organization_id) {
+      setFormError(`You are already in "${targetExistingOrgName}".`);
+      return;
+    }
+
+    // If switching between organizations the user belongs to
+    if (setupMode === 'join' && targetExistingOrgId && currentUser.organization_id) {
+      setIsSubmittingRequest(true);
+      try {
+        await switchOrganization(targetExistingOrgId, targetExistingOrgName);
+        closeOrganizationModal();
         return;
+      } catch {
+        // Fall through to submit request if switch requires approval
+      } finally {
+        setIsSubmittingRequest(false);
       }
     }
 
@@ -452,6 +455,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
         `Welcome to ${cleanName}! You have been assigned as Organization Owner.`,
         'success'
       );
+      closeOrganizationModal();
     } catch (error: any) {
       const msg = String(error?.message || '');
       if (
@@ -497,8 +501,11 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     },
   ];
 
-  // Show modal whenever user is authenticated and does NOT yet belong to an organization
-  if (authLoading || appLoading || !currentUser || currentUser.organization_id) {
+  const isMandatoryOnboarding = !currentUser?.organization_id;
+  const isExplicitlyOpen = isOrgModalOpen;
+
+  // Show modal if user has no org (mandatory) OR opened explicitly from Settings/Header
+  if (authLoading || appLoading || !currentUser || (!isMandatoryOnboarding && !isExplicitlyOpen)) {
     return null;
   }
 
@@ -506,10 +513,12 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     <Modal
       isOpen={true}
       backdropBlur={true}
-      onClose={() => {}}
+      onClose={isMandatoryOnboarding ? () => {} : closeOrganizationModal}
       title={
         pendingJoinRequest
           ? 'Organization Access Request Status'
+          : currentUser.organization_id
+          ? 'Switch Organization or Create New Workspace'
           : 'Workspace Setup — Search or Create Organization'
       }
     >
@@ -774,6 +783,27 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                         </button>
                       );
                     })}
+                  </div>
+                )}
+
+                {isDropdownOpen && searchResults.length === 0 && (
+                  <div
+                    className={`mt-1.5 p-4 rounded-xl border text-center space-y-2 z-30 ${
+                      darkMode ? 'bg-slate-900/95 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <p className="text-xs font-medium">No verified organizations found.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSetupMode('create');
+                        setIsDropdownOpen(false);
+                        setFormError(null);
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer transition shadow-xs"
+                    >
+                      ✦ Create New Workspace Instead
+                    </button>
                   </div>
                 )}
 
