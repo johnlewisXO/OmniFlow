@@ -594,6 +594,125 @@ async function startServer() {
     console.warn('[server.ts] Could not hydrate organizations.json:', e);
   }
 
+  // Ensure canonical verified organizations are always seeded
+  const CANONICAL_ORGS = [
+    {
+      id: 'org-omni-flow',
+      name: 'Omni Flow',
+      slug: 'omni-flow',
+      domain: 'omniflow.io',
+      corporateDomain: 'omniflow.io',
+      corporate_domain: 'omniflow.io',
+      defaultSprintDurationDays: 14,
+      default_sprint_duration_days: 14,
+      defaultTaskStatus: 'TODO',
+      autoAssignCreator: true,
+      requireAcceptanceChecklist: true,
+      enablePublicInviteLinks: true,
+      settings: {
+        corporateDomain: 'omniflow.io',
+        defaultSprintDurationDays: 14,
+        defaultTaskStatus: 'TODO',
+        autoAssignCreator: true,
+        requireAcceptanceChecklist: true,
+        enablePublicInviteLinks: true,
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'org-enterprise-workspace',
+      name: 'Omni Flow Enterprise',
+      slug: 'omni-flow-enterprise',
+      domain: 'omniflow.io',
+      corporateDomain: 'omniflow.io',
+      corporate_domain: 'omniflow.io',
+      defaultSprintDurationDays: 14,
+      default_sprint_duration_days: 14,
+      defaultTaskStatus: 'TODO',
+      autoAssignCreator: true,
+      requireAcceptanceChecklist: true,
+      enablePublicInviteLinks: true,
+      settings: {
+        corporateDomain: 'omniflow.io',
+        defaultSprintDurationDays: 14,
+        defaultTaskStatus: 'TODO',
+        autoAssignCreator: true,
+        requireAcceptanceChecklist: true,
+        enablePublicInviteLinks: true,
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'org-test-123',
+      name: 'Acme Global',
+      slug: 'acme-global',
+      domain: 'acme.com',
+      corporateDomain: 'acme.com',
+      corporate_domain: 'acme.com',
+      defaultSprintDurationDays: 21,
+      default_sprint_duration_days: 21,
+      defaultTaskStatus: 'TODO',
+      autoAssignCreator: true,
+      requireAcceptanceChecklist: true,
+      enablePublicInviteLinks: true,
+      settings: {
+        corporateDomain: 'acme.com',
+        defaultSprintDurationDays: 21,
+        defaultTaskStatus: 'TODO',
+        autoAssignCreator: true,
+        requireAcceptanceChecklist: true,
+        enablePublicInviteLinks: true,
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'be2f60da-097a-47a3-859c-571c9139c14d',
+      name: 'regal-logistics',
+      slug: 'regal-logistics',
+      domain: 'regal-logistics.com',
+      corporateDomain: 'regal-logistics.com',
+      corporate_domain: 'regal-logistics.com',
+      defaultSprintDurationDays: 14,
+      default_sprint_duration_days: 14,
+      defaultTaskStatus: 'TODO',
+      autoAssignCreator: true,
+      requireAcceptanceChecklist: true,
+      enablePublicInviteLinks: true,
+      settings: {
+        corporateDomain: 'regal-logistics.com',
+        defaultSprintDurationDays: 14,
+        defaultTaskStatus: 'TODO',
+        autoAssignCreator: true,
+        requireAcceptanceChecklist: true,
+        enablePublicInviteLinks: true,
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+
+  const persistOrganizations = () => {
+    try {
+      const obj: Record<string, any> = {};
+      for (const [k, v] of organizationsStore.entries()) {
+        obj[k] = v;
+      }
+      fs.writeFileSync(organizationsFile, JSON.stringify(obj, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[server.ts] Could not write organizations.json:', e);
+    }
+  };
+
+  CANONICAL_ORGS.forEach(org => {
+    if (!organizationsStore.has(org.id)) {
+      organizationsStore.set(org.id, org);
+    }
+  });
+  persistOrganizations();
+
   const persistUserRoles = () => {
     try {
       const obj: Record<string, any> = {};
@@ -612,18 +731,6 @@ async function startServer() {
       fs.writeFileSync(joinRequestsFile, JSON.stringify(arr, null, 2), 'utf-8');
     } catch (e) {
       console.warn('[server.ts] Could not write join_requests.json:', e);
-    }
-  };
-
-  const persistOrganizations = () => {
-    try {
-      const obj: Record<string, any> = {};
-      for (const [k, v] of organizationsStore.entries()) {
-        obj[k] = v;
-      }
-      fs.writeFileSync(organizationsFile, JSON.stringify(obj, null, 2), 'utf-8');
-    } catch (e) {
-      console.warn('[server.ts] Could not write organizations.json:', e);
     }
   };
 
@@ -945,22 +1052,129 @@ async function startServer() {
   });
 
   // Organization Governance & Config Settings Endpoints
-  app.get('/api/organizations', (_req, res) => {
+  app.get('/api/organizations', (req, res) => {
+    const { query } = req.query as { query?: string };
     const list = Array.from(organizationsStore.values());
-    return res.json({ ok: true, organizations: list });
+    const cleanQ = (query || '').trim().toLowerCase();
+
+    // Attach real member counts & lead info from usersRoleStore
+    const enriched = list.map(org => {
+      let count = 0;
+      let leadName: string | undefined;
+      for (const u of usersRoleStore.values()) {
+        if (u.organizationId === org.id) {
+          count++;
+          if (u.role === 'OWNER' || u.role === 'PROJECT_MANAGER' || !leadName) {
+            leadName = u.email ? u.email.split('@')[0] : 'Workspace Owner';
+          }
+        }
+      }
+      return {
+        ...org,
+        memberCount: Math.max(count, 1),
+        leadName: leadName || 'Workspace Owner',
+      };
+    });
+
+    if (cleanQ) {
+      const filtered = enriched.filter(o =>
+        (o.name && o.name.toLowerCase().includes(cleanQ)) ||
+        (o.slug && o.slug.toLowerCase().includes(cleanQ)) ||
+        (o.corporateDomain && o.corporateDomain.toLowerCase().includes(cleanQ))
+      );
+      return res.json({ ok: true, organizations: filtered });
+    }
+
+    return res.json({ ok: true, organizations: enriched });
+  });
+
+  app.post('/api/organizations', (req, res) => {
+    const body = req.body || {};
+    const name = (body.name || body.orgDisplayName || '').trim();
+    if (!name) {
+      return res.status(400).json({ error: 'Organization name is required.' });
+    }
+
+    const slug = body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    // Return existing if found
+    for (const existing of organizationsStore.values()) {
+      if (
+        existing.slug?.toLowerCase() === slug.toLowerCase() ||
+        existing.name?.toLowerCase() === name.toLowerCase()
+      ) {
+        return res.json({ ok: true, organization: existing, isExisting: true });
+      }
+    }
+
+    const id = body.id || `org-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+    const newOrg = {
+      id,
+      name,
+      slug,
+      domain: body.domain || body.corporateDomain || `${slug}.live`,
+      corporateDomain: body.corporateDomain || `${slug}.live`,
+      corporate_domain: body.corporateDomain || `${slug}.live`,
+      defaultSprintDurationDays: Number(body.defaultSprintDurationDays) || 14,
+      default_sprint_duration_days: Number(body.defaultSprintDurationDays) || 14,
+      defaultTaskStatus: body.defaultTaskStatus || 'TODO',
+      autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : true,
+      requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : true,
+      enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : true,
+      settings: {
+        corporateDomain: body.corporateDomain || `${slug}.live`,
+        defaultSprintDurationDays: Number(body.defaultSprintDurationDays) || 14,
+        defaultTaskStatus: body.defaultTaskStatus || 'TODO',
+        autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : true,
+        requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : true,
+        enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : true,
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    organizationsStore.set(id, newOrg);
+    persistOrganizations();
+
+    // Best-effort insert to Supabase organizations table
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      try {
+        fetch(`${SUPABASE_URL}/rest/v1/organizations`, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+          },
+          body: JSON.stringify({ id, name, slug }),
+        }).catch(() => {});
+      } catch {}
+    }
+
+    return res.status(201).json({ ok: true, organization: newOrg, isExisting: false });
   });
 
   app.get('/api/organizations/:id', (req, res) => {
     const { id } = req.params;
     let org = organizationsStore.get(id);
     if (!org) {
+      // Check if id matches slug
+      for (const o of organizationsStore.values()) {
+        if (o.slug === id || o.id === id) {
+          org = o;
+          break;
+        }
+      }
+    }
+    if (!org) {
       org = {
         id,
-        name: 'Omni Flow Enterprise Workspace',
-        slug: 'workspace',
-        domain: 'workspace.live',
-        corporateDomain: 'workspace.live',
-        corporate_domain: 'workspace.live',
+        name: 'Omni Flow',
+        slug: 'omni-flow',
+        domain: 'omniflow.io',
+        corporateDomain: 'omniflow.io',
+        corporate_domain: 'omniflow.io',
         defaultSprintDurationDays: 14,
         default_sprint_duration_days: 14,
         defaultTaskStatus: 'TODO',
@@ -968,7 +1182,7 @@ async function startServer() {
         requireAcceptanceChecklist: true,
         enablePublicInviteLinks: true,
         settings: {
-          corporateDomain: 'workspace.live',
+          corporateDomain: 'omniflow.io',
           defaultSprintDurationDays: 14,
           defaultTaskStatus: 'TODO',
           autoAssignCreator: true,
@@ -991,8 +1205,8 @@ async function startServer() {
     const updated = {
       ...existing,
       id,
-      name: body.name || body.orgDisplayName || existing.name || 'Omni Flow Enterprise Workspace',
-      slug: body.slug || existing.slug || (body.name ? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'workspace'),
+      name: body.name || body.orgDisplayName || existing.name || 'Omni Flow',
+      slug: body.slug || existing.slug || (body.name ? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'omni-flow'),
       domain: body.domain || body.corporateDomain || existing.domain || '',
       corporate_domain: body.corporateDomain || body.corporate_domain || existing.corporate_domain || '',
       corporateDomain: body.corporateDomain || body.corporate_domain || existing.corporateDomain || '',

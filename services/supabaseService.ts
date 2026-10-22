@@ -430,45 +430,82 @@ const supabaseService = {
 
   findOrCreateOrganization: async (name: string): Promise<OrganizationDb | null> => {
     const trimmedName = name.trim();
-    if (!trimmedName) {
-        return null;
-    }
+    if (!trimmedName) return null;
     const slug = supabaseService.generateSlug(trimmedName);
 
     try {
-      let { data: existingOrg, error: findError } = await supabase
+      // 1. Check server API first
+      try {
+        const serverSearchRes = await fetch(`/api/organizations?query=${encodeURIComponent(trimmedName)}`);
+        if (serverSearchRes.ok) {
+          const body = await serverSearchRes.json();
+          if (Array.isArray(body?.organizations)) {
+            const match = body.organizations.find(
+              (o: any) =>
+                o.name.trim().toLowerCase() === trimmedName.toLowerCase() ||
+                o.slug === slug
+            );
+            if (match) {
+              cacheKnownOrganization(match);
+              return match as OrganizationDb;
+            }
+          }
+        }
+      } catch {}
+
+      // 2. Check Supabase organizations table
+      let { data: existingOrg } = await supabase
         .from('organizations')
         .select('id, name, slug')
         .or(`slug.eq.${slug},name.ilike.${trimmedName.replace(/['%_]/g, '\\$&')}`)
         .maybeSingle();
 
-      if (findError && findError.code !== 'PGRST116') {
-        throw new Error(`Failed to find organization: ${findError.message}`);
-      }
       if (existingOrg) {
         cacheKnownOrganization(existingOrg);
         return existingOrg as OrganizationDb;
       }
 
-      const { data: newOrg, error: createError } = await supabase
-        .from('organizations')
-        .insert({ name: trimmedName, slug })
-        .select('id, name, slug')
-        .single();
-
-      if (createError) {
-        if (createError.message.includes("violates row-level security policy") || createError.code === "42501") {
-            throw new Error(`Failed to create organization due to RLS. Ensure INSERT policy on 'organizations' table allows this. DB Msg: ${createError.message}`);
+      // 3. Create on server API to ensure cross-user & cross-browser persistence
+      let createdOnServer: any = null;
+      try {
+        const postRes = await fetch('/api/organizations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmedName, slug }),
+        });
+        if (postRes.ok) {
+          const postBody = await postRes.json();
+          if (postBody?.organization) {
+            createdOnServer = postBody.organization;
+          }
         }
-        throw new Error(`Failed to create organization: ${createError.message}.`);
-      }
-      if (!newOrg) {
-        throw new Error('Organization creation returned no data.');
-      }
-      cacheKnownOrganization(newOrg);
-      return newOrg as OrganizationDb;
+      } catch {}
+
+      // 4. Best-effort insert into Supabase organizations table
+      let createdOnDb: any = null;
+      try {
+        const { data: newOrg } = await supabase
+          .from('organizations')
+          .insert({
+            id: createdOnServer?.id,
+            name: trimmedName,
+            slug,
+          })
+          .select('id, name, slug')
+          .single();
+        if (newOrg) createdOnDb = newOrg;
+      } catch {}
+
+      const resolvedOrg: OrganizationDb = createdOnDb || createdOnServer || {
+        id: `org-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+        name: trimmedName,
+        slug,
+      };
+
+      cacheKnownOrganization(resolvedOrg);
+      return resolvedOrg;
     } catch (error: any) {
-        throw new Error(`Operation failed in findOrCreateOrganization: ${error.message}`);
+      throw new Error(`Operation failed in findOrCreateOrganization: ${error.message}`);
     }
   },
 
@@ -491,7 +528,31 @@ const supabaseService = {
     const cleanQuery = (query || '').trim().toLowerCase();
     const resultsMap = new Map<string, { id: string; name: string; slug: string; memberCount?: number; leadName?: string }>();
 
-    // 1. Query Supabase organizations table directly
+    // 1. Query server organizations API (authoritative persisted store across all users)
+    try {
+      const serverRes = await fetch(`/api/organizations${cleanQuery ? `?query=${encodeURIComponent(cleanQuery)}` : ''}`);
+      if (serverRes.ok) {
+        const body = await serverRes.json();
+        if (Array.isArray(body?.organizations)) {
+          body.organizations.forEach((org: any) => {
+            if (org?.id && org?.name && !/'s Organization$/i.test(org.name)) {
+              cacheKnownOrganization(org);
+              resultsMap.set(org.id, {
+                id: org.id,
+                name: org.name,
+                slug: org.slug || supabaseService.generateSlug(org.name),
+                memberCount: org.memberCount || 1,
+                leadName: org.leadName || 'Workspace Owner',
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[supabaseService.searchOrganizations] Server API notice:', e);
+    }
+
+    // 2. Query Supabase organizations table directly
     try {
       const { data: orgRows } = await supabase
         .from('organizations')
@@ -503,20 +564,22 @@ const supabaseService = {
           if (row && row.id && row.name && !/'s Organization$/i.test(row.name)) {
             cacheKnownOrganization(row);
             const slug = row.slug || supabaseService.generateSlug(row.name);
-            resultsMap.set(row.id, { id: row.id, name: row.name, slug });
+            if (!resultsMap.has(row.id)) {
+              resultsMap.set(row.id, { id: row.id, name: row.name, slug });
+            }
           }
         });
       }
     } catch {}
 
-    // 2. Check cached verified organizations
+    // 3. Check cached verified organizations
     getCachedKnownOrganizations().forEach(cached => {
       if (cached?.id && cached?.name && !resultsMap.has(cached.id)) {
         resultsMap.set(cached.id, { ...cached });
       }
     });
 
-    // 3. For all verified organizations found, query member counts
+    // 4. For all verified organizations found, enrich with member counts from user_profiles if available
     const validOrgIds = Array.from(resultsMap.keys());
     if (validOrgIds.length > 0) {
       try {
@@ -525,7 +588,7 @@ const supabaseService = {
           .select('id, full_name, email, organization_id, role')
           .in('organization_id', validOrgIds);
 
-        if (Array.isArray(profileRows)) {
+        if (Array.isArray(profileRows) && profileRows.length > 0) {
           const counts = new Map<string, number>();
           const leads = new Map<string, string>();
 
@@ -572,7 +635,18 @@ const supabaseService = {
     const slug = supabaseService.generateSlug(trimmedOrgName);
     
     try {
-      // 1. Exact or case-insensitive check in Supabase organizations table
+      // 1. Search organizations list across server and DB
+      const matches = await supabaseService.searchOrganizations(trimmedOrgName);
+      const exactMatch = matches.find(
+        m =>
+          m.name.trim().toLowerCase() === trimmedOrgName.toLowerCase() ||
+          m.slug.toLowerCase() === slug.toLowerCase()
+      );
+      if (exactMatch) {
+        return { exists: true, id: exactMatch.id, name: exactMatch.name, slug: exactMatch.slug };
+      }
+
+      // 2. Exact check in Supabase organizations table
       const { data, error } = await supabase
           .from('organizations')
           .select('id, name, slug') 
@@ -582,17 +656,6 @@ const supabaseService = {
       if (data && data.id) {
         cacheKnownOrganization(data);
         return { exists: true, id: data.id, name: data.name, slug: data.slug };
-      }
-
-      // 2. Fallback: search organizations list case-insensitively across all sources
-      const matches = await supabaseService.searchOrganizations(trimmedOrgName);
-      const exactMatch = matches.find(
-        m =>
-          m.name.trim().toLowerCase() === trimmedOrgName.toLowerCase() ||
-          m.slug.toLowerCase() === slug.toLowerCase()
-      );
-      if (exactMatch) {
-        return { exists: true, id: exactMatch.id, name: exactMatch.name, slug: exactMatch.slug };
       }
 
       if (error && error.code !== 'PGRST116') {
@@ -1371,6 +1434,19 @@ const supabaseService = {
     });
   },
 
+  getAllTasks: async (organizationId?: string): Promise<Task[]> => {
+    return deduplicateRequest(`get_all_tasks_${organizationId || 'all'}`, async () => {
+      const { data, error } = await withSupabaseRetry(() =>
+        supabase.from('tasks').select('*').order('created_at', { ascending: false })
+      );
+      if (error) {
+        console.warn('[getAllTasks] Notice fetching all tasks:', error);
+        return [];
+      }
+      return ((data as any[]) || []).map(mapDbTaskToAppTask);
+    });
+  },
+
   getTaskById: async (taskId: string): Promise<Task | null> => {
     const { data, error } = await withSupabaseRetry(() =>
       supabase.from('tasks').select('*').eq('id', taskId).maybeSingle()
@@ -1977,6 +2053,14 @@ const supabaseService = {
 
     try {
       localStorage.setItem(`omni_org_governance_settings_${orgId}`, JSON.stringify(mergedOrg));
+      if (typeof window !== 'undefined') {
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('omni_collab_sync');
+          bc.postMessage({ type: 'ORGANIZATION_UPDATED', organization: mergedOrg, organizationId: orgId });
+          bc.close();
+        }
+        window.dispatchEvent(new CustomEvent('omni_organization_settings_updated', { detail: mergedOrg }));
+      }
     } catch {}
 
     return mergedOrg;

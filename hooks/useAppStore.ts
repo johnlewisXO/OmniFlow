@@ -516,7 +516,18 @@ const appActionsCreator = (
       try {
         const org = await supabaseService.getOrganizationById(currentUser.organization_id);
         if (org) {
-          updateState(s => ({ ...s, currentOrganization: org }));
+          const normalizedOrg: Organization = {
+            ...org,
+            name: org.name || (org as any).orgDisplayName || 'Omni Flow Enterprise Workspace',
+            domain: org.domain || org.corporateDomain || org.corporate_domain,
+            corporateDomain: org.corporateDomain || org.domain || org.corporate_domain,
+            defaultSprintDurationDays: org.defaultSprintDurationDays || (org as any).default_sprint_duration_days || 14,
+            defaultTaskStatus: org.defaultTaskStatus || TaskStatus.TODO,
+            autoAssignCreator: org.autoAssignCreator ?? true,
+            requireAcceptanceChecklist: org.requireAcceptanceChecklist ?? true,
+            enablePublicInviteLinks: org.enablePublicInviteLinks ?? true,
+          };
+          updateState(s => ({ ...s, currentOrganization: normalizedOrg }));
         }
       } catch (err) {
         console.warn('[useAppStore] fetchCurrentOrganization failed:', err);
@@ -1228,25 +1239,33 @@ const appActionsCreator = (
     fetchProjects: selfActions.fetchProjects,
     fetchTasksForProject: selfActions.fetchTasksForProject,
     fetchAllTasksForAllProjects: async () => {
-      const { currentUser, projects: currentProjects, isLoadingTasks } = get();
+      const { currentUser, projects: currentProjects } = get();
       if (!currentUser) return;
-      if (isLoadingTasks) return; 
 
       updateState(s => ({ ...s, isLoadingTasks: true, tasksError: null }));
-      let allTasks: Task[] = [];
-      let anyError = null;
       try {
-        for (const project of currentProjects) {
-          try {
-            const projectTasks = await supabaseService.getTasksByProjectId(project.id);
-            allTasks = allTasks.concat(projectTasks);
-          } catch (error) {
-            console.error(`Error fetching tasks for project ${project.id} in fetchAllTasksForAllProjects:`, error);
-            anyError = error; 
-          }
-        }
-        const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
-        updateState(s => ({ ...s, tasks: uniqueTasks, isLoadingTasks: false, tasksError: anyError ? parseErrorMessage(anyError, 'Failed to fetch some project tasks.') : null }));
+        const orgId = currentUser.organization_id;
+        // 1. Authoritative query across workspace tasks
+        const allOrgTasks = await withTimeout(
+          supabaseService.getAllTasks(orgId),
+          12000,
+          "All tasks fetch timeout"
+        ).catch(() => [] as Task[]);
+
+        // 2. Query all loaded projects in parallel to guarantee complete coverage
+        const projectTasksPromises = (currentProjects || []).map(project =>
+          supabaseService.getTasksByProjectId(project.id).catch(() => [] as Task[])
+        );
+        const projectTaskArrays = await Promise.all(projectTasksPromises);
+
+        // 3. Merge, preserving any existing local tasks and deduplicating by ID
+        const taskMap = new Map<string, Task>();
+        get().tasks.forEach(t => taskMap.set(t.id, t));
+        allOrgTasks.forEach(t => taskMap.set(t.id, t));
+        projectTaskArrays.flat().forEach(t => taskMap.set(t.id, t));
+
+        const uniqueTasks = Array.from(taskMap.values());
+        updateState(s => ({ ...s, tasks: uniqueTasks, isLoadingTasks: false, tasksError: null }));
       } catch (error: any) { 
         updateState(s => ({ ...s, isLoadingTasks: false, tasksError: parseErrorMessage(error, 'Failed to fetch all tasks.') }));
       }
@@ -1255,16 +1274,30 @@ const appActionsCreator = (
 
     setActiveProject: selfActions.setActiveProject,
     createTask: async (taskData: Omit<Task, 'id' | 'position' | 'created_at' | 'updated_at' | 'creator_id'>) => {
-      const { currentUser, activeProject } = get();
-      if (!currentUser || !activeProject) {
+      const { currentUser, activeProject, currentOrganization } = get();
+      const targetProjectId = taskData.projectId || activeProject?.id;
+      if (!currentUser || !targetProjectId) {
         const message = "Cannot create task: No active user or project selected.";
         updateState(s => ({...s, error: message, isLoading: false}));
         return null;
       }
+
+      const defaultStatus = currentOrganization?.defaultTaskStatus || TaskStatus.TODO;
+      const defaultAssignee = currentOrganization?.autoAssignCreator !== false ? currentUser.id : undefined;
+
+      const enrichedTaskData = {
+        ...taskData,
+        projectId: targetProjectId,
+        status: taskData.status || defaultStatus,
+        assignee_id: taskData.assignee_id !== undefined ? taskData.assignee_id : defaultAssignee,
+      };
+
       updateState(s => ({ ...s, isLoading: true, error: null }));
       try {
-        const createdTask = await supabaseService.createTask(taskData);
-        await selfActions.fetchTasksForProject(activeProject.id); 
+        const createdTask = await supabaseService.createTask(enrichedTaskData);
+        if (targetProjectId) {
+          await selfActions.fetchTasksForProject(targetProjectId); 
+        }
         selfActions.emitEvent('TASK_CREATED', { task: createdTask });
         if (createdTask) {
           collabService.broadcastTaskCreated(createdTask, {
@@ -2827,6 +2860,62 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
         );
       }
     }) as EventListener);
+
+    // 8. Remote Organization Settings & Display Name Updated
+    const handleOrgUpdate = (orgData: any) => {
+      if (!orgData) return;
+      const curUser = getPureState().currentUser;
+      const curOrgId = curUser?.organization_id || getPureState().currentOrganization?.id;
+      const targetOrgId = orgData.id || orgData.organizationId;
+      if (targetOrgId && curOrgId && targetOrgId !== curOrgId) return;
+
+      const newName = orgData.name || orgData.orgDisplayName;
+      setState(s => {
+        const existingOrg: Organization = s.currentOrganization || {
+          id: targetOrgId || curOrgId || 'org-workspace',
+          name: newName || 'Workspace',
+        };
+        const mergedOrg: Organization = {
+          ...existingOrg,
+          ...(orgData.settings || {}),
+          ...(orgData || {}),
+          name: newName || existingOrg.name,
+          corporateDomain: orgData.corporateDomain || orgData.domain || existingOrg.corporateDomain,
+          defaultSprintDurationDays: orgData.defaultSprintDurationDays ?? existingOrg.defaultSprintDurationDays,
+          defaultTaskStatus: orgData.defaultTaskStatus ?? existingOrg.defaultTaskStatus,
+          autoAssignCreator: orgData.autoAssignCreator ?? existingOrg.autoAssignCreator,
+          requireAcceptanceChecklist: orgData.requireAcceptanceChecklist ?? existingOrg.requireAcceptanceChecklist,
+          enablePublicInviteLinks: orgData.enablePublicInviteLinks ?? existingOrg.enablePublicInviteLinks,
+        };
+        return {
+          ...s,
+          currentOrganization: mergedOrg,
+        };
+      });
+
+      if (newName) {
+        actions.addToast(
+          'Workspace Settings Synced',
+          `Organization updated to "${newName}".`,
+          'info'
+        );
+      }
+    };
+
+    window.addEventListener('omni_organization_settings_updated', ((e: CustomEvent) => {
+      handleOrgUpdate(e.detail);
+    }) as EventListener);
+
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('omni_collab_sync');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'ORGANIZATION_UPDATED') {
+            handleOrgUpdate(event.data.organization || event.data.settings || event.data);
+          }
+        };
+      } catch {}
+    }
   }
 
   const useHook = (): TState & ReturnType<TActionsCreator> => {
