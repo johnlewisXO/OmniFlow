@@ -1,13 +1,11 @@
-
 import React, { useState } from 'react';
 import { Task, TaskStatus } from '../../types';
 import { TaskCard } from './TaskCard';
-// Fix: Corrected typo in useAppStore import path.
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 
 interface KanbanColumnProps {
-  status: TaskStatus; 
+  status: TaskStatus;
   title: string;
   colorClass: string;
   tasksOverride?: Task[];
@@ -18,9 +16,9 @@ interface KanbanColumnProps {
   onToggleSelectTask?: (taskId: string, shiftKey?: boolean) => void;
 }
 
-export const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
-  status, 
-  title, 
+export const KanbanColumn: React.FC<KanbanColumnProps> = ({
+  status,
+  title,
   colorClass,
   tasksOverride,
   wipLimit,
@@ -29,35 +27,28 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   focusedTaskId = null,
   onToggleSelectTask,
 }) => {
-  const { 
-    activeProject, 
-    getTasksByProjectIdAndStatus, 
-    openModal, 
-    darkMode,
+  const {
+    activeProject,
+    getTasksByProjectIdAndStatus,
+    openModal,
     isLoadingTasks,
     moveTask,
   } = useAppStore();
-  
+
   const PlusIcon = ICON_MAP.PlusIcon;
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
 
   if (!activeProject) return null;
 
-  const tasksInColumn = tasksOverride !== undefined 
-    ? tasksOverride.filter(t => t.status === status) 
-    : getTasksByProjectIdAndStatus(activeProject.id, status);
+  const tasksInColumn =
+    tasksOverride !== undefined
+      ? tasksOverride.filter(t => t.status === status)
+      : getTasksByProjectIdAndStatus(activeProject.id, status);
 
   const isWipExceeded = wipLimit !== undefined && wipLimit > 0 && tasksInColumn.length > wipLimit;
 
-  const columnBackgroundStyle = { backgroundColor: 'hsl(var(--panel-background))', borderColor: 'hsl(var(--panel-border))' };
-  const textColor = darkMode ? 'text-slate-200' : 'text-slate-700';
-  const countBg = darkMode ? 'bg-slate-700/70' : 'bg-slate-300/70';
-  const countText = darkMode ? 'text-slate-300' : 'text-slate-600';
-  const buttonHoverBg = darkMode ? 'hover:bg-accent/20' : 'hover:bg-accent/15';
-  const dragOverColumnBorderStyle = isDragOver ? `border-2 border-dashed ${darkMode ? 'border-accent-light/70' : 'border-accent/70'}` : 'border';
-  const dropIndicatorStyle = `h-1.5 my-1 rounded-full bg-accent ${darkMode ? 'opacity-70' : 'opacity-90'} transition-all duration-100`;
-
+  const dropIndicatorStyle = 'h-1 my-1 rounded-full bg-[var(--accent-lime)] transition-all duration-100';
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -69,8 +60,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
     const taskCards = Array.from(columnContent.querySelectorAll<HTMLElement>('[data-task-id]'));
     const mouseY = e.clientY;
-    
-    let newDropIndex = taskCards.length; 
+
+    let newDropIndex = taskCards.length;
 
     for (let i = 0; i < taskCards.length; i++) {
       const cardRect = taskCards[i].getBoundingClientRect();
@@ -85,11 +76,11 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-        setIsDragOver(false);
-        setDropIndicatorIndex(null);
+      setIsDragOver(false);
+      setDropIndicatorIndex(null);
     }
   };
-  
+
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -99,75 +90,72 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     const draggedTaskId = e.dataTransfer.getData('taskId');
     const originalStatus = e.dataTransfer.getData('originalStatus') as TaskStatus;
     const originalPosition = parseInt(e.dataTransfer.getData('originalPosition'), 10);
-    const newStatus = status; 
-    
+    const newStatus = status;
     const newVisualIndex = dropIndicatorIndex !== null ? dropIndicatorIndex : tasksInColumn.length;
-    
+
     if (draggedTaskId) {
-      console.log(`[KanbanColumn Drop] TaskID: ${draggedTaskId}, OriginalStatus: ${originalStatus}, OriginalPos: ${originalPosition}, NewStatus: ${newStatus}, NewVisualIndex: ${newVisualIndex}`);
       moveTask(draggedTaskId, originalStatus, originalPosition, newStatus, newVisualIndex);
-    } else {
-      console.warn("[KanbanColumn Drop] No taskId found in dataTransfer.");
     }
   };
 
-
   const responsiveWidthClass =
     layoutMode === 'snap'
-      ? 'shrink-0 w-[85vw] sm:w-[310px] md:w-[320px] xl:flex-1 xl:min-w-[275px] xl:max-w-[360px] snap-start'
-      : 'w-full min-w-0 max-w-none xl:flex-1 xl:min-w-[265px]';
+      ? 'shrink-0 w-[85vw] sm:w-[310px] md:w-[320px] xl:flex-1 xl:min-w-[270px] xl:max-w-[360px] snap-start'
+      : 'w-full min-w-0 max-w-none xl:flex-1 xl:min-w-[260px]';
 
   return (
-    <div 
-      className={`${responsiveWidthClass} rounded-[20px] p-3 sm:p-3.5 md:p-4 backdrop-blur-2xl ${darkMode ? 'bg-slate-900/25 border-white/10' : 'bg-white/20 border-white/40 shadow-xs'} ${dragOverColumnBorderStyle} transition-all duration-200 flex flex-col`}
+    <div
+      className={`${responsiveWidthClass} rounded-2xl p-3 sm:p-3.5 border transition-colors flex flex-col ${
+        isDragOver
+          ? 'bg-[var(--bg-sage)] border-dashed border-[var(--text-primary)]'
+          : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)]'
+      }`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}
     >
-      <div className={`flex items-center justify-between px-1.5 py-1.5 sm:py-2 mb-3 rounded-full`}>
-        <div className="flex items-center space-x-2 min-w-0">
-          <span className={`w-3 h-3 rounded-full ${colorClass} shadow-sm flex-shrink-0`}></span>
-          <h2 className={`font-bold text-sm sm:text-md truncate ${textColor}`}>{title}</h2>
-          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm flex-shrink-0 ${
-            isWipExceeded
-              ? 'bg-red-500/20 text-red-600 dark:text-red-400 font-bold border border-red-500/40 animate-pulse'
-              : `${countText} ${countBg}`
-          }`}>
+      <div className="flex items-center justify-between px-1 pb-2.5 mb-2.5 border-b border-[var(--border-hairline)]">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-2 h-2 rounded-full ${colorClass} shrink-0`} />
+          <h2 className="font-bold text-xs sm:text-[13px] text-[var(--text-primary)] truncate">{title}</h2>
+          <span
+            className={`text-[11px] font-mono tabular-nums px-2 py-0.5 rounded-full shrink-0 ${
+              isWipExceeded
+                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 font-bold'
+                : 'bg-[var(--bg-sage)] text-[var(--text-secondary)] font-semibold'
+            }`}
+          >
             {wipLimit && wipLimit > 0 ? `${tasksInColumn.length}/${wipLimit}` : tasksInColumn.length}
           </span>
-          {isWipExceeded && (
-            <span className="text-[10px] font-bold text-red-500 hidden sm:inline" title="WIP Limit Exceeded">
-              WIP EXCEEDED
-            </span>
-          )}
         </div>
-        <button 
-          onClick={() => openModal()} 
-          className={`${darkMode ? 'text-slate-400 hover:text-accent-light' : 'text-slate-500 hover:text-accent'} p-1.5 rounded-full ${buttonHoverBg} transition-colors flex-shrink-0 cursor-pointer`}
+
+        <button
+          type="button"
+          onClick={() => openModal()}
+          className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors shrink-0 cursor-pointer"
           title={`Add task to ${title}`}
           disabled={!activeProject}
         >
-          <PlusIcon className="w-5 h-5" />
+          <PlusIcon className="w-4 h-4" />
         </button>
       </div>
-      <div className="flex-1 min-h-[260px] md:min-h-[320px] xl:min-h-[420px] space-y-3 px-0.5 sm:px-1 pb-2 column-content-area">
+
+      <div className="flex-1 min-h-[260px] md:min-h-[320px] xl:min-h-[420px] space-y-2.5 pb-1 column-content-area">
         {isLoadingTasks && tasksInColumn.length === 0 && (
           <div className="text-center py-12">
-             <ICON_MAP.SpinnerIcon className={`w-10 h-10 mx-auto ${darkMode ? 'text-accent-light/70' : 'text-accent/70'} animate-spin`} />
+            <ICON_MAP.SpinnerIcon className="w-7 h-7 mx-auto text-[var(--text-muted)] animate-spin" />
           </div>
         )}
+
         {!isLoadingTasks && tasksInColumn.length === 0 && !isDragOver && (
-          <div className="text-center py-12 text-sm opacity-60">
-            <p>Drop tasks here</p>
-            <p>or click '+' to add.</p>
+          <div className="text-center py-12 text-xs text-[var(--text-muted)]">
+            <p>Drop tasks here or click + to add</p>
           </div>
         )}
-        
+
         {tasksInColumn.map((task, index) => (
           <React.Fragment key={task.id}>
-            {isDragOver && dropIndicatorIndex === index && (
-              <div className={dropIndicatorStyle}></div>
-            )}
+            {isDragOver && dropIndicatorIndex === index && <div className={dropIndicatorStyle} />}
             <TaskCard
               task={task}
               isSelected={selectedTaskIds.includes(task.id)}
@@ -176,15 +164,16 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             />
           </React.Fragment>
         ))}
+
         {isDragOver && dropIndicatorIndex === tasksInColumn.length && tasksInColumn.length > 0 && (
-           <div className={dropIndicatorStyle}></div>
-        )}
-         {isDragOver && tasksInColumn.length === 0 && ( 
-            <div className={`h-24 my-2 flex items-center justify-center border-2 border-dashed ${darkMode ? 'border-accent-light/50' : 'border-accent/50'} rounded-squircle-md`}>
-                <p className={`text-sm ${darkMode ? 'text-accent-light/80' : 'text-accent/80'}`}>Drop here</p>
-            </div>
+          <div className={dropIndicatorStyle} />
         )}
 
+        {isDragOver && tasksInColumn.length === 0 && (
+          <div className="h-24 my-2 flex items-center justify-center border border-dashed border-[var(--border-strong)] rounded-xl">
+            <p className="text-xs text-[var(--text-secondary)]">Drop here</p>
+          </div>
+        )}
       </div>
     </div>
   );

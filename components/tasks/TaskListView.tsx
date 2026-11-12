@@ -7,6 +7,8 @@ import { processTaskAutomationRules } from '../../services/automationEngine';
 import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
 import { collabService } from '../../services/collabService';
 import soundService from '../../services/soundService';
+import { StatusDot } from '../shared/EditorialUI';
+import { SlimProgressBar } from '../charts/EditorialCharts';
 
 interface TaskListViewProps {
   tasks: Task[];
@@ -332,39 +334,26 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const getPriorityDot = (priority: TaskPriority) => {
     switch (priority) {
       case TaskPriority.CRITICAL:
-        return 'bg-rose-500';
+        return 'bg-rose-600';
       case TaskPriority.HIGH:
-        return 'bg-orange-500';
-      case TaskPriority.MEDIUM:
         return 'bg-amber-500';
-      default:
-        return 'bg-slate-400';
-    }
-  };
-
-  const getPriorityBadge = (priority: TaskPriority) => {
-    switch (priority) {
-      case TaskPriority.CRITICAL:
-        return 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30';
-      case TaskPriority.HIGH:
-        return 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30';
       case TaskPriority.MEDIUM:
-        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
+        return 'bg-[#6F8254]';
       default:
-        return 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30';
+        return 'bg-[var(--text-muted)]';
     }
   };
 
   const getStatusBadgeStyle = (status: TaskStatus) => {
     switch (status) {
       case TaskStatus.DONE:
-        return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
+        return 'bg-[var(--bg-sage)] text-emerald-700 dark:text-emerald-300 border-[var(--border-hairline)]';
       case TaskStatus.REVIEW:
-        return 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30';
+        return 'bg-[var(--bg-surface-subtle)] text-amber-700 dark:text-amber-300 border-[var(--border-hairline)]';
       case TaskStatus.IN_PROGRESS:
-        return 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30';
+        return 'bg-[var(--accent-lime)]/25 text-[var(--text-primary)] border-[var(--border-hairline)]';
       default:
-        return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
+        return 'bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)] border-[var(--border-hairline)]';
     }
   };
 
@@ -439,19 +428,15 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             }
             onTaskClick(task.id);
           }}
-          className={`group relative flex flex-row items-center justify-between py-2 px-2.5 sm:py-2.5 sm:px-3.5 border-b gap-2 sm:gap-3 transition-all cursor-grab active:cursor-grabbing select-none min-h-[44px] ${
-            darkMode
-              ? 'border-slate-800/80 hover:bg-slate-800/50'
-              : 'border-slate-200/80 hover:bg-slate-50'
-          } ${selectedTaskIds.includes(task.id) ? 'bg-accent/[0.08] ring-1 ring-inset ring-accent/50' : ''} ${
-            focusedTaskId === task.id ? 'ring-1 ring-inset ring-indigo-400' : ''
-          } ${isSubtask ? (darkMode ? 'bg-slate-950/40 pl-6 sm:pl-9' : 'bg-slate-50/70 pl-6 sm:pl-9') : ''} ${
-            isBeingDragged ? 'opacity-35 bg-indigo-500/10 border-dashed border-indigo-500' : ''
-          } ${
+          className={`group relative flex flex-row items-center justify-between py-2.5 px-3 sm:px-4 border-b border-[var(--border-hairline)] gap-2 sm:gap-3 transition-all cursor-grab active:cursor-grabbing select-none min-h-[44px] hover:bg-[var(--bg-surface-subtle)] ${
+            selectedTaskIds.includes(task.id) ? 'bg-[var(--bg-sage)] ring-1 ring-inset ring-[var(--border-strong)]' : ''
+          } ${focusedTaskId === task.id ? 'ring-1 ring-inset ring-[var(--accent-lime)]' : ''} ${
+            isSubtask ? 'bg-[var(--bg-surface-subtle)] pl-6 sm:pl-9' : ''
+          } ${isBeingDragged ? 'opacity-40 bg-[var(--bg-sage)] border-dashed border-[var(--border-strong)]' : ''} ${
             isDragTarget && dragOverPlacement === 'before'
-              ? 'border-t-2 !border-t-indigo-500 bg-indigo-500/5'
+              ? 'border-t-2 !border-t-[var(--text-primary)] bg-[var(--bg-sage)]/50'
               : isDragTarget && dragOverPlacement === 'after'
-              ? 'border-b-2 !border-b-indigo-500 bg-indigo-500/5'
+              ? 'border-b-2 !border-b-[var(--text-primary)] bg-[var(--bg-sage)]/50'
               : ''
           } ${isRecentlyUpdated ? 'animate-state-updated' : ''} ${presenceRowClass}`}
         >
@@ -467,8 +452,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 title="Select task for bulk action"
                 className={`w-4 h-4 rounded border flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
                   selectedTaskIds.includes(task.id)
-                    ? 'bg-accent border-accent text-white'
-                    : 'border-slate-300 dark:border-slate-600 opacity-50 group-hover:opacity-100'
+                    ? 'bg-[var(--accent-lime)] border-[var(--accent-ink)] text-[var(--accent-ink)]'
+                    : 'border-[var(--border-strong)] opacity-50 group-hover:opacity-100'
                 }`}
               >
                 {selectedTaskIds.includes(task.id) && <ICON_MAP.CheckIcon className="w-2.5 h-2.5 stroke-[3]" />}
@@ -476,7 +461,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             )}
             {/* Drag Handle Icon */}
             <div
-              className="text-slate-400 group-hover:text-indigo-500 transition-colors flex-shrink-0 cursor-grab"
+              className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors flex-shrink-0 cursor-grab"
               title="Drag to reorder within section or move across sections"
             >
               <GripIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 opacity-70 group-hover:opacity-100" />
@@ -504,10 +489,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               onClick={e => handleStatusToggle(task, e)}
               className={`w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full border flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
                 isDone
-                  ? 'bg-emerald-500 border-emerald-500 text-white shadow-xs'
-                  : darkMode
-                  ? 'border-slate-600 hover:border-indigo-400'
-                  : 'border-slate-300 hover:border-indigo-500'
+                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                  : 'border-[var(--border-strong)] hover:border-[var(--text-primary)]'
               }`}
               title={isDone ? 'Mark as To Do' : 'Mark as Done'}
             >
@@ -526,23 +509,21 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 <span
                   className={`text-xs sm:text-sm font-semibold truncate ${
                     isDone
-                      ? 'line-through text-slate-400 dark:text-slate-500'
-                      : darkMode
-                      ? 'text-slate-100 group-hover:text-indigo-400'
-                      : 'text-slate-900 group-hover:text-indigo-600'
+                      ? 'line-through text-[var(--text-muted)]'
+                      : 'text-[var(--text-primary)] group-hover:underline'
                   }`}
                 >
                   {task.title}
                 </span>
 
                 {isRecentlyUpdated && (
-                  <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 flex-shrink-0 animate-state-badge">
-                    ✓ Updated
+                  <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 flex-shrink-0 animate-state-badge">
+                    · Updated
                   </span>
                 )}
 
                 {!isSubtask && hasSubtasks && (
-                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex-shrink-0">
+                  <span className="text-[10px] font-mono font-semibold text-[var(--text-muted)] flex-shrink-0">
                     {subList.filter(s => s.status === TaskStatus.DONE).length}/{subList.length}
                   </span>
                 )}
@@ -552,7 +533,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
               {/* Description only shown on desktop >=640px to keep mobile list rows ultra-slim */}
               {task.description && (
-                <p className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                <p className="hidden sm:block text-[11px] text-[var(--text-secondary)] line-clamp-1">
                   {task.description}
                 </p>
               )}
@@ -561,14 +542,14 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
           {/* Right Side: Slim Inline Controls on Mobile & Desktop */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
-            {/* Intra-section Up/Down Reorder Buttons (great for mobile touch & precision ordering) */}
+            {/* Intra-section Up/Down Reorder Buttons */}
             {!isSubtask && totalInSection > 1 && (
               <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <button
                   type="button"
                   disabled={indexInSection === 0}
                   onClick={e => handleStepReorder(task, 'up', e)}
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-slate-400 hover:text-indigo-500 hover:bg-slate-200/60 dark:hover:bg-slate-800 disabled:opacity-25 cursor-pointer"
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] disabled:opacity-25 cursor-pointer"
                   title="Move up in section"
                 >
                   ↑
@@ -577,7 +558,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                   type="button"
                   disabled={indexInSection === totalInSection - 1}
                   onClick={e => handleStepReorder(task, 'down', e)}
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-slate-400 hover:text-indigo-500 hover:bg-slate-200/60 dark:hover:bg-slate-800 disabled:opacity-25 cursor-pointer"
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] disabled:opacity-25 cursor-pointer"
                   title="Move down in section"
                 >
                   ↓
@@ -585,7 +566,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               </div>
             )}
 
-            {/* Compact Status Selector Pill */}
+            {/* Compact Status Selector */}
             <select
               value={task.status}
               onClick={e => e.stopPropagation()}
@@ -600,26 +581,26 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               <option value={TaskStatus.DONE}>Done</option>
             </select>
 
-            {/* Priority Pill (Desktop / Tablet) */}
+            {/* Priority StatusDot (Zero-Pill) */}
             <div className="hidden md:block">
-              <span
-                className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${getPriorityBadge(
-                  task.priority
-                )}`}
-              >
-                {task.priority}
-              </span>
+              <StatusDot
+                tone={
+                  task.priority === TaskPriority.CRITICAL
+                    ? 'danger'
+                    : task.priority === TaskPriority.HIGH
+                    ? 'warning'
+                    : 'neutral'
+                }
+                label={task.priority}
+                className="text-[11px] font-medium capitalize"
+              />
             </div>
 
-            {/* Due Date (Compact on Mobile & Desktop) */}
+            {/* Due Date */}
             {taskDueDate && (
               <span
                 className={`hidden xs:inline-flex items-center gap-1 text-[10px] sm:text-xs font-mono tabular-nums ${
-                  isOverdue
-                    ? 'text-rose-600 dark:text-rose-400 font-bold'
-                    : darkMode
-                    ? 'text-slate-400'
-                    : 'text-slate-500'
+                  isOverdue ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-[var(--text-secondary)]'
                 }`}
               >
                 {format(new Date(taskDueDate), 'MMM d')}
@@ -633,19 +614,19 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             >
               {assignee ? (
                 <>
-                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-bold flex items-center justify-center text-[10px] overflow-hidden flex-shrink-0">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] font-bold flex items-center justify-center text-[10px] overflow-hidden flex-shrink-0 border border-[var(--border-hairline)]">
                     {assignee.avatar_url ? (
                       <img src={assignee.avatar_url} alt="" className="w-full h-full object-cover" />
                     ) : (
                       (assignee.full_name || assignee.email).charAt(0).toUpperCase()
                     )}
                   </div>
-                  <span className="hidden lg:inline text-xs text-slate-600 dark:text-slate-300 truncate max-w-[80px]">
+                  <span className="hidden lg:inline text-xs text-[var(--text-secondary)] truncate max-w-[80px]">
                     {assignee.full_name || assignee.email.split('@')[0]}
                   </span>
                 </>
               ) : (
-                <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-dashed border-slate-400/60 flex items-center justify-center text-[9px] text-slate-400">
+                <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-dashed border-[var(--border-strong)] flex items-center justify-center text-[9px] text-[var(--text-muted)]">
                   ?
                 </span>
               )}
@@ -706,22 +687,22 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         className="mb-4 sm:mb-6 transition-all"
       >
         <div
-          className={`flex items-center justify-between mb-1.5 sm:mb-2 px-3 sm:px-4 py-2 rounded-2xl transition-all ${
+          className={`flex items-center justify-between mb-1.5 sm:mb-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
             isDragOver
-              ? 'bg-indigo-500/15 border-2 border-dashed border-indigo-500 text-indigo-500 scale-[1.005]'
-              : 'bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50'
+              ? 'bg-[var(--bg-sage)] border-2 border-dashed border-[var(--border-strong)] text-[var(--text-primary)] scale-[1.005]'
+              : 'bg-[var(--bg-sage)] border border-[var(--border-hairline)]'
           }`}
         >
           <div className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${color} shadow-xs`} />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+            <span className={`w-2 h-2 rounded-full ${color}`} />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
               {title}
             </h3>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+            <span className="text-[11px] font-mono font-semibold text-[var(--text-muted)]">
               {group.length}
             </span>
             {isDragOver && (
-              <span className="text-[11px] font-bold text-indigo-500 animate-pulse ml-1">
+              <span className="text-[11px] font-semibold text-[var(--text-primary)] animate-pulse ml-1">
                 Drop to reorder or move into {title}
               </span>
             )}
@@ -730,7 +711,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <button
             type="button"
             onClick={() => openModal()}
-            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-indigo-500/10 transition-colors cursor-pointer"
+            className="text-xs font-semibold text-[var(--text-primary)] hover:underline flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
           >
             <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
             <span>Add Task</span>
@@ -738,18 +719,16 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         </div>
 
         <div
-          className={`rounded-[22px] border shadow-2xs overflow-hidden transition-all ${
+          className={`rounded-2xl border overflow-hidden transition-all ${
             isDragOver
-              ? 'border-2 border-dashed border-indigo-500 bg-indigo-500/5 ring-2 ring-indigo-500/20'
-              : darkMode
-              ? 'bg-slate-900/90 border-slate-800'
-              : 'bg-white border-slate-200/80'
+              ? 'border-2 border-dashed border-[var(--border-strong)] bg-[var(--bg-sage)]/40'
+              : 'bg-[var(--bg-surface)] border-[var(--border-hairline)]'
           }`}
         >
           {group.length === 0 ? (
             <div
               className={`p-6 text-center text-xs italic transition-colors ${
-                isDragOver ? 'text-indigo-500 font-bold' : 'text-slate-400'
+                isDragOver ? 'text-[var(--text-primary)] font-bold' : 'text-[var(--text-muted)]'
               }`}
             >
               {isDragOver ? `Release to place task into ${title}` : `No tasks in ${title.toLowerCase()}`}
@@ -763,77 +742,44 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   };
 
   return (
-    <div
-      className={`flex-1 flex flex-col rounded-[28px] border ${
-        darkMode ? 'bg-slate-900/85 border-slate-800' : 'bg-white/95 border-slate-200'
-      } shadow-xs`}
-    >
+    <div className="flex-1 flex flex-col editorial-surface overflow-hidden">
       {/* Overview Progress Header */}
-      <div
-        className={`p-3 sm:p-4 border-b rounded-t-[28px] space-y-2 flex-shrink-0 ${
-          darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-slate-50/80'
-        }`}
-      >
+      <div className="p-3.5 sm:p-4 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5 flex-shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <ICON_MAP.ClipboardListIcon className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />
-            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+          <div className="flex items-center gap-2.5">
+            <ICON_MAP.ClipboardListIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
+            <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)]">
               Task List Overview
             </h2>
-            <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
-              {stats.total} Tasks ({stats.pctDone}% Done)
+            <span className="text-[11px] font-mono text-[var(--text-muted)]">
+              · {stats.total} tasks · {stats.pctDone}% done
             </span>
           </div>
 
           <div className="hidden sm:flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-slate-400">Drag rows to reorder inside any section or across sections</span>
+            <span className="text-[var(--text-muted)]">Drag rows to reorder inside or across sections</span>
           </div>
         </div>
 
-        {/* Overall Completion Bar */}
-        <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden flex">
-          <div
-            style={{ width: `${(stats.done / Math.max(1, stats.total)) * 100}%` }}
-            className="bg-emerald-500 h-full transition-all duration-500"
-            title="Done"
-          />
-          <div
-            style={{ width: `${(stats.review / Math.max(1, stats.total)) * 100}%` }}
-            className="bg-purple-500 h-full transition-all duration-500"
-            title="Review"
-          />
-          <div
-            style={{ width: `${(stats.inProgress / Math.max(1, stats.total)) * 100}%` }}
-            className="bg-blue-500 h-full transition-all duration-500"
-            title="In Progress"
-          />
-        </div>
+        <SlimProgressBar value={stats.pctDone} tone="lime" heightClass="h-1.5" />
       </div>
 
       {/* Controls & Filter Bar */}
-      <div
-        className={`mx-2 sm:mx-4 mt-2.5 sm:mt-3.5 mb-1 p-2 sm:p-3 rounded-2xl border flex flex-wrap items-center justify-between gap-2 flex-shrink-0 transition-all ${
-          darkMode ? 'border-slate-800/80 bg-slate-900/60' : 'border-slate-200/90 bg-slate-100/70'
-        }`}
-      >
+      <div className="mx-3 sm:mx-4 mt-3 mb-1 p-2.5 sm:p-3 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
         <div className="relative flex-1 min-w-[150px] max-w-sm">
-          <ICON_MAP.MagnifyingGlassIcon
-            className={`w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${
-              darkMode ? 'text-slate-400' : 'text-slate-500'
-            }`}
-          />
+          <ICON_MAP.MagnifyingGlassIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-[var(--text-muted)]" />
           <input
             type="text"
             placeholder="Filter tasks..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="search-input !pl-10 !pr-8 !py-1.5 text-xs rounded-[20px]"
+            className="search-input !pl-10 !pr-8 !py-1.5 text-xs rounded-full"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               title="Clear Search"
             >
               <ICON_MAP.XIcon className="w-3.5 h-3.5" />
@@ -845,7 +791,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            className="!w-auto !py-1 !px-2.5 text-xs font-semibold"
+            className="!w-auto !py-1 !px-2.5 text-xs font-semibold rounded-xl"
           >
             <option value="all">All Statuses</option>
             <option value={TaskStatus.TODO}>To Do</option>
@@ -857,7 +803,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <select
             value={filterPriority}
             onChange={e => setFilterPriority(e.target.value)}
-            className="!w-auto !py-1 !px-2.5 text-xs font-semibold"
+            className="!w-auto !py-1 !px-2.5 text-xs font-semibold rounded-xl"
           >
             <option value="all">All Priorities</option>
             <option value={TaskPriority.LOW}>Low</option>
@@ -869,7 +815,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           <select
             value={groupBy}
             onChange={e => setGroupBy(e.target.value as 'status' | 'none')}
-            className="!w-auto !py-1 !px-2.5 text-xs font-semibold"
+            className="!w-auto !py-1 !px-2.5 text-xs font-semibold rounded-xl"
           >
             <option value="status">Grouped</option>
             <option value="none">Flat List</option>
@@ -878,22 +824,18 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       </div>
 
       {/* Main List Body */}
-      <div className="flex-1 min-h-[260px] p-2 sm:p-4">
+      <div className="flex-1 min-h-[260px] p-3 sm:p-4">
         {groupBy === 'status' ? (
           <>
-            {renderGroupedTasks(TaskStatus.TODO, 'To Do', 'bg-slate-400')}
-            {renderGroupedTasks(TaskStatus.IN_PROGRESS, 'In Progress', 'bg-blue-500')}
-            {renderGroupedTasks(TaskStatus.REVIEW, 'Review', 'bg-purple-500')}
-            {renderGroupedTasks(TaskStatus.DONE, 'Done', 'bg-emerald-500')}
+            {renderGroupedTasks(TaskStatus.TODO, 'To Do', 'bg-[var(--text-muted)]')}
+            {renderGroupedTasks(TaskStatus.IN_PROGRESS, 'In Progress', 'bg-[var(--accent-lime)]')}
+            {renderGroupedTasks(TaskStatus.REVIEW, 'Review', 'bg-amber-500')}
+            {renderGroupedTasks(TaskStatus.DONE, 'Done', 'bg-emerald-600')}
           </>
         ) : (
-          <div
-            className={`rounded-[22px] border shadow-2xs overflow-hidden ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}
-          >
+          <div className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] overflow-hidden">
             {filteredParents.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">No matching tasks found.</div>
+              <div className="p-8 text-center text-xs text-[var(--text-muted)]">No matching tasks found.</div>
             ) : (
               filteredParents.map((t, idx) =>
                 renderTaskRow(t, t.status, idx, filteredParents.length)

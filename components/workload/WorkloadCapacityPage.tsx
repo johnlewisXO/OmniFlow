@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
-import { Task, TaskStatus, User } from '../../types';
+import { Task, TaskStatus } from '../../types';
 import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
 import { getUserProfileExtensions } from '../../services/supabaseService';
+import { PageHeader, InlineKpiStrip, HairlineCard, StatusDot } from '../shared/EditorialUI';
+import { SlimProgressBar } from '../charts/EditorialCharts';
 
 interface WorklogRecord {
   id: string;
@@ -28,7 +30,6 @@ const formatSecondsToHMS = (totalSecs: number): string => {
 
 export const WorkloadCapacityPage: React.FC = () => {
   const {
-    darkMode,
     users,
     tasks,
     currentUser,
@@ -79,7 +80,6 @@ export const WorkloadCapacityPage: React.FC = () => {
     [tasks]
   );
 
-  // Compute per-member workload & weekly capacity utilization
   const memberWorkloads = useMemo(() => {
     const directory = users.length > 0 ? users : currentUser ? [currentUser] : [];
     return directory.map(member => {
@@ -88,7 +88,6 @@ export const WorkloadCapacityPage: React.FC = () => {
       const memberTasks = tasks.filter(t => t.assignee_id === member.id && t.status !== TaskStatus.DONE);
       const completedTasks = tasks.filter(t => t.assignee_id === member.id && t.status === TaskStatus.DONE);
       const storyPoints = memberTasks.reduce((sum, t) => sum + (t.story_points || 3), 0);
-      // Estimate 3.5 hours per story point + logged hours
       const loggedHours = worklogs
         .filter(w => w.userId === member.id)
         .reduce((sum, w) => sum + (w.hours || 0), 0);
@@ -112,6 +111,23 @@ export const WorkloadCapacityPage: React.FC = () => {
     });
   }, [users, currentUser, tasks, worklogs]);
 
+  const totalLoggedHours = useMemo(
+    () => Number(worklogs.reduce((sum, w) => sum + (w.hours || 0), 0).toFixed(1)),
+    [worklogs]
+  );
+
+  const overloadedCount = useMemo(
+    () => memberWorkloads.filter(m => m.status === 'overloaded').length,
+    [memberWorkloads]
+  );
+
+  const avgUtilization = useMemo(() => {
+    if (memberWorkloads.length === 0) return 0;
+    return Math.round(
+      memberWorkloads.reduce((sum, m) => sum + m.utilizationPct, 0) / memberWorkloads.length
+    );
+  }, [memberWorkloads]);
+
   const handleQuickReassign = async (task: Task, newAssigneeId: string) => {
     if (!newAssigneeId || task.assignee_id === newAssigneeId) return;
     const targetUser = users.find(u => u.id === newAssigneeId);
@@ -125,32 +141,51 @@ export const WorkloadCapacityPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col p-4 sm:p-6 space-y-5 max-w-[1600px] mx-auto w-full">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-accent mb-1">
-            <ICON_MAP.ClockIcon className="w-4 h-4" />
-            <span>Time Tracking & Resource Capacity Planner</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Team Workload Heatmap & Live Focus Timer
-          </h1>
-          <p className={`text-xs sm:text-sm mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Monitor weekly engineering capacity, prevent burnout, and log real-time focus hours directly to sprint tasks.
-          </p>
-        </div>
-      </div>
+    <div className="flex-1 flex flex-col p-4 sm:p-6 space-y-5 max-w-[1440px] mx-auto w-full text-[var(--text-primary)]">
+      <PageHeader
+        eyebrow="Resource Capacity · Focus Telemetry"
+        title="Team Workload & Time Tracking"
+        subtitle="Balance weekly engineering capacity across active deliverables and log live focus hours directly to sprint tasks."
+      />
+
+      <InlineKpiStrip
+        items={[
+          {
+            id: 'members',
+            label: 'Active Contributors',
+            value: memberWorkloads.length,
+            sublabel: 'Tracked seats',
+            tone: 'default',
+          },
+          {
+            id: 'utilization',
+            label: 'Avg Capacity Load',
+            value: `${avgUtilization}%`,
+            sublabel: 'Weekly allocation',
+            tone: avgUtilization > 90 ? 'warning' : 'lime',
+          },
+          {
+            id: 'hours',
+            label: 'Focus Hours Logged',
+            value: `${totalLoggedHours}h`,
+            sublabel: `${worklogs.length} sessions`,
+            tone: 'success',
+          },
+          {
+            id: 'overloaded',
+            label: 'Overloaded Members',
+            value: overloadedCount,
+            sublabel: overloadedCount > 0 ? 'Needs rebalancing' : 'Healthy balance',
+            tone: overloadedCount > 0 ? 'danger' : 'success',
+          },
+        ]}
+      />
 
       {/* Live Focus Timer Deck */}
-      <div
-        className={`rounded-[28px] border p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5 ${
-          darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200/80'
-        }`}
-      >
-        <div className="space-y-1.5 flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-accent">
-            <ICON_MAP.PlayIcon className="w-3.5 h-3.5" />
+      <HairlineCard className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="space-y-1 flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <ICON_MAP.PlayIcon className="w-3.5 h-3.5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
             <span>Active Deep-Work Focus Session</span>
           </div>
           {activeTimer ? (
@@ -158,42 +193,38 @@ export const WorkloadCapacityPage: React.FC = () => {
               <h2 className="text-base sm:text-lg font-bold truncate">
                 Timing: {activeTimer.taskTitle}
               </h2>
-              <p className="text-xs text-slate-400">
-                Session automatically syncs across the top header bar and logs directly to task worklogs.
+              <p className="text-xs text-[var(--text-secondary)]">
+                Syncs across the workspace header and writes directly to task worklogs upon completion.
               </p>
             </>
           ) : (
             <>
               <h2 className="text-base sm:text-lg font-bold">Start a Focus Timer on Any Active Task</h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[var(--text-secondary)]">
                 Starting a timer on a To-Do task automatically transitions it to In Progress.
               </p>
             </>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {activeTimer ? (
             <>
-              <div
-                className={`px-4 py-2 rounded-2xl border font-mono text-xl sm:text-2xl font-bold tabular-nums tracking-wider ${
-                  darkMode ? 'bg-slate-950 border-slate-800 text-emerald-400' : 'bg-slate-900 text-emerald-400 border-slate-800'
-                }`}
-              >
+              <div className="px-4 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] font-mono text-xl sm:text-2xl font-bold tabular-nums tracking-wider text-[var(--text-primary)]">
                 {formatSecondsToHMS(liveElapsedSeconds)}
               </div>
 
               {activeTimer.isRunning ? (
                 <Button variant="outline" size="sm" onClick={pauseTaskTimer}>
-                  Pause Timer
+                  Pause
                 </Button>
               ) : (
                 <Button variant="outline" size="sm" onClick={resumeTaskTimer}>
-                  Resume Timer
+                  Resume
                 </Button>
               )}
 
-              <Button variant="primary" size="sm" onClick={stopAndLogTaskTimer}>
+              <Button variant="lime" size="sm" onClick={stopAndLogTaskTimer}>
                 <ICON_MAP.CheckCircleIcon className="w-4 h-4 mr-1.5" />
                 Stop & Log Hours
               </Button>
@@ -203,9 +234,7 @@ export const WorkloadCapacityPage: React.FC = () => {
               <select
                 value={selectedTaskForTimer}
                 onChange={e => setSelectedTaskForTimer(e.target.value)}
-                className={`px-3.5 py-2 rounded-xl border text-xs font-semibold outline-none min-w-[220px] ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
-                }`}
+                className="px-3.5 py-2 text-xs font-medium min-w-[230px]"
               >
                 <option value="">Select a task to start timing...</option>
                 {activeTasksForTimer.map(t => (
@@ -216,7 +245,7 @@ export const WorkloadCapacityPage: React.FC = () => {
               </select>
 
               <Button
-                variant="primary"
+                variant="lime"
                 size="sm"
                 disabled={!selectedTaskForTimer && activeTasksForTimer.length === 0}
                 onClick={() => {
@@ -232,39 +261,40 @@ export const WorkloadCapacityPage: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </HairlineCard>
 
-      {/* Team Capacity Heatmap Grid */}
+      {/* Team Allocation Grid */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold">Team Weekly Capacity & Burnout Heatmap</h2>
-          <span className="text-xs text-slate-400 font-mono tabular-nums">
+          <h2 className="text-sm font-bold text-[var(--text-primary)]">Weekly Allocation & Load Balancing</h2>
+          <span className="text-xs text-[var(--text-muted)] font-mono tabular-nums">
             {memberWorkloads.length} active members
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {memberWorkloads.map(row => {
-            const barColor =
+            const tone: 'danger' | 'warning' | 'success' =
               row.status === 'overloaded'
-                ? 'bg-red-500'
+                ? 'danger'
                 : row.status === 'near_capacity'
-                ? 'bg-amber-500'
-                : 'bg-emerald-500';
+                ? 'warning'
+                : 'success';
+            const barTone: 'danger' | 'warning' | 'sage' =
+              row.status === 'overloaded'
+                ? 'danger'
+                : row.status === 'near_capacity'
+                ? 'warning'
+                : 'sage';
             const statusText =
               row.status === 'overloaded'
-                ? 'Overloaded (>100%)'
+                ? 'Overloaded'
                 : row.status === 'near_capacity'
                 ? 'Near Capacity'
                 : 'Optimal Load';
 
             return (
-              <div
-                key={row.member.id}
-                className={`rounded-[26px] border p-5 space-y-4 ${
-                  darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/80'
-                }`}
-              >
+              <HairlineCard key={row.member.id} className="space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar user={row.member} size="md" />
@@ -272,52 +302,35 @@ export const WorkloadCapacityPage: React.FC = () => {
                       <h3 className="text-sm font-bold truncate">
                         {row.member.full_name || row.member.email}
                       </h3>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-[var(--text-secondary)]">
                         {row.memberTasks.length} active tasks · {row.storyPoints} pts · {row.loggedHours}h logged
                       </p>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 space-y-0.5">
                     <span className="text-sm font-bold font-mono tabular-nums">
                       {row.estimatedActiveHours}h / {row.weeklyCapacityHours}h
                     </span>
-                    <span
-                      className={`block text-[11px] font-semibold ${
-                        row.status === 'overloaded'
-                          ? 'text-red-500'
-                          : row.status === 'near_capacity'
-                          ? 'text-amber-500'
-                          : 'text-emerald-500'
-                      }`}
-                    >
-                      {statusText} ({row.utilizationPct}%)
-                    </span>
+                    <div className="flex justify-end">
+                      <StatusDot tone={tone} label={`${statusText} · ${row.utilizationPct}%`} />
+                    </div>
                   </div>
                 </div>
 
-                {/* Capacity Bar */}
-                <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                    style={{ width: `${Math.min(100, row.utilizationPct)}%` }}
-                  />
-                </div>
+                <SlimProgressBar value={row.utilizationPct} tone={barTone} heightClass="h-1.5" />
 
-                {/* Assigned Tasks with 1-Click Reassign & Timer Start */}
                 {row.memberTasks.length > 0 ? (
                   <div className="space-y-1.5 pt-1">
                     {row.memberTasks.slice(0, 3).map(t => (
                       <div
                         key={t.id}
-                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs ${
-                          darkMode ? 'bg-slate-800/50 border-slate-700/70' : 'bg-slate-50 border-slate-200/70'
-                        }`}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-xs"
                       >
                         <button
                           type="button"
                           onClick={() => openViewTaskModal(t.id)}
-                          className="font-medium truncate text-left hover:text-accent cursor-pointer flex-1"
+                          className="font-medium truncate text-left hover:underline cursor-pointer flex-1"
                         >
                           {t.title}
                         </button>
@@ -325,7 +338,7 @@ export const WorkloadCapacityPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => startTaskTimer(t)}
-                            className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-accent/15 text-accent hover:bg-accent hover:text-white transition-all cursor-pointer"
+                            className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-[var(--bg-sage)] hover:bg-[var(--accent-lime)] hover:text-[var(--accent-ink)] text-[var(--text-primary)] transition-colors cursor-pointer"
                             title="Start Focus Timer on this task"
                           >
                             ⏱ Timer
@@ -334,9 +347,7 @@ export const WorkloadCapacityPage: React.FC = () => {
                             <select
                               value={t.assignee_id || ''}
                               onChange={e => handleQuickReassign(t, e.target.value)}
-                              className={`px-2 py-0.5 rounded-lg border text-[11px] outline-none ${
-                                darkMode ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-                              }`}
+                              className="px-2 py-0.5 text-[11px]"
                               title="Rebalance / Reassign task"
                             >
                               {users.map(u => (
@@ -351,9 +362,9 @@ export const WorkloadCapacityPage: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 italic">No active open tasks assigned.</p>
+                  <p className="text-xs text-[var(--text-muted)] italic">No active open tasks assigned.</p>
                 )}
-              </div>
+              </HairlineCard>
             );
           })}
         </div>
@@ -361,29 +372,30 @@ export const WorkloadCapacityPage: React.FC = () => {
 
       {/* Recent Logged Worklog Sessions */}
       {worklogs.length > 0 && (
-        <div
-          className={`rounded-[26px] border p-5 space-y-3 ${
-            darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/80'
-          }`}
-        >
-          <h3 className="text-sm font-bold">Recent Focus Worklog Ledger</h3>
-          <div className="divide-y divide-slate-200/60 dark:divide-slate-800">
+        <HairlineCard className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold">Recent Focus Worklog Ledger</h3>
+            <span className="text-xs font-mono text-[var(--text-muted)]">{worklogs.length} total entries</span>
+          </div>
+          <div className="divide-y divide-[var(--border-hairline)]">
             {worklogs.slice(0, 6).map(log => (
               <div key={log.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
                 <div className="min-w-0">
-                  <span className="font-bold">{log.taskTitle}</span>
-                  <span className="text-slate-400"> · Logged by {log.userName}</span>
+                  <span className="font-semibold text-[var(--text-primary)]">{log.taskTitle}</span>
+                  <span className="text-[var(--text-secondary)]"> · Logged by {log.userName}</span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0 font-mono tabular-nums">
-                  <span className="font-bold text-emerald-500">+{log.durationMinutes}m ({log.hours}h)</span>
-                  <span className="text-slate-400">
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                    +{log.durationMinutes}m ({log.hours}h)
+                  </span>
+                  <span className="text-[var(--text-muted)]">
                     {new Date(log.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </HairlineCard>
       )}
     </div>
   );

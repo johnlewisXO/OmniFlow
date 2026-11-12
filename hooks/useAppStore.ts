@@ -83,6 +83,7 @@ interface StoreState {
 
   isCommandPaletteOpen: boolean;
   isMobileSidebarOpen: boolean;
+  isSidebarPinned: boolean;
 
   notifications: Notification[];
 
@@ -175,6 +176,7 @@ const initialStoreStateValues: StoreState = {
   isCommandPaletteOpen: false,
 
   isMobileSidebarOpen: false,
+  isSidebarPinned: typeof window !== 'undefined' ? localStorage.getItem('omni_sidebar_pinned') === 'true' : false,
 
   notifications: _notifications,
 
@@ -1018,6 +1020,21 @@ const appActionsCreator = (
     },
     setIsMobileSidebarOpen: (isOpen: boolean) => updateState(s => ({ ...s, isMobileSidebarOpen: isOpen })),
     toggleMobileSidebar: () => updateState(s => ({ ...s, isMobileSidebarOpen: !s.isMobileSidebarOpen })),
+    setSidebarPinned: (pinned: boolean) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('omni_sidebar_pinned', String(pinned));
+      }
+      updateState(s => ({ ...s, isSidebarPinned: pinned }));
+    },
+    toggleSidebarPinned: () => {
+      updateState(s => {
+        const next = !s.isSidebarPinned;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('omni_sidebar_pinned', String(next));
+        }
+        return { ...s, isSidebarPinned: next };
+      });
+    },
     setActiveView: (view: ActiveView) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('activeView', view);

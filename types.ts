@@ -877,6 +877,10 @@ export interface AppStore {
   setIsMobileSidebarOpen: (isOpen: boolean) => void;
   toggleMobileSidebar: () => void;
 
+  isSidebarPinned: boolean;
+  setSidebarPinned: (pinned: boolean) => void;
+  toggleSidebarPinned: () => void;
+
   signUp: (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => Promise<{ profile?: User; requiresEmailConfirmation?: boolean; smtpFallbackUsed?: boolean; smtpErrorMessage?: string } | void>;
   joinOrCreateOrganization: (organizationName: string, role?: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;

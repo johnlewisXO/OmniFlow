@@ -5,6 +5,9 @@ import { collabService } from '../services/collabService';
 import { ICON_MAP } from '../constants';
 import { ActiveView, normalizeUserRole, UserProfilePreferences, WORKSPACE_ACCENT_PRESETS, WorkspaceAccentId } from '../types';
 import { StatusDynamicIcon } from './layout/Header';
+import { HairlineCard, StatusDot } from './shared/EditorialUI';
+import { SlimProgressBar } from './charts/EditorialCharts';
+import { Button } from './shared/Button';
 
 type SettingsTabId = 'identity' | 'capacity' | 'notifications' | 'ai_copilot' | 'security';
 
@@ -347,7 +350,10 @@ export const ProfileSettingsPage: React.FC = () => {
   if (!currentUser) return null;
 
   const normalizedRole = normalizeUserRole(currentUser.role);
-  const statusLabelText = myStatus === 'available' ? 'Available' : myStatus === 'away' ? 'Away' : 'Busy / DND';
+  const workloadPct = Math.min(
+    100,
+    Math.round((activeAssignedPoints / Math.max(1, prefs.maxStoryPointsPerSprint || 21)) * 100)
+  );
 
   const TABS: { id: SettingsTabId; label: string; icon: React.FC<{ className?: string }>; desc: string }[] = [
     { id: 'identity', label: 'Identity & Profile', icon: ICON_MAP.UserCircleIcon, desc: 'Bio, role, skills & contact' },
@@ -357,71 +363,74 @@ export const ProfileSettingsPage: React.FC = () => {
     { id: 'security', label: 'Security & Password', icon: ICON_MAP.ShieldCheckIcon, desc: 'Password & account safety' },
   ];
 
-  const inputClass = `w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-[20px] border focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all ${
-    darkMode ? 'bg-slate-900/40 border-white/10 text-white placeholder-slate-500' : 'bg-white/60 border-white/60 text-slate-900 placeholder-slate-400'
-  }`;
+  const inputClass =
+    'w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--text-primary)]/20 focus:border-[var(--border-strong)] transition-colors';
 
-  const cardClass = `p-5 sm:p-6 rounded-[20px] border shadow-xs transition-all ${
-    darkMode ? 'bg-slate-900/30 border-white/10 text-slate-100 backdrop-blur-2xl' : 'bg-white/30 border-white/60 text-slate-800 backdrop-blur-2xl'
-  }`;
+  const cardClass =
+    'editorial-surface p-5 sm:p-6 text-[var(--text-primary)] transition-colors';
 
   return (
-    <div className="p-3 sm:p-5 md:p-6 max-w-6xl mx-auto w-full space-y-6 animate-fadeIn">
-      {/* Top Executive Identity Banner (Ultra-sheer frosted glass) */}
-      <div className="bg-gradient-to-r from-slate-900/40 via-indigo-950/35 to-slate-900/40 text-white rounded-[20px] p-5 sm:p-6 shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="relative group">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[20px] overflow-hidden border-2 border-indigo-400/50 bg-indigo-500/20 flex items-center justify-center text-xl sm:text-2xl font-bold text-white shadow-lg">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto w-full space-y-5 animate-fadeIn text-[var(--text-primary)]">
+      {/* Top Editorial Identity Card */}
+      <HairlineCard className="p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="relative group shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-sage)] flex items-center justify-center text-xl sm:text-2xl font-bold text-[var(--text-primary)]">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={fullName} className="w-full h-full object-cover" />
                 ) : (
                   (fullName || currentUser.email || 'U')[0].toUpperCase()
                 )}
               </div>
-              <span className="absolute -bottom-1 -right-1 rounded-full bg-slate-900 p-1 shadow-md border border-slate-700">
+              <span className="absolute -bottom-1 -right-1 rounded-full bg-[var(--bg-surface)] p-1 border border-[var(--border-hairline)] shadow-xs">
                 <StatusDynamicIcon status={myStatus} className="w-3.5 h-3.5" />
               </span>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-white">
+                <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] truncate">
                   {fullName || currentUser.email}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-[20px] text-[10px] font-bold uppercase tracking-wider bg-indigo-500/25 text-indigo-200 border border-indigo-400/30">
-                  {normalizedRole.replace(/_/g, ' ')}
-                </span>
+                <StatusDot
+                  tone="lime"
+                  label={normalizedRole.replace(/_/g, ' ')}
+                  className="capitalize font-semibold text-[var(--text-primary)]"
+                />
                 {currentOrganization?.name && (
-                  <span className="px-2.5 py-0.5 rounded-[20px] text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                    <ICON_MAP.CheckBadgeIcon className="w-3 h-3" />
-                    {currentOrganization.name}
-                  </span>
+                  <>
+                    <span className="text-[var(--text-muted)] text-xs">·</span>
+                    <span className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
+                      <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      {currentOrganization.name}
+                    </span>
+                  </>
                 )}
               </div>
-              <p className="text-xs text-indigo-200/90 font-medium">
-                {prefs.jobTitle} • {prefs.department} • {prefs.location}
+              <p className="text-xs text-[var(--text-secondary)] font-medium truncate">
+                {prefs.jobTitle} · {prefs.department} · {prefs.location}
               </p>
-              <p className="text-[11px] text-slate-300/80 font-mono truncate">{currentUser.email}</p>
+              <p className="text-[11px] text-[var(--text-muted)] font-mono truncate">{currentUser.email}</p>
             </div>
           </div>
 
-          {/* Quick Status & Capacity Summary in Banner */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-white/10 dark:bg-white/5 border border-white/15 rounded-[20px] px-3.5 py-2 backdrop-blur-md">
-              <span className="text-[10px] uppercase tracking-wider text-indigo-200 font-bold block">Status</span>
-              <div className="flex items-center gap-1.5 mt-1">
+          {/* Quick Status & Capacity Summary */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] rounded-2xl px-3.5 py-2.5">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold block">
+                Live Status
+              </span>
+              <div className="flex items-center gap-1 mt-1.5">
                 {(['available', 'away', 'busy'] as const).map(st => (
                   <button
                     key={st}
                     type="button"
                     onClick={() => handleStatusChange(st)}
-                    className={`px-2.5 py-1 rounded-[20px] text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
                       myStatus === st
-                        ? 'bg-indigo-500 text-white shadow-xs'
-                        : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                        ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] font-bold'
+                        : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-hairline)]'
                     }`}
                   >
                     <StatusDynamicIcon status={st} className="w-3 h-3" />
@@ -431,39 +440,45 @@ export const ProfileSettingsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white/10 dark:bg-white/5 border border-white/15 rounded-[20px] px-4 py-2 text-right backdrop-blur-md">
-              <span className="text-[10px] uppercase tracking-wider text-emerald-300 font-bold block">Work Load</span>
-              <div className="text-sm font-black text-white mt-0.5">
-                {activeAssignedPoints} / {prefs.maxStoryPointsPerSprint || 21} <span className="text-[11px] font-normal text-slate-300">pts</span>
+            <div className="bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] rounded-2xl px-4 py-2.5 min-w-[140px]">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold block">
+                Work Load
+              </span>
+              <div className="text-sm font-bold font-mono tabular-nums text-[var(--text-primary)] mt-0.5">
+                {activeAssignedPoints} / {prefs.maxStoryPointsPerSprint || 21}{' '}
+                <span className="text-[11px] font-normal text-[var(--text-muted)]">pts</span>
               </div>
-              <span className="text-[10px] text-slate-300/80">{prefs.weeklyCapacityHours}h / week</span>
+              <SlimProgressBar
+                value={workloadPct}
+                tone={workloadPct > 85 ? 'warning' : 'lime'}
+                heightClass="h-1"
+                className="mt-1.5"
+              />
             </div>
           </div>
         </div>
-      </div>
+      </HairlineCard>
 
       {/* Feedback Banner */}
       {message && (
         <div
-          className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between border ${
+          className={`p-3.5 rounded-2xl text-xs font-semibold flex items-center justify-between border ${
             message.type === 'success'
-              ? darkMode
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : darkMode
-                ? 'bg-rose-950/40 text-rose-300 border-rose-800/60'
-                : 'bg-rose-50 text-rose-800 border-rose-200'
+              ? 'bg-[var(--bg-sage)] text-emerald-700 dark:text-emerald-300 border-[var(--border-hairline)]'
+              : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/50'
           }`}
         >
           <span>{message.type === 'success' ? '✓ ' : '⚠️ '}{message.text}</span>
-          <button onClick={() => setMessage(null)} className="text-xs opacity-60 hover:opacity-100">✕</button>
+          <button type="button" onClick={() => setMessage(null)} className="text-xs opacity-60 hover:opacity-100 cursor-pointer">
+            ✕
+          </button>
         </div>
       )}
 
       {/* Main Layout: Left Sub-Navigation + Right Parameter Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Navigation Column */}
-        <div className={`lg:col-span-3 p-2.5 rounded-[20px] border space-y-1 backdrop-blur-2xl ${darkMode ? 'bg-slate-900/30 border-white/10' : 'bg-white/30 border-white/60'}`}>
+        <HairlineCard padding="sm" className="lg:col-span-3 space-y-1">
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -472,18 +487,20 @@ export const ProfileSettingsPage: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-start gap-3 p-3 rounded-[20px] text-left transition-all cursor-pointer ${
+                className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                    : darkMode
-                      ? 'text-slate-300 hover:bg-white/5'
-                      : 'text-slate-700 hover:bg-white/50'
+                    ? 'bg-[var(--bg-sage)] text-[var(--text-primary)] border border-[var(--border-hairline)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-subtle)] hover:text-[var(--text-primary)] border border-transparent'
                 }`}
               >
-                <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isActive ? 'text-white' : 'text-indigo-500'}`} />
+                <Icon
+                  className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                    isActive ? 'text-[#6F8254] dark:text-[var(--accent-lime)]' : 'text-[var(--text-muted)]'
+                  }`}
+                />
                 <div className="min-w-0">
                   <div className="text-xs font-bold truncate">{tab.label}</div>
-                  <div className={`text-[10px] truncate mt-0.5 ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>
+                  <div className="text-[10px] truncate mt-0.5 text-[var(--text-muted)]">
                     {tab.desc}
                   </div>
                 </div>
@@ -491,24 +508,26 @@ export const ProfileSettingsPage: React.FC = () => {
             );
           })}
 
-          <div className={`pt-3 mt-3 border-t px-3 pb-2 ${darkMode ? 'border-white/10' : 'border-white/40'}`}>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Your Activity</div>
-            <div className="space-y-1.5 text-[11px] text-slate-400">
+          <div className="pt-3 mt-3 border-t border-[var(--border-hairline)] px-3 pb-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+              Your Activity
+            </div>
+            <div className="space-y-1.5 text-[11px] text-[var(--text-secondary)]">
               <div className="flex justify-between">
-                <span>Projects Access:</span>
-                <span className="font-semibold text-slate-200">{projects.length}</span>
+                <span>Projects Access</span>
+                <span className="font-mono font-semibold text-[var(--text-primary)]">{projects.length}</span>
               </div>
               <div className="flex justify-between">
-                <span>Assigned Tasks:</span>
-                <span className="font-semibold text-slate-200">{myAssignedTasksList.length}</span>
+                <span>Assigned Tasks</span>
+                <span className="font-mono font-semibold text-[var(--text-primary)]">{myAssignedTasksList.length}</span>
               </div>
               <div className="flex justify-between">
-                <span>Privacy:</span>
-                <span className="font-semibold text-emerald-400">Encrypted</span>
+                <span>Privacy</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400">Encrypted</span>
               </div>
             </div>
           </div>
-        </div>
+        </HairlineCard>
 
         {/* Right Content Column */}
         <div className="lg:col-span-9 space-y-6">
@@ -517,17 +536,17 @@ export const ProfileSettingsPage: React.FC = () => {
               {/* TAB 1: IDENTITY & PROFILE */}
               {activeTab === 'identity' && (
                 <div className={cardClass}>
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-5">
+                  <div className="border-b border-[var(--border-hairline)] pb-4 mb-5">
                     <h2 className="text-base font-bold">Personal Identity & Professional Bio</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                       Configure how your profile, role title, and domain skills appear across tasks, sprints, and team directories.
                     </p>
                   </div>
 
                   <div className="space-y-5">
                     {/* Avatar Upload Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-[20px] border border-white/30 dark:border-white/10 bg-white/30 dark:bg-slate-900/30 backdrop-blur-md">
-                      <div className="relative w-16 h-16 rounded-[20px] overflow-hidden border-2 border-indigo-500/40 bg-indigo-500/10 flex items-center justify-center text-xl font-bold text-indigo-400 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
+                      <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-sage)] flex items-center justify-center text-xl font-bold text-[var(--text-primary)] flex-shrink-0">
                         {avatarUrl ? (
                           <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
@@ -542,10 +561,8 @@ export const ProfileSettingsPage: React.FC = () => {
 
                       <div className="flex-1 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <label className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-[20px] border cursor-pointer transition-colors ${
-                            darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200 hover:bg-slate-700' : 'bg-white/80 border-slate-200 text-slate-700 hover:bg-white shadow-2xs'
-                          }`}>
-                            <ICON_MAP.PaperClipIcon className="w-3.5 h-3.5 text-indigo-400" />
+                          <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-sage)] cursor-pointer transition-colors">
+                            <ICON_MAP.PaperClipIcon className="w-3.5 h-3.5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
                             <span>{isUploading ? 'Uploading...' : 'Upload'}</span>
                             <input type="file" accept="image/*" onChange={handleFileUpload} disabled={isUploading} className="hidden" />
                           </label>
@@ -553,7 +570,7 @@ export const ProfileSettingsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setAvatarUrl('')}
-                              className="px-2.5 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-500/10 rounded-[20px] transition-colors cursor-pointer"
+                              className="px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-full transition-colors cursor-pointer"
                             >
                               Remove
                             </button>
@@ -571,7 +588,7 @@ export const ProfileSettingsPage: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Full Name</label>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Full Name</label>
                         <input
                           type="text"
                           value={fullName}
@@ -582,7 +599,7 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Email Address (Verified)</label>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Email Address (Verified)</label>
                         <input
                           type="email"
                           value={currentUser.email}
@@ -592,7 +609,7 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Job Title / Role Headline</label>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Job Title / Role Headline</label>
                         <input
                           type="text"
                           value={prefs.jobTitle || ''}
@@ -603,7 +620,7 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Department / Squad</label>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Department / Squad</label>
                         <select
                           value={prefs.department || 'Engineering'}
                           onChange={(e) => setPrefs(p => ({ ...p, department: e.target.value }))}
@@ -616,7 +633,7 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Location / Office</label>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Location / Office</label>
                         <input
                           type="text"
                           value={prefs.location || ''}
@@ -627,7 +644,7 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Local Timezone</label>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Local Timezone</label>
                         <select
                           value={prefs.timezone || TIMEZONES[0]}
                           onChange={(e) => setPrefs(p => ({ ...p, timezone: e.target.value }))}
@@ -641,7 +658,7 @@ export const ProfileSettingsPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Professional Bio & Focus Areas</label>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Professional Bio & Focus Areas</label>
                       <textarea
                         rows={3}
                         value={prefs.bio || ''}
@@ -653,20 +670,20 @@ export const ProfileSettingsPage: React.FC = () => {
 
                     {/* Domain Skills */}
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                         Domain Skills (Used by AI Co-Pilot for Smart Task Assignment)
                       </label>
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {(prefs.skills || []).map(skill => (
                           <span
                             key={skill}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--bg-sage)] text-[var(--text-primary)] border border-[var(--border-hairline)]"
                           >
                             <span>{skill}</span>
                             <button
                               type="button"
                               onClick={() => handleRemoveSkill(skill)}
-                              className="hover:text-rose-400 cursor-pointer"
+                              className="hover:text-rose-500 cursor-pointer"
                             >
                               ×
                             </button>
@@ -687,37 +704,35 @@ export const ProfileSettingsPage: React.FC = () => {
                           placeholder="Add a skill (e.g. Kubernetes, GraphQL, Product Strategy) and press Enter"
                           className={inputClass}
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="primary"
+                          size="sm"
                           onClick={handleAddSkill}
-                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex-shrink-0 cursor-pointer"
+                          className="shrink-0"
                         >
                           Add Skill
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Workspace Theme & Color Accent Swatches on Default Tab */}
-                    <div className="pt-5 border-t border-slate-200 dark:border-slate-800">
+                    {/* Workspace Theme & Color Accent Swatches */}
+                    <div className="pt-5 border-t border-[var(--border-hairline)]">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                         <div>
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                             Workspace Theme & Color Accent
                           </h3>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                             Personalize your workspace accent color and Dark/Light mode. Saved automatically for your next session.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={toggleDarkMode}
-                          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                            darkMode
-                              ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-700'
-                              : 'bg-slate-100 border-slate-200 text-slate-800 hover:bg-slate-200/70'
-                          }`}
+                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-xs font-semibold text-[var(--text-primary)] transition-colors cursor-pointer shrink-0"
                         >
-                          {darkMode ? <ICON_MAP.SunIcon className="w-4 h-4" /> : <ICON_MAP.MoonIcon className="w-4 h-4" />}
+                          {darkMode ? <ICON_MAP.SunIcon className="w-4 h-4 text-amber-400" /> : <ICON_MAP.MoonIcon className="w-4 h-4" />}
                           <span>{darkMode ? 'Dark Mode Active' : 'Light Mode Active'}</span>
                         </button>
                       </div>
@@ -736,12 +751,8 @@ export const ProfileSettingsPage: React.FC = () => {
                               }}
                               className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                                 isSelected
-                                  ? darkMode
-                                    ? 'bg-slate-800 border-white/40 ring-2 ring-white/15 shadow-sm'
-                                    : 'bg-slate-50 border-slate-900/30 ring-2 ring-slate-900/10 shadow-sm'
-                                  : darkMode
-                                  ? 'bg-slate-900/50 border-slate-800 hover:bg-slate-800/60'
-                                  : 'bg-white border-slate-200/80 hover:bg-slate-50'
+                                  ? 'bg-[var(--bg-sage)] border-[var(--border-strong)]'
+                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:border-[var(--border-strong)]'
                               }`}
                             >
                               <span
@@ -750,8 +761,8 @@ export const ProfileSettingsPage: React.FC = () => {
                                 {isSelected && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />}
                               </span>
                               <div className="min-w-0">
-                                <div className="text-xs font-bold truncate">{preset.name}</div>
-                                <div className="text-[10px] text-slate-400 truncate">{preset.tagline}</div>
+                                <div className="text-xs font-bold truncate text-[var(--text-primary)]">{preset.name}</div>
+                                <div className="text-[10px] text-[var(--text-muted)] truncate">{preset.tagline}</div>
                               </div>
                             </button>
                           );
@@ -760,57 +771,50 @@ export const ProfileSettingsPage: React.FC = () => {
                     </div>
 
                     {/* Active Organization & Workspace Switching Section */}
-                    <div className="pt-5 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                    <div className="pt-5 border-t border-[var(--border-hairline)] space-y-3">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                             Organization & Active Workspace
                           </h3>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                             Manage which organization you are active in or switch between company workspaces.
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
+                          <Button
                             type="button"
+                            variant="lime"
+                            size="sm"
                             onClick={() => openOrganizationModal('join')}
-                            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow-xs transition"
                           >
                             ⇄ Switch Organization
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="secondary"
+                            size="sm"
                             onClick={() => openOrganizationModal('create')}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                              darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
-                            }`}
                           >
-                            ✦ Create Workspace
-                          </button>
+                            + Create Workspace
+                          </Button>
                         </div>
                       </div>
 
-                      <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}>
+                      <div className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="space-y-0.5">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Active Workspace</span>
-                          <div className="text-sm font-extrabold flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Current Active Workspace</span>
+                          <div className="text-sm font-bold flex items-center gap-2">
                             <span>{currentOrganization?.name || 'Personal Workspace'}</span>
                             {currentOrganization?.slug && (
-                              <span className="text-[11px] font-mono text-indigo-400">/{currentOrganization.slug}</span>
+                              <span className="text-[11px] font-mono text-[var(--text-muted)]">/{currentOrganization.slug}</span>
                             )}
                           </div>
-                          <span className="text-[11px] text-slate-400">
-                            Your role: <strong className="text-emerald-400 capitalize">{normalizedRole.replace(/_/g, ' ')}</strong>
+                          <span className="text-[11px] text-[var(--text-secondary)]">
+                            Your role: <strong className="text-[var(--text-primary)] capitalize">{normalizedRole.replace(/_/g, ' ')}</strong>
                           </span>
                         </div>
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Active Session
-                          </span>
-                        </div>
+                        <StatusDot tone="success" label="Active Session" className="font-semibold text-emerald-700 dark:text-emerald-400" />
                       </div>
                     </div>
                   </div>
@@ -820,9 +824,9 @@ export const ProfileSettingsPage: React.FC = () => {
               {/* TAB 2: WORKSPACE & CAPACITY */}
               {activeTab === 'capacity' && (
                 <div className={cardClass}>
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-5">
+                  <div className="border-b border-[var(--border-hairline)] pb-4 mb-5">
                     <h2 className="text-base font-bold">Workload Capacity & Workspace Display</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                       Set your weekly engineering/delivery bandwidth so the AI Load Balancer can prevent burnout.
                     </p>
                   </div>
@@ -830,7 +834,7 @@ export const ProfileSettingsPage: React.FC = () => {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                           Weekly Capacity (Hours / Week)
                         </label>
                         <input
@@ -841,11 +845,11 @@ export const ProfileSettingsPage: React.FC = () => {
                           onChange={(e) => setPrefs(p => ({ ...p, weeklyCapacityHours: Number(e.target.value) }))}
                           className={inputClass}
                         />
-                        <p className="text-[11px] text-slate-400 mt-1">Used in Team Management & Resource Load Balancing.</p>
+                        <p className="text-[11px] text-[var(--text-muted)] mt-1">Used in Team Management & Resource Load Balancing.</p>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                           Target Sprint Velocity (Max Story Points)
                         </label>
                         <input
@@ -856,11 +860,11 @@ export const ProfileSettingsPage: React.FC = () => {
                           onChange={(e) => setPrefs(p => ({ ...p, maxStoryPointsPerSprint: Number(e.target.value) }))}
                           className={inputClass}
                         />
-                        <p className="text-[11px] text-slate-400 mt-1">Alerts trigger when your active sprint tasks exceed this cap.</p>
+                        <p className="text-[11px] text-[var(--text-muted)] mt-1">Alerts trigger when your active sprint tasks exceed this cap.</p>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                           Working Hours Start
                         </label>
                         <input
@@ -872,7 +876,7 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                           Working Hours End
                         </label>
                         <input
@@ -885,7 +889,7 @@ export const ProfileSettingsPage: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-slate-400">Active Working Days</label>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-2 text-[var(--text-muted)]">Active Working Days</label>
                       <div className="flex flex-wrap gap-2">
                         {DAYS_OF_WEEK.map(day => {
                           const active = (prefs.workingDays || []).includes(day);
@@ -894,12 +898,10 @@ export const ProfileSettingsPage: React.FC = () => {
                               key={day}
                               type="button"
                               onClick={() => toggleWorkingDay(day)}
-                              className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                              className={`px-3.5 py-2 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
                                 active
-                                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-xs'
-                                  : darkMode
-                                    ? 'bg-slate-800/70 border-slate-700 text-slate-400'
-                                    : 'bg-slate-100 border-slate-200 text-slate-600'
+                                  ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
+                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                               }`}
                             >
                               {day}
@@ -909,9 +911,9 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[var(--border-hairline)]">
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                           Default Workspace Landing View
                         </label>
                         <select
@@ -929,18 +931,16 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                           Theme Appearance
                         </label>
                         <button
                           type="button"
                           onClick={toggleDarkMode}
-                          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold cursor-pointer ${
-                            darkMode ? 'bg-slate-800 border-slate-700 text-amber-300' : 'bg-slate-100 border-slate-200 text-slate-800'
-                          }`}
+                          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-xs font-bold text-[var(--text-primary)] cursor-pointer transition-colors"
                         >
                           <span className="flex items-center gap-2">
-                            {darkMode ? <ICON_MAP.SunIcon className="w-4 h-4" /> : <ICON_MAP.MoonIcon className="w-4 h-4" />}
+                            {darkMode ? <ICON_MAP.SunIcon className="w-4 h-4 text-amber-400" /> : <ICON_MAP.MoonIcon className="w-4 h-4" />}
                             <span>Currently {darkMode ? 'Dark Mode' : 'Light Mode'}</span>
                           </span>
                           <span className="underline">Switch Theme</span>
@@ -949,14 +949,14 @@ export const ProfileSettingsPage: React.FC = () => {
                     </div>
 
                     {/* Workspace Color Accent Swatches */}
-                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <div className="pt-4 border-t border-[var(--border-hairline)]">
                       <div className="flex items-center justify-between mb-2.5">
                         <div>
-                          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                             Workspace Color Accent (Persisted Across Sessions)
                           </label>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            Choose your signature accent palette for buttons, active states, focus rings, and ambient glow in both Light and Dark modes.
+                          <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                            Choose your signature accent palette for buttons, active states, and focus rings in both Light and Dark modes.
                           </p>
                         </div>
                       </div>
@@ -972,24 +972,20 @@ export const ProfileSettingsPage: React.FC = () => {
                                 setPrefs((p) => ({ ...p, accentColor: preset.id as WorkspaceAccentId }));
                                 addToast('Accent Updated', `Workspace accent set to ${preset.name}.`, 'info');
                               }}
-                              className={`flex items-center gap-3 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                              className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
                                 isSelected
-                                  ? darkMode
-                                    ? 'bg-slate-800/90 border-white/40 ring-2 ring-white/20 shadow-md'
-                                    : 'bg-slate-50 border-slate-900/30 ring-2 ring-slate-900/10 shadow-md'
-                                  : darkMode
-                                  ? 'bg-slate-900/50 border-slate-800 hover:bg-slate-800/60'
-                                  : 'bg-white border-slate-200/80 hover:bg-slate-50'
+                                  ? 'bg-[var(--bg-sage)] border-[var(--border-strong)]'
+                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:border-[var(--border-strong)]'
                               }`}
                             >
                               <span
-                                className={`w-8 h-8 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white shadow-sm shrink-0`}
+                                className={`w-8 h-8 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white shadow-xs shrink-0`}
                               >
                                 {isSelected && <ICON_MAP.CheckIcon className="w-4 h-4 stroke-[2.5]" />}
                               </span>
                               <div className="min-w-0">
-                                <div className="text-xs font-bold truncate">{preset.name}</div>
-                                <div className="text-[10px] text-slate-400 truncate">{preset.tagline}</div>
+                                <div className="text-xs font-bold truncate text-[var(--text-primary)]">{preset.name}</div>
+                                <div className="text-[10px] text-[var(--text-muted)] truncate">{preset.tagline}</div>
                               </div>
                             </button>
                           );
@@ -1003,14 +999,14 @@ export const ProfileSettingsPage: React.FC = () => {
               {/* TAB 3: NOTIFICATIONS & ALERTS */}
               {activeTab === 'notifications' && (
                 <div className={cardClass}>
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-5">
+                  <div className="border-b border-[var(--border-hairline)] pb-4 mb-5">
                     <h2 className="text-base font-bold">Real-Time Notification & Digest Routing</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                       Control which workspace events trigger live toast notifications, inbox items, and email digests.
                     </p>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {[
                       {
                         key: 'notifyOnTaskAssigned',
@@ -1042,17 +1038,17 @@ export const ProfileSettingsPage: React.FC = () => {
                       return (
                         <div
                           key={item.key}
-                          className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/70 dark:border-slate-800"
+                          className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]"
                         >
                           <div>
-                            <div className="text-xs font-bold">{item.title}</div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">{item.desc}</div>
+                            <div className="text-xs font-bold text-[var(--text-primary)]">{item.title}</div>
+                            <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">{item.desc}</div>
                           </div>
                           <button
                             type="button"
                             onClick={() => setPrefs(p => ({ ...p, [item.key]: !checked }))}
-                            className={`w-11 h-6 rounded-full transition-colors p-0.5 cursor-pointer ${
-                              checked ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                            className={`w-11 h-6 rounded-full transition-colors p-0.5 cursor-pointer shrink-0 ${
+                              checked ? 'bg-[var(--accent-lime)]' : 'bg-[var(--border-strong)]'
                             }`}
                           >
                             <div
@@ -1066,7 +1062,7 @@ export const ProfileSettingsPage: React.FC = () => {
                     })}
 
                     <div className="pt-3">
-                      <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                         Automated Email Digest Summary
                       </label>
                       <select
@@ -1087,29 +1083,29 @@ export const ProfileSettingsPage: React.FC = () => {
               {/* TAB 4: AI CO-PILOT PARAMETERS */}
               {activeTab === 'ai_copilot' && (
                 <div className={cardClass}>
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-5">
+                  <div className="border-b border-[var(--border-hairline)] pb-4 mb-5">
                     <h2 className="text-base font-bold flex items-center gap-2">
-                      <ICON_MAP.SparklesIcon className="w-5 h-5 text-indigo-400" />
+                      <ICON_MAP.SparklesIcon className="w-5 h-5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
                       <span>AI Co-Pilot & Virtual PM Personalization</span>
                     </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                       Customize how Omni Flow AI estimates tasks, writes documentation, and surfaces proactive risks.
                     </p>
                   </div>
 
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
                       <div>
                         <div className="text-xs font-bold">Automatic Fibonacci Story Point Estimation</div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
+                        <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                           Allow AI Co-Pilot to suggest effort points and QA checklists when opening tasks.
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => setPrefs(p => ({ ...p, aiAutoEstimateEffort: !p.aiAutoEstimateEffort }))}
-                        className={`w-11 h-6 rounded-full transition-colors p-0.5 cursor-pointer ${
-                          prefs.aiAutoEstimateEffort ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                        className={`w-11 h-6 rounded-full transition-colors p-0.5 cursor-pointer shrink-0 ${
+                          prefs.aiAutoEstimateEffort ? 'bg-[var(--accent-lime)]' : 'bg-[var(--border-strong)]'
                         }`}
                       >
                         <div
@@ -1120,18 +1116,18 @@ export const ProfileSettingsPage: React.FC = () => {
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
                       <div>
                         <div className="text-xs font-bold">Proactive Bottleneck & Blocker Detection</div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
+                        <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                           Highlight stalled tasks, overloaded teammates, and dependency risks on your dashboard.
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => setPrefs(p => ({ ...p, aiProactiveRiskAlerts: !p.aiProactiveRiskAlerts }))}
-                        className={`w-11 h-6 rounded-full transition-colors p-0.5 cursor-pointer ${
-                          prefs.aiProactiveRiskAlerts ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                        className={`w-11 h-6 rounded-full transition-colors p-0.5 cursor-pointer shrink-0 ${
+                          prefs.aiProactiveRiskAlerts ? 'bg-[var(--accent-lime)]' : 'bg-[var(--border-strong)]'
                         }`}
                       >
                         <div
@@ -1143,7 +1139,7 @@ export const ProfileSettingsPage: React.FC = () => {
                     </div>
 
                     <div className="pt-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">
                         Default AI Documentation & Spec Writing Tone
                       </label>
                       <select
@@ -1162,57 +1158,52 @@ export const ProfileSettingsPage: React.FC = () => {
               )}
 
               {/* Save Bar for Identity / Capacity / Notifications / AI */}
-              <div className={`sticky bottom-3 z-20 p-3.5 rounded-[20px] border backdrop-blur-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xl ${
-                darkMode ? 'bg-slate-900/40 border-white/15' : 'bg-white/40 border-white/60'
-              }`}>
-                <div className="text-xs text-slate-600 dark:text-slate-300">
+              <div className="sticky bottom-3 z-20 p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md">
+                <div className="text-xs text-[var(--text-secondary)]">
                   Changes save immediately across your profile and workspace.
                 </div>
                 <div className="flex items-center gap-2 sm:pr-14">
-                  <button
+                  <Button
                     type="submit"
+                    variant="lime"
+                    size="sm"
                     disabled={isSaving}
-                    className="w-full sm:w-auto px-4 py-2 rounded-[20px] bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     {isSaving ? (
                       <>
-                        <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
+                        <ICON_MAP.SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1.5" />
                         <span>Saving...</span>
                       </>
                     ) : (
                       <>
-                        <ICON_MAP.CheckIcon className="w-4 h-4" />
+                        <ICON_MAP.CheckIcon className="w-3.5 h-3.5 mr-1.5" />
                         <span>Save Changes</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </form>
           ) : (
             /* TAB 5: SECURITY & ACCESS */
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className={cardClass}>
-                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-                  <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400">
+                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[var(--border-hairline)]">
+                  <div className="w-9 h-9 rounded-full bg-[var(--bg-sage)] text-[#6F8254] dark:text-[var(--accent-lime)] flex items-center justify-center">
                     <ICON_MAP.ShieldCheckIcon className="w-5 h-5" />
                   </div>
                   <div>
                     <h2 className="text-base font-bold">Password & Authentication Credentials</h2>
-                    <p className="text-xs text-slate-400">Update your account password or dispatch an email recovery link</p>
+                    <p className="text-xs text-[var(--text-secondary)]">Update your account password or dispatch an email recovery link</p>
                   </div>
                 </div>
 
                 {passwordMessage && (
                   <div
-                    className={`p-3 mb-4 rounded-xl text-xs font-medium ${
+                    className={`p-3 mb-4 rounded-xl text-xs font-medium border ${
                       passwordMessage.type === 'success'
-                        ? darkMode
-                          ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-800/60'
-                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        : darkMode
-                          ? 'bg-rose-950/40 text-rose-300 border border-rose-800/60'
-                          : 'bg-rose-50 text-rose-800 border border-rose-200'
+                        ? 'bg-[var(--bg-sage)] text-emerald-700 dark:text-emerald-300 border-[var(--border-hairline)]'
+                        : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/50'
                     }`}
                   >
                     {passwordMessage.type === 'success' ? '✓ ' : '⚠️ '}
@@ -1223,7 +1214,7 @@ export const ProfileSettingsPage: React.FC = () => {
                 <form onSubmit={handlePasswordUpdate} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">New Password</label>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">New Password</label>
                       <input
                         type="password"
                         value={newPassword}
@@ -1235,7 +1226,7 @@ export const ProfileSettingsPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-400">Confirm New Password</label>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-[var(--text-muted)]">Confirm New Password</label>
                       <input
                         type="password"
                         value={confirmPassword}
@@ -1248,77 +1239,79 @@ export const ProfileSettingsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/60 dark:border-slate-800">
-                    <button
+                  <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[var(--border-hairline)]">
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleSendResetEmail}
                       disabled={isSendingResetEmail}
-                      className={`text-xs font-semibold px-3.5 py-2 rounded-xl border transition-all cursor-pointer ${
-                        darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
-                      }`}
                     >
                       {isSendingResetEmail ? 'Sending Reset Email...' : `Send Recovery Link to ${currentUser.email}`}
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="submit"
+                      variant="lime"
+                      size="sm"
                       disabled={isUpdatingPassword || !newPassword}
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 cursor-pointer"
                     >
                       {isUpdatingPassword ? (
                         <>
-                          <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
+                          <ICON_MAP.SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1.5" />
                           <span>Updating Password...</span>
                         </>
                       ) : (
                         <span>Update Password</span>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </form>
               </div>
 
               {/* Personal API Access Token & Session Governance */}
               <div className={cardClass}>
-                <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-4">
+                <div className="border-b border-[var(--border-hairline)] pb-4 mb-4">
                   <h2 className="text-base font-bold">Personal Access Token & Session Security</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                     Generate scoped tokens for webhook triggers, CLI integrations, and E2EE key verification.
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl border border-slate-200/70 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1">
+                  <div className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1 min-w-0">
                       <div className="text-xs font-bold">Personal Workspace API Token</div>
                       {personalApiToken ? (
-                        <code className="text-[11px] font-mono text-emerald-400 bg-slate-900 px-2.5 py-1 rounded border border-slate-800 block">
+                        <code className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 bg-[var(--bg-surface)] px-2.5 py-1 rounded border border-[var(--border-hairline)] block truncate">
                           {personalApiToken}
                         </code>
                       ) : (
-                        <p className="text-[11px] text-slate-400">No active personal token generated.</p>
+                        <p className="text-[11px] text-[var(--text-muted)]">No active personal token generated.</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {personalApiToken && (
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => {
                             navigator.clipboard.writeText(personalApiToken);
                             addToast('Copied', 'Personal API token copied to clipboard.', 'info');
                           }}
-                          className="px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-semibold hover:bg-slate-800 cursor-pointer"
                         >
                           Copy
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
                         type="button"
+                        variant="primary"
+                        size="sm"
                         onClick={handleGeneratePersonalToken}
-                        className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer"
                       >
                         {personalApiToken ? 'Rotate Token' : 'Generate Token'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>

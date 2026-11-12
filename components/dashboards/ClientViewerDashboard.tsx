@@ -4,100 +4,112 @@ import { ICON_MAP } from '../../constants';
 import { TasklyBentoWorkspaceHub } from './TasklyBentoWorkspaceHub';
 import { TaskStatus } from '../../types';
 import soundService from '../../services/soundService';
+import { PageHeader, HairlineCard, StatusDot } from '../shared/EditorialUI';
+import { SlimProgressBar } from '../charts/EditorialCharts';
 
 export const ClientViewerDashboard: React.FC = () => {
-  const { darkMode, projects, tasks, setActiveProject, setActiveView } = useAppStore();
-  const EyeIcon = ICON_MAP.EyeIcon || ICON_MAP.InboxIcon;
+  const { projects, tasks, setActiveProject, setActiveView } = useAppStore();
+  const FolderIcon = ICON_MAP.FolderIcon;
 
   const sharedProjects = projects;
 
   return (
-    <div className={`p-4 md:p-6 space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-[32px] p-5 sm:p-6 shadow-xl border border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold mb-2">
-            <EyeIcon className="w-3.5 h-3.5" />
-            Stakeholder &amp; Client Portal
-          </span>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Project Viewer Dashboard</h1>
-          <p className="text-xs sm:text-sm text-indigo-200/80 mt-1">
-            Live read-only visibility into shared project milestones, concentric completion rings, and upcoming releases.
-          </p>
-        </div>
-        <span className="px-4 py-1.5 rounded-full bg-white/10 text-xs font-bold text-indigo-200 border border-white/15 self-start sm:self-auto">
-          VIEWER ACCESS
-        </span>
-      </div>
+    <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
+      <PageHeader
+        eyebrow="Stakeholder & Client Portal"
+        title="Project Viewer Dashboard"
+        subtitle="Live read-only visibility into shared project milestones, health metrics, and release progress."
+        actions={
+          <StatusDot
+            tone="lime"
+            label="Read-Only Access"
+            className="px-3 py-1 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-xs font-medium"
+          />
+        }
+      />
 
-      {/* 1. Unified Taskly & Soft Glass Bento Hub at the TOP (Task Overview, Project Status, Meet Schedule & Calendar) */}
       <TasklyBentoWorkspaceHub roleBadgeLabel="CLIENT VIEWER" />
 
-      {/* 2. Shared Projects Bento Portfolio */}
-      <div
-        className={`p-5 sm:p-6 rounded-[32px] border shadow-xs ${
-          darkMode ? 'bg-slate-900/75 border-white/10' : 'bg-white/88 border-white'
-        }`}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-              <EyeIcon className="w-4 h-4" />
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Shared Project Portfolio</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Click any project to inspect its board</p>
-            </div>
+      <HairlineCard padding="none" className="overflow-hidden">
+        <div className="px-5 py-4 border-b border-[var(--border-hairline)] flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-[var(--text-primary)]">Shared Project Portfolio</h2>
+            <p className="text-xs text-[var(--text-secondary)]">Select any stream to inspect deliverables and milestones.</p>
           </div>
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-            {sharedProjects.length} Active
+          <span className="text-xs font-mono tabular-nums text-[var(--text-muted)]">
+            {sharedProjects.length} active
           </span>
         </div>
 
         {sharedProjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sharedProjects.map(p => {
-              const projTasks = tasks.filter(t => t.projectId === p.id);
-              const doneTasks = projTasks.filter(t => t.status === TaskStatus.DONE).length;
-              const pct = projTasks.length > 0 ? Math.round((doneTasks / projTasks.length) * 100) : p.progress || 0;
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => {
-                    soundService.play('click_soft');
-                    setActiveProject(p.id);
-                    setActiveView('kanban');
-                  }}
-                  className={`p-4 rounded-[24px] border cursor-pointer transition-all hover:-translate-y-0.5 ${
-                    darkMode
-                      ? 'bg-slate-800/70 border-white/[0.08] hover:border-indigo-500/40'
-                      : 'bg-slate-50/90 border-slate-200/70 hover:bg-white hover:shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{p.name}</h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                      {pct}%
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">
-                    {p.description || 'Active delivery stream tracked in real time.'}
-                  </p>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-indigo-500 to-emerald-500 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-muted)] bg-[var(--bg-surface-subtle)]">
+                  <th className="py-2.5 px-5">Project</th>
+                  <th className="py-2.5 px-4">Status</th>
+                  <th className="py-2.5 px-4 w-56">Progress</th>
+                  <th className="py-2.5 px-4">Deliverables</th>
+                  <th className="py-2.5 px-5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-hairline)]">
+                {sharedProjects.map(p => {
+                  const projTasks = tasks.filter(t => t.projectId === p.id);
+                  const doneTasks = projTasks.filter(t => t.status === TaskStatus.DONE).length;
+                  const pct = projTasks.length > 0 ? Math.round((doneTasks / projTasks.length) * 100) : p.progress || 0;
+                  const tone = p.status === 'completed' || pct >= 85 ? 'success' : p.status === 'on hold' ? 'warning' : 'lime';
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => {
+                        soundService.play('click_soft');
+                        setActiveProject(p.id);
+                        setActiveView('kanban');
+                      }}
+                      className="hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer"
+                    >
+                      <td className="py-3 px-5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-[var(--bg-sage)] flex items-center justify-center shrink-0">
+                            <FolderIcon className="w-3.5 h-3.5 text-[var(--text-primary)]" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-[var(--text-primary)] truncate">{p.name}</p>
+                            <p className="text-[11px] text-[var(--text-muted)] truncate max-w-md">
+                              {p.description || 'Active delivery stream tracked in real time.'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 capitalize">
+                        <StatusDot tone={tone} label={p.status || 'active'} />
+                      </td>
+                      <td className="py-3 px-4">
+                        <SlimProgressBar
+                          value={pct}
+                          tone={pct >= 90 ? 'sage' : 'charcoal'}
+                          showPercent
+                        />
+                      </td>
+                      <td className="py-3 px-4 font-mono tabular-nums text-[var(--text-secondary)]">
+                        {doneTasks} / {projTasks.length} tasks
+                      </td>
+                      <td className="py-3 px-5 text-right font-semibold text-[var(--text-primary)]">
+                        View →
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <div className="p-8 text-center rounded-[24px] border border-dashed border-slate-300 dark:border-slate-700 text-sm text-slate-400">
+          <div className="p-10 text-center text-xs text-[var(--text-muted)]">
             No shared projects yet.
           </div>
         )}
-      </div>
+      </HairlineCard>
     </div>
   );
 };

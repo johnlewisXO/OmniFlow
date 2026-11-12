@@ -12,6 +12,7 @@ import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
 import meetingAndCallService from '../../services/meetingAndCallService';
+import { PageHeader, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
 
 const CATEGORY_METADATA: Record<
   CalendarEventCategory,
@@ -19,38 +20,38 @@ const CATEGORY_METADATA: Record<
 > = {
   sprint_planning: {
     label: 'Sprint Planning & Prep',
-    accent: 'border-l-indigo-500 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-    dotColor: 'bg-indigo-500',
+    accent: 'border-l-[#6F8254] bg-[var(--bg-sage)] text-[var(--text-primary)]',
+    dotColor: 'bg-[#6F8254] dark:bg-[var(--accent-lime)]',
     defaultDurationMin: 60,
   },
   sprint_retro: {
     label: 'Sprint Review & Retro',
-    accent: 'border-l-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300',
-    dotColor: 'bg-purple-500',
+    accent: 'border-l-[#191B17] dark:border-l-[#CCF048] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)]',
+    dotColor: 'bg-[var(--text-primary)]',
     defaultDurationMin: 45,
   },
   project_update: {
     label: 'Project Update & Sync',
-    accent: 'border-l-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    dotColor: 'bg-emerald-500',
+    accent: 'border-l-emerald-600 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300',
+    dotColor: 'bg-emerald-600 dark:bg-emerald-400',
     defaultDurationMin: 45,
   },
   daily_standup: {
     label: 'Daily Standup',
-    accent: 'border-l-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    dotColor: 'bg-sky-500',
+    accent: 'border-l-sky-600 bg-sky-600/10 text-sky-800 dark:text-sky-300',
+    dotColor: 'bg-sky-600 dark:bg-sky-400',
     defaultDurationMin: 15,
   },
   one_on_one: {
     label: '1:1 Video Sync',
-    accent: 'border-l-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    dotColor: 'bg-amber-500',
+    accent: 'border-l-amber-600 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+    dotColor: 'bg-amber-600 dark:bg-amber-400',
     defaultDurationMin: 30,
   },
   team_workshop: {
     label: 'Architecture & Workshop',
-    accent: 'border-l-rose-500 bg-rose-500/10 text-rose-700 dark:text-rose-300',
-    dotColor: 'bg-rose-500',
+    accent: 'border-l-rose-600 bg-rose-600/10 text-rose-800 dark:text-rose-300',
+    dotColor: 'bg-rose-600 dark:bg-rose-400',
     defaultDurationMin: 60,
   },
 };
@@ -476,98 +477,72 @@ export const CalendarMeetingsPage: React.FC = () => {
   }, [currentMonthDate]);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto w-full">
-      {/* 1. TOP HEADER BAR */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-white/10">
-        <div>
-          <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Calendar & Team Meetings
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Schedule meetings, plan team events, and launch video rooms.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-          {/* Segmented View Toggle */}
-          <div className="flex items-center gap-1 p-1 rounded-[20px] bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 backdrop-blur-md">
-            {(
-              [
+    <div className="p-4 sm:p-6 space-y-5 max-w-[1440px] mx-auto w-full text-[var(--text-primary)]">
+      {/* 1. EDITORIAL HEADER BAR */}
+      <PageHeader
+        eyebrow="Schedule & Ceremonies · Video Rooms"
+        title="Calendar & Team Meetings"
+        subtitle="Coordinate sprint ceremonies, track attendance RSVPs, and launch instant video sync rooms."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <SegmentedTabs
+              size="sm"
+              value={viewMode}
+              onChange={setViewMode}
+              options={[
                 { id: 'month', label: 'Month' },
                 { id: 'agenda', label: 'Agenda' },
                 { id: 'sprint_prep', label: 'Planning' },
-              ] as const
-            ).map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setViewMode(tab.id)}
-                className={`px-3 py-1.5 rounded-[20px] text-xs font-semibold transition-colors cursor-pointer ${
-                  viewMode === tab.id
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+              ]}
+            />
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (!currentUser) return;
+                window.dispatchEvent(
+                  new CustomEvent('omni_start_video_call', {
+                    detail: {
+                      title: `${currentUser.full_name || 'Team'}'s Instant Video Sync`,
+                      type: 'channel',
+                      channelId: 'chan-general',
+                      invitedUsers: orgTeammates,
+                      showLobby: true,
+                    },
+                  })
+                );
+              }}
+            >
+              <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Instant Meet</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="lime"
+              size="sm"
+              onClick={() => openScheduleModalWithDefaults()}
+            >
+              <ICON_MAP.PlusIcon className="w-3.5 h-3.5 mr-1" />
+              <span>New Meeting</span>
+            </Button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (!currentUser) return;
-              window.dispatchEvent(
-                new CustomEvent('omni_start_video_call', {
-                  detail: {
-                    title: `${currentUser.full_name || 'Team'}'s Instant Video Sync`,
-                    type: 'channel',
-                    channelId: 'chan-general',
-                    invitedUsers: orgTeammates,
-                    showLobby: true,
-                  },
-                })
-              );
-            }}
-            className={`px-3.5 py-2 rounded-[20px] border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-              darkMode
-                ? 'bg-slate-800/80 hover:bg-slate-700/80 border-white/10 text-emerald-400'
-                : 'bg-white/80 hover:bg-white border-slate-200 text-emerald-700 shadow-2xs'
-            }`}
-          >
-            <ICON_MAP.VideoCameraIcon className="w-4 h-4 text-emerald-500" />
-            <span>Meet</span>
-          </button>
-
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => openScheduleModalWithDefaults()}
-            className="rounded-[20px] gap-1.5 py-2 px-4 shadow-md text-xs font-semibold"
-          >
-            <ICON_MAP.PlusIcon className="w-4 h-4" />
-            <span>New Meeting</span>
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. PENDING RSVP INVITATIONS BANNER */}
       {myPendingInvites.length > 0 && (
-        <div
-          className={`p-4 rounded-[20px] border flex flex-col md:flex-row md:items-center justify-between gap-4 backdrop-blur-xl transition-all ${
-            darkMode
-              ? 'bg-indigo-950/25 border-indigo-500/30 text-slate-100'
-              : 'bg-white/30 border-white/40 text-slate-900 shadow-xs'
-          }`}
-        >
+        <HairlineCard className="border-l-4 border-l-[var(--accent-lime)] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-              Awaiting Your RSVP ({myPendingInvites.length}{' '}
-              {myPendingInvites.length === 1 ? 'invitation' : 'invitations'})
-            </div>
-            <div className="text-sm font-bold">{myPendingInvites[0].title}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <StatusDot
+              tone="lime"
+              label={`Awaiting Your RSVP · ${myPendingInvites.length} pending ${myPendingInvites.length === 1 ? 'invitation' : 'invitations'}`}
+              className="text-xs font-semibold text-[var(--text-primary)]"
+            />
+            <div className="text-sm font-bold text-[var(--text-primary)]">{myPendingInvites[0].title}</div>
+            <div className="text-xs text-[var(--text-secondary)]">
               Invited by {myPendingInvites[0].organizerName} ·{' '}
               {new Date(myPendingInvites[0].startTime).toLocaleString([], {
                 weekday: 'short',
@@ -581,41 +556,46 @@ export const CalendarMeetingsPage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="lime"
+              size="sm"
               onClick={() => handleUserRsvp(myPendingInvites[0], 'going')}
-              className="px-3.5 py-1.5 rounded-[20px] bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
               Accept
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => handleUserRsvp(myPendingInvites[0], 'maybe')}
-              className="px-3.5 py-1.5 rounded-[20px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-semibold transition-colors cursor-pointer"
             >
               Maybe
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => handleUserRsvp(myPendingInvites[0], 'declined')}
-              className="px-3.5 py-1.5 rounded-[20px] bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer"
+              className="text-rose-600 dark:text-rose-400"
             >
               Decline
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setSelectedEventId(myPendingInvites[0].id)}
-              className="px-3.5 py-1.5 rounded-[20px] bg-white/40 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-white/30 dark:border-slate-700 text-xs font-semibold cursor-pointer"
             >
               View Agenda
-            </button>
+            </Button>
           </div>
-        </div>
+        </HairlineCard>
       )}
 
       {/* 3. FILTER & MONTH CONTROLS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() =>
@@ -623,11 +603,12 @@ export const CalendarMeetingsPage: React.FC = () => {
                 prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
               )
             }
-            className="p-2 rounded-[20px] border border-white/40 dark:border-slate-700 bg-white/30 dark:bg-slate-800/60 hover:bg-white/50 dark:hover:bg-slate-800 text-xs cursor-pointer"
+            className="w-8 h-8 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] flex items-center justify-center text-xs cursor-pointer transition-colors"
+            aria-label="Previous month"
           >
             ←
           </button>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white min-w-[160px] text-center">
+          <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] min-w-[150px] text-center">
             {currentMonthDate.toLocaleDateString([], { month: 'long', year: 'numeric' })}
           </h2>
           <button
@@ -637,7 +618,8 @@ export const CalendarMeetingsPage: React.FC = () => {
                 prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
               )
             }
-            className="p-2 rounded-[20px] border border-white/40 dark:border-slate-700 bg-white/30 dark:bg-slate-800/60 hover:bg-white/50 dark:hover:bg-slate-800 text-xs cursor-pointer"
+            className="w-8 h-8 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] flex items-center justify-center text-xs cursor-pointer transition-colors"
+            aria-label="Next month"
           >
             →
           </button>
@@ -648,64 +630,41 @@ export const CalendarMeetingsPage: React.FC = () => {
               d.setDate(1);
               setCurrentMonthDate(d);
             }}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            className="px-3 py-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] text-xs font-medium text-[var(--text-primary)] cursor-pointer transition-colors"
           >
             Today
           </button>
         </div>
 
-        {/* Category Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(
-            [
-              { id: 'ALL', label: 'All' },
-              { id: 'sprint_planning', label: 'Planning' },
-              { id: 'project_update', label: 'Updates' },
-              { id: 'daily_standup', label: 'Check-ins' },
-              { id: 'one_on_one', label: 'One-on-Ones' },
-            ] as const
-          ).map(cat => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setCategoryFilter(cat.id)}
-              className={`px-3 py-1.5 rounded-[20px] text-xs font-semibold transition-all cursor-pointer ${
-                categoryFilter === cat.id
-                  ? 'bg-indigo-600 text-white'
-                  : darkMode
-                  ? 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedTabs
+          size="sm"
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          options={[
+            { id: 'ALL', label: 'All' },
+            { id: 'sprint_planning', label: 'Planning' },
+            { id: 'project_update', label: 'Updates' },
+            { id: 'daily_standup', label: 'Check-ins' },
+            { id: 'one_on_one', label: '1:1s' },
+          ]}
+        />
       </div>
 
       {/* 4A. MONTH GRID VIEW */}
       {viewMode === 'month' && (
-        <div
-          className={`rounded-[20px] border overflow-hidden shadow-lg backdrop-blur-2xl transition-all ${
-            darkMode
-              ? 'bg-slate-900/25 border-white/10'
-              : 'bg-white/25 border-white/60 shadow-xs'
-          }`}
-        >
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 border-b border-white/20 dark:border-white/10 bg-white/20 dark:bg-slate-950/40 backdrop-blur-md">
+        <div className="editorial-surface overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
               <div
                 key={day}
-                className="py-2.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-300 text-center"
+                className="py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] text-center"
               >
                 {day}
               </div>
             ))}
           </div>
 
-          {/* Calendar Cells */}
-          <div className="grid grid-cols-7 divide-x divide-y divide-white/20 dark:divide-white/10">
+          <div className="grid grid-cols-7 divide-x divide-y divide-[var(--border-hairline)]">
             {calendarDays.map(cell => {
               const dayEvents = filteredEvents.filter(
                 ev => ev.startTime.slice(0, 10) === cell.dateStr
@@ -718,24 +677,24 @@ export const CalendarMeetingsPage: React.FC = () => {
                 <div
                   key={cell.dateStr}
                   onClick={() => openScheduleModalWithDefaults({ dateStr: cell.dateStr })}
-                  className={`min-h-[120px] p-2 transition-colors cursor-pointer flex flex-col justify-between ${
+                  className={`min-h-[118px] p-2 transition-colors cursor-pointer flex flex-col justify-between ${
                     !cell.isCurrentMonth
-                      ? 'opacity-35 bg-white/5 dark:bg-slate-950/20'
-                      : 'hover:bg-white/30 dark:hover:bg-white/5'
+                      ? 'opacity-40 bg-[var(--bg-surface-subtle)]'
+                      : 'hover:bg-[var(--bg-surface-subtle)]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-xs font-mono tabular-nums w-6 h-6 rounded-full flex items-center justify-center ${
                         cell.isToday
-                          ? 'bg-indigo-600 text-white font-bold'
-                          : 'text-slate-700 dark:text-slate-300'
+                          ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] font-bold'
+                          : 'text-[var(--text-secondary)]'
                       }`}
                     >
                       {cell.date.getDate()}
                     </span>
                     {dayEvents.length > 0 && (
-                      <span className="text-[10px] text-slate-400 font-mono">
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
                         {dayEvents.length} {dayEvents.length === 1 ? 'mtg' : 'mtgs'}
                       </span>
                     )}
@@ -753,13 +712,13 @@ export const CalendarMeetingsPage: React.FC = () => {
                             e.stopPropagation();
                             setSelectedEventId(ev.id);
                           }}
-                          className={`px-2 py-1 rounded-md border-l-2 text-[11px] font-medium truncate transition-transform hover:scale-[1.01] ${catStyle.accent}`}
+                          className={`px-2 py-1 rounded-md border-l-2 text-[11px] font-medium truncate transition-opacity hover:opacity-85 ${catStyle.accent}`}
                           title={`${ev.title} (${new Date(ev.startTime).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',
                           })})`}
                         >
-                          <span className="font-mono mr-1">
+                          <span className="font-mono mr-1 opacity-75">
                             {new Date(ev.startTime).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -767,7 +726,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                           </span>
                           <span>{ev.title}</span>
                           {myAtt?.rsvp === 'pending' && (
-                            <span className="ml-1 text-amber-500 font-bold">· RSVP</span>
+                            <span className="ml-1 text-amber-600 dark:text-amber-400 font-bold">· RSVP</span>
                           )}
                         </div>
                       );
@@ -777,9 +736,9 @@ export const CalendarMeetingsPage: React.FC = () => {
                       <div
                         key={t.id}
                         onClick={e => e.stopPropagation()}
-                        className="px-2 py-0.5 rounded text-[10px] text-slate-500 dark:text-slate-400 truncate"
+                        className="px-2 py-0.5 rounded text-[10px] text-[var(--text-muted)] truncate"
                       >
-                        🎯 Due: {t.title}
+                        Due: {t.title}
                       </div>
                     ))}
                   </div>
@@ -794,9 +753,9 @@ export const CalendarMeetingsPage: React.FC = () => {
       {viewMode === 'agenda' && (
         <div className="space-y-3">
           {filteredEvents.length === 0 ? (
-            <div className="p-12 text-center rounded-2xl border border-slate-200 dark:border-slate-800">
-              <p className="text-sm text-slate-500">No scheduled meetings match the current filter.</p>
-            </div>
+            <HairlineCard padding="lg" className="text-center">
+              <p className="text-sm text-[var(--text-muted)]">No scheduled meetings match the current filter.</p>
+            </HairlineCard>
           ) : (
             filteredEvents.map(ev => {
               const catMeta = CATEGORY_METADATA[ev.category] || CATEGORY_METADATA.sprint_planning;
@@ -809,18 +768,12 @@ export const CalendarMeetingsPage: React.FC = () => {
                 <div
                   key={ev.id}
                   onClick={() => setSelectedEventId(ev.id)}
-                  className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
-                    darkMode
-                      ? 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
-                  }`}
+                  className="editorial-surface p-4 sm:p-5 hover:border-[var(--border-strong)] transition-colors cursor-pointer flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                 >
                   <div className="space-y-1.5 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
                       <span className={`w-2 h-2 rounded-full ${catMeta.dotColor}`} />
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
-                        {catMeta.label}
-                      </span>
+                      <span className="font-semibold text-[var(--text-primary)]">{catMeta.label}</span>
                       <span>·</span>
                       <span className="font-mono">
                         {new Date(ev.startTime).toLocaleDateString([], {
@@ -842,20 +795,16 @@ export const CalendarMeetingsPage: React.FC = () => {
                       <span>Invited by {ev.organizerName}</span>
                     </div>
 
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      {ev.title}
-                    </h3>
+                    <h3 className="text-base font-bold text-[var(--text-primary)]">{ev.title}</h3>
 
                     {ev.description && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
-                        {ev.description}
-                      </p>
+                      <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{ev.description}</p>
                     )}
 
-                    <div className="flex items-center gap-3 pt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-3 pt-1 text-xs text-[var(--text-muted)]">
                       <div className="flex -space-x-1.5">
                         {ev.attendees.slice(0, 6).map(att => (
-                          <div key={att.userId} className="ring-2 ring-white dark:ring-slate-900 rounded-full">
+                          <div key={att.userId} className="ring-2 ring-[var(--bg-surface)] rounded-full">
                             <Avatar
                               user={{
                                 id: att.userId,
@@ -876,9 +825,8 @@ export const CalendarMeetingsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Quick RSVP + Join Video Call Actions */}
                   <div
-                    className="flex flex-wrap items-center gap-2 flex-shrink-0"
+                    className="flex flex-wrap items-center gap-2 shrink-0"
                     onClick={e => e.stopPropagation()}
                   >
                     {(
@@ -894,16 +842,14 @@ export const CalendarMeetingsPage: React.FC = () => {
                           key={opt.id}
                           type="button"
                           onClick={() => handleUserRsvp(ev, opt.id)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
                             active
                               ? opt.id === 'going'
-                                ? 'bg-emerald-600 text-white border-emerald-500'
+                                ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
                                 : opt.id === 'maybe'
                                 ? 'bg-amber-500 text-slate-950 border-amber-400'
                                 : 'bg-rose-600 text-white border-rose-500'
-                              : darkMode
-                              ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                              : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
                           }`}
                         >
                           {opt.label}
@@ -911,14 +857,15 @@ export const CalendarMeetingsPage: React.FC = () => {
                       );
                     })}
 
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="sm"
                       onClick={() => handleLaunchCallFromEvent(ev, true)}
-                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                      <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5 mr-1.5" />
                       <span>Join Video</span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -929,51 +876,45 @@ export const CalendarMeetingsPage: React.FC = () => {
 
       {/* 4C. SPRINT & PROJECT PREP STUDIO VIEW */}
       {viewMode === 'sprint_prep' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <div className="lg:col-span-7 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">
               Upcoming Sprint Ceremonies & Project Reviews
             </h3>
             {events.map(ev => (
-              <div
-                key={ev.id}
-                className={`p-5 rounded-2xl border space-y-3 ${
-                  darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200'
-                }`}
-              >
+              <HairlineCard key={ev.id} className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-xs text-indigo-500 font-semibold">
+                    <div className="text-[11px] font-semibold text-[var(--text-muted)]">
                       {CATEGORY_METADATA[ev.category]?.label} · Room {ev.meetingCode}
                     </div>
-                    <h4 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                    <h4 className="text-base font-bold text-[var(--text-primary)] mt-0.5">
                       {ev.title}
                     </h4>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="lime"
+                    size="sm"
                     onClick={() => handleLaunchCallFromEvent(ev, true)}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                   >
-                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5 mr-1.5" />
                     <span>Launch Video Prep</span>
-                  </button>
+                  </Button>
                 </div>
 
                 {ev.prepNotes && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {ev.prepNotes}
-                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{ev.prepNotes}</p>
                 )}
 
-                <div className="space-y-1.5 pt-2 border-t border-slate-200/70 dark:border-slate-800">
-                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <div className="space-y-1.5 pt-2 border-t border-[var(--border-hairline)]">
+                  <div className="text-xs font-semibold text-[var(--text-secondary)]">
                     Prepared Agenda ({ev.agenda.filter(a => a.completed).length}/{ev.agenda.length} completed)
                   </div>
                   {ev.agenda.map(ag => (
                     <label
                       key={ag.id}
-                      className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs cursor-pointer"
+                      className="flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-xs cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
                         <input
@@ -981,21 +922,20 @@ export const CalendarMeetingsPage: React.FC = () => {
                           checked={ag.completed}
                           onChange={() => meetingAndCallService.toggleAgendaItem(ev.id, ag.id)}
                         />
-                        <span className={ag.completed ? 'line-through text-slate-400' : ''}>
+                        <span className={ag.completed ? 'line-through text-[var(--text-muted)]' : ''}>
                           {ag.title}
                         </span>
                       </div>
-                      <span className="font-mono text-slate-400">{ag.durationMinutes}m</span>
+                      <span className="font-mono text-[var(--text-muted)]">{ag.durationMinutes}m</span>
                     </label>
                   ))}
                 </div>
-              </div>
+              </HairlineCard>
             ))}
           </div>
 
-          {/* Right Quick Ceremony Templates */}
           <div className="lg:col-span-5 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">
               1-Click Ceremony & Meeting Templates
             </h3>
             <div className="space-y-3">
@@ -1023,24 +963,21 @@ export const CalendarMeetingsPage: React.FC = () => {
                   },
                 ] as const
               ).map(tpl => (
-                <div
-                  key={tpl.cat}
-                  className={`p-4 rounded-2xl border flex items-start justify-between gap-4 ${
-                    darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
-                  }`}
-                >
+                <HairlineCard key={tpl.cat} padding="sm" className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">{tpl.title}</h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{tpl.desc}</p>
+                    <h4 className="text-xs font-bold text-[var(--text-primary)]">{tpl.title}</h4>
+                    <p className="text-[11px] text-[var(--text-secondary)]">{tpl.desc}</p>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => openScheduleModalWithDefaults({ category: tpl.cat })}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex-shrink-0 cursor-pointer"
+                    className="shrink-0"
                   >
                     Schedule
-                  </button>
-                </div>
+                  </Button>
+                </HairlineCard>
               ))}
             </div>
           </div>
@@ -1052,25 +989,21 @@ export const CalendarMeetingsPage: React.FC = () => {
          ======================================================================== */}
       {selectedEvent && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-fadeIn"
           onClick={() => setSelectedEventId(null)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className={`rounded-2xl border shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 animate-modal-appear ${
-              darkMode
-                ? 'bg-slate-900 border-slate-800 text-white'
-                : 'bg-white border-slate-200 text-slate-900'
-            }`}
+            className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 animate-modal-appear"
           >
-            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-[var(--border-hairline)]">
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-indigo-500">
+                <div className="text-xs font-semibold text-[#6F8254] dark:text-[var(--accent-lime)]">
                   {CATEGORY_METADATA[selectedEvent.category]?.label} · Room{' '}
                   <span className="font-mono">{selectedEvent.meetingCode}</span>
                 </div>
                 <h3 className="text-lg font-bold">{selectedEvent.title}</h3>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="text-xs text-[var(--text-secondary)]">
                   {new Date(selectedEvent.startTime).toLocaleString([], {
                     weekday: 'long',
                     month: 'short',
@@ -1088,22 +1021,23 @@ export const CalendarMeetingsPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="lime"
+                  size="sm"
                   onClick={() => {
                     const ev = selectedEvent;
                     setSelectedEventId(null);
                     handleLaunchCallFromEvent(ev, true);
                   }}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer"
                 >
-                  <ICON_MAP.VideoCameraIcon className="w-4 h-4" />
+                  <ICON_MAP.VideoCameraIcon className="w-4 h-4 mr-1.5" />
                   <span>Join Video Call</span>
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => setSelectedEventId(null)}
-                  className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                  className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 >
                   ✕
                 </button>
@@ -1111,11 +1045,7 @@ export const CalendarMeetingsPage: React.FC = () => {
             </div>
 
             {/* Your RSVP Bar */}
-            <div
-              className={`p-4 rounded-xl border space-y-3 ${
-                darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-              }`}
-            >
+            <div className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-bold">Your RSVP Response</div>
@@ -1389,28 +1319,24 @@ export const CalendarMeetingsPage: React.FC = () => {
          ======================================================================== */}
       {isScheduleModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-fadeIn"
           onClick={() => setIsScheduleModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className={`rounded-2xl border shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 animate-modal-appear ${
-              darkMode
-                ? 'bg-slate-900 border-slate-800 text-white'
-                : 'bg-white border-slate-200 text-slate-900'
-            }`}
+            className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 animate-modal-appear"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div>
                 <h3 className="text-base font-bold">Schedule Team Meeting & Sprint Prep</h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-[var(--text-secondary)]">
                   Every invited attendee receives a Calendar & Teams Chat invite with live RSVP
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsScheduleModalOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               >
                 ✕
               </button>

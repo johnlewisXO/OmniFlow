@@ -7,8 +7,16 @@ import { AuditLog, TaskStatus, UserRole, normalizeUserRole } from '../../types';
 import supabaseService from '../../services/supabaseService';
 import { SystemLogMonitorPanel } from '../shared/SystemLogMonitorModal';
 import { PendingJoinRequestsBanner } from '../team/PendingJoinRequestsBanner';
+import {
+  PageHeader,
+  InlineKpiStrip,
+  SegmentedTabs,
+  HairlineCard,
+  StatusDot,
+} from '../shared/EditorialUI';
+import { SlimProgressBar } from '../charts/EditorialCharts';
 
-type OwnerTab = 'executive' | 'audit_security' | 'billing' | 'security_api' | 'telemetry' | 'governance';
+type OwnerTab = 'executive' | 'governance' | 'billing' | 'security_api' | 'audit_security' | 'telemetry';
 
 interface BillingState {
   planId: 'starter' | 'growth_pro' | 'enterprise_ai';
@@ -58,7 +66,6 @@ export const OwnerDashboard: React.FC = () => {
     projects,
     tasks,
     sprints,
-    darkMode,
     setActiveView,
     updateUserRoleInOrganization,
     updateOrganizationSettings,
@@ -128,14 +135,22 @@ export const OwnerDashboard: React.FC = () => {
   // 5. Organization Governance Settings
   const [orgDisplayName, setOrgDisplayName] = useState(currentOrganization?.name || 'Omni Flow Enterprise Workspace');
   const [corporateDomain, setCorporateDomain] = useState(
-    currentOrganization?.corporateDomain || currentOrganization?.domain || currentOrganization?.corporate_domain || currentUser?.email?.split('@')[1] || 'workspace.live'
+    currentOrganization?.corporateDomain ||
+      currentOrganization?.domain ||
+      currentOrganization?.corporate_domain ||
+      currentUser?.email?.split('@')[1] ||
+      'workspace.live'
   );
   const [defaultSprintLength, setDefaultSprintLength] = useState(
     currentOrganization?.defaultSprintDurationDays || currentOrganization?.default_sprint_duration_days || 14
   );
   const [autoAssignCreator, setAutoAssignCreator] = useState(currentOrganization?.autoAssignCreator ?? true);
-  const [requireAcceptanceChecklist, setRequireAcceptanceChecklist] = useState(currentOrganization?.requireAcceptanceChecklist ?? true);
-  const [enablePublicInviteLinks, setEnablePublicInviteLinks] = useState(currentOrganization?.enablePublicInviteLinks ?? true);
+  const [requireAcceptanceChecklist, setRequireAcceptanceChecklist] = useState(
+    currentOrganization?.requireAcceptanceChecklist ?? true
+  );
+  const [enablePublicInviteLinks, setEnablePublicInviteLinks] = useState(
+    currentOrganization?.enablePublicInviteLinks ?? true
+  );
 
   useEffect(() => {
     if (currentOrganization) {
@@ -144,11 +159,17 @@ export const OwnerDashboard: React.FC = () => {
         setCorporateDomain(currentOrganization.corporateDomain || currentOrganization.domain || '');
       }
       if (currentOrganization.defaultSprintDurationDays || currentOrganization.default_sprint_duration_days) {
-        setDefaultSprintLength(currentOrganization.defaultSprintDurationDays || currentOrganization.default_sprint_duration_days || 14);
+        setDefaultSprintLength(
+          currentOrganization.defaultSprintDurationDays || currentOrganization.default_sprint_duration_days || 14
+        );
       }
       if (currentOrganization.autoAssignCreator !== undefined) setAutoAssignCreator(currentOrganization.autoAssignCreator);
-      if (currentOrganization.requireAcceptanceChecklist !== undefined) setRequireAcceptanceChecklist(currentOrganization.requireAcceptanceChecklist);
-      if (currentOrganization.enablePublicInviteLinks !== undefined) setEnablePublicInviteLinks(currentOrganization.enablePublicInviteLinks);
+      if (currentOrganization.requireAcceptanceChecklist !== undefined) {
+        setRequireAcceptanceChecklist(currentOrganization.requireAcceptanceChecklist);
+      }
+      if (currentOrganization.enablePublicInviteLinks !== undefined) {
+        setEnablePublicInviteLinks(currentOrganization.enablePublicInviteLinks);
+      }
     }
   }, [currentOrganization]);
 
@@ -195,7 +216,6 @@ export const OwnerDashboard: React.FC = () => {
         dbLogs = await supabaseService.getOrganizationAuditLogs(currentUser.organization_id, 100);
       }
 
-      // Build comprehensive immutable audit trail combining DB logs + live workspace state transitions
       const now = Date.now();
       const workspaceEvents: AuditLog[] = [
         {
@@ -245,7 +265,7 @@ export const OwnerDashboard: React.FC = () => {
           details: {
             normalizedRole: normalizeUserRole(u.role),
             department: u.department || 'Engineering',
-            weeklyCapacityHours: u.weeklyCapacityHours || 40,
+            weeklyCapacityHours: u.weekly_capacity_hours || 40,
           },
           created_at: new Date(now - (idx + 2) * 3600000).toISOString(),
         })),
@@ -406,299 +426,177 @@ export const OwnerDashboard: React.FC = () => {
   const seatUtilizationPct = Math.min(100, Math.round((seatCount / activePlan.maxSeats) * 100));
 
   return (
-    <div className={`p-0 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      {/* Top Owner Hero & Navigation Bar */}
-      <div className={`p-4 md:p-6 border-b ${darkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-white/60'}`}>
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="p-3 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/30 flex-shrink-0">
-              <ICON_MAP.ShieldCheckIcon className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Owner’s Control Center</h1>
-                <span className="text-xs font-mono px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-semibold">
-                  OWNER PRIVILEGE
-                </span>
-              </div>
-              <p className={`text-xs sm:text-sm mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Enterprise billing, immutable security & user activity audit trail, SSO/API governance, and live exception telemetry.
-              </p>
-            </div>
-          </div>
+    <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
+      <PageHeader
+        eyebrow={`${currentOrganization?.name || 'Workspace'} · Owner Privilege`}
+        title="Owner’s Control Center"
+        subtitle="Workspace governance, subscription seats, SSO & API security, and immutable cryptographic audit logs."
+        actions={
+          <SegmentedTabs
+            size="sm"
+            value={activeTab}
+            onChange={setActiveTab}
+            options={[
+              { id: 'executive', label: 'Overview' },
+              { id: 'governance', label: 'Org Governance' },
+              { id: 'billing', label: 'Billing' },
+              { id: 'security_api', label: 'SSO & API' },
+              { id: 'audit_security', label: 'Audit Trail', count: auditLogs.length },
+              { id: 'telemetry', label: 'System Logs' },
+            ]}
+          />
+        }
+      />
 
-          {/* Interactive Tab Switcher */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-full bg-slate-200/70 dark:bg-slate-900 border border-slate-300/60 dark:border-slate-800">
-            {[
-              { id: 'executive', label: '1. Overview & Admin' },
-              { id: 'audit_security', label: '2. Security & Activity Audit' },
-              { id: 'billing', label: '3. Billing & Seats' },
-              { id: 'security_api', label: '4. SSO & API Keys' },
-              { id: 'telemetry', label: '5. Exception & Console Logs' },
-              { id: 'governance', label: '6. Org Governance' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as OwnerTab)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : darkMode
-                    ? 'text-slate-300 hover:bg-slate-800'
-                    : 'text-slate-700 hover:bg-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      <PendingJoinRequestsBanner />
 
-        <div className="mt-4">
-          <PendingJoinRequestsBanner />
-        </div>
-      </div>
-
-      {/* TAB 1: EXECUTIVE OVERVIEW (Task Overview, Project Status, Meet Schedule & Calendar at TOP) + OWNER & ADMIN GOVERNANCE */}
+      {/* TAB 1: EXECUTIVE OVERVIEW */}
       {activeTab === 'executive' && (
-        <div className="space-y-2">
+        <div className="space-y-5">
+          <InlineKpiStrip
+            items={[
+              {
+                id: 'plan',
+                label: 'Active Plan & Seats',
+                value: `${seatCount}/${activePlan.maxSeats}`,
+                sublabel: activePlan.name,
+                tone: 'lime',
+                onClick: () => setActiveTab('billing'),
+              },
+              {
+                id: 'audit',
+                label: 'Verified Audit Events',
+                value: auditLogs.length,
+                sublabel: 'SHA-256 chain active',
+                tone: 'success',
+                onClick: () => setActiveTab('audit_security'),
+              },
+              {
+                id: 'security',
+                label: 'Auth & API Keys',
+                value: `${securityPolicy.apiKeys.length} keys`,
+                sublabel: securityPolicy.enforceMfa ? 'MFA enforced' : 'Standard auth',
+                tone: 'default',
+                onClick: () => setActiveTab('security_api'),
+              },
+              {
+                id: 'governance',
+                label: 'Sprint Cadence',
+                value: `${defaultSprintLength}d`,
+                sublabel: currentOrganization?.name || orgDisplayName,
+                tone: 'default',
+                onClick: () => setActiveTab('governance'),
+              },
+            ]}
+          />
+
           <AdminDashboard embeddedInOwner={true} />
-
-          {/* Owner-Exclusive Governance Modules */}
-          <div className="px-4 md:px-6 pb-6">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-              Owner-Exclusive Enterprise Controls
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Card 1: Subscription & Billing */}
-              <div
-                className={`p-5 rounded-xl border flex flex-col justify-between ${
-                  darkMode ? 'bg-amber-950/20 border-amber-700/40' : 'bg-amber-50/70 border-amber-200'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Subscription &amp; Billing</span>
-                    <span className="text-xs font-mono font-bold">{activePlan.name}</span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                    {seatCount} / {activePlan.maxSeats} active seats · {billing.paymentBrand} •••• {billing.paymentLast4}
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('billing')} className="w-full">
-                  Manage Plan &amp; Invoices →
-                </Button>
-              </div>
-
-              {/* Card 2: Security & User Activity Audit */}
-              <div
-                className={`p-5 rounded-xl border flex flex-col justify-between ${
-                  darkMode ? 'bg-indigo-950/25 border-indigo-700/40' : 'bg-indigo-50/70 border-indigo-200'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                      Security &amp; Activity Audit
-                    </span>
-                    <span className="text-xs font-mono font-bold">{auditLogs.length} Events</span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                    Immutable SHA-256 verified trail of team actions, task transitions, and role assignments.
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('audit_security')} className="w-full">
-                  Inspect Audit Trail →
-                </Button>
-              </div>
-
-              {/* Card 3: Advanced Security & API */}
-              <div
-                className={`p-5 rounded-xl border flex flex-col justify-between ${
-                  darkMode ? 'bg-sky-950/25 border-sky-700/40' : 'bg-sky-50/70 border-sky-200'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-sky-600 dark:text-sky-400">SSO, MFA &amp; API Keys</span>
-                    <span className="text-xs font-mono font-bold">
-                      {securityPolicy.enforceMfa ? 'MFA Enforced' : 'Standard Auth'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                    {securityPolicy.apiKeys.length} active API key(s) · SSO: {securityPolicy.ssoProvider.replace('_', ' ')}
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('security_api')} className="w-full">
-                  Configure Security &amp; Keys →
-                </Button>
-              </div>
-
-              {/* Card 4: Exception & Console Log Telemetry */}
-              <div
-                className={`p-5 rounded-xl border flex flex-col justify-between ${
-                  darkMode ? 'bg-rose-950/25 border-rose-700/40' : 'bg-rose-50/70 border-rose-200'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                      Exception &amp; Console Logs
-                    </span>
-                    <span className="text-xs font-mono font-bold">LIVE</span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                    Real-time runtime exception stack traces and WebSocket diagnostics (Owner &amp; PM exclusive).
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('telemetry')} className="w-full">
-                  Open Telemetry Console →
-                </Button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* TAB 2: SECURITY & USER ACTIVITY AUDIT (IMMUTABLE AUDIT TRAIL) */}
+      {/* TAB 2: SECURITY & USER ACTIVITY AUDIT */}
       {activeTab === 'audit_security' && (
-        <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
-          <div
-            className={`p-5 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-            }`}
-          >
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                <ICON_MAP.ShieldCheckIcon className="w-4 h-4" />
-                <span>Security & User Activity Audit · Cryptographic Chain Verified</span>
-              </div>
-              <h2 className="text-xl font-bold">User Activity & Audit Logs</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="space-y-5 animate-fadeIn">
+          <HairlineCard padding="md" className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <StatusDot tone="success" label="Cryptographic Chain Verified" />
+              <h2 className="text-base font-bold text-[var(--text-primary)] pt-1">User Activity & Audit Logs</h2>
+              <p className="text-xs text-[var(--text-secondary)]">
                 Immutable audit trail of team actions, task transitions, role assignments, and security events.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={loadImmutableAuditTrail}
-                className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Refresh Audit Stream
-              </button>
-              <button
-                type="button"
-                onClick={() => handleExportAuditReport('csv')}
-                className="px-3.5 py-2 rounded-xl border border-indigo-500/40 text-indigo-600 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-500/10 cursor-pointer"
-              >
+              <Button variant="outline" size="sm" onClick={loadImmutableAuditTrail} disabled={isLoadingAudit}>
+                {isLoadingAudit ? 'Refreshing...' : 'Refresh'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleExportAuditReport('csv')}>
                 Export CSV
-              </button>
-              <button
-                type="button"
-                onClick={() => handleExportAuditReport('json')}
-                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer"
-              >
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => handleExportAuditReport('json')}>
                 Export Signed JSON
-              </button>
+              </Button>
             </div>
-          </div>
+          </HairlineCard>
 
-          {/* Category Filter Bar + Search */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-900 border border-slate-300/60 dark:border-slate-800">
-              {[
-                { id: 'all', label: `All Events (${auditLogs.length})` },
-                { id: 'team', label: 'Team Actions' },
-                { id: 'tasks', label: 'Task Transitions' },
-                { id: 'roles', label: 'Role Assignments' },
-                { id: 'security', label: 'Security Events' },
-              ].map(cat => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setAuditCategory(cat.id as any)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    auditCategory === cat.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedTabs
+              size="sm"
+              value={auditCategory}
+              onChange={setAuditCategory}
+              options={[
+                { id: 'all', label: 'All Events', count: auditLogs.length },
+                { id: 'team', label: 'Team' },
+                { id: 'tasks', label: 'Tasks' },
+                { id: 'roles', label: 'Roles' },
+                { id: 'security', label: 'Security' },
+              ]}
+            />
 
-            <div className="relative flex-1 max-w-sm flex items-center">
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+            <div className="relative flex-1 max-w-xs flex items-center">
+              <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search actor, event, or target..."
                 value={auditSearch}
                 onChange={e => setAuditSearch(e.target.value)}
-                className="w-full search-input !pl-10 !pr-4 !py-2 text-xs rounded-[20px] border"
+                className="w-full search-input !pl-9 !pr-4 !py-1.5 text-xs !rounded-full"
               />
             </div>
           </div>
 
-          {/* Audit Table */}
-          <div
-            className={`rounded-xl border overflow-hidden ${
-              darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-            }`}
-          >
+          <HairlineCard padding="none" className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-xs">
-                <thead className={darkMode ? 'bg-slate-950/60' : 'bg-slate-50'}>
+              <table className="min-w-full divide-y divide-[var(--border-hairline)] text-xs">
+                <thead className="bg-[var(--bg-surface-subtle)] text-[11px] font-medium text-[var(--text-muted)]">
                   <tr>
-                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-400">Timestamp</th>
-                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-400">Actor</th>
-                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-400">Event Action</th>
-                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-400">Target Entity</th>
-                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-400">Integrity Hash</th>
-                    <th className="px-4 py-3 text-right font-bold uppercase tracking-wider text-slate-400">Payload</th>
+                    <th className="px-4 py-3 text-left">Timestamp</th>
+                    <th className="px-4 py-3 text-left">Actor</th>
+                    <th className="px-4 py-3 text-left">Event Action</th>
+                    <th className="px-4 py-3 text-left">Target Entity</th>
+                    <th className="px-4 py-3 text-left">Integrity Hash</th>
+                    <th className="px-4 py-3 text-right">Payload</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800">
+                <tbody className="divide-y divide-[var(--border-hairline)]">
                   {filteredAuditLogs.map(log => {
                     const isExpanded = expandedAuditId === log.id;
                     const hash = computeIntegrityHash(log);
                     return (
                       <React.Fragment key={log.id}>
-                        <tr className="hover:bg-indigo-500/5 transition-colors">
-                          <td className="px-4 py-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                        <tr className="hover:bg-[var(--bg-surface-subtle)] transition-colors">
+                          <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-muted)] whitespace-nowrap tabular-nums">
                             {new Date(log.created_at).toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 font-semibold whitespace-nowrap">
+                          <td className="px-4 py-3 font-semibold text-[var(--text-primary)] whitespace-nowrap">
                             {log.actor_name || log.actor_email || 'System'}
                           </td>
-                          <td className="px-4 py-3 font-mono text-indigo-600 dark:text-indigo-400 font-semibold whitespace-nowrap">
+                          <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-primary)] whitespace-nowrap">
                             {log.action.replace(/_/g, ' ')}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="text-slate-400 font-mono uppercase text-[10px] mr-1.5">
+                          <td className="px-4 py-3 whitespace-nowrap text-[var(--text-secondary)]">
+                            <span className="text-[var(--text-muted)] font-mono uppercase text-[10px] mr-1.5">
                               {log.target_type}:
                             </span>
-                            <span className="font-medium">{log.target_name || log.target_id}</span>
+                            <span className="font-medium text-[var(--text-primary)]">{log.target_name || log.target_id}</span>
                           </td>
-                          <td className="px-4 py-3 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                          <td className="px-4 py-3 font-mono text-[11px] text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                             {hash}
                           </td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
                             <button
                               type="button"
                               onClick={() => setExpandedAuditId(isExpanded ? null : log.id)}
-                              className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
+                              className="font-semibold text-[var(--text-primary)] hover:underline cursor-pointer"
                             >
                               {isExpanded ? 'Hide JSON' : 'Inspect JSON'}
                             </button>
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr className={darkMode ? 'bg-slate-950/80' : 'bg-slate-50'}>
-                            <td colSpan={6} className="px-6 py-3">
-                              <pre className="text-[11px] font-mono p-3 rounded-xl bg-slate-950 text-emerald-400 border border-slate-800 overflow-x-auto">
+                          <tr className="bg-[var(--bg-surface-subtle)]">
+                            <td colSpan={6} className="px-5 py-3">
+                              <pre className="text-[11px] font-mono p-3.5 rounded-xl bg-[#191B17] text-[#CCF048] overflow-x-auto">
                                 {JSON.stringify(
                                   {
                                     auditId: log.id,
@@ -720,40 +618,34 @@ export const OwnerDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
+          </HairlineCard>
         </div>
       )}
 
       {/* TAB 3: SUBSCRIPTION, BILLING & SEAT GOVERNANCE */}
       {activeTab === 'billing' && (
-        <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="space-y-5 animate-fadeIn">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {(['starter', 'growth_pro', 'enterprise_ai'] as const).map(planKey => {
               const p = planDetails[planKey];
               const isCurrent = billing.planId === planKey;
               return (
                 <div
                   key={planKey}
-                  className={`p-5 rounded-xl border flex flex-col justify-between ${
-                    isCurrent
-                      ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/5'
-                      : darkMode
-                      ? 'bg-slate-900 border-slate-800'
-                      : 'bg-white border-slate-200'
+                  className={`editorial-surface p-5 flex flex-col justify-between ${
+                    isCurrent ? 'border-[var(--text-primary)] ring-1 ring-[var(--text-primary)]' : ''
                   }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold">{p.name}</span>
-                      {isCurrent && (
-                        <span className="text-[11px] font-bold text-emerald-500">● Active Plan</span>
-                      )}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold text-[var(--text-primary)]">{p.name}</span>
+                      {isCurrent && <StatusDot tone="lime" label="Active Plan" />}
                     </div>
-                    <div className="text-2xl font-bold font-mono tabular-nums">
+                    <div className="text-2xl font-bold font-mono tabular-nums text-[var(--text-primary)]">
                       ${p.priceMonthly}
-                      <span className="text-xs font-normal text-slate-400"> / mo</span>
+                      <span className="text-xs font-sans font-normal text-[var(--text-muted)]"> / mo</span>
                     </div>
-                    <div className="text-xs text-slate-400 space-y-1 pt-2">
+                    <div className="text-xs text-[var(--text-secondary)] space-y-1 pt-2 border-t border-[var(--border-hairline)]">
                       <div>· Up to {p.maxSeats} organization seats</div>
                       <div>· AI Allowance: {p.aiTokens}</div>
                       <div>· E2EE Direct Messaging & Realtime Sync</div>
@@ -768,7 +660,7 @@ export const OwnerDashboard: React.FC = () => {
                       saveBillingState({ ...billing, planId: planKey });
                       addToast('Subscription Updated', `Switched organization plan to ${p.name}.`, 'success');
                     }}
-                    className="w-full mt-4"
+                    className="w-full mt-5"
                   >
                     {isCurrent ? 'Current Active Plan' : `Switch to ${p.name}`}
                   </Button>
@@ -777,17 +669,12 @@ export const OwnerDashboard: React.FC = () => {
             })}
           </div>
 
-          {/* Seat Utilization & Payment Method */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div
-              className={`p-5 rounded-xl border space-y-4 ${
-                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-between">
+            <HairlineCard padding="lg" className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold">Licensed Seat Utilization</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Licensed Seat Utilization</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
                     {seatCount} of {activePlan.maxSeats} seats currently provisioned ({seatUtilizationPct}%)
                   </p>
                 </div>
@@ -795,35 +682,26 @@ export const OwnerDashboard: React.FC = () => {
                   + Provision Seat
                 </Button>
               </div>
-              <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full bg-indigo-600 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(6, seatUtilizationPct)}%` }}
-                />
+              <SlimProgressBar value={Math.max(4, seatUtilizationPct)} tone="charcoal" showPercent />
+              <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono tabular-nums pt-1">
+                <span>Projects: {projects.length}</span>
+                <span>Sprints: {sprints.length}</span>
+                <span>Tasks: {tasks.length}</span>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>Active Projects: {projects.length}</span>
-                <span>Active Sprints: {sprints.length}</span>
-                <span>Total Tasks: {tasks.length}</span>
-              </div>
-            </div>
+            </HairlineCard>
 
-            <div
-              className={`p-5 rounded-xl border space-y-4 ${
-                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-between">
+            <HairlineCard padding="lg" className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold">Payment Method & Billing Contact</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Payment Method & Billing Contact</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
                     {billing.paymentBrand} ending in •••• {billing.paymentLast4} · {billing.billingEmail}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsUpdatingCard(v => !v)}
-                  className="text-xs font-semibold text-indigo-500 hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-[var(--text-primary)] hover:underline cursor-pointer"
                 >
                   {isUpdatingCard ? 'Cancel' : 'Update Card'}
                 </button>
@@ -856,22 +734,24 @@ export const OwnerDashboard: React.FC = () => {
                 </form>
               )}
 
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-                <div className="font-semibold text-slate-400">Recent Paid Invoices</div>
+              <div className="pt-3 border-t border-[var(--border-hairline)] space-y-2 text-xs">
+                <div className="font-semibold text-[var(--text-muted)]">Recent Paid Invoices</div>
                 {[
-                  { id: 'INV-2026-10', date: 'Oct 01, 2026', amount: `$${activePlan.priceMonthly}.00`, status: 'Paid' },
-                  { id: 'INV-2026-09', date: 'Sep 01, 2026', amount: `$${activePlan.priceMonthly}.00`, status: 'Paid' },
+                  { id: 'INV-2026-10', date: 'Oct 01, 2026', amount: `$${activePlan.priceMonthly}.00` },
+                  { id: 'INV-2026-09', date: 'Sep 01, 2026', amount: `$${activePlan.priceMonthly}.00` },
                 ].map(inv => (
                   <div key={inv.id} className="flex items-center justify-between py-1">
-                    <span className="font-mono">{inv.id} · {inv.date}</span>
+                    <span className="font-mono text-[var(--text-secondary)]">
+                      {inv.id} · {inv.date}
+                    </span>
                     <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold">{inv.amount}</span>
+                      <span className="font-mono font-bold text-[var(--text-primary)]">{inv.amount}</span>
                       <button
                         type="button"
                         onClick={() =>
                           addToast('Invoice Downloaded', `Downloaded receipt ${inv.id} (${inv.amount}).`, 'info')
                         }
-                        className="text-indigo-500 hover:underline cursor-pointer"
+                        className="text-xs font-semibold text-[var(--text-primary)] hover:underline cursor-pointer"
                       >
                         Receipt ↓
                       </button>
@@ -879,291 +759,274 @@ export const OwnerDashboard: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </HairlineCard>
           </div>
         </div>
       )}
 
       {/* TAB 4: ADVANCED SECURITY, SSO & API KEYS */}
       {activeTab === 'security_api' && (
-        <div className="p-4 md:p-6 space-y-6 animate-fadeIn">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* SSO & Authentication Policies */}
-            <div
-              className={`p-5 rounded-xl border space-y-4 ${
-                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-              }`}
-            >
-              <h3 className="text-base font-bold">Enterprise SSO, MFA & Session Governance</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-fadeIn">
+          <HairlineCard padding="lg" className="space-y-4">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">Enterprise SSO, MFA & Session Governance</h3>
 
-              <div className="space-y-3 text-xs">
-                <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer">
-                  <div>
-                    <div className="font-bold">Enforce Multi-Factor Authentication (MFA)</div>
-                    <div className="text-slate-400">Require 2FA verification for all organization members.</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={securityPolicy.enforceMfa}
-                    onChange={e => {
-                      saveSecurityPolicy({ ...securityPolicy, enforceMfa: e.target.checked });
-                      addToast('Security Policy Updated', 'MFA enforcement policy updated.', 'success');
-                    }}
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer">
-                  <div>
-                    <div className="font-bold">Strict E2EE Key Fingerprint Verification</div>
-                    <div className="text-slate-400">Enforce AES-256-GCM key verification on all 1:1 Direct Messages.</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={securityPolicy.e2eeStrictVerification}
-                    onChange={e =>
-                      saveSecurityPolicy({ ...securityPolicy, e2eeStrictVerification: e.target.checked })
-                    }
-                  />
-                </label>
-
+            <div className="space-y-3 text-xs">
+              <label className="editorial-surface-subtle flex items-center justify-between p-3.5 cursor-pointer">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-400">Identity Provider (SAML 2.0 / OIDC)</label>
-                  <select
-                    value={securityPolicy.ssoProvider}
-                    onChange={e => {
-                      saveSecurityPolicy({ ...securityPolicy, ssoProvider: e.target.value as any });
-                      addToast('SSO Provider Saved', `Configured ${e.target.value} SSO provider.`, 'success');
-                    }}
-                    className="w-full p-2.5 rounded-xl border"
-                  >
-                    <option value="google_workspace">Google Workspace OIDC</option>
-                    <option value="okta">Okta Enterprise SAML 2.0</option>
-                    <option value="azure_ad">Microsoft Entra ID (Azure AD)</option>
-                    <option value="none">Email & Password Only</option>
-                  </select>
+                  <div className="font-semibold text-[var(--text-primary)]">Enforce Multi-Factor Authentication (MFA)</div>
+                  <div className="text-[11px] text-[var(--text-secondary)]">
+                    Require 2FA verification for all organization members.
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Organization API Keys */}
-            <div
-              className={`p-5 rounded-xl border space-y-4 ${
-                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-              }`}
-            >
-              <h3 className="text-base font-bold">Organization API Keys & Webhooks</h3>
-
-              <form onSubmit={handleCreateApiKey} className="flex gap-2">
                 <input
-                  type="text"
-                  required
-                  placeholder="Key label (e.g. GitHub Actions Sync)"
-                  value={newApiKeyName}
-                  onChange={e => setNewApiKeyName(e.target.value)}
-                  className="flex-1 p-2.5 rounded-xl border text-xs"
+                  type="checkbox"
+                  checked={securityPolicy.enforceMfa}
+                  onChange={e => {
+                    saveSecurityPolicy({ ...securityPolicy, enforceMfa: e.target.checked });
+                    addToast('Security Policy Updated', 'MFA enforcement policy updated.', 'success');
+                  }}
+                  className="accent-[#191B17] dark:accent-[#CCF048]"
                 />
-                <Button variant="primary" size="sm" type="submit">
-                  + Generate Key
-                </Button>
-              </form>
+              </label>
 
-              {newlyGeneratedSecret && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1">
-                  <div className="font-bold text-emerald-500">New API Key Secret (Copy now):</div>
-                  <div className="flex items-center justify-between gap-2">
-                    <code className="font-mono text-[11px] break-all">{newlyGeneratedSecret}</code>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(newlyGeneratedSecret);
-                        addToast('Copied', 'API key copied to clipboard.', 'info');
-                      }}
-                      className="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold cursor-pointer"
-                    >
-                      Copy
-                    </button>
+              <label className="editorial-surface-subtle flex items-center justify-between p-3.5 cursor-pointer">
+                <div>
+                  <div className="font-semibold text-[var(--text-primary)]">Strict E2EE Key Fingerprint Verification</div>
+                  <div className="text-[11px] text-[var(--text-secondary)]">
+                    Enforce AES-256-GCM key verification on all 1:1 Direct Messages.
                   </div>
                 </div>
-              )}
+                <input
+                  type="checkbox"
+                  checked={securityPolicy.e2eeStrictVerification}
+                  onChange={e =>
+                    saveSecurityPolicy({ ...securityPolicy, e2eeStrictVerification: e.target.checked })
+                  }
+                  className="accent-[#191B17] dark:accent-[#CCF048]"
+                />
+              </label>
 
-              <div className="space-y-2">
-                {securityPolicy.apiKeys.map(k => (
-                  <div
-                    key={k.id}
-                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs"
-                  >
-                    <div>
-                      <div className="font-bold">{k.name}</div>
-                      <div className="font-mono text-[11px] text-slate-400">{k.prefix}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRevokeApiKey(k.id)}
-                      className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[11px] font-semibold cursor-pointer"
-                    >
-                      Revoke
-                    </button>
-                  </div>
-                ))}
+              <div>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
+                  Identity Provider (SAML 2.0 / OIDC)
+                </label>
+                <select
+                  value={securityPolicy.ssoProvider}
+                  onChange={e => {
+                    saveSecurityPolicy({ ...securityPolicy, ssoProvider: e.target.value as any });
+                    addToast('SSO Provider Saved', `Configured ${e.target.value} SSO provider.`, 'success');
+                  }}
+                  className="w-full p-2.5 rounded-xl border text-xs"
+                >
+                  <option value="google_workspace">Google Workspace OIDC</option>
+                  <option value="okta">Okta Enterprise SAML 2.0</option>
+                  <option value="azure_ad">Microsoft Entra ID (Azure AD)</option>
+                  <option value="none">Email & Password Only</option>
+                </select>
               </div>
             </div>
-          </div>
+          </HairlineCard>
+
+          <HairlineCard padding="lg" className="space-y-4">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">Organization API Keys & Webhooks</h3>
+
+            <form onSubmit={handleCreateApiKey} className="flex gap-2">
+              <input
+                type="text"
+                required
+                placeholder="Key label (e.g. GitHub Actions Sync)"
+                value={newApiKeyName}
+                onChange={e => setNewApiKeyName(e.target.value)}
+                className="flex-1 p-2.5 rounded-xl border text-xs"
+              />
+              <Button variant="primary" size="sm" type="submit">
+                + Generate Key
+              </Button>
+            </form>
+
+            {newlyGeneratedSecret && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-600/30 text-xs space-y-1.5">
+                <div className="font-bold text-emerald-700 dark:text-emerald-400">New API Key Secret (Copy now):</div>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="font-mono text-[11px] break-all text-[var(--text-primary)]">{newlyGeneratedSecret}</code>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(newlyGeneratedSecret);
+                      addToast('Copied', 'API key copied to clipboard.', 'info');
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {securityPolicy.apiKeys.map(k => (
+                <div
+                  key={k.id}
+                  className="editorial-surface-subtle p-3 flex items-center justify-between gap-2 text-xs"
+                >
+                  <div>
+                    <div className="font-semibold text-[var(--text-primary)]">{k.name}</div>
+                    <div className="font-mono text-[11px] text-[var(--text-muted)]">{k.prefix}</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRevokeApiKey(k.id)}
+                    className="!text-rose-600 dark:!text-rose-400"
+                  >
+                    Revoke
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </HairlineCard>
         </div>
       )}
 
-      {/* TAB 5: EXCEPTION & CONSOLE LOG TELEMETRY (OWNER & PM ONLY) */}
+      {/* TAB 5: EXCEPTION & CONSOLE LOG TELEMETRY */}
       {activeTab === 'telemetry' && (
-        <div className="p-4 md:p-6 animate-fadeIn">
+        <div className="animate-fadeIn">
           <SystemLogMonitorPanel />
         </div>
       )}
 
       {/* TAB 6: ORGANIZATION GOVERNANCE & DANGER ZONE */}
       {activeTab === 'governance' && (
-        <div className="p-4 md:p-6 space-y-5 animate-fadeIn">
-          {/* Organization Governance Form */}
-          <form
-            onSubmit={handleSaveOrgGovernance}
-            className={`p-5 rounded-xl border space-y-4 ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <div>
-                <h3 className="text-base font-bold">Organization Governance & Agile Parameters</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Update your organization display name, verified domain, sprint length, and workflow requirements.
-                </p>
-              </div>
-              <span className="text-xs font-mono text-indigo-400 font-semibold">
-                ID: {currentOrganization?.id?.slice(0, 8) || 'local'}...
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div>
-                <label className="block font-semibold mb-1 text-slate-400">Organization Display Name</label>
-                <input
-                  type="text"
-                  required
-                  value={orgDisplayName}
-                  onChange={e => setOrgDisplayName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1 text-slate-400">Verified Corporate Domain</label>
-                <input
-                  type="text"
-                  value={corporateDomain}
-                  onChange={e => setCorporateDomain(e.target.value)}
-                  placeholder="e.g. acme.com"
-                  className="w-full p-2.5 rounded-xl border"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1 text-slate-400">Default Sprint Length</label>
-                <select
-                  value={defaultSprintLength}
-                  onChange={e => setDefaultSprintLength(Number(e.target.value))}
-                  className="w-full p-2.5 rounded-xl border"
-                >
-                  <option value={7}>1 Week (7 Days)</option>
-                  <option value={14}>2 Weeks (14 Days · Agile Standard)</option>
-                  <option value={21}>3 Weeks (21 Days)</option>
-                  <option value={28}>4 Weeks (28 Days)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
-              <label
-                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer ${
-                  darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={autoAssignCreator}
-                  onChange={e => setAutoAssignCreator(e.target.checked)}
-                  className="mt-0.5"
-                />
+        <div className="space-y-5 animate-fadeIn">
+          <HairlineCard padding="lg">
+            <form onSubmit={handleSaveOrgGovernance} className="space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
                 <div>
-                  <div className="font-semibold text-slate-200">Auto-Assign Unassigned</div>
-                  <div className="text-[10px] text-slate-400">Assign newly created tasks to creator</div>
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
+                    Organization Governance & Agile Parameters
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                    Update your organization display name, verified domain, sprint length, and workflow requirements.
+                  </p>
                 </div>
-              </label>
+                <span className="text-xs font-mono text-[var(--text-muted)]">
+                  ID: {currentOrganization?.id?.slice(0, 8) || 'local'}
+                </span>
+              </div>
 
-              <label
-                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer ${
-                  darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={requireAcceptanceChecklist}
-                  onChange={e => setRequireAcceptanceChecklist(e.target.checked)}
-                  className="mt-0.5"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 <div>
-                  <div className="font-semibold text-slate-200">Enforce QA Checklists</div>
-                  <div className="text-[10px] text-slate-400">Require acceptance criteria for reviews</div>
+                  <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
+                    Organization Display Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={orgDisplayName}
+                    onChange={e => setOrgDisplayName(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border text-xs"
+                  />
                 </div>
-              </label>
 
-              <label
-                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer ${
-                  darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={enablePublicInviteLinks}
-                  onChange={e => setEnablePublicInviteLinks(e.target.checked)}
-                  className="mt-0.5"
-                />
                 <div>
-                  <div className="font-semibold text-slate-200">Tokenized Invite Links</div>
-                  <div className="text-[10px] text-slate-400">Enable shareable invite tokens</div>
+                  <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
+                    Verified Corporate Domain
+                  </label>
+                  <input
+                    type="text"
+                    value={corporateDomain}
+                    onChange={e => setCorporateDomain(e.target.value)}
+                    placeholder="e.g. acme.com"
+                    className="w-full p-2.5 rounded-xl border text-xs"
+                  />
                 </div>
-              </label>
-            </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
-              <Button variant="primary" size="sm" type="submit" disabled={isUpdatingOrgSettings}>
-                {isUpdatingOrgSettings ? 'Saving Governance...' : 'Save Organization Governance'}
-              </Button>
-            </div>
-          </form>
+                <div>
+                  <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
+                    Default Sprint Length
+                  </label>
+                  <select
+                    value={defaultSprintLength}
+                    onChange={e => setDefaultSprintLength(Number(e.target.value))}
+                    className="w-full p-2.5 rounded-xl border text-xs"
+                  >
+                    <option value={7}>1 Week (7 Days)</option>
+                    <option value={14}>2 Weeks (14 Days · Agile Standard)</option>
+                    <option value={21}>3 Weeks (21 Days)</option>
+                    <option value={28}>4 Weeks (28 Days)</option>
+                  </select>
+                </div>
+              </div>
 
-          <div
-            className={`p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}
-          >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                <label className="editorial-surface-subtle p-3.5 flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoAssignCreator}
+                    onChange={e => setAutoAssignCreator(e.target.checked)}
+                    className="mt-0.5 accent-[#191B17] dark:accent-[#CCF048]"
+                  />
+                  <div>
+                    <div className="font-semibold text-[var(--text-primary)]">Auto-Assign Unassigned</div>
+                    <div className="text-[11px] text-[var(--text-secondary)]">Assign newly created tasks to creator</div>
+                  </div>
+                </label>
+
+                <label className="editorial-surface-subtle p-3.5 flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={requireAcceptanceChecklist}
+                    onChange={e => setRequireAcceptanceChecklist(e.target.checked)}
+                    className="mt-0.5 accent-[#191B17] dark:accent-[#CCF048]"
+                  />
+                  <div>
+                    <div className="font-semibold text-[var(--text-primary)]">Enforce QA Checklists</div>
+                    <div className="text-[11px] text-[var(--text-secondary)]">Require acceptance criteria for reviews</div>
+                  </div>
+                </label>
+
+                <label className="editorial-surface-subtle p-3.5 flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={enablePublicInviteLinks}
+                    onChange={e => setEnablePublicInviteLinks(e.target.checked)}
+                    className="mt-0.5 accent-[#191B17] dark:accent-[#CCF048]"
+                  />
+                  <div>
+                    <div className="font-semibold text-[var(--text-primary)]">Tokenized Invite Links</div>
+                    <div className="text-[11px] text-[var(--text-secondary)]">Enable shareable invite tokens</div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex justify-end pt-3 border-t border-[var(--border-hairline)]">
+                <Button variant="primary" size="sm" type="submit" disabled={isUpdatingOrgSettings}>
+                  {isUpdatingOrgSettings ? 'Saving Governance...' : 'Save Organization Governance'}
+                </Button>
+              </div>
+            </form>
+          </HairlineCard>
+
+          <HairlineCard padding="lg" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-bold">Export Full Organization Data Snapshot (JSON)</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                Export Full Organization Data Snapshot (JSON)
+              </h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                 Download a complete machine-readable archive of all projects, sprints, tasks, team members, and audit logs.
               </p>
             </div>
-            <Button variant="primary" size="sm" onClick={handleExportFullWorkspaceBackup}>
+            <Button variant="outline" size="sm" onClick={handleExportFullWorkspaceBackup}>
               Download JSON Backup ↓
             </Button>
-          </div>
+          </HairlineCard>
 
-          <div
-            className={`p-5 rounded-xl border space-y-4 ${
-              darkMode ? 'bg-rose-950/20 border-rose-800/50' : 'bg-rose-50/50 border-rose-200'
-            }`}
-          >
+          <HairlineCard padding="lg" className="space-y-4 border-rose-500/30">
             <div>
-              <h3 className="text-base font-bold text-rose-600 dark:text-rose-400">
+              <h3 className="text-sm font-bold text-rose-700 dark:text-rose-400">
                 Transfer Organization Ownership
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                 Promote an existing Administrator or Project Manager to Organization Owner.
               </p>
             </div>
@@ -1201,7 +1064,7 @@ export const OwnerDashboard: React.FC = () => {
                 Grant Executive Ownership
               </Button>
             </div>
-          </div>
+          </HairlineCard>
         </div>
       )}
     </div>

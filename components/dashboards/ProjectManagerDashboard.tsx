@@ -6,10 +6,13 @@ import { Button } from '../shared/Button';
 import { SystemLogMonitorPanel } from '../shared/SystemLogMonitorModal';
 import { PendingJoinRequestsBanner } from '../team/PendingJoinRequestsBanner';
 import soundService from '../../services/soundService';
+import { PageHeader, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
+import { SlimProgressBar } from '../charts/EditorialCharts';
+import { TaskStatus } from '../../types';
 
 export const ProjectManagerDashboard: React.FC = () => {
-  const { currentUser, darkMode, openCreateProjectModal, projects, setActiveProject, setActiveView } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'overview' | 'telemetry'>('overview');
+  const { currentUser, openCreateProjectModal, projects, tasks, setActiveProject, setActiveView } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'telemetry'>('overview');
 
   const handleViewProjectKanban = (projectId: string) => {
     soundService.play('click_soft');
@@ -22,95 +25,104 @@ export const ProjectManagerDashboard: React.FC = () => {
   );
 
   return (
-    <div className={`flex flex-col p-4 md:p-6 space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Project Manager Dashboard</h1>
-          <p className={`text-sm mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Task Overview, Concentric Project Status, Meet Schedule, and Sprint Delivery Control.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 p-1 rounded-full bg-slate-200/70 dark:bg-slate-900 border border-slate-300/60 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={() => {
+    <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
+      <PageHeader
+        eyebrow="Delivery & Portfolio Control"
+        title="Project Manager Dashboard"
+        subtitle="Coordinate portfolio health, sprint schedules, and team capacity across active initiatives."
+        actions={
+          <>
+            <SegmentedTabs
+              size="sm"
+              value={activeTab}
+              onChange={tab => {
                 soundService.play('click_soft');
-                setActiveTab('overview');
+                setActiveTab(tab);
               }}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                activeTab === 'overview'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Portfolio &amp; Delivery
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                soundService.play('click_soft');
-                setActiveTab('telemetry');
-              }}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                activeTab === 'telemetry'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Exception &amp; Console Logs
-            </button>
-          </div>
-
-          <Button onClick={openCreateProjectModal} variant="primary" size="sm">
-            <ICON_MAP.PlusIcon className="w-4 h-4 mr-1.5" />
-            New Project
-          </Button>
-        </div>
-      </div>
+              options={[
+                { id: 'overview', label: 'Overview' },
+                { id: 'projects', label: 'Managed Projects', count: managedProjects.length },
+                { id: 'telemetry', label: 'System Logs' },
+              ]}
+            />
+            <Button onClick={openCreateProjectModal} variant="primary" size="sm">
+              <ICON_MAP.PlusIcon className="w-4 h-4" />
+              New Project
+            </Button>
+          </>
+        }
+      />
 
       <PendingJoinRequestsBanner />
 
       {activeTab === 'telemetry' ? (
         <SystemLogMonitorPanel />
-      ) : (
-        <>
-          {/* 1. Primary Task Overview, Project Status Rings, Meet Schedule & Calendar Hub at the TOP */}
-          <div>
-            <OverviewPage showWelcomeMessage={false} />
+      ) : activeTab === 'projects' ? (
+        <HairlineCard padding="none" className="overflow-hidden">
+          <div className="px-5 py-4 border-b border-[var(--border-hairline)] flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">Managed Projects</h2>
+              <p className="text-xs text-[var(--text-secondary)]">Direct access to project boards and completion ratios.</p>
+            </div>
+            <span className="text-xs font-mono tabular-nums text-[var(--text-muted)]">
+              {managedProjects.length} total
+            </span>
           </div>
 
-          {/* 2. Active Managed Projects Quick-Jump Grid */}
-          {managedProjects.length > 0 && (
-            <div
-              className={`p-5 rounded-[32px] ${
-                darkMode ? 'bg-slate-900/75 border-white/10' : 'bg-white/88 border-white shadow-sm'
-              } border`}
-            >
-              <h2 className="text-xs font-bold mb-3 uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Active Managed Projects ({managedProjects.length})
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {managedProjects.map(p => (
-                  <div
-                    key={p.id}
-                    className={`flex justify-between items-center p-3.5 rounded-[24px] border transition-all ${
-                      darkMode
-                        ? 'bg-slate-800/75 border-white/[0.08] hover:bg-slate-800'
-                        : 'bg-slate-50/90 border-slate-200/70 hover:bg-white'
-                    }`}
-                  >
-                    <span className="truncate font-bold text-sm">{p.name}</span>
-                    <Button size="sm" variant="outline" onClick={() => handleViewProjectKanban(p.id)}>
-                      View Board
-                    </Button>
-                  </div>
-                ))}
-              </div>
+          {managedProjects.length === 0 ? (
+            <div className="p-10 text-center text-xs text-[var(--text-muted)]">
+              No managed projects yet. Create a project to begin planning sprints.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-muted)] bg-[var(--bg-surface-subtle)]">
+                    <th className="py-2.5 px-5">Project</th>
+                    <th className="py-2.5 px-4">Status</th>
+                    <th className="py-2.5 px-4 w-56">Progress</th>
+                    <th className="py-2.5 px-4">Tasks</th>
+                    <th className="py-2.5 px-5 text-right">Board</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-hairline)]">
+                  {managedProjects.map(p => {
+                    const pTasks = tasks.filter(t => t.projectId === p.id);
+                    const done = pTasks.filter(t => t.status === TaskStatus.DONE).length;
+                    const pct = pTasks.length > 0 ? Math.round((done / pTasks.length) * 100) : p.progress || 0;
+                    const tone = p.status === 'completed' ? 'success' : p.status === 'on hold' ? 'warning' : 'lime';
+                    return (
+                      <tr key={p.id} className="hover:bg-[var(--bg-surface-subtle)] transition-colors">
+                        <td className="py-3 px-5">
+                          <p className="font-semibold text-[var(--text-primary)] truncate">{p.name}</p>
+                          {p.description && (
+                            <p className="text-[11px] text-[var(--text-muted)] truncate max-w-md">{p.description}</p>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 capitalize">
+                          <StatusDot tone={tone} label={p.status || 'active'} />
+                        </td>
+                        <td className="py-3 px-4">
+                          <SlimProgressBar value={pct} tone={pct >= 85 ? 'sage' : 'charcoal'} showPercent />
+                        </td>
+                        <td className="py-3 px-4 font-mono tabular-nums text-[var(--text-secondary)]">
+                          {done}/{pTasks.length}
+                        </td>
+                        <td className="py-3 px-5 text-right">
+                          <Button size="sm" variant="outline" onClick={() => handleViewProjectKanban(p.id)}>
+                            View Board
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-        </>
+        </HairlineCard>
+      ) : (
+        <OverviewPage showWelcomeMessage={false} />
       )}
     </div>
   );

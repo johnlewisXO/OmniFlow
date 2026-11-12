@@ -6,6 +6,7 @@ import { collabService, formatAccurateLastSeen } from '../../services/collabServ
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
+import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
 
 const formatRoleForDisplay = (role?: UserRole | string): string => {
   const normalized = normalizeUserRole(role);
@@ -855,186 +856,159 @@ export const TeamManagementPage: React.FC = () => {
     currentActorRole === UserRole.PROJECT_MANAGER;
 
   return (
-    <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
-      {/* 1. Analytics Hero Section */}
-      {/* 1. Analytics Hero Section (Ultra-sheer frosted glass) */}
-      <div className="bg-gradient-to-r from-slate-900/40 via-indigo-950/35 to-slate-900/40 text-white rounded-[20px] p-5 sm:p-6 shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-[20px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
-                {activeTab === 'audit_logs' ? <ICON_MAP.ClockIcon className="w-5 h-5" /> : <UserGroupIcon className="w-5 h-5" />}
-              </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-indigo-200">
-                {activeTab === 'audit_logs'
-                  ? 'Activity History'
-                  : activeTab === 'rbac_matrix'
-                    ? 'Permissions & Roles'
-                    : 'Team Directory'}
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight text-white">
-              {activeTab === 'audit_logs'
-                ? 'Activity History'
-                : activeTab === 'rbac_matrix'
-                  ? 'Permissions & Roles'
-                  : 'Team Members & Roles'}
-            </h1>
-            <p className="text-xs sm:text-sm text-indigo-200/90 max-w-xl leading-relaxed">
-              {activeTab === 'audit_logs'
-                ? 'Recent actions, task updates, and security logs in your team.'
-                : 'Manage team members, roles, department assignments, and workloads.'}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+    <div className="p-4 sm:p-6 space-y-5 max-w-[1440px] mx-auto w-full text-[var(--text-primary)]">
+      {/* 1. Editorial Header + Inline KPI Strip */}
+      <PageHeader
+        eyebrow={
+          activeTab === 'audit_logs'
+            ? 'Security · Audit Trail'
+            : activeTab === 'rbac_matrix'
+              ? 'Governance · Permissions'
+              : 'Organization · Access & Capacity'
+        }
+        title={
+          activeTab === 'audit_logs'
+            ? 'Activity & Audit History'
+            : activeTab === 'rbac_matrix'
+              ? 'Permissions & Role Governance'
+              : 'Team Directory & Roles'
+        }
+        subtitle={
+          activeTab === 'audit_logs'
+            ? 'Inspect verified user actions, task transitions, and RBAC security logs across your workspace.'
+            : 'Manage workspace members, RBAC permissions, department allocations, and weekly capacities.'
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             {activeTab === 'audit_logs' ? (
-              <button
-                onClick={loadAuditLogs}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition-all cursor-pointer"
-              >
-                <ICON_MAP.ArrowPathIcon className="w-4 h-4 mr-0.5" />
+              <Button variant="secondary" size="sm" onClick={loadAuditLogs}>
+                <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5 mr-1.5" />
                 <span>Refresh</span>
-              </button>
+              </Button>
             ) : (
               <>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setShowRlsModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold border border-amber-400/40 transition-all cursor-pointer shadow-xs"
                   title="View Database Fix for role updates"
                 >
-                  <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-300" />
+                  <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5 mr-1.5 text-amber-600 dark:text-amber-400" />
                   <span>Database Fix</span>
-                </button>
+                </Button>
                 {canActorManageTeam && (
-                  <button
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setShowAddMemberModal(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition-all cursor-pointer"
                   >
-                    <ICON_MAP.UserPlusIcon className="w-4 h-4" />
+                    <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5 mr-1.5" />
                     <span>+ Member</span>
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
+                  type="button"
+                  variant="lime"
+                  size="sm"
                   onClick={() => {
                     setShowInviteModal(true);
                     setGeneratedInviteLink(null);
                   }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-[20px] bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all transform active:scale-95 cursor-pointer"
                 >
-                  <PlusIcon className="w-4 h-4" />
-                  <span>Invite</span>
-                </button>
+                  <PlusIcon className="w-3.5 h-3.5 mr-1" />
+                  <span>Invite Member</span>
+                </Button>
               </>
             )}
           </div>
-        </div>
+        }
+      />
 
-        {/* Analytics KPI Metric Cards */}
-        {activeTab === 'audit_logs' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Total Audit Events</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-white">{auditLogs.length}</span>
-                <span className="text-xs text-indigo-300 font-medium">events</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Logged user operations</p>
-            </div>
+      {activeTab === 'audit_logs' ? (
+        <InlineKpiStrip
+          items={[
+            {
+              id: 'events',
+              label: 'Total Audit Events',
+              value: auditLogs.length,
+              sublabel: 'Logged operations',
+              tone: 'default',
+            },
+            {
+              id: 'actors',
+              label: 'Active Actors',
+              value: distinctActorsCount,
+              sublabel: 'Initiating members',
+              tone: 'lime',
+            },
+            {
+              id: 'security',
+              label: 'RBAC & Security',
+              value: securityEventCount,
+              sublabel: 'Roles & access updates',
+              tone: 'warning',
+            },
+            {
+              id: 'tasks',
+              label: 'Task & Sprint Events',
+              value: taskEventCount,
+              sublabel: 'Delivery lifecycle',
+              tone: 'success',
+            },
+          ]}
+        />
+      ) : (
+        <InlineKpiStrip
+          items={[
+            {
+              id: 'members',
+              label: 'Total Members',
+              value: users.length,
+              sublabel: 'Active seats',
+              tone: 'default',
+            },
+            {
+              id: 'admins',
+              label: 'Owners & Admins',
+              value: adminCount,
+              sublabel: 'Full authority',
+              tone: 'lime',
+            },
+            {
+              id: 'pms',
+              label: 'Project Managers',
+              value: pmCount,
+              sublabel: 'Delivery leads',
+              tone: 'warning',
+            },
+            {
+              id: 'contributors',
+              label: 'Members & Viewers',
+              value: memberCount,
+              sublabel: 'Contributors & clients',
+              tone: 'success',
+            },
+          ]}
+        />
+      )}
 
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider">Active Actors</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-purple-300">{distinctActorsCount}</span>
-                <span className="text-xs text-slate-400">members</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Initiating operations</p>
-            </div>
-
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider">RBAC & Security</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-amber-300">{securityEventCount}</span>
-                <span className="text-xs text-slate-400">changes</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Roles & access updates</p>
-            </div>
-
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Task & Sprint Events</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-emerald-400">{taskEventCount}</span>
-                <span className="text-xs text-slate-400">updates</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Sprint & delivery lifecycle</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Total Members</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-white">{users.length}</span>
-                <span className="text-xs text-indigo-300 font-medium">seats</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Active accounts in workspace</p>
-            </div>
-
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider">Owners & Admins</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-purple-300">{adminCount}</span>
-                <span className="text-xs text-slate-400">governance</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Full workspace authority</p>
-            </div>
-
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-blue-300 uppercase tracking-wider">Project Managers</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-blue-400">{pmCount}</span>
-                <span className="text-xs text-slate-400">managers</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Can manage all non-Owner roles</p>
-            </div>
-
-            <div className="bg-white/20 dark:bg-white/5 backdrop-blur-md rounded-[20px] p-3.5 border border-white/30 dark:border-white/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Members & Viewers</span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-black text-emerald-400">{memberCount}</span>
-                <span className="text-xs text-slate-400">contributors</span>
-              </div>
-              <p className="text-[11px] text-indigo-200/70 mt-1">Active engineering & stakeholders</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Pending Organization Join Requests Approval Banner (Visible to OWNER, ADMIN, PROJECT_MANAGER) */}
+      {/* Pending Organization Join Requests Approval Banner */}
       {canActorManageTeam && joinRequests.filter(r => r.status === 'pending').length > 0 && (
-        <div
-          className={`p-5 rounded-[20px] border backdrop-blur-xl shadow-lg ${
-            darkMode
-              ? 'bg-indigo-950/40 border-indigo-500/40'
-              : 'bg-indigo-50/90 border-indigo-200'
-          }`}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-              <h2 className="text-sm font-extrabold uppercase tracking-wider text-indigo-400">
-                Pending Organization Access Requests ({joinRequests.filter(r => r.status === 'pending').length})
-              </h2>
-            </div>
-            <span className="text-xs text-slate-400">
-              Select the access level (<strong>MEMBER</strong> or <strong>PROJECT_MANAGER</strong>) to grant upon approval
+        <HairlineCard className="border-l-4 border-l-[var(--accent-lime)] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <StatusDot
+              tone="lime"
+              label={`Pending Organization Access Requests (${joinRequests.filter(r => r.status === 'pending').length})`}
+              className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]"
+            />
+            <span className="text-xs text-[var(--text-secondary)]">
+              Select access level (<strong>MEMBER</strong> or <strong>PROJECT_MANAGER</strong>) to grant upon approval
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {joinRequests
               .filter(r => r.status === 'pending')
               .map(req => {
@@ -1045,11 +1019,7 @@ export const TeamManagementPage: React.FC = () => {
                 return (
                   <div
                     key={req.id}
-                    className={`p-4 rounded-[20px] border backdrop-blur-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
-                      darkMode
-                        ? 'bg-slate-900/90 border-slate-800'
-                        : 'bg-white border-slate-200'
-                    }`}
+                    className="p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
                     <div className="flex items-start gap-3">
                       <Avatar
@@ -1065,15 +1035,15 @@ export const TeamManagementPage: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-sm">{req.requester_name}</span>
-                          <span className="text-xs text-slate-400">({req.requester_email})</span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                            Requested: {formatRoleForDisplay(req.requested_role)}
+                          <span className="text-xs text-[var(--text-muted)]">({req.requester_email})</span>
+                          <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                            · Requested: {formatRoleForDisplay(req.requested_role)}
                           </span>
                         </div>
                         {req.message && (
-                          <p className="text-xs text-slate-400 mt-1">{req.message}</p>
+                          <p className="text-xs text-[var(--text-secondary)] mt-1">{req.message}</p>
                         )}
-                        <span className="text-[10px] text-slate-500 mt-1 block">
+                        <span className="text-[10px] text-[var(--text-muted)] mt-1 block">
                           Requested {new Date(req.created_at).toLocaleString()}
                         </span>
                       </div>
@@ -1081,7 +1051,7 @@ export const TeamManagementPage: React.FC = () => {
 
                     <div className="flex flex-wrap items-center gap-2.5">
                       <div className="flex items-center gap-2">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase">
+                        <label className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">
                           Grant Role:
                         </label>
                         <select
@@ -1093,11 +1063,7 @@ export const TeamManagementPage: React.FC = () => {
                             }))
                           }
                           disabled={isProcessing}
-                          className={`text-xs font-bold rounded-xl border px-3 py-2 ${
-                            darkMode
-                              ? 'bg-slate-800 border-slate-700 text-white'
-                              : 'bg-slate-50 border-slate-300 text-slate-900'
-                          }`}
+                          className="text-xs font-semibold px-3 py-1.5"
                         >
                           <option value={UserRole.MEMBER}>Member (MEMBER)</option>
                           <option value={UserRole.PROJECT_MANAGER}>
@@ -1108,22 +1074,21 @@ export const TeamManagementPage: React.FC = () => {
 
                       <Button
                         type="button"
-                        variant="primary"
+                        variant="lime"
                         size="sm"
                         disabled={isProcessing}
                         onClick={() => handleApproveJoinRequest(req)}
-                        className="text-xs font-bold px-3.5 py-2"
                       >
                         {isProcessing ? 'Approving...' : 'Approve & Grant Access'}
                       </Button>
 
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
                         disabled={isProcessing}
                         onClick={() => handleDeclineJoinRequest(req)}
-                        className="text-xs font-semibold px-3 py-2 text-rose-400 hover:text-rose-300"
+                        className="text-rose-600 dark:text-rose-400"
                       >
                         Decline
                       </Button>
@@ -1132,103 +1097,70 @@ export const TeamManagementPage: React.FC = () => {
                 );
               })}
           </div>
-        </div>
+        </HairlineCard>
       )}
 
-      {/* Icon-First Navigation Sub-Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 dark:border-white/10 pb-3">
-        <button
-          onClick={() => setActiveTab('directory')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'directory'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
-          }`}
-        >
-          <UserGroupIcon className="w-4 h-4" />
-          <span>Directory</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{users.length}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('rbac_matrix')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'rbac_matrix'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
-          }`}
-        >
-          <ICON_MAP.CheckBadgeIcon className="w-4 h-4" />
-          <span>Permissions</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('invitations')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'invitations'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
-          }`}
-        >
-          <ICON_MAP.MailIcon className="w-4 h-4" />
-          <span>Invites</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{invitations.length}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('audit_logs')}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'audit_logs'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
-          }`}
-        >
-          <ICON_MAP.ClockIcon className="w-4 h-4" />
-          <span>Activity</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/15 dark:bg-white/15">{auditLogs.length}</span>
-        </button>
-        {canActorManageTeam && (
-          <button
-            onClick={() => setActiveTab('join_requests')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[20px] text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'join_requests'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white/40 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/10'
-            }`}
-          >
-            <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-400" />
-            <span>Requests</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                joinRequests.filter(r => r.status === 'pending').length > 0
-                  ? 'bg-amber-400 text-slate-950 animate-pulse'
-                  : 'bg-black/15 dark:bg-white/15'
-              }`}
-            >
-              {joinRequests.filter(r => r.status === 'pending').length}
-            </span>
-          </button>
-        )}
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <SegmentedTabs
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            {
+              id: 'directory',
+              label: 'Directory',
+              count: users.length,
+              icon: <UserGroupIcon className="w-3.5 h-3.5" />,
+            },
+            {
+              id: 'rbac_matrix',
+              label: 'Permissions',
+              icon: <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5" />,
+            },
+            {
+              id: 'invitations',
+              label: 'Invites',
+              count: invitations.length,
+              icon: <ICON_MAP.MailIcon className="w-3.5 h-3.5" />,
+            },
+            {
+              id: 'audit_logs',
+              label: 'Activity',
+              count: auditLogs.length,
+              icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />,
+            },
+            ...(canActorManageTeam
+              ? [
+                  {
+                    id: 'join_requests' as const,
+                    label: 'Requests',
+                    count: joinRequests.filter(r => r.status === 'pending').length,
+                    icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </div>
 
       {/* Tab Content: 1. Directory */}
       {activeTab === 'directory' && (
         <div className="space-y-4">
-          {/* Directory Filter & Search Bar (Ultra-sheer frosted glass) */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 rounded-[20px] border shadow-xs bg-white/25 dark:bg-slate-900/25 backdrop-blur-2xl border-white/60 dark:border-white/10">
+          <HairlineCard padding="sm" className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md flex items-center">
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
               <input
                 type="text"
                 placeholder="Search by name, email, or team..."
                 value={directorySearch}
                 onChange={e => setDirectorySearch(e.target.value)}
-                className={`w-full !pl-10 !pr-8 !py-2 text-xs rounded-[20px] border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
-                  darkMode ? 'bg-slate-900/40 border-white/10 text-white placeholder-slate-500' : 'bg-white/60 border-white/60 text-slate-900 placeholder-slate-400'
-                }`}
+                className="w-full search-input !pl-10 !pr-8 !py-2 text-xs"
               />
               {directorySearch && (
                 <button
                   type="button"
                   onClick={() => setDirectorySearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] z-10 cursor-pointer"
                 >
                   ×
                 </button>
@@ -1239,9 +1171,7 @@ export const TeamManagementPage: React.FC = () => {
               <select
                 value={roleFilter}
                 onChange={e => setRoleFilter(e.target.value)}
-                className={`text-xs rounded-[20px] border px-3 py-2 font-semibold ${
-                  darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200' : 'bg-white/80 border-slate-200 text-slate-700'
-                }`}
+                className="text-xs px-3 py-1.5 font-medium"
               >
                 <option value="all">All Roles</option>
                 {Object.values(UserRole).map(r => (
@@ -1252,9 +1182,7 @@ export const TeamManagementPage: React.FC = () => {
               <select
                 value={departmentFilter}
                 onChange={e => setDepartmentFilter(e.target.value)}
-                className={`text-xs rounded-[20px] border px-3 py-2 font-semibold ${
-                  darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200' : 'bg-white/80 border-slate-200 text-slate-700'
-                }`}
+                className="text-xs px-3 py-1.5 font-medium"
               >
                 <option value="all">All Departments</option>
                 {DEPARTMENTS.map(d => (
@@ -1265,24 +1193,24 @@ export const TeamManagementPage: React.FC = () => {
               <select
                 value={availabilityFilter}
                 onChange={e => setAvailabilityFilter(e.target.value)}
-                className={`text-xs rounded-[20px] border px-3 py-2 font-semibold ${
-                  darkMode ? 'bg-slate-800/80 border-white/10 text-slate-200' : 'bg-white/80 border-slate-200 text-slate-700'
-                }`}
+                className="text-xs px-3 py-1.5 font-medium"
               >
                 <option value="all">All Statuses</option>
                 <option value="online">Online Now</option>
                 <option value="offline">Offline</option>
               </select>
 
-              <button
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={fetchUsersForAssignmentList}
-                className="p-2 rounded-[20px] border border-white/20 dark:border-white/10 bg-white/30 dark:bg-white/5 hover:bg-white/50 text-xs font-semibold cursor-pointer"
                 title="Refresh Directory"
               >
-                <ICON_MAP.ArrowPathIcon className="w-4 h-4" />
-              </button>
+                <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5" />
+              </Button>
             </div>
-          </div>
+          </HairlineCard>
 
           {updateUserRoleError && (
             <div className={`my-2 p-3 text-center rounded-[20px] text-xs font-semibold border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
@@ -1301,26 +1229,26 @@ export const TeamManagementPage: React.FC = () => {
               <p className="mt-3 text-sm text-slate-400">Loading team members...</p>
             </div>
           ) : filteredDirectoryUsers.length === 0 ? (
-            <div className="text-center py-12 rounded-[20px] border border-white/20 dark:border-white/10 bg-white/20 dark:bg-slate-900/20 backdrop-blur-xl">
-              <UserGroupIcon className="w-12 h-12 mx-auto mb-3 text-slate-400 opacity-60" />
+            <HairlineCard padding="lg" className="text-center">
+              <UserGroupIcon className="w-10 h-10 mx-auto mb-2.5 text-[var(--text-muted)] opacity-60" />
               <h2 className="text-base font-bold">No Members Found</h2>
-              <p className="text-xs text-slate-400 mt-1">Try clearing your filters or invite a new teammate.</p>
-            </div>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">Try clearing your filters or invite a new teammate.</p>
+            </HairlineCard>
           ) : (
-            <div className={`shadow-lg rounded-[20px] overflow-x-auto border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/25 border-white/10' : 'bg-white/25 border-white/60'}`}>
-              <table className="min-w-full divide-y divide-white/20 dark:divide-white/10">
-                <thead className={darkMode ? 'bg-slate-950/40' : 'bg-white/20'}>
+            <div className="editorial-surface overflow-x-auto">
+              <table className="min-w-full divide-y divide-[var(--border-hairline)]">
+                <thead className="bg-[var(--bg-surface-subtle)]">
                   <tr>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Member</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Status</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Department</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Workload</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Role</th>
-                    <th scope="col" className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 min-w-[180px]">Change Role</th>
-                    <th scope="col" className="px-4 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Actions</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Member</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Status</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Department</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Workload</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Role</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] min-w-[180px]">Change Role</th>
+                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/70">
+                <tbody className="divide-y divide-[var(--border-hairline)]">
                   {filteredDirectoryUsers.map(user => {
                     const normalizedUserRole = normalizeUserRole(user.role);
                     const isCurrentUserRow = user.id === currentUser?.id;
@@ -1644,25 +1572,27 @@ export const TeamManagementPage: React.FC = () => {
       {/* Tab Content: 2. RBAC Permission Matrix */}
       {activeTab === 'rbac_matrix' && (
         <div className="space-y-4">
-          <div className={`p-5 rounded-[20px] border backdrop-blur-xl ${darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'}`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-200 dark:border-slate-800">
+          <HairlineCard>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-4 border-b border-[var(--border-hairline)]">
               <div>
                 <h2 className="text-base font-bold flex items-center gap-2">
-                  <ICON_MAP.ShieldCheckIcon className="w-5 h-5 text-indigo-400" />
+                  <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-[#6F8254] dark:text-[var(--accent-lime)]" />
                   <span>Normalized Role-Based Access Control (RBAC) Governance</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Project Managers and Administrators can update any member’s role except users holding the Organization Owner role.
                 </p>
               </div>
-              <span className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                Your Role: {formatRoleForDisplay(currentActorRole)}
-              </span>
+              <StatusDot
+                tone="lime"
+                label={`Your Role: ${formatRoleForDisplay(currentActorRole)}`}
+                className="font-semibold text-[var(--text-primary)]"
+              />
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-xs">
-                <thead className={darkMode ? 'bg-slate-950/60' : 'bg-slate-50'}>
+              <table className="min-w-full divide-y divide-[var(--border-hairline)] text-xs">
+                <thead className="bg-[var(--bg-surface-subtle)]">
                   <tr>
                     <th className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-400">Platform Capability</th>
                     {Object.values(UserRole).map(role => (
@@ -1704,7 +1634,7 @@ export const TeamManagementPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
+          </HairlineCard>
         </div>
       )}
 
@@ -1740,24 +1670,24 @@ export const TeamManagementPage: React.FC = () => {
 
           {isLoadingInvites ? (
             <div className="text-center py-6">
-              <SpinnerIcon className="w-6 h-6 animate-spin mx-auto text-accent" />
+              <SpinnerIcon className="w-6 h-6 animate-spin mx-auto text-[#6F8254] dark:text-[var(--accent-lime)]" />
             </div>
           ) : invitations.length === 0 ? (
-            <div className={`p-8 rounded-xl border text-center ${darkMode ? 'bg-slate-800/30 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-              <ICON_MAP.MailIcon className="w-10 h-10 mx-auto mb-2 text-slate-400 opacity-60" />
-              <p className="font-semibold text-sm">No active invitation links.</p>
-              <p className="text-xs mt-1">Click "Create Invite" to generate a secure join link for a new team member.</p>
-            </div>
+            <HairlineCard className="p-8 text-center">
+              <ICON_MAP.MailIcon className="w-10 h-10 mx-auto mb-2 text-[var(--text-muted)] opacity-60" />
+              <p className="font-semibold text-sm text-[var(--text-primary)]">No active invitation links.</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">Click "Create Invite" to generate a secure join link for a new team member.</p>
+            </HairlineCard>
           ) : (
-            <div className={`shadow-lg rounded-[20px] overflow-x-auto border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/25 border-white/10' : 'bg-white/25 border-white/60'}`}>
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                <thead className={darkMode ? 'bg-slate-900/40' : 'bg-slate-50'}>
+            <div className="editorial-surface overflow-x-auto">
+              <table className="min-w-full divide-y divide-[var(--border-hairline)]">
+                <thead className="bg-[var(--bg-surface-subtle)]">
                   <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase">Recipient Email</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase">Pre-assigned Role</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase">Status</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase">Expires</th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase">Actions</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recipient Email</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Pre-assigned Role</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Status</th>
+                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Expires</th>
+                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
@@ -1864,30 +1794,30 @@ export const TeamManagementPage: React.FC = () => {
 
           {isLoadingAuditLogs ? (
             <div className="text-center py-12">
-              <SpinnerIcon className="w-8 h-8 animate-spin mx-auto text-indigo-500" />
-              <p className="text-xs text-slate-400 mt-2">Loading audit trail records...</p>
+              <SpinnerIcon className="w-8 h-8 animate-spin mx-auto text-[#6F8254] dark:text-[var(--accent-lime)]" />
+              <p className="text-xs text-[var(--text-muted)] mt-2">Loading audit trail records...</p>
             </div>
           ) : filteredAuditLogs.length === 0 ? (
-            <div className={`p-8 rounded-2xl border text-center ${darkMode ? 'bg-slate-800/40 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-              <ICON_MAP.ClockIcon className="w-10 h-10 mx-auto mb-2 opacity-60 text-indigo-400" />
-              <p className="font-bold text-sm">No Audit Logs Found</p>
-              <p className="text-xs mt-1">
+            <HairlineCard className="p-8 text-center">
+              <ICON_MAP.ClockIcon className="w-10 h-10 mx-auto mb-2 opacity-60 text-[var(--text-muted)]" />
+              <p className="font-bold text-sm text-[var(--text-primary)]">No Audit Logs Found</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
                 {auditSearchQuery || auditFilterType !== 'all'
                   ? 'No activity matches your active search filters.'
                   : 'Actions performed in the workspace will automatically be recorded here.'}
               </p>
-            </div>
+            </HairlineCard>
           ) : (
-            <div className={`rounded-2xl border overflow-hidden shadow-xs ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className="editorial-surface overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700/80 text-xs">
-                  <thead className={darkMode ? 'bg-slate-900/60' : 'bg-slate-50/80'}>
+                <table className="min-w-full divide-y divide-[var(--border-hairline)] text-xs">
+                  <thead className="bg-[var(--bg-surface-subtle)]">
                     <tr>
-                      <th scope="col" className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-500">Timestamp</th>
-                      <th scope="col" className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-500">Actor</th>
-                      <th scope="col" className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-500">Action</th>
-                      <th scope="col" className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-500">Target Entity</th>
-                      <th scope="col" className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-500">Details</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold uppercase tracking-wider text-[var(--text-muted)]">Timestamp</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold uppercase tracking-wider text-[var(--text-muted)]">Actor</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold uppercase tracking-wider text-[var(--text-muted)]">Action</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold uppercase tracking-wider text-[var(--text-muted)]">Target Entity</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold uppercase tracking-wider text-[var(--text-muted)]">Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
@@ -1974,50 +1904,37 @@ export const TeamManagementPage: React.FC = () => {
       {/* Tab Content: 5. Organization Join Requests & Access Approvals */}
       {activeTab === 'join_requests' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border bg-white/30 dark:bg-slate-900/40 backdrop-blur-xl border-white/40 dark:border-white/10">
+          <HairlineCard className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold flex items-center gap-2">
-                <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-amber-400" />
+              <h2 className="text-sm font-bold flex items-center gap-2 text-[var(--text-primary)]">
+                <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-[#6F8254] dark:text-[var(--accent-lime)]" />
                 <span>Organization Join Requests & Access Governance</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                 New user signup requests to join this organization. Project Managers, Admins, and Owners can approve or decline access.
               </p>
             </div>
 
-            {/* Filter pills */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-neutral-800 self-start sm:self-auto">
-              {(['pending', 'all', 'approved', 'declined'] as const).map(f => {
-                const count =
-                  f === 'all'
-                    ? joinRequests.length
-                    : joinRequests.filter(r => r.status === f).length;
-                return (
-                  <button
-                    key={f}
-                    onClick={() => setJoinRequestsTabFilter(f)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
-                      joinRequestsTabFilter === f
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <span>{f}</span>
-                    <span className="ml-1.5 opacity-70 text-[10px]">({count})</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+            <SegmentedTabs
+              value={joinRequestsTabFilter}
+              onChange={setJoinRequestsTabFilter}
+              size="sm"
+              options={(['pending', 'all', 'approved', 'declined'] as const).map(f => ({
+                id: f,
+                label: f.charAt(0).toUpperCase() + f.slice(1),
+                count: f === 'all' ? joinRequests.length : joinRequests.filter(r => r.status === f).length,
+              }))}
+            />
+          </HairlineCard>
 
           {joinRequests.filter(r => joinRequestsTabFilter === 'all' || r.status === joinRequestsTabFilter).length === 0 ? (
-            <div className={`p-12 text-center rounded-2xl border ${darkMode ? 'bg-neutral-900/40 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-              <ICON_MAP.ShieldCheckIcon className="w-10 h-10 mx-auto text-slate-400/60 mb-2" />
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No {joinRequestsTabFilter !== 'all' ? joinRequestsTabFilter : ''} join requests found</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            <HairlineCard className="p-12 text-center border-dashed">
+              <ICON_MAP.ShieldCheckIcon className="w-10 h-10 mx-auto text-[var(--text-muted)] opacity-60 mb-2" />
+              <p className="text-sm font-bold text-[var(--text-primary)]">No {joinRequestsTabFilter !== 'all' ? joinRequestsTabFilter : ''} join requests found</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm mx-auto">
                 When new users sign up and request access to this organization, their applications will appear here for manager review.
               </p>
-            </div>
+            </HairlineCard>
           ) : (
             <div className="space-y-3">
               {joinRequests
@@ -2032,14 +1949,10 @@ export const TeamManagementPage: React.FC = () => {
                   return (
                     <div
                       key={req.id}
-                      className={`p-4 sm:p-5 rounded-[20px] border backdrop-blur-xl transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                      className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
                         isPending
-                          ? darkMode
-                            ? 'bg-neutral-900 border-amber-500/30 shadow-xs'
-                            : 'bg-white border-amber-200 shadow-xs'
-                          : darkMode
-                            ? 'bg-neutral-900/60 border-white/5 opacity-85'
-                            : 'bg-slate-50 border-slate-200 opacity-90'
+                          ? 'bg-[var(--bg-surface)] border-[var(--border-strong)] border-l-4 border-l-[var(--accent-lime)]'
+                          : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] opacity-85'
                       }`}
                     >
                       <div className="flex items-start gap-3.5 min-w-0">
@@ -2171,11 +2084,11 @@ export const TeamManagementPage: React.FC = () => {
 
       {/* Provision / Add Member Modal */}
       {showAddMemberModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
-          <div className={`p-6 rounded-[20px] shadow-2xl w-full max-w-lg border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/80 border-white/10 text-white' : 'bg-white/85 border-white/60 text-slate-900'}`}>
-            <div className="flex justify-between items-center mb-4 border-b pb-3 border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-[2px] animate-fadeIn p-4">
+          <div className="p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
+            <div className="flex justify-between items-center mb-4 border-b pb-3 border-[var(--border-hairline)]">
               <h3 className="text-base font-bold flex items-center gap-2">
-                <ICON_MAP.UserPlusIcon className="w-5 h-5 text-indigo-400" />
+                <ICON_MAP.UserPlusIcon className="w-5 h-5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
                 Provision Team Member Seat
               </h3>
               <button onClick={() => setShowAddMemberModal(false)} className="text-sm opacity-60 hover:opacity-100 cursor-pointer">✕</button>
@@ -2183,36 +2096,36 @@ export const TeamManagementPage: React.FC = () => {
 
             <form onSubmit={handleOnboardDirectMember} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-400">Full Name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-muted)]">Full Name</label>
                 <input
                   type="text"
                   required
                   placeholder="Elena Rostova"
                   value={newMemberName}
                   onChange={e => setNewMemberName(e.target.value)}
-                  className={`w-full p-2.5 rounded-xl border text-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                  className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-sm outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-400">Work Email</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-muted)]">Work Email</label>
                 <input
                   type="email"
                   required
                   placeholder="elena@organization.io"
                   value={newMemberEmail}
                   onChange={e => setNewMemberEmail(e.target.value)}
-                  className={`w-full p-2.5 rounded-xl border text-sm outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                  className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-sm outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-400">RBAC Role</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-muted)]">RBAC Role</label>
                   <select
                     value={newMemberRole}
                     onChange={e => setNewMemberRole(normalizeUserRole(e.target.value as UserRole))}
-                    className={`w-full p-2.5 rounded-xl border text-xs font-semibold outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs font-semibold outline-none"
                   >
                     {ASSIGNABLE_ROLES.map(r => (
                       <option key={r} value={r}>{formatRoleForDisplay(r)}</option>
@@ -2221,11 +2134,11 @@ export const TeamManagementPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-400">Department</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-muted)]">Department</label>
                   <select
                     value={newMemberDept}
                     onChange={e => setNewMemberDept(e.target.value)}
-                    className={`w-full p-2.5 rounded-xl border text-xs font-semibold outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs font-semibold outline-none"
                   >
                     {DEPARTMENTS.map(d => (
                       <option key={d} value={d}>{d}</option>
@@ -2234,21 +2147,21 @@ export const TeamManagementPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-400">Weekly Capacity</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-[var(--text-muted)]">Weekly Capacity</label>
                   <input
                     type="number"
                     min={10}
                     max={60}
                     value={newMemberCapacity}
                     onChange={e => setNewMemberCapacity(Number(e.target.value))}
-                    className={`w-full p-2.5 rounded-xl border text-xs font-semibold outline-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs font-semibold outline-none"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
                 <Button variant="outline" type="button" onClick={() => setShowAddMemberModal(false)}>Cancel</Button>
-                <Button variant="primary" type="submit">Provision Member</Button>
+                <Button variant="lime" type="submit">Provision Member</Button>
               </div>
             </form>
           </div>
@@ -2257,14 +2170,14 @@ export const TeamManagementPage: React.FC = () => {
 
       {/* Invite Member Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
-          <div className={`p-6 rounded-2xl shadow-2xl w-full max-w-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
-            <div className="flex justify-between items-center mb-4 border-b pb-3 border-slate-200 dark:border-slate-700">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-[2px] animate-fadeIn p-4">
+          <div className="p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
+            <div className="flex justify-between items-center mb-4 border-b pb-3 border-[var(--border-hairline)]">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <ICON_MAP.MailIcon className="w-5 h-5 text-accent" />
+                <ICON_MAP.MailIcon className="w-5 h-5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
                 Invite Member to Organization
               </h3>
-              <button onClick={() => setShowInviteModal(false)} className="text-sm opacity-60 hover:opacity-100">✕</button>
+              <button onClick={() => setShowInviteModal(false)} className="text-sm opacity-60 hover:opacity-100 cursor-pointer">✕</button>
             </div>
 
             {!generatedInviteLink ? (
@@ -2274,13 +2187,13 @@ export const TeamManagementPage: React.FC = () => {
                   <select
                     value={inviteRole}
                     onChange={e => setInviteRole(normalizeUserRole(e.target.value as UserRole))}
-                    className={`w-full p-2.5 rounded-md border text-sm focus:ring-2 focus:ring-accent outline-none ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-sm outline-none"
                   >
                     {ASSIGNABLE_ROLES.map(r => (
                       <option key={r} value={r}>{formatRoleForDisplay(r)}</option>
                     ))}
                   </select>
-                  <p className="text-xs opacity-60 mt-1">
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
                     The member will be automatically assigned this normalized RBAC role upon accepting the invitation link.
                   </p>
                 </div>
@@ -2292,7 +2205,7 @@ export const TeamManagementPage: React.FC = () => {
                     placeholder="colleague@company.com"
                     value={inviteEmail}
                     onChange={e => setInviteEmail(e.target.value)}
-                    className={`w-full p-2.5 rounded-md border text-sm focus:ring-2 focus:ring-accent outline-none ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-sm outline-none"
                   />
                 </div>
 
@@ -2301,7 +2214,7 @@ export const TeamManagementPage: React.FC = () => {
                   <select
                     value={inviteExpiryDays}
                     onChange={e => setInviteExpiryDays(Number(e.target.value))}
-                    className={`w-full p-2.5 rounded-md border text-sm focus:ring-2 focus:ring-accent outline-none ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-sm outline-none"
                   >
                     <option value={1}>24 Hours</option>
                     <option value={7}>7 Days</option>
@@ -2309,7 +2222,7 @@ export const TeamManagementPage: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-[var(--border-hairline)]">
                   <Button variant="outline" type="button" onClick={() => setShowInviteModal(false)}>Cancel</Button>
                   {inviteEmail.trim() && (
                     <Button
@@ -2317,13 +2230,12 @@ export const TeamManagementPage: React.FC = () => {
                       type="button"
                       disabled={isGeneratingInvite}
                       onClick={e => handleCreateInvitation(e as any, true)}
-                      className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
                     >
-                      <ICON_MAP.MailIcon className="w-4 h-4 mr-1.5 text-emerald-500" />
+                      <ICON_MAP.MailIcon className="w-4 h-4 mr-1.5 text-emerald-600 dark:text-emerald-400" />
                       Send Direct Email Invite
                     </Button>
                   )}
-                  <Button variant="primary" type="submit" disabled={isGeneratingInvite}>
+                  <Button variant="lime" type="submit" disabled={isGeneratingInvite}>
                     {isGeneratingInvite ? <SpinnerIcon className="w-4 h-4 animate-spin mr-2" /> : null}
                     Generate Invite Link
                   </Button>
@@ -2331,20 +2243,20 @@ export const TeamManagementPage: React.FC = () => {
               </form>
             ) : (
               <div className="space-y-4">
-                <div className="p-4 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-sm">
+                <div className="p-4 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-emerald-700 dark:text-emerald-300 text-sm">
                   ✓ <strong>Invitation Created!</strong> Share the single-use token link below with your team member:
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wider opacity-70">Invitation URL</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Invitation URL</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       readOnly
                       value={generatedInviteLink}
-                      className={`flex-1 p-2 text-xs font-mono rounded-md border ${darkMode ? 'bg-slate-900 border-slate-700 text-emerald-400' : 'bg-slate-100 border-slate-300 text-slate-900'}`}
+                      className="flex-1 p-2 text-xs font-mono rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)]"
                     />
-                    <Button variant="primary" size="sm" onClick={() => handleCopyLink(generatedInviteLink, 'modal')}>
+                    <Button variant="lime" size="sm" onClick={() => handleCopyLink(generatedInviteLink, 'modal')}>
                       {copiedToken === 'modal' ? 'Copied!' : 'Copy'}
                     </Button>
                   </div>
@@ -2360,11 +2272,11 @@ export const TeamManagementPage: React.FC = () => {
       )}
 
       {showConfirmDeleteModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
-          <div className={`p-6 rounded-[20px] shadow-2xl w-full max-w-md border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/80 border-white/10 text-white' : 'bg-white/85 border-white/60 text-slate-900'}`}>
-            <h3 className="text-lg font-semibold text-status-error mb-3">Confirm Removal</h3>
-            <p className="text-sm mb-5">
-              Are you sure you want to remove <strong className="font-medium">{users.find(u => u.id === showConfirmDeleteModal)?.full_name || 'this user'}</strong> from the organization? They will lose access to all organization projects and data.
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-[2px] animate-fadeIn p-4">
+          <div className="p-6 rounded-2xl shadow-2xl w-full max-w-md border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
+            <h3 className="text-lg font-semibold text-rose-600 dark:text-rose-400 mb-3">Confirm Removal</h3>
+            <p className="text-sm mb-5 text-[var(--text-secondary)]">
+              Are you sure you want to remove <strong className="font-medium text-[var(--text-primary)]">{users.find(u => u.id === showConfirmDeleteModal)?.full_name || 'this user'}</strong> from the organization? They will lose access to all organization projects and data.
             </p>
             <div className="flex justify-end space-x-3">
               <Button variant="outline" onClick={() => setShowConfirmDeleteModal(null)}>Cancel</Button>
@@ -2378,8 +2290,8 @@ export const TeamManagementPage: React.FC = () => {
 
       {/* Supabase RLS Fix & Role Synchronization Modal */}
       {showRlsModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 backdrop-blur-md animate-fadeIn p-4 overflow-y-auto">
-          <div className={`my-8 p-6 rounded-[20px] shadow-2xl w-full max-w-2xl border backdrop-blur-2xl ${darkMode ? 'bg-slate-900/80 border-white/10 text-white' : 'bg-white/85 border-white/60 text-slate-900'}`}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-[2px] animate-fadeIn p-4 overflow-y-auto">
+          <div className="my-8 p-6 rounded-2xl shadow-2xl w-full max-w-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
             <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">

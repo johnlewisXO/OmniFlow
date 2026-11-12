@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { KanbanColumn } from './KanbanColumn';
-import { TaskStatus, UserRole, Task, TaskPriority } from '../../types';
+import { TaskStatus, UserRole, TaskPriority } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
 import { TASK_STATUS_COLUMNS, ICON_MAP } from '../../constants';
 import { GanttTimelineView } from './GanttTimelineView';
@@ -9,14 +9,16 @@ import { SprintPlanningView } from '../sprints/SprintPlanningView';
 import { AutomatedTriggersModal } from './AutomatedTriggersModal';
 import { Button } from '../shared/Button';
 import soundService from '../../services/soundService';
+import { SegmentedTabs, HairlineCard } from '../shared/EditorialUI';
+import { RadialProgressRing } from '../charts/EditorialCharts';
 
 type SwimlaneType = 'none' | 'assignee' | 'priority';
 
 export const KanbanBoard: React.FC = () => {
-  const { 
-    activeProject, 
-    darkMode, 
-    isLoadingTasks, 
+  const {
+    activeProject,
+    darkMode,
+    isLoadingTasks,
     tasksError,
     isLoadingProjects,
     tasks,
@@ -24,7 +26,6 @@ export const KanbanBoard: React.FC = () => {
     currentUser,
     openViewTaskModal,
     sprints,
-    activeSprintId,
     presences,
     updateTask,
     bulkUpdateTasks,
@@ -77,7 +78,7 @@ export const KanbanBoard: React.FC = () => {
     setSelectedTaskIds([]);
   }, []);
 
-  // WIP Limits (persisted in local state per project)
+  // WIP Limits
   const [wipLimits, setWipLimits] = useState<Record<string, number>>(() => {
     try {
       const stored = localStorage.getItem(`wip_limits_${activeProject?.id}`);
@@ -95,9 +96,8 @@ export const KanbanBoard: React.FC = () => {
     }
   };
 
-  // Active teammates online in the same organization (deduplicated)
   const activeCollabs = useMemo(() => {
-    const map = new Map<string, typeof presences[number]>();
+    const map = new Map<string, (typeof presences)[number]>();
     presences.forEach(p => {
       if (!p?.userId || p.userId === currentUser?.id) return;
       if (currentUser?.organization_id && p.organizationId && p.organizationId !== currentUser.organization_id) {
@@ -112,7 +112,8 @@ export const KanbanBoard: React.FC = () => {
     setCollapsedSwimlanes(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const hasActiveFilters = searchQuery !== '' || filterMyTasks || filterPriority !== 'all' || filterUnassigned || filterSprint !== 'all';
+  const hasActiveFilters =
+    searchQuery !== '' || filterMyTasks || filterPriority !== 'all' || filterUnassigned || filterSprint !== 'all';
   const activeFilterCount =
     (filterMyTasks ? 1 : 0) +
     (filterUnassigned ? 1 : 0) +
@@ -131,15 +132,12 @@ export const KanbanBoard: React.FC = () => {
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
   const ExclamationIcon = ICON_MAP.ExclamationIcon;
 
-  // Project tasks
   const rawProjectTasks = useMemo(() => {
     return activeProject ? tasks.filter(t => t.projectId === activeProject.id) : [];
   }, [tasks, activeProject]);
 
-  // Filtered tasks based on search & quick filters
   const filteredProjectTasks = useMemo(() => {
     return rawProjectTasks.filter(task => {
-      // Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = task.title.toLowerCase().includes(q);
@@ -147,32 +145,18 @@ export const KanbanBoard: React.FC = () => {
         const matchesTag = task.tags?.some(tag => tag.toLowerCase().includes(q));
         if (!matchesTitle && !matchesDesc && !matchesTag) return false;
       }
+      if (filterMyTasks && currentUser && task.assignee_id !== currentUser.id) return false;
+      if (filterUnassigned && task.assignee_id) return false;
+      if (filterPriority !== 'all' && (task.priority || '').toLowerCase() !== filterPriority.toLowerCase()) return false;
 
-      // My tasks filter
-      if (filterMyTasks && currentUser) {
-        if (task.assignee_id !== currentUser.id) return false;
-      }
-
-      // Unassigned filter
-      if (filterUnassigned) {
-        if (task.assignee_id) return false;
-      }
-
-      // Priority filter
-      if (filterPriority !== 'all') {
-        const pNorm = (task.priority || '').toLowerCase();
-        if (pNorm !== filterPriority.toLowerCase()) return false;
-      }
-
-      // Sprint filter
       if (filterSprint !== 'all') {
         if (filterSprint === 'active') {
           const activeSp = sprints.find(s => s.projectId === activeProject?.id && s.status === 'active');
           if (!activeSp || task.sprintId !== activeSp.id) return false;
         } else if (filterSprint === 'backlog') {
           if (task.sprintId) return false;
-        } else {
-          if (task.sprintId !== filterSprint) return false;
+        } else if (task.sprintId !== filterSprint) {
+          return false;
         }
       }
 
@@ -180,7 +164,7 @@ export const KanbanBoard: React.FC = () => {
     });
   }, [rawProjectTasks, searchQuery, filterMyTasks, currentUser, filterUnassigned, filterPriority, filterSprint, sprints, activeProject]);
 
-  // Linear-Style Keyboard Hotkeys (J/K nav, 1-4 Priority, S Status, M Assign to Me, X Select, Enter Inspect, Cmd+Z Undo)
+  // Keyboard Hotkeys
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -194,7 +178,6 @@ export const KanbanBoard: React.FC = () => {
         return;
       }
 
-      // Cmd+Z / Ctrl+Z Undo
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         if (lastUndoAction) {
           e.preventDefault();
@@ -217,7 +200,6 @@ export const KanbanBoard: React.FC = () => {
 
       if (filteredProjectTasks.length === 0) return;
 
-      // J / ArrowDown -> Next Task
       if (e.key.toLowerCase() === 'j' || e.key === 'ArrowDown') {
         e.preventDefault();
         const idx = focusedTaskId ? filteredProjectTasks.findIndex(t => t.id === focusedTaskId) : -1;
@@ -226,7 +208,6 @@ export const KanbanBoard: React.FC = () => {
         return;
       }
 
-      // K / ArrowUp -> Previous Task
       if (e.key.toLowerCase() === 'k' || e.key === 'ArrowUp') {
         e.preventDefault();
         const idx = focusedTaskId ? filteredProjectTasks.findIndex(t => t.id === focusedTaskId) : 0;
@@ -238,21 +219,18 @@ export const KanbanBoard: React.FC = () => {
       const activeTask = focusedTaskId ? filteredProjectTasks.find(t => t.id === focusedTaskId) : null;
       if (!activeTask) return;
 
-      // X -> Toggle Multi-Select on Focused Task
       if (e.key.toLowerCase() === 'x') {
         e.preventDefault();
         handleToggleSelectTask(activeTask.id);
         return;
       }
 
-      // Enter -> Open Task Inspector
       if (e.key === 'Enter') {
         e.preventDefault();
         openViewTaskModal(activeTask.id);
         return;
       }
 
-      // S -> Cycle Status (Todo -> In Progress -> Review -> Done)
       if (e.key.toLowerCase() === 's') {
         e.preventDefault();
         const order = [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.REVIEW, TaskStatus.DONE];
@@ -262,7 +240,6 @@ export const KanbanBoard: React.FC = () => {
         return;
       }
 
-      // M -> Assign to Me
       if (e.key.toLowerCase() === 'm' && currentUser) {
         e.preventDefault();
         updateTask(activeTask.id, { assignee_id: currentUser.id });
@@ -270,7 +247,6 @@ export const KanbanBoard: React.FC = () => {
         return;
       }
 
-      // 1-4 -> Inline Priority Hotkeys
       if (['1', '2', '3', '4'].includes(e.key)) {
         e.preventDefault();
         const prioMap: Record<string, TaskPriority> = {
@@ -303,21 +279,18 @@ export const KanbanBoard: React.FC = () => {
     addToast,
   ]);
 
-  // Agile Metrics (Total, Done, In Progress, Velocity, Story points estimation)
   const stats = useMemo(() => {
     const total = rawProjectTasks.length;
     const done = rawProjectTasks.filter(t => t.status === TaskStatus.DONE).length;
-    const inProgress = rawProjectTasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length;
-    const inReview = rawProjectTasks.filter(t => t.status === TaskStatus.REVIEW).length;
-    const todo = rawProjectTasks.filter(t => t.status === TaskStatus.TODO).length;
     const totalStoryPoints = rawProjectTasks.reduce((acc, t) => acc + (t.story_points || 1), 0);
-    const completedStoryPoints = rawProjectTasks.filter(t => t.status === TaskStatus.DONE).reduce((acc, t) => acc + (t.story_points || 1), 0);
+    const completedStoryPoints = rawProjectTasks
+      .filter(t => t.status === TaskStatus.DONE)
+      .reduce((acc, t) => acc + (t.story_points || 1), 0);
     const progressPercent = total > 0 ? Math.round((done / total) * 100) : 0;
 
-    return { total, done, inProgress, inReview, todo, totalStoryPoints, completedStoryPoints, progressPercent };
+    return { total, done, totalStoryPoints, completedStoryPoints, progressPercent };
   }, [rawProjectTasks]);
 
-  // Swimlane definitions
   const swimlanes = useMemo(() => {
     if (swimlaneMode === 'assignee') {
       const assigneeIds = Array.from(new Set(rawProjectTasks.map(t => t.assignee_id || 'unassigned')));
@@ -327,7 +300,7 @@ export const KanbanBoard: React.FC = () => {
             id: 'unassigned',
             title: 'Unassigned',
             avatar: null,
-            tasks: filteredProjectTasks.filter(t => !t.assignee_id)
+            tasks: filteredProjectTasks.filter(t => !t.assignee_id),
           };
         }
         const user = users.find(u => u.id === id);
@@ -335,19 +308,24 @@ export const KanbanBoard: React.FC = () => {
           id,
           title: user?.full_name || user?.email || 'Unknown Member',
           avatar: user?.avatar_url,
-          tasks: filteredProjectTasks.filter(t => t.assignee_id === id)
+          tasks: filteredProjectTasks.filter(t => t.assignee_id === id),
         };
       });
     }
 
     if (swimlaneMode === 'priority') {
-      const priorities: TaskPriority[] = [TaskPriority.CRITICAL, TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW];
+      const priorities: TaskPriority[] = [
+        TaskPriority.CRITICAL,
+        TaskPriority.HIGH,
+        TaskPriority.MEDIUM,
+        TaskPriority.LOW,
+      ];
       return priorities.map(p => ({
         id: p,
         title: `${p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()} Priority`,
         avatar: null,
         priority: p,
-        tasks: filteredProjectTasks.filter(t => t.priority === p)
+        tasks: filteredProjectTasks.filter(t => t.priority === p),
       }));
     }
 
@@ -356,46 +334,41 @@ export const KanbanBoard: React.FC = () => {
 
   if (isLoadingProjects && !activeProject) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6 bg-transparent">
+      <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center">
-          <SpinnerIcon className={`w-12 h-12 mx-auto mb-6 ${darkMode ? 'text-slate-400' : 'text-slate-500'} animate-spin`} />
-          <h2 className={`text-xl font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>Loading Project...</h2>
+          <SpinnerIcon className="w-8 h-8 mx-auto mb-3 text-[var(--text-muted)] animate-spin" />
+          <h2 className="text-sm font-semibold text-[var(--text-secondary)]">Loading project...</h2>
         </div>
       </div>
     );
   }
-  
+
   if (!activeProject) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6 bg-transparent">
-        <div className="text-center">
-          <FolderIcon className={`w-24 h-24 mx-auto mb-6 ${darkMode ? 'text-slate-500' : 'text-slate-400'} opacity-70`} />
-          <h2 className={`text-2xl font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>No Project Selected</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>Please select a project from the sidebar to view tasks.</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <HairlineCard padding="lg" className="text-center max-w-sm">
+          <FolderIcon className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)]" />
+          <h2 className="text-base font-bold text-[var(--text-primary)]">No Project Selected</h2>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            Select a project from the navigation rail to view its board and sprint backlog.
+          </p>
+        </HairlineCard>
       </div>
     );
   }
 
   if (activeProject && isLoadingTasks) {
     return (
-      <div className="flex-1 flex space-x-3 md:space-x-4 p-4 md:p-6 overflow-x-auto bg-transparent">
-        {[1, 2, 3, 4].map((col) => (
-          <div key={col} className={`flex-shrink-0 w-72 md:w-80 rounded-xl flex flex-col ${darkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-slate-100/50 border-slate-200/50'} border shadow-sm`}>
-            <div className="p-3 border-b border-slate-200/50 dark:border-slate-700/50">
-              <div className={`h-5 w-24 rounded animate-pulse ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-            </div>
-            <div className="flex-1 p-2 space-y-3 overflow-y-auto">
-              {[1, 2, 3].map((task) => (
-                <div key={task} className={`p-4 rounded-lg border shadow-sm animate-pulse ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                  <div className={`h-4 w-3/4 rounded mb-3 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-                  <div className="flex justify-between items-center mt-4">
-                    <div className={`h-3 w-16 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-                    <div className={`h-6 w-6 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div className="flex-1 flex gap-4 p-4 sm:p-6 overflow-x-auto">
+        {[1, 2, 3, 4].map(col => (
+          <div
+            key={col}
+            className="flex-shrink-0 w-72 md:w-80 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] p-4 space-y-3 animate-pulse"
+          >
+            <div className="h-5 w-24 rounded bg-[var(--bg-sage)]" />
+            {[1, 2, 3].map(task => (
+              <div key={task} className="h-24 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-hairline)]" />
+            ))}
           </div>
         ))}
       </div>
@@ -404,165 +377,100 @@ export const KanbanBoard: React.FC = () => {
 
   if (activeProject && tasksError) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6 bg-transparent">
-        <div className={`text-center p-4 rounded-lg ${darkMode ? 'bg-red-900/30' : 'bg-red-100/70'}`}>
-          <ExclamationIcon className={`w-16 h-16 mx-auto mb-4 text-red-500 dark:text-red-400`} />
-          <h2 className={`text-xl font-semibold text-red-700 dark:text-red-300`}>Error Loading Tasks</h2>
-          <p className={`text-red-600 dark:text-red-400 mt-1`}>{tasksError}</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <HairlineCard padding="lg" className="text-center border-rose-500/30 max-w-md">
+          <ExclamationIcon className="w-10 h-10 mx-auto mb-2 text-rose-500" />
+          <h2 className="text-sm font-bold text-[var(--text-primary)]">Error Loading Tasks</h2>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">{tasksError}</p>
+        </HairlineCard>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col p-2 sm:p-4 md:p-6 bg-transparent space-y-3">
-
-      {/* Top Agile Toolbar: View Switcher, Stats & Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-1 flex-shrink-0">
-        
-        {/* Left: Icon-First View Mode Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto max-w-full scrollbar-none">
-          <div className={`flex p-1 rounded-full border flex-shrink-0 ${darkMode ? 'bg-slate-900/40 border-white/10' : 'bg-white/30 border-white/40'}`}>
-            <button
-              onClick={() => setViewMode('kanban')}
-              title="Kanban Board View"
-              aria-label="Kanban Board View"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                viewMode === 'kanban'
-                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
-                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ICON_MAP.Squares2X2Icon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden md:inline">Board</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('sprints')}
-              title="Sprints & Backlog Planning"
-              aria-label="Sprints & Backlog Planning"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                viewMode === 'sprints'
-                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
-                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ICON_MAP.RocketLaunchIcon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden md:inline">Sprints</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('list')}
-              title="Structured List View"
-              aria-label="Structured List View"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                viewMode === 'list'
-                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
-                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ICON_MAP.ClipboardListIcon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden md:inline">List</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('gantt')}
-              title="Gantt & Timeline Roadmap"
-              aria-label="Gantt & Timeline Roadmap"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                viewMode === 'gantt'
-                  ? darkMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm'
-                  : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ICON_MAP.ClockIcon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden md:inline">Timeline</span>
-            </button>
+    <div className="flex-1 flex flex-col p-3 sm:p-5 md:p-6 space-y-4">
+      {/* Top Toolbar: Project Title + View Tabs + Compact Velocity & Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3 flex-wrap min-w-0">
+          <div className="min-w-0 mr-1">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">Project Board</p>
+            <h1 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] truncate">
+              {activeProject.name}
+            </h1>
           </div>
 
-          {/* Swimlane Dropdown (only on Kanban mode) */}
+          <SegmentedTabs
+            size="sm"
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+              { id: 'kanban', label: 'Board', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
+              { id: 'sprints', label: 'Sprints', icon: <ICON_MAP.RocketLaunchIcon className="w-3.5 h-3.5" /> },
+              { id: 'list', label: 'List', icon: <ICON_MAP.ClipboardListIcon className="w-3.5 h-3.5" /> },
+              { id: 'gantt', label: 'Timeline', icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" /> },
+            ]}
+          />
+
           {viewMode === 'kanban' && (
-            <div
-              title="Group Kanban Swimlanes"
-              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium flex-shrink-0 ${
-                darkMode ? 'bg-slate-900/40 border-white/10 text-slate-300' : 'bg-white/35 border-white/40 text-slate-700 shadow-2xs'
-              }`}
-            >
-              <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-xs">
+              <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
               <select
                 value={swimlaneMode}
-                onChange={(e) => setSwimlaneMode(e.target.value as SwimlaneType)}
-                className={`!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-semibold ${
-                  darkMode ? 'text-slate-200' : 'text-slate-900'
-                }`}
+                onChange={e => setSwimlaneMode(e.target.value as SwimlaneType)}
+                className="!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-medium text-xs text-[var(--text-primary)]"
               >
-                <option value="none" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Standard</option>
-                <option value="assignee" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Group by Teammate</option>
-                <option value="priority" className={darkMode ? 'bg-neutral-900' : 'bg-white'}>Group by Priority</option>
+                <option value="none">Standard</option>
+                <option value="assignee">By Teammate</option>
+                <option value="priority">By Priority</option>
               </select>
             </div>
           )}
         </div>
 
-        {/* Simple Minimal Avatars for Active Teammates on Board */}
-        {activeCollabs.length > 0 && (
-          <div className="hidden md:flex items-center -space-x-1.5">
-            {activeCollabs.slice(0, 4).map(collab => (
-              <div
-                key={collab.userId}
-                title={`${collab.userName} · Online`}
-                className="relative w-6 h-6 rounded-full ring-2 ring-white dark:ring-neutral-950 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600"
-              >
-                {collab.userAvatar ? (
-                  <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
-                ) : (
-                  collab.userName.charAt(0).toUpperCase()
-                )}
-                <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-neutral-950" />
-              </div>
-            ))}
-            {activeCollabs.length > 4 && (
-              <span className="pl-2 text-[10px] text-slate-400 font-semibold">
-                +{activeCollabs.length - 4}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Right: Compact Icon-First Agile Stats & Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Progress / Velocity Capsule */}
-          <div
-            title={`${stats.done} of ${stats.total} tasks completed (${stats.progressPercent}%) • ${stats.completedStoryPoints}/${stats.totalStoryPoints} story points`}
-            className={`hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs ${
-              darkMode ? 'bg-neutral-900/90 border-white/10 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
-            }`}
-          >
-            <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span className="font-mono font-bold tabular-nums">{stats.progressPercent}%</span>
-            <div className="w-12 h-1.5 bg-slate-200 dark:bg-neutral-800 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${stats.progressPercent}%` }} />
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {activeCollabs.length > 0 && (
+            <div className="hidden md:flex items-center -space-x-1.5">
+              {activeCollabs.slice(0, 4).map(collab => (
+                <div
+                  key={collab.userId}
+                  title={`${collab.userName} · Online`}
+                  className="relative w-6 h-6 rounded-full ring-2 ring-[var(--bg-canvas)] overflow-hidden flex items-center justify-center text-[9px] font-bold bg-[#191B17] text-white"
+                >
+                  {collab.userAvatar ? (
+                    <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
+                  ) : (
+                    collab.userName.charAt(0).toUpperCase()
+                  )}
+                </div>
+              ))}
             </div>
-            <span className="font-mono font-bold text-accent tabular-nums">{stats.completedStoryPoints}/{stats.totalStoryPoints}p</span>
+          )}
+
+          {/* Velocity & Completion Compact Gauge */}
+          <div
+            title={`${stats.done} of ${stats.total} tasks completed · ${stats.completedStoryPoints}/${stats.totalStoryPoints} points`}
+            className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-xs"
+          >
+            <RadialProgressRing value={stats.progressPercent} size={22} strokeWidth={3} tone="lime" showLabel={false} />
+            <span className="font-mono font-semibold tabular-nums text-[var(--text-primary)]">
+              {stats.progressPercent}%
+            </span>
+            <span className="text-[var(--text-muted)]">·</span>
+            <span className="font-mono tabular-nums text-[var(--text-secondary)]">
+              {stats.completedStoryPoints}/{stats.totalStoryPoints} pts
+            </span>
           </div>
 
-          {/* Tablet Layout Mode Switcher (Icon-First 2x2 Grid vs Snap-Scroll) */}
           {viewMode === 'kanban' && swimlaneMode === 'none' && (
-            <div
-              className={`hidden md:flex xl:hidden items-center p-0.5 rounded-full border text-[11px] font-semibold ${
-                darkMode ? 'bg-slate-900/40 border-white/10' : 'bg-white/30 border-white/40'
-              }`}
-            >
+            <div className="hidden md:flex xl:hidden items-center p-0.5 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-[11px]">
               <button
                 type="button"
                 onClick={() => handleTabletLayoutChange('grid')}
                 title="2×2 Grid Layout"
-                className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                className={`p-1.5 rounded-full cursor-pointer ${
                   tabletLayoutMode === 'grid'
-                    ? 'bg-accent text-white shadow-2xs'
-                    : darkMode
-                    ? 'text-slate-400 hover:text-white'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs'
+                    : 'text-[var(--text-muted)]'
                 }`}
               >
                 <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" />
@@ -570,82 +478,63 @@ export const KanbanBoard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleTabletLayoutChange('snap')}
-                title="Horizontal Snap-Scroll Layout"
-                className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                title="Horizontal Columns"
+                className={`p-1.5 rounded-full cursor-pointer ${
                   tabletLayoutMode === 'snap'
-                    ? 'bg-accent text-white shadow-2xs'
-                    : darkMode
-                    ? 'text-slate-400 hover:text-white'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs'
+                    : 'text-[var(--text-muted)]'
                 }`}
               >
-                {(() => {
-                  const Icon = (ICON_MAP as any).ViewColumnsIcon || (ICON_MAP as any).TableCellsIcon || ICON_MAP.Squares2X2Icon;
-                  return <Icon className="w-3.5 h-3.5" />;
-                })()}
+                <ICON_MAP.ViewColumnsIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          {/* Icon-First WIP Limit Settings Button */}
           {viewMode === 'kanban' && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setIsWipModalOpen(true)}
-              className={`p-2 rounded-[20px] border transition-all cursor-pointer flex items-center justify-center ${
-                darkMode
-                  ? 'bg-neutral-900/90 border-white/10 text-slate-300 hover:text-white hover:bg-neutral-800'
-                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
-              }`}
               title="Configure Column WIP Limits"
-              aria-label="Configure Column WIP Limits"
             >
-              <ICON_MAP.AdjustmentsHorizontalIcon className="w-4 h-4 text-accent" />
-            </button>
+              <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">WIP</span>
+            </Button>
           )}
 
-          {/* Icon-First Automations Button */}
-          {(currentUser?.role === UserRole.OWNER || currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.PROJECT_MANAGER) && (
-            <button
-              type="button"
+          {(currentUser?.role === UserRole.OWNER ||
+            currentUser?.role === UserRole.ADMIN ||
+            currentUser?.role === UserRole.PROJECT_MANAGER) && (
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setIsAutomationsOpen(true)}
-              className={`p-2 rounded-[20px] border transition-all cursor-pointer flex items-center justify-center ${
-                darkMode
-                  ? 'bg-neutral-900/90 border-white/10 text-slate-300 hover:text-white hover:bg-neutral-800'
-                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
-              }`}
               title="Workflow Automations & Rules"
-              aria-label="Workflow Automations & Rules"
             >
-              <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-400" />
-            </button>
+              <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Rules</span>
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Responsive Quick Filters Bar with Non-Overlapping Search Input */}
-      <div className={`p-2 sm:p-2.5 mb-2 rounded-[20px] border text-xs transition-all ${
-        darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-xl' : 'bg-white/25 border-white/35 backdrop-blur-xl shadow-xs'
-      }`}>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Search Filter Input */}
+      {/* Unified Filter Bar (hidden in Sprints view which has its own Scope & Backlog controls) */}
+      {viewMode !== 'sprints' && (
+        <div className="editorial-surface px-3 py-2 flex items-center gap-2 flex-wrap text-xs">
           <div className="relative flex-1 min-w-[180px] lg:max-w-xs flex items-center">
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="Filter tasks..."
-              className={`w-full search-input !pl-10 !pr-8 !py-1.5 rounded-[20px] border text-xs outline-none transition-all ${
-                darkMode 
-                  ? 'bg-neutral-950 border-white/10 text-slate-200 focus:border-accent' 
-                  : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-accent'
-              }`}
+              className="w-full search-input !pl-9 !pr-7 !py-1.5 !rounded-full text-xs"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 title="Clear search"
               >
                 ×
@@ -653,176 +542,130 @@ export const KanbanBoard: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile / Tablet Collapsible Filter Drawer Toggle Button (< lg) */}
           <button
             type="button"
             onClick={() => setIsFilterDrawerOpen(prev => !prev)}
-            title="Toggle task filters"
-            className={`lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold border transition-all cursor-pointer ${
+            className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full font-semibold border cursor-pointer ${
               isFilterDrawerOpen || activeFilterCount > 0
-                ? 'bg-accent text-white border-accent shadow-xs'
-                : darkMode
-                ? 'bg-neutral-900 border-white/10 text-slate-300'
-                : 'bg-white border-slate-200 text-slate-700'
+                ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
             }`}
           >
             <ICON_MAP.FilterIcon className="w-3.5 h-3.5" />
-            {activeFilterCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-white/25 text-white text-[10px] font-bold">
-                {activeFilterCount}
-              </span>
-            )}
+            {activeFilterCount > 0 && <span className="font-mono text-[10px]">{activeFilterCount}</span>}
           </button>
 
-          {/* Filter Chips & Selects: Always visible on lg+, collapsible drawer on < lg */}
-          <div className={`${
-            isFilterDrawerOpen ? 'flex w-full pt-2 mt-1 border-t border-slate-200/70 dark:border-white/10' : 'hidden'
-          } lg:flex lg:w-auto lg:pt-0 lg:mt-0 lg:border-t-0 items-center gap-1.5 flex-wrap`}>
+          <div
+            className={`${
+              isFilterDrawerOpen
+                ? 'flex w-full pt-2 mt-1 border-t border-[var(--border-hairline)]'
+                : 'hidden'
+            } lg:flex lg:w-auto lg:pt-0 lg:mt-0 lg:border-t-0 items-center gap-1.5 flex-wrap flex-1`}
+          >
             <button
+              type="button"
               onClick={() => setFilterMyTasks(!filterMyTasks)}
-              title="Filter: Only My Tasks"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold transition-all border cursor-pointer ${
+              className={`px-3 py-1 rounded-full font-medium border transition-colors cursor-pointer ${
                 filterMyTasks
-                  ? 'bg-accent text-white border-accent shadow-sm'
-                  : darkMode 
-                    ? 'bg-neutral-900 border-white/10 text-slate-300 hover:bg-neutral-800' 
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              <ICON_MAP.UserIcon className="w-3.5 h-3.5" />
-              <span>Mine</span>
+              Assigned to me
             </button>
 
             <button
+              type="button"
               onClick={() => setFilterUnassigned(!filterUnassigned)}
-              title="Filter: Unassigned Tasks"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold transition-all border cursor-pointer ${
+              className={`px-3 py-1 rounded-full font-medium border transition-colors cursor-pointer ${
                 filterUnassigned
-                  ? 'bg-accent text-white border-accent shadow-sm'
-                  : darkMode 
-                    ? 'bg-neutral-900 border-white/10 text-slate-300 hover:bg-neutral-800' 
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" />
-              <span>Unassigned</span>
+              Unassigned
             </button>
 
-            {/* Priority Filter Select */}
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border ${
-              darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'
-            }`}>
-              <span className="text-slate-400">Priority:</span>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)]">
+              <span className="text-[var(--text-muted)]">Priority:</span>
               <select
                 value={filterPriority}
-                onChange={(e) => setFilterPriority(e.target.value as any)}
-                className={`!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-medium ${
-                  darkMode ? 'text-slate-200' : 'text-slate-800'
-                }`}
+                onChange={e => setFilterPriority(e.target.value as any)}
+                className="!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-medium text-xs text-[var(--text-primary)]"
               >
-                <option value="all" className={darkMode ? 'bg-slate-800' : 'bg-white'}>All</option>
-                <option value="urgent" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Urgent</option>
-                <option value="high" className={darkMode ? 'bg-slate-800' : 'bg-white'}>High</option>
-                <option value="medium" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Medium</option>
-                <option value="low" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Low</option>
+                <option value="all">All</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
             </div>
 
-            {/* Sprint Filter Select */}
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border ${
-              darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'
-            }`}>
-              <span className="text-slate-400">Sprint:</span>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)]">
+              <span className="text-[var(--text-muted)]">Sprint:</span>
               <select
                 value={filterSprint}
-                onChange={(e) => setFilterSprint(e.target.value)}
-                className={`!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-medium ${
-                  darkMode ? 'text-slate-200' : 'text-slate-800'
-                }`}
+                onChange={e => setFilterSprint(e.target.value)}
+                className="!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-medium text-xs text-[var(--text-primary)]"
               >
-                <option value="all" className={darkMode ? 'bg-slate-800' : 'bg-white'}>All Tasks</option>
-                <option value="active" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Active Sprint</option>
-                <option value="backlog" className={darkMode ? 'bg-slate-800' : 'bg-white'}>Product Backlog</option>
-                {sprints.filter(s => s.projectId === activeProject?.id).map(sp => (
-                  <option key={sp.id} value={sp.id} className={darkMode ? 'bg-slate-800' : 'bg-white'}>
-                    {sp.name}
-                  </option>
-                ))}
+                <option value="all">All Tasks</option>
+                <option value="active">Active Sprint</option>
+                <option value="backlog">Product Backlog</option>
+                {sprints
+                  .filter(s => s.projectId === activeProject?.id)
+                  .map(sp => (
+                    <option key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </option>
+                  ))}
               </select>
             </div>
 
-            {/* Filter Count, Undo Button & Reset */}
             <div className="flex items-center gap-2 ml-auto">
               {lastUndoAction && (
-                <button
-                  type="button"
-                  onClick={() => triggerUndo()}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
-                  title={`Undo last action: ${lastUndoAction.label} (⌘Z)`}
-                >
-                  <span>↩ Undo</span>
-                  <span className="hidden sm:inline max-w-[140px] truncate opacity-80">({lastUndoAction.label})</span>
-                </button>
+                <Button variant="lime" size="sm" onClick={() => triggerUndo()}>
+                  ↩ Undo ({lastUndoAction.label})
+                </Button>
               )}
               {hasActiveFilters && (
                 <>
-                  <span className="text-xs text-accent font-semibold">
-                    Showing {filteredProjectTasks.length} of {rawProjectTasks.length}
+                  <span className="text-[11px] font-mono tabular-nums text-[var(--text-secondary)]">
+                    {filteredProjectTasks.length}/{rawProjectTasks.length}
                   </span>
                   <button
+                    type="button"
                     onClick={resetFilters}
-                    className="text-xs text-red-500 hover:underline font-medium cursor-pointer"
+                    className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
                   >
-                    Clear filters
+                    Reset
                   </button>
                 </>
               )}
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Main View Render */}
+      {/* Main Content */}
       {viewMode === 'sprints' ? (
         <SprintPlanningView />
       ) : viewMode === 'kanban' ? (
         swimlaneMode === 'none' ? (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Mobile Segmented Lane Switcher (< 768px) */}
-            <div className="md:hidden flex items-center gap-1 p-1 mb-3 rounded-xl border bg-slate-100/90 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none">
-              {TASK_STATUS_COLUMNS.map(col => {
-                const colCount = (hasActiveFilters ? filteredProjectTasks : rawProjectTasks).filter(
-                  t => t.status === col.id
-                ).length;
-                const isSelected = mobileActiveColumn === col.id;
-                return (
-                  <button
-                    key={col.id}
-                    onClick={() => setMobileActiveColumn(col.id)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all min-h-[38px] ${
-                      isSelected
-                        ? 'bg-accent text-white shadow-xs'
-                        : darkMode
-                          ? 'text-slate-400 hover:text-slate-200'
-                          : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <span>{col.title}</span>
-                    <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
-                        isSelected
-                          ? 'bg-white/20 text-white'
-                          : 'bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      {colCount}
-                    </span>
-                  </button>
-                );
-              })}
+            {/* Mobile Lane Switcher */}
+            <div className="md:hidden mb-3">
+              <SegmentedTabs
+                size="sm"
+                value={mobileActiveColumn}
+                onChange={setMobileActiveColumn}
+                options={TASK_STATUS_COLUMNS.map(col => ({
+                  id: col.id,
+                  label: col.title,
+                  count: (hasActiveFilters ? filteredProjectTasks : rawProjectTasks).filter(t => t.status === col.id).length,
+                }))}
+              />
             </div>
 
-            {/* Mobile Single-Lane View (< 768px) */}
             <div className="md:hidden flex-1 flex flex-col pb-4">
               {TASK_STATUS_COLUMNS.filter(col => col.id === mobileActiveColumn).map(column => (
                 <div key={column.id} className="w-full flex-1 flex flex-col [&>div]:!w-full">
@@ -841,7 +684,6 @@ export const KanbanBoard: React.FC = () => {
               ))}
             </div>
 
-            {/* Tablet (2x2 Grid or Snap-Scroll) & Desktop (4-Column Row) Board (>= 768px) */}
             <div
               className={
                 tabletLayoutMode === 'grid'
@@ -852,7 +694,7 @@ export const KanbanBoard: React.FC = () => {
               {TASK_STATUS_COLUMNS.map(column => (
                 <KanbanColumn
                   key={column.id}
-                  status={column.id as TaskStatus} 
+                  status={column.id as TaskStatus}
                   title={column.title}
                   colorClass={column.color}
                   tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
@@ -866,49 +708,34 @@ export const KanbanBoard: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Swimlane Rows */
           <div className="flex-1 flex flex-col gap-4 pb-4">
             {swimlanes.map(swimlane => {
               const isCollapsed = collapsedSwimlanes[swimlane.id];
               return (
-                <div 
-                  key={swimlane.id}
-                  className={`rounded-2xl border transition-all ${
-                    darkMode ? 'bg-slate-900/40 border-slate-800' : 'bg-slate-50/70 border-slate-200'
-                  }`}
-                >
-                  {/* Swimlane Header */}
-                  <div 
+                <HairlineCard key={swimlane.id} padding="none" className="overflow-hidden">
+                  <button
+                    type="button"
                     onClick={() => toggleSwimlane(swimlane.id)}
-                    className={`flex items-center justify-between px-4 py-2.5 cursor-pointer select-none rounded-t-2xl ${
-                      darkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100/70'
-                    }`}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="text-slate-400 text-xs">
-                        {isCollapsed ? '▶' : '▼'}
-                      </span>
+                      <span className="text-xs text-[var(--text-muted)]">{isCollapsed ? '▶' : '▼'}</span>
                       {swimlane.avatar ? (
                         <img src={swimlane.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
                       ) : (
-                        <span className="w-5 h-5 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px] font-bold">
+                        <span className="w-5 h-5 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] flex items-center justify-center text-[10px] font-bold">
                           {swimlane.title.charAt(0)}
                         </span>
                       )}
-                      <h3 className={`font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                        {swimlane.title}
-                      </h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        darkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
-                      }`}>
+                      <h3 className="font-bold text-xs sm:text-sm text-[var(--text-primary)]">{swimlane.title}</h3>
+                      <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
                         {swimlane.tasks.length} tasks
                       </span>
                     </div>
-                  </div>
+                  </button>
 
-                  {/* Swimlane Columns Body */}
                   {!isCollapsed && (
-                    <div className="p-3 flex space-x-3 overflow-x-auto scrollbar-thin">
+                    <div className="p-3 pt-0 flex gap-3 overflow-x-auto scrollbar-thin">
                       {TASK_STATUS_COLUMNS.map(column => (
                         <KanbanColumn
                           key={`${swimlane.id}-${column.id}`}
@@ -924,7 +751,7 @@ export const KanbanBoard: React.FC = () => {
                       ))}
                     </div>
                   )}
-                </div>
+                </HairlineCard>
               );
             })}
           </div>
@@ -950,22 +777,15 @@ export const KanbanBoard: React.FC = () => {
 
       {/* Multi-Select Floating Bulk Action Bar */}
       {selectedTaskIds.length > 0 && (
-        <div className="fixed bottom-16 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[94vw] animate-in slide-in-from-bottom-4">
-          <div
-            className={`flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-2.5 rounded-2xl border shadow-2xl backdrop-blur-xl ${
-              darkMode
-                ? 'bg-slate-900/95 border-indigo-500/40 text-slate-100'
-                : 'bg-white/95 border-indigo-300 text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2 pr-2 border-r border-slate-200 dark:border-slate-800">
-              <span className="px-2 py-0.5 rounded-md bg-accent text-white font-mono font-bold text-xs tabular-nums">
+        <div className="fixed bottom-16 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[94vw]">
+          <div className="editorial-popover flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-2.5 rounded-full shadow-2xl">
+            <div className="flex items-center gap-2 pr-2 border-r border-[var(--border-hairline)]">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] font-mono font-bold text-xs tabular-nums">
                 {selectedTaskIds.length}
               </span>
-              <span className="text-xs font-bold whitespace-nowrap">Selected</span>
+              <span className="text-xs font-semibold text-[var(--text-primary)] whitespace-nowrap">Selected</span>
             </div>
 
-            {/* Batch Status */}
             <select
               defaultValue=""
               onChange={async e => {
@@ -975,14 +795,10 @@ export const KanbanBoard: React.FC = () => {
                 await bulkUpdateTasks(selectedTaskIds, { status: val });
                 clearSelectedTasks();
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer ${
-                darkMode
-                  ? 'bg-slate-800 border-slate-700 text-slate-200'
-                  : 'bg-slate-100 border-slate-200 text-slate-800'
-              }`}
+              className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
             >
               <option value="" disabled>
-                Set Status...
+                Status...
               </option>
               <option value={TaskStatus.TODO}>To Do</option>
               <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
@@ -990,7 +806,6 @@ export const KanbanBoard: React.FC = () => {
               <option value={TaskStatus.DONE}>Done</option>
             </select>
 
-            {/* Batch Priority */}
             <select
               defaultValue=""
               onChange={async e => {
@@ -1000,14 +815,10 @@ export const KanbanBoard: React.FC = () => {
                 await bulkUpdateTasks(selectedTaskIds, { priority: val });
                 clearSelectedTasks();
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer ${
-                darkMode
-                  ? 'bg-slate-800 border-slate-700 text-slate-200'
-                  : 'bg-slate-100 border-slate-200 text-slate-800'
-              }`}
+              className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
             >
               <option value="" disabled>
-                Set Priority...
+                Priority...
               </option>
               <option value={TaskPriority.CRITICAL}>Critical</option>
               <option value={TaskPriority.HIGH}>High</option>
@@ -1015,7 +826,6 @@ export const KanbanBoard: React.FC = () => {
               <option value={TaskPriority.LOW}>Low</option>
             </select>
 
-            {/* Batch Assignee */}
             <select
               defaultValue=""
               onChange={async e => {
@@ -1023,19 +833,13 @@ export const KanbanBoard: React.FC = () => {
                 if (!val) return;
                 e.target.value = '';
                 const assigneeVal = val === 'unassigned' ? undefined : val;
-                await bulkUpdateTasks(selectedTaskIds, {
-                  assignee_id: assigneeVal,
-                });
+                await bulkUpdateTasks(selectedTaskIds, { assignee_id: assigneeVal });
                 clearSelectedTasks();
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer ${
-                darkMode
-                  ? 'bg-slate-800 border-slate-700 text-slate-200'
-                  : 'bg-slate-100 border-slate-200 text-slate-800'
-              }`}
+              className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
             >
               <option value="" disabled>
-                Assign To...
+                Assign...
               </option>
               <option value="unassigned">Unassigned</option>
               {users.map(u => (
@@ -1045,31 +849,28 @@ export const KanbanBoard: React.FC = () => {
               ))}
             </select>
 
-            {/* Batch Delete */}
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
               onClick={async () => {
                 await bulkDeleteTasks(selectedTaskIds);
                 clearSelectedTasks();
               }}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-colors cursor-pointer"
             >
               Delete ({selectedTaskIds.length})
-            </button>
+            </Button>
 
             <button
               type="button"
               onClick={clearSelectedTasks}
-              className="px-2 py-1 text-xs font-semibold text-slate-400 hover:text-slate-200 cursor-pointer"
-              title="Clear Selection (Esc)"
+              className="px-2 py-1 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
             >
-              Clear (Esc)
+              Esc
             </button>
           </div>
         </div>
       )}
 
-      {/* Automated Triggers Modal */}
       <AutomatedTriggersModal
         isOpen={isAutomationsOpen}
         onClose={() => setIsAutomationsOpen(false)}
@@ -1077,26 +878,29 @@ export const KanbanBoard: React.FC = () => {
         darkMode={darkMode}
       />
 
-      {/* WIP Limits Configuration Modal */}
       {isWipModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className={`w-full max-w-md p-6 rounded-2xl border shadow-2xl ${
-            darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
-          }`}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Configure WIP Limits</h3>
-              <button onClick={() => setIsWipModalOpen(false)} className="text-slate-400 hover:text-slate-200 text-lg">✕</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px] animate-fadeIn">
+          <div className="editorial-popover w-full max-w-md p-6 rounded-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">Configure WIP Limits</h3>
+              <button
+                type="button"
+                onClick={() => setIsWipModalOpen(false)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
-            <p className={`text-xs mb-5 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-              Set maximum task thresholds per column to maintain agile flow and prevent team bottlenecks.
+            <p className="text-xs text-[var(--text-secondary)] mb-5">
+              Set maximum task thresholds per column to prevent bottlenecks.
             </p>
 
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {TASK_STATUS_COLUMNS.map(col => (
                 <div key={col.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${col.color}`} />
-                    <span className="text-sm font-medium">{col.title}</span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
+                    <span className="text-xs font-semibold text-[var(--text-primary)]">{col.title}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
@@ -1104,19 +908,17 @@ export const KanbanBoard: React.FC = () => {
                       min="0"
                       max="50"
                       value={wipLimits[col.id] || 0}
-                      onChange={(e) => handleUpdateWipLimit(col.id, parseInt(e.target.value) || 0)}
-                      className={`w-20 px-3 py-1.5 rounded-lg border text-sm font-semibold text-center outline-none ${
-                        darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-100 border-slate-300 text-slate-900'
-                      }`}
+                      onChange={e => handleUpdateWipLimit(col.id, parseInt(e.target.value) || 0)}
+                      className="w-20 px-3 py-1 rounded-xl border text-xs font-mono font-semibold text-center"
                     />
-                    <span className="text-xs text-slate-400">max</span>
+                    <span className="text-xs text-[var(--text-muted)]">max</span>
                   </div>
                 </div>
               ))}
             </div>
 
             <div className="mt-6 flex justify-end">
-              <Button variant="primary" onClick={() => setIsWipModalOpen(false)}>
+              <Button variant="primary" size="sm" onClick={() => setIsWipModalOpen(false)}>
                 Done
               </Button>
             </div>

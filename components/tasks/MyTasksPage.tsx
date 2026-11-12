@@ -4,10 +4,13 @@ import { ICON_MAP } from '../../constants';
 import { Task, TaskPriority, TaskStatus } from '../../types';
 import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
 import { generateTaskSummary } from '../../services/aiService';
-import { TaskLivePresenceBadge, useTaskPresenceHighlight } from '../shared/TaskLivePresenceBadge';
+import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
+import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
+import { RadialProgressRing } from '../charts/EditorialCharts';
+import { Button } from '../shared/Button';
 
 export const MyTasksPage: React.FC = () => {
-  const { myTasks, currentUser, darkMode, isLoadingTasks, tasksError, projects, openViewTaskModal } = useAppStore();
+  const { myTasks, projects, openViewTaskModal } = useAppStore();
   const [summary, setSummary] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<'all' | 'dueToday' | 'overdue' | 'upcoming' | 'completed'>('all');
@@ -15,10 +18,8 @@ export const MyTasksPage: React.FC = () => {
 
   const ClipboardListIcon = ICON_MAP.ClipboardListIcon;
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
-  const ExclamationIcon = ICON_MAP.ExclamationIcon;
   const SparklesIcon = ICON_MAP.SparklesIcon;
   const ClockIcon = ICON_MAP.ClockIcon;
-  const CheckCircleIcon = ICON_MAP.CheckCircleIcon;
 
   const handleGenerateSummary = async () => {
     setIsGenerating(true);
@@ -26,7 +27,7 @@ export const MyTasksPage: React.FC = () => {
       const result = await generateTaskSummary(myTasks);
       setSummary(result);
     } catch (e) {
-      setSummary("Could not generate task summary right now. Please check your tasks directly below.");
+      setSummary('Could not generate task summary right now. Please check your tasks directly below.');
     } finally {
       setIsGenerating(false);
     }
@@ -38,12 +39,12 @@ export const MyTasksPage: React.FC = () => {
 
   const { overdue, dueToday, upcoming, completed } = useMemo(() => {
     const today = startOfDay(new Date());
-    
+
     const categorized = {
       overdue: [] as Task[],
       dueToday: [] as Task[],
       upcoming: [] as Task[],
-      completed: [] as Task[]
+      completed: [] as Task[],
     };
 
     myTasks.forEach(task => {
@@ -58,7 +59,7 @@ export const MyTasksPage: React.FC = () => {
       }
 
       const dueDate = startOfDay(parseISO(task.dueDate));
-      
+
       if (isBefore(dueDate, today)) {
         categorized.overdue.push(task);
       } else if (isToday(dueDate)) {
@@ -68,26 +69,26 @@ export const MyTasksPage: React.FC = () => {
       }
     });
 
-    const sortTasks = (tasksToSort: Task[]) => tasksToSort.sort((a, b) => {
-      if (a.dueDate && b.dueDate) {
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-      }
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
-      
-      const priorityOrder = [TaskPriority.CRITICAL, TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW];
-      return priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority);
-    });
+    const sortTasks = (tasksToSort: Task[]) =>
+      tasksToSort.sort((a, b) => {
+        if (a.dueDate && b.dueDate) {
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        }
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+
+        const priorityOrder = [TaskPriority.CRITICAL, TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW];
+        return priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority);
+      });
 
     return {
       overdue: sortTasks(categorized.overdue),
       dueToday: sortTasks(categorized.dueToday),
       upcoming: sortTasks(categorized.upcoming),
-      completed: sortTasks(categorized.completed)
+      completed: sortTasks(categorized.completed),
     };
   }, [myTasks]);
 
-  // Total task analytics
   const totalTasks = myTasks.length;
   const completedCount = completed.length;
   const completionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
@@ -103,242 +104,240 @@ export const MyTasksPage: React.FC = () => {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(t => t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q)));
+      list = list.filter(
+        t => t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q))
+      );
     }
     return list;
   }, [activeFilterTab, overdue, dueToday, upcoming, completed, searchQuery]);
 
+  const getPriorityTone = (priority: TaskPriority): 'danger' | 'warning' | 'neutral' => {
+    if (priority === TaskPriority.CRITICAL) return 'danger';
+    if (priority === TaskPriority.HIGH) return 'warning';
+    return 'neutral';
+  };
+
+  const getStatusTone = (status: TaskStatus): 'success' | 'lime' | 'warning' | 'neutral' => {
+    if (status === TaskStatus.DONE) return 'success';
+    if (status === TaskStatus.IN_PROGRESS) return 'lime';
+    if (status === TaskStatus.REVIEW) return 'warning';
+    return 'neutral';
+  };
+
   return (
-    <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
-      
-      {/* 1. Analytics Hero Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full text-[var(--text-primary)] space-y-5 animate-fadeIn">
+      {/* 1. Editorial PageHeader */}
+      <PageHeader
+        eyebrow="Personal Focus"
+        title="My Assigned Tasks"
+        subtitle="Stay focused on your highest priority deliverables, upcoming deadlines, and cross-project commitments."
+        actions={
+          <Button
+            variant="lime"
+            size="sm"
+            onClick={handleGenerateSummary}
+            disabled={isGenerating || myTasks.length === 0}
+          >
+            {isGenerating ? (
+              <SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : (
+              <SparklesIcon className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            <span>{isGenerating ? 'Analyzing Workload...' : 'AI Daily Briefing'}</span>
+          </Button>
+        }
+      />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
-                <ClipboardListIcon className="w-5 h-5" />
-              </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
-                Personal Task Command Center
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              My Assigned Tasks
-            </h1>
-            <p className="text-sm text-indigo-200/80 max-w-xl leading-relaxed">
-              Stay focused on your highest priority deliverables, upcoming deadlines, and cross-project commitments.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleGenerateSummary}
-              disabled={isGenerating || myTasks.length === 0}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all transform active:scale-95 cursor-pointer"
-            >
-              {isGenerating ? (
-                <SpinnerIcon className="w-4 h-4 animate-spin text-white" />
-              ) : (
-                <SparklesIcon className="w-4 h-4 text-amber-300" />
-              )}
-              <span>{isGenerating ? 'Analyzing Workload...' : 'AI Daily Briefing'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Analytics KPI Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Due Today</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-amber-300">{dueToday.length}</span>
-              <span className="text-xs text-indigo-300 font-medium">action items</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              {dueToday.length > 0 ? 'High focus required today' : 'No immediate due dates'}
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-rose-300 uppercase tracking-wider">Overdue</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-2xl font-black ${overdue.length > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {overdue.length}
-              </span>
-              <span className="text-xs text-indigo-300 font-medium">past target</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              {overdue.length > 0 ? 'Needs escalation or reschedule' : 'All deadlines on track'}
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Completion Rate</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-emerald-400">{completionRate}%</span>
-              <span className="text-xs text-indigo-300 font-medium">({completedCount}/{totalTasks})</span>
-            </div>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
-              <div 
-                className="bg-emerald-400 h-full rounded-full transition-all duration-500" 
-                style={{ width: `${completionRate}%` }}
+      {/* 2. Inline KPI Strip */}
+      <InlineKpiStrip
+        items={[
+          {
+            id: 'due_today',
+            label: 'Due Today',
+            value: dueToday.length,
+            sublabel: dueToday.length > 0 ? 'Focus required' : 'Clear schedule',
+            tone: dueToday.length > 0 ? 'warning' : 'success',
+            onClick: () => setActiveFilterTab('dueToday'),
+          },
+          {
+            id: 'overdue',
+            label: 'Overdue',
+            value: overdue.length,
+            sublabel: overdue.length > 0 ? 'Needs reschedule' : 'All on track',
+            tone: overdue.length > 0 ? 'danger' : 'success',
+            onClick: () => setActiveFilterTab('overdue'),
+          },
+          {
+            id: 'completion',
+            label: 'Completion Rate',
+            value: `${completionRate}%`,
+            sublabel: `${completedCount}/${totalTasks} finished`,
+            visual: (
+              <RadialProgressRing
+                value={completionRate}
+                size={40}
+                strokeWidth={4}
+                tone={completionRate >= 70 ? 'lime' : 'charcoal'}
+                showLabel={false}
               />
-            </div>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Critical Attention</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-rose-400">{criticalCount}</span>
-              <span className="text-xs text-indigo-300 font-medium">critical</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              {upcoming.length} upcoming scheduled tasks
-            </p>
-          </div>
-        </div>
-      </div>
+            ),
+            onClick: () => setActiveFilterTab('completed'),
+          },
+          {
+            id: 'critical',
+            label: 'Critical Attention',
+            value: criticalCount,
+            sublabel: `${upcoming.length} upcoming`,
+            tone: criticalCount > 0 ? 'danger' : 'lime',
+            onClick: () => setActiveFilterTab('all'),
+          },
+        ]}
+      />
 
       {/* AI Summary Banner if generated */}
       {summary && (
-        <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 shadow-xs flex items-start gap-3.5">
-          <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">
-            <SparklesIcon className="w-5 h-5" />
+        <HairlineCard className="border-l-4 border-l-[var(--accent-lime)] flex items-start gap-3.5">
+          <div className="w-8 h-8 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] flex items-center justify-center shrink-0 mt-0.5">
+            <SparklesIcon className="w-4 h-4" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200 mb-1">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
               AI Task Briefing & Prioritization
             </h4>
-            <p className="text-xs text-indigo-950 dark:text-indigo-300 whitespace-pre-line leading-relaxed">
+            <p className="text-xs text-[var(--text-primary)] whitespace-pre-line leading-relaxed">
               {summary}
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setSummary(null)}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 cursor-pointer"
+            aria-label="Dismiss summary"
           >
             <ICON_MAP.XMarkIcon className="w-4 h-4" />
           </button>
-        </div>
+        </HairlineCard>
       )}
 
-      {/* 2. Filter & Search Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-xs">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl overflow-x-auto scrollbar-none">
-          {[
-            { id: 'all', label: `All (${totalTasks})` },
-            { id: 'dueToday', label: `Due Today (${dueToday.length})` },
-            { id: 'overdue', label: `Overdue (${overdue.length})` },
-            { id: 'upcoming', label: `Upcoming (${upcoming.length})` },
-            { id: 'completed', label: `Done (${completed.length})` }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveFilterTab(tab.id as any)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
-                activeFilterTab === tab.id
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* 3. Filter Tabs & Editorial Search Bar */}
+      <HairlineCard padding="sm" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <SegmentedTabs
+          value={activeFilterTab}
+          onChange={setActiveFilterTab}
+          size="sm"
+          options={[
+            { id: 'all', label: 'All', count: totalTasks },
+            { id: 'dueToday', label: 'Due Today', count: dueToday.length },
+            { id: 'overdue', label: 'Overdue', count: overdue.length },
+            { id: 'upcoming', label: 'Upcoming', count: upcoming.length },
+            { id: 'completed', label: 'Done', count: completed.length },
+          ]}
+        />
 
         <div className="relative w-full sm:w-64 flex items-center">
-          <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+          <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
           <input
             type="text"
             placeholder="Search my tasks..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full search-input !pl-10 !pr-4 !py-1.5 text-xs rounded-[20px] bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40"
+            className="w-full search-input !pl-10 !pr-8 !py-1.5 text-xs rounded-full"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+            >
+              <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-      </div>
+      </HairlineCard>
 
-      {/* 3. Task Cards Display */}
+      {/* 4. Task Cards Grid (Matte Hairline, Zero-Pill Metadata) */}
       {currentDisplayTasks.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-          <ClipboardListIcon className="w-14 h-14 mx-auto mb-3 text-slate-400 opacity-60" />
-          <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">
+        <HairlineCard className="text-center py-14 border-dashed">
+          <ClipboardListIcon className="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)] opacity-60" />
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">
             {searchQuery ? 'No tasks matching your search' : 'No tasks in this category'}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-            {activeFilterTab === 'overdue' ? 'Great job! You have zero overdue items.' : 'Check other tabs or collaborate on project boards to pick up work.'}
+          <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm mx-auto">
+            {activeFilterTab === 'overdue'
+              ? 'Great job! You have zero overdue items.'
+              : 'Check other tabs or collaborate on project boards to pick up work.'}
           </p>
-        </div>
+        </HairlineCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {currentDisplayTasks.map(task => {
-            const isTaskOverdue = task.dueDate && isBefore(startOfDay(parseISO(task.dueDate)), startOfDay(new Date())) && task.status !== TaskStatus.DONE;
-            const isTaskDueToday = task.dueDate && isToday(parseISO(task.dueDate)) && task.status !== TaskStatus.DONE;
+            const isTaskOverdue =
+              task.dueDate &&
+              isBefore(startOfDay(parseISO(task.dueDate)), startOfDay(new Date())) &&
+              task.status !== TaskStatus.DONE;
+            const isTaskDueToday =
+              task.dueDate && isToday(parseISO(task.dueDate)) && task.status !== TaskStatus.DONE;
 
             return (
-              <div
+              <button
                 key={task.id}
+                type="button"
                 onClick={() => openViewTaskModal(task.id, true)}
-                className={`p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col justify-between ${
-                  darkMode ? 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-indigo-500/50' :
-                  'bg-white hover:bg-slate-50/80 border-slate-200/90 hover:border-indigo-300'
-                }`}
+                className="editorial-surface p-4 text-left hover:border-[var(--border-strong)] transition-all duration-150 flex flex-col justify-between cursor-pointer group"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 truncate max-w-[140px]">
+                <div className="w-full">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[11px] font-medium text-[var(--text-muted)] truncate max-w-[160px]">
                       {getProjectName(task.projectId)}
                     </span>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 shrink-0">
                       <TaskLivePresenceBadge taskId={task.id} compact={true} />
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                        task.priority === TaskPriority.CRITICAL ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
-                        task.priority === TaskPriority.HIGH ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
-                        'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                      }`}>
-                        {task.priority}
-                      </span>
+                      <StatusDot
+                        tone={getPriorityTone(task.priority)}
+                        label={task.priority}
+                        className="text-[11px] font-medium capitalize"
+                      />
                     </div>
                   </div>
 
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug mb-1.5">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)] line-clamp-2 leading-snug mb-1.5 group-hover:underline">
                     {task.title}
                   </h3>
 
                   {task.description && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-3 leading-relaxed">
+                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mb-3 leading-relaxed">
                       {task.description}
                     </p>
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <div className="flex items-center gap-1.5">
-                    <ClockIcon className="w-3.5 h-3.5" />
+                <div className="w-full pt-3 mt-1 border-t border-[var(--border-hairline)] flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                    <ClockIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                     {task.dueDate ? (
-                      <span className={`text-[11px] font-medium ${
-                        isTaskOverdue ? 'text-rose-600 dark:text-rose-400 font-bold' :
-                        isTaskDueToday ? 'text-amber-600 dark:text-amber-400 font-bold' : ''
-                      }`}>
+                      <span
+                        className={`text-[11px] font-mono tabular-nums ${
+                          isTaskOverdue
+                            ? 'text-rose-600 dark:text-rose-400 font-bold'
+                            : isTaskDueToday
+                            ? 'text-amber-600 dark:text-amber-400 font-bold'
+                            : 'text-[var(--text-secondary)]'
+                        }`}
+                      >
                         {new Date(task.dueDate).toLocaleDateString()}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-400">No due date</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">No due date</span>
                     )}
                   </div>
 
-                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                    task.status === TaskStatus.DONE ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-                    task.status === TaskStatus.IN_PROGRESS ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
-                    'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                  }`}>
-                    {task.status.replace('_', ' ')}
-                  </span>
+                  <StatusDot
+                    tone={getStatusTone(task.status)}
+                    label={task.status.replace('_', ' ')}
+                    className="text-[11px] font-medium capitalize"
+                  />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -346,3 +345,4 @@ export const MyTasksPage: React.FC = () => {
     </div>
   );
 };
+

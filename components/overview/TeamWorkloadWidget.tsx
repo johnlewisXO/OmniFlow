@@ -1,137 +1,131 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
-import { ICON_MAP } from '../../constants';
 import { TaskStatus } from '../../types';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { Avatar } from '../shared/Avatar';
+import { HairlineCard, SegmentedTabs, StatusDot } from '../shared/EditorialUI';
+import { SlimProgressBar, getEditorialChartTheme } from '../charts/EditorialCharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface TeamWorkloadWidgetProps {
   className?: string;
 }
 
 export const TeamWorkloadWidget: React.FC<TeamWorkloadWidgetProps> = ({ className = '' }) => {
-  const { users, tasks, darkMode } = useAppStore();
-  const UserGroupIcon = ICON_MAP.UserGroupIcon;
+  const { users, tasks, darkMode, currentUser } = useAppStore();
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
+  const chartTheme = getEditorialChartTheme(darkMode);
 
-  const chartData = useMemo(() => {
-    // If we have actual users in store, calculate real metrics
-    if (users.length > 0) {
-      const dataByUser = users.map((u) => {
-        const userTasks = tasks.filter((t) => t.assignee_id === u.id);
-        const todo = userTasks.filter((t) => t.status === TaskStatus.TODO).length;
-        const inProgress = userTasks.filter((t) => t.status === TaskStatus.IN_PROGRESS).length;
-        const review = userTasks.filter((t) => t.status === TaskStatus.REVIEW).length;
-        const done = userTasks.filter((t) => t.status === TaskStatus.DONE).length;
-        const total = userTasks.length;
+  const memberRows = useMemo(() => {
+    const directory = users.length > 0 ? users : currentUser ? [currentUser] : [];
+    return directory.map(u => {
+      const userTasks = tasks.filter(t => t.assignee_id === u.id);
+      const todo = userTasks.filter(t => t.status === TaskStatus.TODO).length;
+      const inProgress = userTasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length;
+      const review = userTasks.filter(t => t.status === TaskStatus.REVIEW).length;
+      const done = userTasks.filter(t => t.status === TaskStatus.DONE).length;
+      const openCount = todo + inProgress + review;
+      const workloadPct = Math.min(100, Math.round((openCount / 8) * 100));
 
-        return {
-          name: (u.full_name || u.email.split('@')[0]).split(' ')[0],
-          fullName: u.full_name || u.email,
-          ToDo: todo,
-          InProgress: inProgress,
-          Review: review,
-          Done: done,
-          Total: total,
-          capacityPct: Math.min(100, Math.round((total / 10) * 100))
-        };
-      });
-
-      // Also account for unassigned tasks
-      const unassignedTasks = tasks.filter((t) => !t.assignee_id);
-      if (unassignedTasks.length > 0) {
-        dataByUser.push({
-          name: 'Unassigned',
-          fullName: 'Unassigned Queue',
-          ToDo: unassignedTasks.filter((t) => t.status === TaskStatus.TODO).length,
-          InProgress: unassignedTasks.filter((t) => t.status === TaskStatus.IN_PROGRESS).length,
-          Review: unassignedTasks.filter((t) => t.status === TaskStatus.REVIEW).length,
-          Done: unassignedTasks.filter((t) => t.status === TaskStatus.DONE).length,
-          Total: unassignedTasks.length,
-          capacityPct: 0
-        });
-      }
-
-      return dataByUser;
-    }
-
-    // High quality fallback workload data if store has no users
-    return [
-      { name: 'Alex R.', fullName: 'Alex Rivera (Frontend Lead)', ToDo: 3, InProgress: 4, Review: 2, Done: 5, Total: 14, capacityPct: 85 },
-      { name: 'Sarah C.', fullName: 'Sarah Chen (Backend Architect)', ToDo: 2, InProgress: 5, Review: 1, Done: 8, Total: 16, capacityPct: 92 },
-      { name: 'Marcus V.', fullName: 'Marcus Vance (UI/UX Designer)', ToDo: 4, InProgress: 2, Review: 3, Done: 4, Total: 13, capacityPct: 75 },
-      { name: 'Elena R.', fullName: 'Elena Rostova (QA Engineer)', ToDo: 1, InProgress: 3, Review: 4, Done: 6, Total: 14, capacityPct: 80 },
-      { name: 'David K.', fullName: 'David Kim (DevOps Lead)', ToDo: 2, InProgress: 3, Review: 1, Done: 7, Total: 13, capacityPct: 70 },
-      { name: 'Unassigned', fullName: 'Unassigned Backlog', ToDo: 5, InProgress: 1, Review: 0, Done: 0, Total: 6, capacityPct: 30 }
-    ];
-  }, [users, tasks]);
-
-  const totalActiveTasks = chartData.reduce((acc, d) => acc + d.InProgress + d.Review + d.ToDo, 0);
-  const totalCompleted = chartData.reduce((acc, d) => acc + d.Done, 0);
-  const maxCapacityMember = [...chartData].sort((a, b) => b.Total - a.Total)[0];
+      return {
+        user: u,
+        name: (u.full_name || u.email.split('@')[0]).split(' ')[0],
+        fullName: u.full_name || u.email,
+        role: (u.role || 'MEMBER').replace(/_/g, ' '),
+        ToDo: todo,
+        InProgress: inProgress,
+        Review: review,
+        Done: done,
+        openCount,
+        workloadPct,
+        availability: workloadPct >= 85 ? 'Busy' : 'Available',
+      };
+    });
+  }, [users, tasks, currentUser]);
 
   return (
-    <div className={`p-5 rounded-2xl border shadow-sm flex flex-col transition-all ${
-      darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-    } ${className}`}>
-      {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-accent/15 text-accent">
-            <UserGroupIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Team Workload Overview</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Capacity and task distribution across members</p>
-          </div>
+    <HairlineCard padding="none" className={className}>
+      <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--border-hairline)] flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Team Allocation</h3>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Active task capacity across {memberRows.length} team member{memberRows.length === 1 ? '' : 's'}
+          </p>
         </div>
 
-        {/* Summary Badges */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20">
-            Active Workload: {totalActiveTasks}
-          </span>
-          <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
-            Completed: {totalCompleted}
-          </span>
-          {maxCapacityMember && (
-            <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">
-              Top Load: {maxCapacityMember.name} ({maxCapacityMember.Total})
-            </span>
-          )}
-        </div>
+        <SegmentedTabs
+          size="sm"
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { id: 'table', label: 'Allocation Bars' },
+            { id: 'chart', label: 'Breakdown Chart' },
+          ]}
+        />
       </div>
 
-      {/* Chart Canvas with Responsive Container */}
-      <div className="flex-1 w-full min-w-0 pt-2">
-        <div className="w-full min-w-0 h-56 sm:h-64 min-h-[224px]">
-          <ResponsiveContainer width="100%" height={224} minWidth={100} minHeight={180}>
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
-              <XAxis 
-                dataKey="name" 
-                stroke={darkMode ? '#94a3b8' : '#64748b'} 
-                tick={{ fontSize: 10 }} 
-                interval={0}
-                tickFormatter={(val: string) => (val && val.length > 8 ? `${val.substring(0, 7)}...` : val)}
-              />
-              <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} tick={{ fontSize: 10 }} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                  borderColor: darkMode ? '#334155' : '#cbd5e1',
-                  borderRadius: '12px',
-                  color: darkMode ? '#f8fafc' : '#0f172a',
-                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '6px' }} />
-              <Bar dataKey="ToDo" name="To Do" stackId="a" fill="#94a3b8" radius={[0, 0, 0, 0]} maxBarSize={36} />
-              <Bar dataKey="InProgress" name="In Progress" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={36} />
-              <Bar dataKey="Review" name="Review" stackId="a" fill="#a855f7" radius={[0, 0, 0, 0]} maxBarSize={36} />
-              <Bar dataKey="Done" name="Done" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={36} />
+      {viewMode === 'table' ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-muted)]">
+                <th className="py-2.5 px-4 sm:px-5">Member</th>
+                <th className="py-2.5 px-3">Role</th>
+                <th className="py-2.5 px-3 w-48">Workload</th>
+                <th className="py-2.5 px-3 text-right">Open</th>
+                <th className="py-2.5 px-4 sm:px-5 text-right">Availability</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-hairline)] text-xs">
+              {memberRows.map(row => (
+                <tr key={row.user.id} className="hover:bg-[var(--bg-surface-subtle)] transition-colors">
+                  <td className="py-3 px-4 sm:px-5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar user={row.user} size="xs" disableHoverCard />
+                      <span className="font-semibold text-[var(--text-primary)] truncate">
+                        {row.fullName}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-[var(--text-secondary)] capitalize whitespace-nowrap">
+                    {row.role.toLowerCase()}
+                  </td>
+                  <td className="py-3 px-3">
+                    <SlimProgressBar
+                      value={row.workloadPct}
+                      tone={row.workloadPct >= 85 ? 'warning' : 'charcoal'}
+                      showPercent
+                    />
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono tabular-nums text-[var(--text-primary)]">
+                    {row.openCount}
+                  </td>
+                  <td className="py-3 px-4 sm:px-5 text-right">
+                    <StatusDot
+                      tone={row.availability === 'Available' ? 'lime' : 'neutral'}
+                      label={row.availability}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="p-4 sm:p-5 h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={memberRows} margin={{ top: 8, right: 8, left: -20, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} vertical={false} />
+              <XAxis dataKey="name" stroke={chartTheme.axisColor} tick={{ fontSize: 11 }} />
+              <YAxis stroke={chartTheme.axisColor} tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip contentStyle={chartTheme.tooltipStyle} />
+              <Bar dataKey="ToDo" name="To Do" stackId="a" fill={chartTheme.series.muted} maxBarSize={30} />
+              <Bar dataKey="InProgress" name="In Progress" stackId="a" fill={chartTheme.series.sage} maxBarSize={30} />
+              <Bar dataKey="Review" name="Review" stackId="a" fill={chartTheme.series.lime} maxBarSize={30} />
+              <Bar dataKey="Done" name="Done" stackId="a" fill={chartTheme.series.charcoal} radius={[4, 4, 0, 0]} maxBarSize={30} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
-    </div>
+      )}
+    </HairlineCard>
   );
 };

@@ -1,8 +1,7 @@
-
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'lime';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   children: React.ReactNode;
 }
@@ -14,21 +13,29 @@ export const Button: React.FC<ButtonProps> = ({
   className,
   ...props
 }) => {
-  const baseStyles = "inline-flex items-center justify-center gap-1.5 rounded-[20px] font-semibold text-xs sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background transition-all duration-200 ease-out transform hover:scale-[1.015] active:scale-[0.97] cursor-pointer";
+  const baseStyles =
+    'inline-flex items-center justify-center gap-1.5 rounded-full font-semibold text-xs sm:text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none transition-all duration-150 ease-out active:scale-[0.98] cursor-pointer';
 
   const variantStyles = {
-    primary: "bg-gradient-to-br from-accent to-accent-dark text-white shadow-glass hover:from-accent-light hover:to-accent focus:ring-accent",
-    secondary: "bg-transparent border border-accent/60 text-accent hover:bg-accent/10 dark:text-accent-light dark:border-accent-light/60 dark:hover:bg-accent-light/10 backdrop-blur-sm", // Outlined glass
-    outline: "border border-foreground/30 text-foreground/80 hover:bg-foreground/5 dark:border-foreground/40 dark:text-foreground/80 dark:hover:bg-foreground/10 bg-transparent", // More generic outline
-    ghost: "hover:bg-accent/10 text-accent dark:hover:bg-accent-light/10 dark:text-accent-light",
-    danger: "bg-status-error text-white hover:bg-opacity-80 dark:bg-opacity-90 dark:hover:bg-opacity-100 shadow-glass",
+    primary:
+      'bg-[#191B17] text-white hover:bg-[#2C3028] dark:bg-[#CCF048] dark:text-[#131511] dark:hover:bg-[#D8F568] border border-transparent shadow-xs',
+    lime:
+      'bg-[var(--accent-lime)] text-[var(--accent-ink)] hover:bg-[var(--accent-lime-hover)] border border-[var(--accent-ink)]/15 shadow-xs',
+    secondary:
+      'bg-[var(--bg-sage)] text-[var(--text-primary)] hover:bg-[var(--bg-sage-hover)] border border-[var(--border-hairline)]',
+    outline:
+      'bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] hover:border-[var(--border-strong)]',
+    ghost:
+      'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]',
+    danger:
+      'bg-rose-600 text-white hover:bg-rose-700 border border-transparent shadow-xs',
   };
 
   const sizeStyles = {
-    sm: "h-9 px-3.5",
-    md: "h-10 px-5 py-2.5",
-    lg: "h-11 px-6 text-base",
-    icon: "h-10 w-10",
+    sm: 'h-8 px-3.5 text-xs',
+    md: 'h-9 px-4 py-2',
+    lg: 'h-10 px-5 text-sm',
+    icon: 'h-9 w-9 p-0',
   };
 
   return (

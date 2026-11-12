@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ICON_MAP } from '../../constants';
+import { useAppStore } from '../../hooks/useAppStore';
+import { TaskStatus } from '../../types';
 
 interface QuickUtilitiesDrawerProps {
   isOpen: boolean;
@@ -10,18 +12,68 @@ interface QuickUtilitiesDrawerProps {
 export const QuickUtilitiesDrawer: React.FC<QuickUtilitiesDrawerProps> = ({
   isOpen,
   onClose,
-  darkMode,
 }) => {
+  const {
+    tasks,
+    activeTimer,
+    startTaskTimer,
+    pauseTaskTimer,
+    resumeTaskTimer,
+    stopAndLogTaskTimer,
+    setActiveView,
+    openCommandPalette,
+    currentUser,
+  } = useAppStore();
+
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [scratchpad, setScratchpad] = useState(() => {
+    try {
+      return localStorage.getItem(`omni_quick_note_${currentUser?.id || 'guest'}`) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [timerTick, setTimerTick] = useState(0);
+
+  useEffect(() => {
+    if (!activeTimer?.isRunning) return;
+    const t = setInterval(() => setTimerTick(v => v + 1), 1000);
+    return () => clearInterval(t);
+  }, [activeTimer?.isRunning]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`omni_quick_note_${currentUser?.id || 'guest'}`, scratchpad);
+    } catch {}
+  }, [scratchpad, currentUser?.id]);
+
   if (!isOpen) return null;
+
+  const openTasks = tasks.filter(t => t.status !== TaskStatus.DONE).slice(0, 20);
+  const liveSeconds = activeTimer
+    ? (activeTimer.accumulatedSeconds || 0) +
+      (activeTimer.isRunning ? Math.max(0, Math.floor((Date.now() - activeTimer.startedAt) / 1000)) : 0)
+    : 0;
+  const hrs = String(Math.floor(liveSeconds / 3600)).padStart(2, '0');
+  const mins = String(Math.floor((liveSeconds % 3600) / 60)).padStart(2, '0');
+  const secs = String(liveSeconds % 60).padStart(2, '0');
 
   const utilities = [
     {
+      id: 'ai_copilot',
+      title: 'AI Co-Pilot & Executive Brief',
+      desc: 'Generate sprint risk briefs, decompose epics, and review health insights.',
+      shortcut: 'AI',
+      action: () => {
+        setActiveView('ai_copilot_view');
+        onClose();
+      },
+    },
+    {
       id: 'split',
-      icon: '◫',
       title: 'Split-Screen Workspace',
-      desc: 'Dual-pane side-by-side multitasking with synced context.',
+      desc: 'Dual-pane multitasking with synced context.',
       shortcut: '⌘\\',
-      color: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
       action: () => {
         window.dispatchEvent(new CustomEvent('omni_toggle_split_pane'));
         onClose();
@@ -29,11 +81,9 @@ export const QuickUtilitiesDrawer: React.FC<QuickUtilitiesDrawerProps> = ({
     },
     {
       id: 'huddle',
-      icon: '🎧',
       title: 'Ambient Team Huddle',
-      desc: 'Drop-in background voice room & instant screen broadcasting.',
+      desc: 'Drop-in background voice room & screen sync.',
       shortcut: 'Voice',
-      color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
       action: () => {
         window.dispatchEvent(new CustomEvent('omni_toggle_ambient_huddle'));
         onClose();
@@ -41,25 +91,11 @@ export const QuickUtilitiesDrawer: React.FC<QuickUtilitiesDrawerProps> = ({
     },
     {
       id: 'graph',
-      icon: '🕸️',
-      title: 'Knowledge Backlinks & Graph',
-      desc: 'Interactive 2D graph of task dependencies, wikis & doc relations.',
+      title: 'Knowledge Backlinks Graph',
+      desc: 'Explore task, spec, and wiki dependency links.',
       shortcut: 'Graph',
-      color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
       action: () => {
         window.dispatchEvent(new CustomEvent('omni_toggle_knowledge_graph'));
-        onClose();
-      },
-    },
-    {
-      id: 'scratchpad',
-      icon: '📓',
-      title: 'Personal Scratchpad',
-      desc: 'Private draft canvas for rapid code snippets & markdown notes.',
-      shortcut: '⌘J',
-      color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-      action: () => {
-        window.dispatchEvent(new CustomEvent('omni_toggle_scratchpad'));
         onClose();
       },
     },
@@ -67,94 +103,151 @@ export const QuickUtilitiesDrawer: React.FC<QuickUtilitiesDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end animate-fadeIn">
-      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-black/45 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Slide-over panel */}
-      <div
-        className={`relative w-full max-w-sm h-full shadow-2xl p-6 flex flex-col justify-between border-l z-10 transition-transform ${
-          darkMode
-            ? 'bg-neutral-950/95 border-white/10 text-slate-100'
-            : 'bg-white/95 border-slate-200 text-slate-800'
-        }`}
-      >
-        <div className="space-y-6">
+      <div className="relative w-full max-w-sm h-full bg-[var(--bg-surface)] border-l border-[var(--border-hairline)] shadow-2xl p-5 flex flex-col justify-between z-10 overflow-y-auto scrollbar-thin">
+        <div className="space-y-5">
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-200/80 dark:border-white/10">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                <ICON_MAP.Squares2X2Icon className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold">Quick Utilities</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Multitasking & workspace tools
-                </p>
-              </div>
+          <div className="flex items-center justify-between pb-3.5 border-b border-[var(--border-hairline)]">
+            <div>
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Quick Utilities</h3>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Focus timer, scratchpad &amp; secondary tools
+              </p>
             </div>
-
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-colors cursor-pointer"
-              title="Close utilities drawer"
+              className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+              aria-label="Close utilities drawer"
             >
               <ICON_MAP.XMarkIcon className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Tools Grid */}
-          <div className="space-y-3">
+          {/* Progressive Disclosure: Focus Timer */}
+          <div className="editorial-surface-subtle p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Focus Timer
+              </span>
+              <span className="font-mono text-base font-bold tabular-nums text-[var(--text-primary)]">
+                {hrs}:{mins}:{secs}
+              </span>
+            </div>
+
+            {activeTimer ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-[var(--text-primary)] truncate">
+                  {activeTimer.taskTitle}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => (activeTimer.isRunning ? pauseTaskTimer() : resumeTaskTimer())}
+                    className="flex-1 py-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-xs font-semibold text-[var(--text-primary)] cursor-pointer"
+                  >
+                    {activeTimer.isRunning ? 'Pause' : 'Resume'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopAndLogTaskTimer}
+                    className="flex-1 py-1.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] text-xs font-semibold cursor-pointer"
+                  >
+                    Stop &amp; Log
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedTaskId}
+                  onChange={e => setSelectedTaskId(e.target.value)}
+                  className="flex-1 px-2.5 py-1.5 text-xs"
+                >
+                  <option value="">Select task to track...</option>
+                  {openTasks.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!selectedTaskId}
+                  onClick={() => {
+                    const task = openTasks.find(t => t.id === selectedTaskId);
+                    if (task) startTaskTimer(task);
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] text-xs font-semibold disabled:opacity-40 cursor-pointer shrink-0"
+                >
+                  Start
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Progressive Disclosure: Quick Scratchpad */}
+          <div className="editorial-surface-subtle p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Scratchpad Notes
+              </span>
+              <span className="text-[10px] text-[var(--text-muted)]">Auto-saved</span>
+            </div>
+            <textarea
+              value={scratchpad}
+              onChange={e => setScratchpad(e.target.value)}
+              rows={4}
+              placeholder="Jot down sprint notes, blockers, or standup thoughts..."
+              className="w-full p-2.5 text-xs resize-none"
+            />
+          </div>
+
+          {/* Secondary Workspace Utilities */}
+          <div className="space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] px-1">
+              Workspace Tools
+            </p>
             {utilities.map(util => (
               <button
                 key={util.id}
                 type="button"
                 onClick={util.action}
-                className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 group ${
-                  darkMode
-                    ? 'bg-neutral-900/80 hover:bg-neutral-800/90 border-white/10 hover:border-indigo-500/40'
-                    : 'bg-slate-50/80 hover:bg-white border-slate-200/80 hover:border-indigo-300 shadow-2xs hover:shadow-xs'
-                }`}
+                className="w-full text-left p-3 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer flex items-start justify-between gap-3"
               >
-                <div
-                  className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg shrink-0 ${util.color}`}
-                >
-                  {util.icon}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold truncate group-hover:text-indigo-400 transition-colors">
-                      {util.title}
-                    </span>
-                    <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md border shrink-0 ${
-                        darkMode
-                          ? 'bg-neutral-950 border-white/10 text-slate-400'
-                          : 'bg-white border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {util.shortcut}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                    {util.title}
+                  </p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 line-clamp-2">
                     {util.desc}
                   </p>
                 </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-[var(--text-muted)] shrink-0">
+                  {util.shortcut}
+                </span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Footer info */}
-        <div className="pt-4 border-t border-slate-200/80 dark:border-white/10 text-center">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Tip: Press <kbd className="font-mono font-bold text-indigo-400">⌘K</kbd> anytime to launch tools via Command Palette.
-          </p>
+        <div className="pt-4 mt-4 border-t border-[var(--border-hairline)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+          <span>Command Palette</span>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              openCommandPalette();
+            }}
+            className="font-mono font-semibold text-[var(--text-primary)] hover:underline cursor-pointer"
+          >
+            Open ⌘K
+          </button>
         </div>
       </div>
     </div>

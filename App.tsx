@@ -54,7 +54,6 @@ import { WhiteboardStudioPage } from './components/whiteboard/WhiteboardStudioPa
 import { AsyncClipsStudioPage } from './components/clips/AsyncClipsStudioPage';
 import { GanttRoadmapPage } from './components/roadmap/GanttRoadmapPage';
 import { ClientPortalChangelogPage } from './components/portal/ClientPortalChangelogPage';
-import { ChromaticGeometryCanvas } from './components/shared/ChromaticGeometryCanvas';
 
 // Initialize global exception and console log monitoring immediately
 if (typeof logMonitorService?.init === 'function') {
@@ -884,66 +883,65 @@ const MainAppLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-full w-full flex gap-2 sm:gap-3 md:gap-4 min-w-0">
-      <Sidebar />
-      <div className="flex-1 flex flex-col gap-2 sm:gap-3 md:gap-4 min-w-0 h-full overflow-hidden">
-        <Header />
-        {/* In-App Manager / Admin / Owner Join Request Approval Alert Banner */}
-        {canManageRequests && pendingJoinRequests.length > 0 && !isBannerDismissed && (
-          <div className="mx-2 sm:mx-3 md:mx-4 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-indigo-500/15 to-purple-500/15 border border-amber-500/30 flex items-center justify-between gap-3 shadow-md backdrop-blur-md animate-fadeIn flex-shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="flex h-2.5 w-2.5 relative flex-shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-              </span>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
-                <strong className="text-amber-500 dark:text-amber-400 mr-1.5 font-bold">
-                  {pendingJoinRequests.length} Pending Access Request{pendingJoinRequests.length > 1 ? 's' : ''}:
-                </strong>
-                {pendingJoinRequests.map(r => r.requester_name || r.requester_email).slice(0, 2).join(', ')}
-                {pendingJoinRequests.length > 2 ? ` and ${pendingJoinRequests.length - 2} more` : ''} requested to join this organization.
-              </p>
+    <div className="relative z-10 h-full w-full flex flex-col min-w-0 min-h-0">
+      <Header />
+      <div className="flex-1 flex min-h-0 min-w-0 lg:px-3 lg:pb-3 lg:pt-2 lg:gap-3">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden lg:rounded-[20px] frosted-shell-panel">
+          {/* In-App Manager / Admin / Owner Join Request Approval Alert Banner */}
+          {canManageRequests && pendingJoinRequests.length > 0 && !isBannerDismissed && (
+            <div className="mx-4 sm:mx-6 mt-3 px-4 py-2 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-amber-600 shrink-0" />
+                <p className="text-xs font-medium text-[var(--text-primary)] truncate">
+                  <strong className="font-semibold mr-1.5">
+                    {pendingJoinRequests.length} Pending Access Request{pendingJoinRequests.length > 1 ? 's' : ''}:
+                  </strong>
+                  {pendingJoinRequests.map(r => r.requester_name || r.requester_email).slice(0, 2).join(', ')}
+                  {pendingJoinRequests.length > 2 ? ` and ${pendingJoinRequests.length - 2} more` : ''} requested to join this organization.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveView('team_management')}
+                  className="px-3 py-1 rounded-full text-xs font-semibold bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] transition-opacity hover:opacity-90 cursor-pointer"
+                >
+                  Review
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBannerDismissed(true)}
+                  className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-xs"
+                  title="Dismiss for this session"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setActiveView('team_management')}
-                className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white shadow-sm transition-all cursor-pointer"
-              >
-                Review & Approve
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsBannerDismissed(true)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 transition-colors cursor-pointer text-xs"
-                title="Dismiss for this session"
-              >
-                ✕
-              </button>
-            </div>
+          )}
+          <div
+            data-main-scroll-view="true"
+            className={`flex-1 flex flex-col p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
+              scrollBounceState === 'top'
+                ? 'animate-bubbleStretchTop'
+                : scrollBounceState === 'bottom'
+                  ? 'animate-bubbleStretchBottom'
+                  : ''
+            }`}
+          >
+            {authError && !authError.toLowerCase().includes("rls") && !authError.toLowerCase().includes("policy") && ( 
+              <div className={`p-3 m-4 rounded-xl text-xs sm:text-sm text-center border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800/50' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                  <strong>Authentication Issue:</strong> {authError}
+              </div>
+            )}
+            {error && (
+              <div className={`p-3 m-4 rounded-xl text-xs sm:text-sm text-center border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800/50' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                  <strong>Error:</strong> {error}
+              </div>
+            )}
+            {renderContentByView()}
           </div>
-        )}
-        <div
-          data-main-scroll-view="true"
-          className={`flex-1 flex flex-col glass-panel rounded-[20px] p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
-            scrollBounceState === 'top'
-              ? 'animate-bubbleStretchTop'
-              : scrollBounceState === 'bottom'
-                ? 'animate-bubbleStretchBottom'
-                : ''
-          }`}
-        >
-          {authError && !authError.toLowerCase().includes("rls") && !authError.toLowerCase().includes("policy") && ( 
-            <div className={`p-3 m-3 rounded-xl text-xs sm:text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
-                <strong>Authentication Issue:</strong> {authError}
-            </div>
-          )}
-          {error && (
-            <div className={`p-3 m-3 rounded-xl text-xs sm:text-sm text-center border ${darkMode ? 'bg-status-error/20 text-red-300 border-status-error/40' : 'bg-status-error/10 text-red-700 border-status-error/30'}`}>
-                <strong>Error:</strong> {error}
-            </div>
-          )}
-          {renderContentByView()}
         </div>
       </div>
       <MobileBottomNav />
@@ -1657,12 +1655,10 @@ function App() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden p-2 sm:p-3 md:p-5 lg:p-6 select-none animate-fadeIn">
-      {/* 1. Behind the window: Chromatic Geometry Canvas */}
-      <ChromaticGeometryCanvas />
-
-      {/* 2. Floating Master Glass Frame Window */}
-      <div className="relative z-10 w-full h-full glass-master-window p-2 sm:p-3 md:p-3.5 flex flex-col overflow-hidden">
+    <div className="relative h-screen w-screen overflow-hidden lg:p-3 xl:p-3.5 nova-bezel-frame select-none animate-fadeIn">
+      {/* Nova Platform Framed Workspace Shell with Ambient Sage & Lime Mesh */}
+      <div className="relative z-10 w-full h-full nova-workspace-shell lg:rounded-[26px] flex flex-col overflow-hidden">
+        <div className="sage-lime-ambient-mesh absolute inset-0 pointer-events-none z-0" aria-hidden="true" />
         <MainAppLayout />
       </div>
     </div>

@@ -1,10 +1,19 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
-import { Sprint, Task, TaskStatus, TaskPriority } from '../../types';
+import { TaskStatus, TaskPriority } from '../../types';
 import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
 import { collabService } from '../../services/collabService';
+import { Button } from '../shared/Button';
+import {
+  PageHeader,
+  InlineKpiStrip,
+  SegmentedTabs,
+  HairlineCard,
+  StatusDot,
+} from '../shared/EditorialUI';
+import { RadialProgressRing, SlimProgressBar } from '../charts/EditorialCharts';
 
 export const SprintPlanningView: React.FC = () => {
   const {
@@ -21,7 +30,6 @@ export const SprintPlanningView: React.FC = () => {
     updateTask,
     openViewTaskModal,
     openModal,
-    darkMode,
     currentUser,
     currentOrganization,
     presences,
@@ -39,13 +47,15 @@ export const SprintPlanningView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
-  const [batchSprintTarget, setBatchSprintTarget] = useState<string>('');
   const [sprintViewTab, setSprintViewTab] = useState<'all' | 'active' | 'planned' | 'completed'>('all');
   const [backlogFilterMode, setBacklogFilterMode] = useState<'backlog_only' | 'all_tasks'>('backlog_only');
 
-  const defaultSprintDuration = currentOrganization?.defaultSprintDurationDays || (currentOrganization as any)?.default_sprint_duration_days || 14;
+  const defaultSprintDuration =
+    currentOrganization?.defaultSprintDurationDays ||
+    (currentOrganization as any)?.default_sprint_duration_days ||
+    14;
 
-  // Whenever project scope changes, load the tasks for that project or all workspace tasks
+  // Whenever project scope changes, load tasks for that project or all workspace tasks
   useEffect(() => {
     if (selectedProjectFilter === 'all') {
       fetchAllTasksForAllProjects();
@@ -65,20 +75,9 @@ export const SprintPlanningView: React.FC = () => {
     return sprints.filter(s => !s.projectId || s.projectId === 'all' || s.projectId === selectedProjectFilter);
   }, [sprints, selectedProjectFilter]);
 
-  // Active Sprint
-  const activeSprint = useMemo(() => {
-    return visibleSprints.find(s => s.status === 'active') || null;
-  }, [visibleSprints]);
-
-  // Planned Sprints
-  const plannedSprints = useMemo(() => {
-    return visibleSprints.filter(s => s.status === 'planned');
-  }, [visibleSprints]);
-
-  // Completed Sprints
-  const completedSprints = useMemo(() => {
-    return visibleSprints.filter(s => s.status === 'completed');
-  }, [visibleSprints]);
+  const activeSprint = useMemo(() => visibleSprints.find(s => s.status === 'active') || null, [visibleSprints]);
+  const plannedSprints = useMemo(() => visibleSprints.filter(s => s.status === 'planned'), [visibleSprints]);
+  const completedSprints = useMemo(() => visibleSprints.filter(s => s.status === 'completed'), [visibleSprints]);
 
   // Tasks eligible for backlog display based on current project filter
   const eligibleTasks = useMemo(() => {
@@ -89,7 +88,8 @@ export const SprintPlanningView: React.FC = () => {
   // Tasks displayed in backlog column: either unassigned backlog items or all tasks in selected scope
   const backlogTasks = useMemo(() => {
     return eligibleTasks.filter(t => {
-      const matchesSearch = !searchQuery.trim() ||
+      const matchesSearch =
+        !searchQuery.trim() ||
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesPriority = priorityFilter === 'all' || t.priority === priorityFilter;
@@ -102,12 +102,6 @@ export const SprintPlanningView: React.FC = () => {
     });
   }, [eligibleTasks, searchQuery, priorityFilter, sprints, backlogFilterMode]);
 
-  // Active teammates online across the platform
-  const activeCollabs = useMemo(() => {
-    return presences.filter(p => p.userId !== currentUser?.id);
-  }, [presences, currentUser]);
-
-  // Helper for sprint statistics (counts tasks from any project assigned to this sprint)
   const getSprintStats = (sprintId: string) => {
     const sprintTasks = tasks.filter(t => t.sprintId === sprintId);
     const total = sprintTasks.length;
@@ -123,12 +117,14 @@ export const SprintPlanningView: React.FC = () => {
     return { total, done, inProgress, totalPoints, completedPoints, remainingPoints, percent, tasks: sprintTasks };
   };
 
-  // Overall Backlog Analytics
   const backlogAnalytics = useMemo(() => {
-    const unassignedTasks = eligibleTasks.filter(t => !t.sprintId || !sprints.some(s => s.id === t.sprintId && s.status !== 'completed'));
+    const unassignedTasks = eligibleTasks.filter(
+      t => !t.sprintId || !sprints.some(s => s.id === t.sprintId && s.status !== 'completed')
+    );
     const totalBacklogPoints = unassignedTasks.reduce((acc, t) => acc + (t.story_points || 1), 0);
     const estimatedTasks = unassignedTasks.filter(t => t.story_points !== undefined).length;
-    const groomingPercentage = unassignedTasks.length > 0 ? Math.round((estimatedTasks / unassignedTasks.length) * 100) : 100;
+    const groomingPercentage =
+      unassignedTasks.length > 0 ? Math.round((estimatedTasks / unassignedTasks.length) * 100) : 100;
     const activeStats = activeSprint ? getSprintStats(activeSprint.id) : null;
 
     return {
@@ -136,15 +132,16 @@ export const SprintPlanningView: React.FC = () => {
       totalBacklogPoints,
       groomingPercentage,
       activeSprintStats: activeStats,
-      totalSprints: visibleSprints.length
+      totalSprints: visibleSprints.length,
     };
-  }, [eligibleTasks, activeSprint, visibleSprints, sprints]);
+  }, [eligibleTasks, activeSprint, visibleSprints, sprints, tasks]);
 
   const handleOpenCreateSprint = () => {
     const today = new Date();
     const startStr = today.toISOString().split('T')[0];
     const end = new Date(today.getTime() + defaultSprintDuration * 24 * 60 * 60 * 1000);
     const endStr = end.toISOString().split('T')[0];
+    setTargetProjectId(selectedProjectFilter);
     setStartDate(startStr);
     setEndDate(endStr);
     setIsCreateSprintOpen(true);
@@ -164,7 +161,8 @@ export const SprintPlanningView: React.FC = () => {
     if (!sprintName.trim()) return;
 
     const start = startDate || new Date().toISOString().split('T')[0];
-    const end = endDate || new Date(Date.now() + defaultSprintDuration * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const end =
+      endDate || new Date(Date.now() + defaultSprintDuration * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     await createSprint({
       projectId: targetProjectId || 'all',
@@ -183,11 +181,8 @@ export const SprintPlanningView: React.FC = () => {
     setIsCreateSprintOpen(false);
   };
 
-  // Toggle selection for batch move
   const toggleTaskSelection = (taskId: string) => {
-    setSelectedTaskIds(prev => 
-      prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
-    );
+    setSelectedTaskIds(prev => (prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]));
   };
 
   const selectAllBacklog = () => {
@@ -206,497 +201,439 @@ export const SprintPlanningView: React.FC = () => {
     setSelectedTaskIds([]);
   };
 
+  const activeVelocityPct = backlogAnalytics.activeSprintStats?.percent || 0;
+
   return (
-    <div className="space-y-4 pb-12 p-4 md:p-6">
-
-      {/* 1. Analytics Hero Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/50 relative overflow-hidden">
-        {/* Subtle geometric pattern overlay */}
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
-                <ICON_MAP.RocketLaunchIcon className="w-5 h-5" />
-              </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
-                Agile Iteration & Sprint Center
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Sprint Planning & Backlog
-            </h1>
-            <p className="text-sm text-indigo-200/80 max-w-2xl leading-relaxed">
-              Track delivery velocity, groom user stories with Fibonacci points, and manage iterations for{' '}
-              <span className="font-semibold text-white">
-                {selectedProjectFilter === 'all' ? 'All Workspace Projects' : getProjectName(selectedProjectFilter)}
-              </span>.
-            </p>
-          </div>
-
-          {/* Action Button, Project Filter & Active Online Teammates */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-2 rounded-xl border border-white/15">
-              <ICON_MAP.FolderIcon className="w-4 h-4 text-indigo-300" />
-              <span className="text-xs text-indigo-200 font-semibold hidden sm:inline">Scope:</span>
+    <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5 pb-12">
+      <PageHeader
+        eyebrow="Agile Iteration & Backlog Center"
+        title="Sprint Planning & Backlog"
+        subtitle={`Groom stories, track velocity, and assign backlog items across ${
+          selectedProjectFilter === 'all' ? 'All Workspace Projects' : getProjectName(selectedProjectFilter)
+        }.`}
+        actions={
+          <>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-xs">
+              <span className="text-[var(--text-muted)] font-medium">Scope:</span>
               <select
                 value={selectedProjectFilter}
                 onChange={e => setSelectedProjectFilter(e.target.value)}
                 aria-label="Filter sprints and backlog by project scope"
-                className="text-xs bg-slate-900/80 border border-white/20 text-white rounded-lg px-2.5 py-1 focus:outline-hidden cursor-pointer"
+                className="!w-auto !p-0 !border-0 !bg-transparent !shadow-none outline-none cursor-pointer font-semibold text-xs text-[var(--text-primary)]"
               >
-                <option value="all">🌐 All Projects (Workspace)</option>
+                <option value="all">All Projects (Workspace)</option>
                 {projects.map(p => (
-                  <option key={p.id} value={p.id}>📁 {p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
+            <Button variant="primary" size="sm" onClick={handleOpenCreateSprint}>
+              <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+              New Sprint
+            </Button>
+          </>
+        }
+      />
 
-            {activeCollabs.length > 0 && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white">
-                <span className="relative flex h-2 w-2 items-center justify-center">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                </span>
-                <span className="text-[11px] font-semibold text-indigo-200">
-                  Online:
-                </span>
-                <div className="flex -space-x-1.5 items-center">
-                  {activeCollabs.slice(0, 4).map(collab => (
-                    <div
-                      key={collab.userId}
-                      title={`${collab.userName} (${collab.isEditing ? 'Editing' : collab.isTypingComment ? 'Typing' : 'Planning'})`}
-                      className="w-6 h-6 rounded-full border-2 ring-1 ring-black/40 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white bg-indigo-600 hover:scale-110 transition-transform shadow-xs"
-                      style={{ borderColor: collab.color || '#6366f1' }}
-                    >
-                      {collab.userAvatar ? (
-                        <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
-                      ) : (
-                        collab.userName.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+      <InlineKpiStrip
+        items={[
+          {
+            id: 'velocity',
+            label: 'Active Velocity',
+            value: `${backlogAnalytics.activeSprintStats?.completedPoints || 0}/${backlogAnalytics.activeSprintStats?.totalPoints || 0}p`,
+            sublabel: activeSprint ? activeSprint.name : 'No active cycle',
+            visual: <RadialProgressRing value={activeVelocityPct} size={36} strokeWidth={4} tone="lime" showLabel={false} />,
+          },
+          {
+            id: 'backlog-depth',
+            label: 'Unassigned Backlog',
+            value: backlogAnalytics.totalBacklogTasks,
+            sublabel: `${backlogAnalytics.totalBacklogPoints} story pts ready`,
+            tone: 'default',
+          },
+          {
+            id: 'grooming',
+            label: 'Estimation Coverage',
+            value: `${backlogAnalytics.groomingPercentage}%`,
+            sublabel: 'Fibonacci sized',
+            tone: 'success',
+          },
+          {
+            id: 'cadence',
+            label: 'Sprint Cadence',
+            value: `${defaultSprintDuration}d`,
+            sublabel: `${plannedSprints.length} planned · ${completedSprints.length} done`,
+            tone: 'lime',
+          },
+        ]}
+      />
 
-            <button
-              onClick={handleOpenCreateSprint}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all transform active:scale-95 cursor-pointer"
-            >
-              <ICON_MAP.PlusIcon className="w-4 h-4" />
-              <span>Create New Sprint</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Analytics KPI Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-indigo-800/40">
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Active Velocity</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">
-                {backlogAnalytics.activeSprintStats?.completedPoints || 0}
-              </span>
-              <span className="text-xs text-indigo-300 font-medium">
-                / {backlogAnalytics.activeSprintStats?.totalPoints || 0} pts
-              </span>
-            </div>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
-              <div 
-                className="bg-emerald-400 h-full rounded-full transition-all duration-500" 
-                style={{ width: `${backlogAnalytics.activeSprintStats?.percent || 0}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Backlog Depth</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">{backlogAnalytics.totalBacklogTasks}</span>
-              <span className="text-xs text-indigo-300 font-medium">tasks</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1.5">
-              {backlogAnalytics.totalBacklogPoints} total story points ready
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Grooming Health</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-emerald-400">{backlogAnalytics.groomingPercentage}%</span>
-              <span className="text-xs text-indigo-300 font-medium">estimated</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1.5">
-              Fibonacci estimated backlog items
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Sprint Cadence</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-amber-300">
-                {activeSprint ? '1 Active' : '0 Active'}
-              </span>
-              <span className="text-xs text-indigo-300 font-medium">
-                ({plannedSprints.length} planned)
-              </span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1.5 truncate">
-              {activeSprint?.endDate ? `Target: ${activeSprint.endDate}` : 'No active cycle'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Active/Planned Sprints (Left Column) & Modernized Product Backlog (Right Column) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Sprints (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          
+        <div className="lg:col-span-7 space-y-5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <SegmentedTabs
+              size="sm"
+              value={sprintViewTab}
+              onChange={setSprintViewTab}
+              options={[
+                { id: 'all', label: 'All Cycles', count: visibleSprints.length },
+                { id: 'active', label: 'Active', count: activeSprint ? 1 : 0 },
+                { id: 'planned', label: 'Planned', count: plannedSprints.length },
+                { id: 'completed', label: 'Completed', count: completedSprints.length },
+              ]}
+            />
+          </div>
+
           {/* Active Sprint Section */}
-          {activeSprint ? (
-            (() => {
-              const stats = getSprintStats(activeSprint.id);
-              return (
-                <div className="bg-white dark:bg-slate-800/90 rounded-2xl border-2 border-emerald-500/40 dark:border-emerald-500/40 p-5 shadow-sm">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                          Active Sprint Cycle
-                        </span>
-                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                          {getProjectName(activeSprint.projectId)}
-                        </span>
-                        {activeSprint.startDate && activeSprint.endDate && (
-                          <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                            <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />
-                            {activeSprint.startDate} → {activeSprint.endDate}
+          {(sprintViewTab === 'all' || sprintViewTab === 'active') &&
+            (activeSprint ? (
+              (() => {
+                const stats = getSprintStats(activeSprint.id);
+                return (
+                  <HairlineCard padding="lg" className="border-[var(--text-primary)]/30 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap text-xs">
+                          <StatusDot tone="lime" label="Active Sprint" />
+                          <span className="text-[var(--text-muted)]">·</span>
+                          <span className="font-medium text-[var(--text-secondary)]">
+                            {getProjectName(activeSprint.projectId)}
                           </span>
+                          {activeSprint.startDate && activeSprint.endDate && (
+                            <>
+                              <span className="text-[var(--text-muted)]">·</span>
+                              <span className="font-mono text-[11px] text-[var(--text-muted)] tabular-nums">
+                                {activeSprint.startDate} → {activeSprint.endDate}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <h2 className="text-lg font-bold text-[var(--text-primary)]">{activeSprint.name}</h2>
+                        {activeSprint.goal && (
+                          <p className="text-xs text-[var(--text-secondary)]">{activeSprint.goal}</p>
                         )}
                       </div>
-                      <h2 className="text-xl font-extrabold text-slate-900 dark:text-white mt-1.5">
-                        {activeSprint.name}
-                      </h2>
-                      {activeSprint.goal && (
-                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 italic">
-                          "{activeSprint.goal}"
-                        </p>
+
+                      <Button
+                        variant="lime"
+                        size="sm"
+                        onClick={() => completeSprint(activeSprint.id)}
+                        className="shrink-0"
+                      >
+                        <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5" />
+                        Complete Sprint
+                      </Button>
+                    </div>
+
+                    <div className="editorial-surface-subtle p-3.5 space-y-2.5">
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Committed</p>
+                          <p className="text-sm font-bold font-mono tabular-nums text-[var(--text-primary)]">
+                            {stats.totalPoints}p
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Done</p>
+                          <p className="text-sm font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
+                            {stats.completedPoints}p
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Remaining</p>
+                          <p className="text-sm font-bold font-mono tabular-nums text-amber-700 dark:text-amber-400">
+                            {stats.remainingPoints}p
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Progress</p>
+                          <p className="text-sm font-bold font-mono tabular-nums text-[var(--text-primary)]">
+                            {stats.percent}%
+                          </p>
+                        </div>
+                      </div>
+                      <SlimProgressBar value={stats.percent} tone={stats.percent >= 80 ? 'sage' : 'charcoal'} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                        <span>Tasks in Sprint ({stats.tasks.length})</span>
+                        <span className="font-mono tabular-nums">
+                          {stats.done}/{stats.total} completed
+                        </span>
+                      </div>
+
+                      {stats.tasks.length === 0 ? (
+                        <div className="p-6 text-center rounded-xl border border-dashed border-[var(--border-hairline)] text-xs text-[var(--text-muted)]">
+                          No tasks committed yet. Assign tasks from the Product Backlog panel.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-[var(--border-hairline)] border border-[var(--border-hairline)] rounded-xl overflow-hidden">
+                          {stats.tasks.map(task => {
+                            const taskAssignee = users.find(u => u.id === task.assignee_id);
+                            const activeParticipants = presences.filter(
+                              p =>
+                                p.currentTaskId === task.id &&
+                                p.userId !== currentUser?.id &&
+                                (!p.sessionId || p.sessionId !== collabService.sessionId)
+                            );
+                            const isBusy = activeParticipants.length > 0;
+                            return (
+                              <div
+                                key={task.id}
+                                className={`flex items-center justify-between px-3.5 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-subtle)] transition-colors ${
+                                  isBusy ? 'ring-1 ring-inset ring-emerald-500/40' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                  <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                      task.status === TaskStatus.DONE
+                                        ? 'bg-emerald-600'
+                                        : task.status === TaskStatus.IN_PROGRESS
+                                        ? 'bg-[var(--accent-lime)] ring-1 ring-[var(--accent-ink)]/20'
+                                        : task.status === TaskStatus.REVIEW
+                                        ? 'bg-amber-500'
+                                        : 'bg-[var(--text-muted)]'
+                                    }`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => openViewTaskModal(task.id)}
+                                    className="text-xs font-medium text-[var(--text-primary)] hover:underline truncate text-left cursor-pointer"
+                                  >
+                                    {task.title}
+                                  </button>
+                                  {task.projectId && selectedProjectFilter === 'all' && (
+                                    <span className="text-[10px] text-[var(--text-muted)] shrink-0">
+                                      · {getProjectName(task.projectId)}
+                                    </span>
+                                  )}
+                                  <TaskLivePresenceBadge taskId={task.id} compact />
+                                </div>
+
+                                <div className="flex items-center gap-2.5 ml-3 shrink-0">
+                                  <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
+                                    {task.story_points || 1}p
+                                  </span>
+                                  {taskAssignee && <Avatar user={taskAssignee} size="xs" />}
+                                  <button
+                                    type="button"
+                                    onClick={() => assignTaskToSprint(task.id, null)}
+                                    title="Return task to Backlog"
+                                    className="text-[11px] font-medium text-[var(--text-muted)] hover:text-rose-600 cursor-pointer"
+                                  >
+                                    Backlog
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
+                  </HairlineCard>
+                );
+              })()
+            ) : (
+              <HairlineCard padding="lg" className="text-center border-dashed space-y-2">
+                <ICON_MAP.PlayIcon className="w-8 h-8 text-[var(--text-muted)] mx-auto" />
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">No Active Sprint</h3>
+                <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
+                  Start one of your planned sprints below or create a new sprint cycle.
+                </p>
+              </HairlineCard>
+            ))}
 
-                    <button
-                      onClick={() => completeSprint(activeSprint.id)}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer self-start"
-                    >
-                      <ICON_MAP.CheckCircleIcon className="w-4 h-4" />
-                      <span>Complete Sprint</span>
-                    </button>
-                  </div>
+          {/* Planned Sprints List */}
+          {(sprintViewTab === 'all' || sprintViewTab === 'planned') && (
+            <div className="space-y-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Planned Sprints ({plannedSprints.length})
+              </h2>
 
-                  {/* Velocity Metrics Bar */}
-                  <div className="grid grid-cols-4 gap-2.5 my-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200/70 dark:border-slate-700/70">
-                    <div className="text-center">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Committed</p>
-                      <p className="text-lg font-black text-slate-800 dark:text-slate-100">{stats.totalPoints} pts</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Done</p>
-                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{stats.completedPoints} pts</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Remaining</p>
-                      <p className="text-lg font-black text-amber-600 dark:text-amber-400">{stats.remainingPoints} pts</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Progress</p>
-                      <p className="text-lg font-black text-slate-800 dark:text-slate-100">{stats.percent}%</p>
-                    </div>
-                  </div>
-
-                  {/* Progress Meter */}
-                  <div className="w-full bg-slate-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden mb-4">
-                    <div
-                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${stats.percent}%` }}
-                    />
-                  </div>
-
-                  {/* Sprint Tasks List */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <span>Tasks in Active Sprint ({stats.tasks.length})</span>
-                      <span>{stats.done} of {stats.total} completed</span>
-                    </div>
-
-                    {stats.tasks.length === 0 ? (
-                      <div className="p-6 text-center rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
-                        No tasks in active sprint yet. Use the Product Backlog list to move tasks here!
-                      </div>
-                    ) : (
-                      <div className="space-y-2 pr-1">
-                        {stats.tasks.map(task => {
-                          const taskAssignee = users.find(u => u.id === task.assignee_id);
-                          const activeParticipants = presences.filter(
-                            p => p.currentTaskId === task.id && p.userId !== currentUser?.id && (!p.sessionId || p.sessionId !== collabService.sessionId)
-                          );
-                          const isBeingEdited = activeParticipants.some(p => p.isEditing);
-                          const isBeingCommented = activeParticipants.some(p => p.isTypingComment);
-                          return (
-                            <div
-                              key={task.id}
-                              className={`flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border transition-all ${
-                                isBeingEdited
-                                  ? 'border-blue-500/50 ring-1 ring-blue-500/20'
-                                  : isBeingCommented
-                                    ? 'border-purple-500/50 ring-1 ring-purple-500/20'
-                                    : activeParticipants.length > 0
-                                      ? 'border-emerald-500/50 ring-1 ring-emerald-500/15'
-                                      : 'border-slate-200/80 dark:border-slate-700/80 hover:shadow-xs'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                  task.status === TaskStatus.DONE ? 'bg-emerald-500' :
-                                  task.status === TaskStatus.IN_PROGRESS ? 'bg-blue-500' :
-                                  task.status === TaskStatus.REVIEW ? 'bg-amber-500' : 'bg-slate-400'
-                                }`} />
-                                <span
-                                  onClick={() => openViewTaskModal(task.id)}
-                                  className="text-xs font-medium text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 truncate cursor-pointer"
-                                >
-                                  {task.title}
+              {plannedSprints.length === 0 ? (
+                <HairlineCard padding="md" className="text-center text-xs text-[var(--text-muted)]">
+                  No upcoming planned sprints.
+                </HairlineCard>
+              ) : (
+                plannedSprints.map(sprint => {
+                  const stats = getSprintStats(sprint.id);
+                  return (
+                    <HairlineCard key={sprint.id} padding="md" className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap text-[11px] text-[var(--text-muted)]">
+                            <StatusDot tone="neutral" label="Planned" />
+                            <span>·</span>
+                            <span>{getProjectName(sprint.projectId)}</span>
+                            {sprint.startDate && sprint.endDate && (
+                              <>
+                                <span>·</span>
+                                <span className="font-mono tabular-nums">
+                                  {sprint.startDate} → {sprint.endDate}
                                 </span>
-                                {task.projectId && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                    📁 {getProjectName(task.projectId)}
+                              </>
+                            )}
+                          </div>
+                          <h3 className="text-sm font-bold text-[var(--text-primary)] mt-1">{sprint.name}</h3>
+                          {sprint.goal && (
+                            <p className="text-xs text-[var(--text-secondary)] mt-0.5">{sprint.goal}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button variant="primary" size="sm" onClick={() => startSprint(sprint.id)}>
+                            Start Sprint
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => deleteSprint(sprint.id)}
+                            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Delete Sprint"
+                          >
+                            <ICON_MAP.TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] pt-2 border-t border-[var(--border-hairline)] font-mono tabular-nums">
+                        <span>{stats.tasks.length} tasks committed</span>
+                        <span className="font-semibold text-[var(--text-primary)]">{stats.totalPoints} pts</span>
+                      </div>
+
+                      {stats.tasks.length > 0 && (
+                        <div className="divide-y divide-[var(--border-hairline)] border border-[var(--border-hairline)] rounded-xl overflow-hidden">
+                          {stats.tasks.map(t => (
+                            <div
+                              key={t.id}
+                              className="flex items-center justify-between px-3 py-2 bg-[var(--bg-surface-subtle)] text-xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openViewTaskModal(t.id)}
+                                  className="font-medium text-[var(--text-primary)] hover:underline truncate text-left cursor-pointer"
+                                >
+                                  {t.title}
+                                </button>
+                                {t.projectId && selectedProjectFilter === 'all' && (
+                                  <span className="text-[10px] text-[var(--text-muted)] shrink-0">
+                                    · {getProjectName(t.projectId)}
                                   </span>
                                 )}
-                                <TaskLivePresenceBadge taskId={task.id} compact />
+                                <TaskLivePresenceBadge taskId={t.id} compact />
                               </div>
-
-                              <div className="flex items-center gap-3 ml-3 flex-shrink-0">
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                  {task.story_points || 1} pts
+                              <div className="flex items-center gap-2.5 shrink-0 ml-2">
+                                <span className="font-mono text-[11px] text-[var(--text-muted)]">
+                                  {t.story_points || 1}p
                                 </span>
-                                {taskAssignee && (
-                                  <Avatar user={taskAssignee} size="sm" />
-                                )}
                                 <button
-                                  onClick={() => assignTaskToSprint(task.id, null)}
-                                  title="Return task to Backlog"
-                                  className="text-[11px] font-semibold text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
+                                  type="button"
+                                  onClick={() => assignTaskToSprint(t.id, null)}
+                                  className="text-[11px] text-[var(--text-muted)] hover:text-rose-600 cursor-pointer"
                                 >
-                                  Backlog
+                                  Remove
                                 </button>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()
-          ) : (
-            <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 shadow-xs">
-              <ICON_MAP.PlayIcon className="w-10 h-10 text-indigo-500 mx-auto mb-2 opacity-60" />
-              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">No Active Sprint Right Now</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                Create a planned sprint below or click "Start Sprint" on a planned iteration to launch your agile cycle.
-              </p>
+                          ))}
+                        </div>
+                      )}
+                    </HairlineCard>
+                  );
+                })
+              )}
             </div>
           )}
 
-          {/* Planned Sprints List */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Planned Sprints ({plannedSprints.length})
+          {/* Completed Sprints */}
+          {(sprintViewTab === 'all' || sprintViewTab === 'completed') && completedSprints.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Completed Sprints ({completedSprints.length})
               </h2>
-            </div>
-
-            {plannedSprints.length === 0 ? (
-              <div className="p-5 text-center rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-400">
-                No upcoming planned sprints. Click "Create New Sprint" to schedule your next iteration.
-              </div>
-            ) : (
-              plannedSprints.map(sprint => {
+              {completedSprints.map(sprint => {
                 const stats = getSprintStats(sprint.id);
                 return (
-                  <div
-                    key={sprint.id}
-                    className="p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-xs hover:border-indigo-400 transition-all space-y-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                            Planned
-                          </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
-                            {getProjectName(sprint.projectId)}
-                          </span>
-                          {sprint.startDate && sprint.endDate && (
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {sprint.startDate} → {sprint.endDate}
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-1">
-                          {sprint.name}
-                        </h3>
-                        {sprint.goal && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                            "{sprint.goal}"
-                          </p>
-                        )}
+                  <HairlineCard key={sprint.id} padding="sm" className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-xs">
+                        <StatusDot tone="success" label="Completed" />
+                        <span className="font-semibold text-[var(--text-primary)] truncate">{sprint.name}</span>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => startSprint(sprint.id)}
-                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
-                        >
-                          Start Sprint
-                        </button>
-                        <button
-                          onClick={() => deleteSprint(sprint.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
-                          title="Delete Sprint"
-                        >
-                          <ICON_MAP.TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <p className="text-[11px] font-mono text-[var(--text-muted)] mt-0.5">
+                        {getProjectName(sprint.projectId)} · {sprint.startDate} → {sprint.endDate}
+                      </p>
                     </div>
-
-                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700/60">
-                      <span>{stats.tasks.length} tasks committed</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-300">{stats.totalPoints} story points</span>
-                    </div>
-
-                    {stats.tasks.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        {stats.tasks.map(t => (
-                          <div
-                            key={t.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/60 text-xs border border-slate-200/50 dark:border-slate-700/50"
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                              <span
-                                onClick={() => openViewTaskModal(t.id)}
-                                className="font-medium text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 truncate cursor-pointer"
-                              >
-                                {t.title}
-                              </span>
-                              {t.projectId && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                                  {getProjectName(t.projectId)}
-                                </span>
-                              )}
-                              <TaskLivePresenceBadge taskId={t.id} compact />
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                              <span className="font-bold text-slate-500">{t.story_points || 1} pts</span>
-                              <button
-                                onClick={() => assignTaskToSprint(t.id, null)}
-                                className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    <span className="text-xs font-mono tabular-nums font-semibold text-[var(--text-secondary)] shrink-0">
+                      {stats.completedPoints}/{stats.totalPoints} pts
+                    </span>
+                  </HairlineCard>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Modernized, Highly-Legible Product Backlog (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 dark:border-slate-700/90 shadow-sm p-5 space-y-4">
-            
-            {/* Backlog Header */}
-            <div className="flex flex-col gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
-                      Product Backlog
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                      {backlogTasks.length}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {backlogFilterMode === 'all_tasks'
-                      ? `Showing all ${eligibleTasks.length} tasks in ${selectedProjectFilter === 'all' ? 'all projects' : getProjectName(selectedProjectFilter)}`
-                      : `${backlogAnalytics.totalBacklogPoints} story points currently unassigned to any sprint`}
-                  </p>
+        {/* Right Column: Product Backlog (5 cols) */}
+        <div className="lg:col-span-5">
+          <HairlineCard padding="md" className="space-y-4">
+            <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--border-hairline)]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-[var(--text-primary)]">Product Backlog</h2>
+                  <span className="text-xs font-mono tabular-nums text-[var(--text-muted)]">
+                    {backlogTasks.length}
+                  </span>
                 </div>
-
-                <button
-                  onClick={() => openModal()}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
-                  <span>Add Task</span>
-                </button>
+                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                  {backlogFilterMode === 'all_tasks'
+                    ? `All ${eligibleTasks.length} tasks in ${
+                        selectedProjectFilter === 'all' ? 'all projects' : getProjectName(selectedProjectFilter)
+                      }`
+                    : `${backlogAnalytics.totalBacklogPoints} story points unassigned`}
+                </p>
               </div>
 
-              {/* Scope View Toggle: Unassigned Backlog vs All Tasks */}
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl text-xs">
-                <button
-                  type="button"
-                  onClick={() => setBacklogFilterMode('backlog_only')}
-                  className={`flex-1 py-1 px-2.5 rounded-lg font-semibold transition-all text-center cursor-pointer ${
-                    backlogFilterMode === 'backlog_only'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  Unassigned Backlog Items
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBacklogFilterMode('all_tasks')}
-                  className={`flex-1 py-1 px-2.5 rounded-lg font-semibold transition-all text-center cursor-pointer ${
-                    backlogFilterMode === 'all_tasks'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  All Tasks in Scope ({eligibleTasks.length})
-                </button>
-              </div>
+              <Button variant="primary" size="sm" onClick={() => openModal()}>
+                <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
+                Add Task
+              </Button>
             </div>
+
+            {/* Scope View Toggle: Unassigned Backlog vs All Tasks */}
+            <SegmentedTabs
+              size="sm"
+              value={backlogFilterMode}
+              onChange={setBacklogFilterMode}
+              className="w-full"
+              options={[
+                { id: 'backlog_only', label: 'Unassigned Backlog' },
+                { id: 'all_tasks', label: 'All Tasks in Scope', count: eligibleTasks.length },
+              ]}
+            />
 
             {/* Filter & Search Bar */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1 flex items-center">
-                <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Filter tasks by title or description..."
+                  placeholder="Filter tasks..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full search-input !pl-10 !pr-4 !py-1.5 text-xs rounded-[20px] bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full search-input !pl-9 !pr-4 !py-1.5 text-xs !rounded-full"
                 />
               </div>
 
               <select
                 value={priorityFilter}
                 onChange={e => setPriorityFilter(e.target.value)}
-                className="text-xs rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-hidden cursor-pointer"
+                className="text-xs rounded-full border px-3 py-1.5 cursor-pointer"
               >
                 <option value="all">All Priorities</option>
                 <option value={TaskPriority.CRITICAL}>Critical</option>
@@ -708,26 +645,25 @@ export const SprintPlanningView: React.FC = () => {
 
             {/* Batch Action Bar */}
             {backlogTasks.length > 0 && (
-              <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700 dark:text-slate-300 select-none">
+              <div className="editorial-surface-subtle flex items-center justify-between px-3 py-2 text-xs gap-2 flex-wrap">
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-[var(--text-primary)] select-none">
                   <input
                     type="checkbox"
                     checked={selectedTaskIds.length === backlogTasks.length && backlogTasks.length > 0}
                     onChange={selectAllBacklog}
-                    className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    className="w-3.5 h-3.5 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
                   />
-                  <span>Select All ({selectedTaskIds.length}/{backlogTasks.length})</span>
+                  <span>
+                    Select All ({selectedTaskIds.length}/{backlogTasks.length})
+                  </span>
                 </label>
 
                 {selectedTaskIds.length > 0 && (
                   <div className="flex items-center gap-1.5">
                     {activeSprint && (
-                      <button
-                        onClick={() => handleBatchMove(activeSprint.id)}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-xs cursor-pointer"
-                      >
-                        + Active Sprint ({selectedTaskIds.length})
-                      </button>
+                      <Button variant="lime" size="sm" onClick={() => handleBatchMove(activeSprint.id)}>
+                        + Active ({selectedTaskIds.length})
+                      </Button>
                     )}
                     {plannedSprints.length > 0 && (
                       <select
@@ -735,11 +671,15 @@ export const SprintPlanningView: React.FC = () => {
                           if (e.target.value) handleBatchMove(e.target.value);
                         }}
                         defaultValue=""
-                        className="text-[11px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 rounded-lg px-2 py-1 cursor-pointer"
+                        className="text-[11px] font-semibold rounded-full border px-2.5 py-1 cursor-pointer"
                       >
-                        <option value="" disabled>Move {selectedTaskIds.length} to...</option>
+                        <option value="" disabled>
+                          Move {selectedTaskIds.length} to...
+                        </option>
                         {plannedSprints.map(ps => (
-                          <option key={ps.id} value={ps.id}>{ps.name}</option>
+                          <option key={ps.id} value={ps.id}>
+                            {ps.name}
+                          </option>
                         ))}
                       </select>
                     )}
@@ -748,11 +688,13 @@ export const SprintPlanningView: React.FC = () => {
               </div>
             )}
 
-            {/* Backlog Items List with High Contrast & Legibility */}
-            <div className="space-y-2.5 pr-1 max-h-[700px] overflow-y-auto">
+            {/* Backlog Items List */}
+            <div className="space-y-2.5 max-h-[680px] overflow-y-auto scrollbar-thin pr-0.5">
               {backlogTasks.length === 0 ? (
-                <div className="p-8 text-center rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
-                  {searchQuery ? 'No tasks match your search filter.' : 'No tasks in this view. Click "Add Task" above to create items.'}
+                <div className="p-8 text-center rounded-xl border border-dashed border-[var(--border-hairline)] text-xs text-[var(--text-muted)]">
+                  {searchQuery
+                    ? 'No tasks match your search filter.'
+                    : 'No tasks in this scope. Click "Add Task" above to create items.'}
                 </div>
               ) : (
                 backlogTasks.map(task => {
@@ -763,110 +705,99 @@ export const SprintPlanningView: React.FC = () => {
                   return (
                     <div
                       key={task.id}
-                      className={`p-3.5 rounded-xl border transition-all space-y-2.5 ${
+                      className={`p-3.5 rounded-xl border transition-all space-y-2 ${
                         isSelected
-                          ? 'bg-indigo-50/80 dark:bg-indigo-950/30 border-indigo-400 dark:border-indigo-600 shadow-xs'
-                          : 'bg-slate-50/70 dark:bg-slate-900/70 border-slate-200/90 dark:border-slate-700/80 hover:border-indigo-300 dark:hover:border-indigo-700'
+                          ? 'bg-[var(--bg-sage)] border-[var(--text-primary)]'
+                          : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:border-[var(--border-strong)]'
                       }`}
                     >
-                      {/* Top Row: Checkbox, Title, Fibonacci Selector */}
                       <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleTaskSelection(task.id)}
-                            className="mt-0.5 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            className="mt-0.5 w-3.5 h-3.5 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span
-                                onClick={() => openViewTaskModal(task.id)}
-                                className="text-xs font-semibold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 leading-snug cursor-pointer line-clamp-2"
-                              >
-                                {task.title}
-                              </span>
-                              {task.projectId && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                  📁 {getProjectName(task.projectId)}
-                                </span>
-                              )}
+                            <button
+                              type="button"
+                              onClick={() => openViewTaskModal(task.id)}
+                              className="text-xs font-semibold text-[var(--text-primary)] hover:underline leading-snug text-left line-clamp-2 cursor-pointer"
+                            >
+                              {task.title}
+                            </button>
+                            <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-[var(--text-muted)] mt-0.5">
+                              {task.projectId && <span>{getProjectName(task.projectId)}</span>}
                               {assignedSprint && (
-                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                                  assignedSprint.status === 'active'
-                                    ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80'
-                                    : 'bg-blue-100 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border border-blue-300/80'
-                                }`}>
-                                  {assignedSprint.status === 'active' ? '🏃 Active: ' : '📋 Planned: '}
-                                  {assignedSprint.name}
-                                </span>
+                                <>
+                                  <span>·</span>
+                                  <span className="font-medium text-[var(--text-secondary)]">
+                                    {assignedSprint.status === 'active' ? 'Active: ' : 'Planned: '}
+                                    {assignedSprint.name}
+                                  </span>
+                                </>
                               )}
                               <TaskLivePresenceBadge taskId={task.id} compact />
                             </div>
-                            {task.description && (
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                                {task.description}
-                              </p>
-                            )}
                           </div>
                         </div>
 
-                        {/* Story Points Estimator */}
-                        <div className="flex items-center gap-1 flex-shrink-0" title="Fibonacci Story Points">
-                          <select
-                            value={task.story_points || 1}
-                            onChange={e => updateTask(task.id, { story_points: parseInt(e.target.value, 10) })}
-                            className="text-[11px] font-extrabold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200 shadow-xs cursor-pointer"
-                          >
-                            <option value={1}>1 pt</option>
-                            <option value={2}>2 pts</option>
-                            <option value={3}>3 pts</option>
-                            <option value={5}>5 pts</option>
-                            <option value={8}>8 pts</option>
-                            <option value={13}>13 pts</option>
-                          </select>
-                        </div>
+                        <select
+                          value={task.story_points || 1}
+                          onChange={e => updateTask(task.id, { story_points: parseInt(e.target.value, 10) })}
+                          title="Story Points"
+                          className="text-[11px] font-mono font-semibold border rounded-lg px-2 py-0.5 cursor-pointer shrink-0"
+                        >
+                          <option value={1}>1p</option>
+                          <option value={2}>2p</option>
+                          <option value={3}>3p</option>
+                          <option value={5}>5p</option>
+                          <option value={8}>8p</option>
+                          <option value={13}>13p</option>
+                        </select>
                       </div>
 
-                      {/* Bottom Row: Metadata & Quick Add Actions */}
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold uppercase ${
-                            task.priority === TaskPriority.CRITICAL ? 'text-red-600 dark:text-red-400' :
-                            task.priority === TaskPriority.HIGH ? 'text-amber-600 dark:text-amber-400' :
-                            'text-slate-500 dark:text-slate-400'
-                          }`}>
+                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[var(--border-hairline)] gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                          <span
+                            className={`font-semibold uppercase text-[10px] ${
+                              task.priority === TaskPriority.CRITICAL
+                                ? 'text-rose-700 dark:text-rose-400'
+                                : task.priority === TaskPriority.HIGH
+                                ? 'text-amber-700 dark:text-amber-400'
+                                : 'text-[var(--text-muted)]'
+                            }`}
+                          >
                             {task.priority}
                           </span>
                           {taskAssignee && (
-                            <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
-                              <span aria-hidden="true">·</span>
-                              <Avatar user={taskAssignee} size="sm" />
-                              <span className="truncate max-w-[80px]">{taskAssignee.full_name?.split(' ')[0] || 'User'}</span>
-                            </div>
+                            <>
+                              <span>·</span>
+                              <div className="flex items-center gap-1">
+                                <Avatar user={taskAssignee} size="xs" />
+                                <span className="truncate max-w-[80px]">
+                                  {taskAssignee.full_name?.split(' ')[0] || 'User'}
+                                </span>
+                              </div>
+                            </>
                           )}
                         </div>
 
-                        {/* Quick-Add Buttons to Sprint */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {task.sprintId && (
-                            <button
-                              onClick={() => assignTaskToSprint(task.id, null)}
-                              className="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-[10px] transition-all cursor-pointer"
-                              title="Return to Product Backlog"
-                            >
+                            <Button variant="outline" size="sm" onClick={() => assignTaskToSprint(task.id, null)}>
                               ↩ Backlog
-                            </button>
+                            </Button>
                           )}
                           {activeSprint && task.sprintId !== activeSprint.id && (
-                            <button
+                            <Button
+                              variant="lime"
+                              size="sm"
                               onClick={() => assignTaskToSprint(task.id, activeSprint.id)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                              title={`Add directly to ${activeSprint.name}`}
                             >
-                              <ICON_MAP.PlusIcon className="w-3 h-3" />
-                              <span>Active Sprint</span>
-                            </button>
+                              + Active
+                            </Button>
                           )}
                           {plannedSprints.filter(ps => ps.id !== task.sprintId).length > 0 && (
                             <select
@@ -874,13 +805,17 @@ export const SprintPlanningView: React.FC = () => {
                                 if (e.target.value) assignTaskToSprint(task.id, e.target.value);
                               }}
                               defaultValue=""
-                              className="text-[10px] font-medium bg-slate-200 dark:bg-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 border-none cursor-pointer"
+                              className="text-[11px] font-medium rounded-full border px-2.5 py-1 cursor-pointer"
                             >
-                              <option value="" disabled>Move to sprint...</option>
+                              <option value="" disabled>
+                                Assign sprint...
+                              </option>
                               {plannedSprints
                                 .filter(ps => ps.id !== task.sprintId)
                                 .map(ps => (
-                                  <option key={ps.id} value={ps.id}>{ps.name}</option>
+                                  <option key={ps.id} value={ps.id}>
+                                    {ps.name}
+                                  </option>
                                 ))}
                             </select>
                           )}
@@ -891,52 +826,49 @@ export const SprintPlanningView: React.FC = () => {
                 })
               )}
             </div>
-          </div>
+          </HairlineCard>
         </div>
       </div>
 
       {/* Create Sprint Modal */}
       {isCreateSprintOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px] animate-fadeIn">
+          <div className="editorial-popover rounded-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
-                  <ICON_MAP.RocketLaunchIcon className="w-5 h-5" />
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Create New Sprint</h3>
+                <ICON_MAP.RocketLaunchIcon className="w-4 h-4 text-[var(--text-primary)]" />
+                <h3 className="text-base font-bold text-[var(--text-primary)]">Create New Sprint</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCreateSprintOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               >
-                <ICON_MAP.XMarkIcon className="w-5 h-5" />
+                <ICON_MAP.XMarkIcon className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleCreateSprintSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
                   Sprint Scope / Project
                 </label>
                 <select
                   value={targetProjectId}
                   onChange={e => setTargetProjectId(e.target.value)}
-                  aria-label="Select Sprint Scope or Project"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl border text-xs cursor-pointer"
                 >
-                  <option value="all">🌐 Workspace Sprint (Supports Tasks From All Projects)</option>
+                  <option value="all">Workspace Sprint (Supports Tasks From All Projects)</option>
                   {projects.map(p => (
-                    <option key={p.id} value={p.id}>📁 {p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                  Workspace sprints allow pulling user stories and tasks from multiple projects into a unified iteration.
-                </p>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
                   Sprint Name *
                 </label>
                 <input
@@ -945,62 +877,53 @@ export const SprintPlanningView: React.FC = () => {
                   placeholder="e.g. Sprint 14 - Q3 Release"
                   value={sprintName}
                   onChange={e => setSprintName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-xl border text-xs"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
                   Sprint Goal
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="What is the objective or deliverable of this iteration?"
+                  placeholder="What is the objective of this iteration?"
                   value={sprintGoal}
                   onChange={e => setSprintGoal(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-xl border text-xs"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Start Date
-                  </label>
+                  <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">Start Date</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={e => handleStartDateChange(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl border text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    End Date ({defaultSprintDuration} days default)
+                  <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
+                    End Date ({defaultSprintDuration}d default)
                   </label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl border text-xs"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateSprintOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
-                >
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
+                <Button variant="outline" size="sm" type="button" onClick={() => setIsCreateSprintOpen(false)}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-md shadow-indigo-600/20"
-                >
+                </Button>
+                <Button variant="primary" size="sm" type="submit">
                   Create Sprint
-                </button>
+                </Button>
               </div>
             </form>
           </div>

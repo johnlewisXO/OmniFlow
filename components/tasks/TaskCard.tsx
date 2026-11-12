@@ -1,11 +1,11 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
-import { Task, User, TaskPriority, TaskStatus, UserPresence } from '../../types';
+import { Task, TaskPriority, TaskStatus, UserPresence } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Avatar } from '../shared/Avatar';
 import { PRIORITY_STYLES, ICON_MAP } from '../../constants';
 import { collabService } from '../../services/collabService';
 import soundService from '../../services/soundService';
+import { SlimProgressBar } from '../charts/EditorialCharts';
 
 interface TaskCardProps {
   task: Task;
@@ -20,11 +20,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isFocused = false,
   onToggleSelect,
 }) => {
-  const { 
-    users, 
+  const {
+    users,
     tasks,
-    darkMode, 
-    deleteTask: deleteTaskAction, 
+    deleteTask: deleteTaskAction,
     openViewTaskModal,
     openEditTaskModal,
     highlightedTaskId,
@@ -62,20 +61,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const t = setTimeout(() => setRecentRemoteBroadcast(null), 5000);
     return () => clearTimeout(t);
   }, [recentRemoteBroadcast]);
-  
-  const assignee = users.find(user => user.id === task.assignee_id); 
 
+  const assignee = users.find(user => user.id === task.assignee_id);
   const priorityStyle = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES[TaskPriority.MEDIUM];
   const PriorityIconComponent = priorityStyle.icon;
-  const priorityColor = priorityStyle.color;
-
-  const cardBackgroundStyle = { backgroundColor: 'var(--card-background)', borderColor: 'var(--card-border)' };
-  const textColor = darkMode ? 'text-slate-200' : 'text-slate-700';
-  const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
 
   const isHighlighted = highlightedTaskId === task.id;
 
-  // Check if blocked by any unresolved task
   const isBlocked = useMemo(() => {
     if (!task.blockedBy || task.blockedBy.length === 0) return false;
     return task.blockedBy.some(blockerId => {
@@ -84,7 +76,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     });
   }, [task.blockedBy, tasks]);
 
-  // Checklist stats
   const checklistStats = useMemo(() => {
     if (!task.checklist || task.checklist.length === 0) return null;
     const completed = task.checklist.filter(i => i.completed).length;
@@ -92,8 +83,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     return { completed, total, percent: Math.round((completed / total) * 100) };
   }, [task.checklist]);
 
-  // OTHER users currently active on this card (viewing, editing, or typing a comment), deduplicated by userId
-  // Never include the current user themselves
   const viewers = useMemo(() => {
     const map = new Map<string, UserPresence>();
     presences.forEach(p => {
@@ -115,13 +104,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     return Array.from(map.values());
   }, [presences, task.id, currentUser?.id]);
 
-  const activeEditors = useMemo(() => {
-    return viewers.filter(v => v.isEditing);
-  }, [viewers]);
-
-  const activeTypers = useMemo(() => {
-    return viewers.filter(v => v.isTypingComment);
-  }, [viewers]);
+  const activeEditors = useMemo(() => viewers.filter(v => v.isEditing), [viewers]);
+  const activeTypers = useMemo(() => viewers.filter(v => v.isTypingComment), [viewers]);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,7 +113,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     if (window.confirm(`Are you sure you want to delete task: "${task.title}"?`)) {
       deleteTaskAction(task.id);
     }
@@ -153,48 +137,55 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     e.dataTransfer.setData('originalStatus', task.status);
     e.dataTransfer.setData('originalPosition', task.position.toString());
     e.dataTransfer.effectAllowed = 'move';
-    
+
     const targetElement = e.target as HTMLDivElement;
-    targetElement.classList.add('opacity-50', 'shadow-glass-lg', 'scale-105', 'rotate-1');
+    targetElement.classList.add('opacity-50', 'scale-[1.02]');
 
     const dragImage = targetElement.cloneNode(true) as HTMLElement;
-    dragImage.style.position = "absolute";
-    dragImage.style.top = "-1000px"; 
-    dragImage.style.width = targetElement.offsetWidth + "px";
-    dragImage.style.height = targetElement.offsetHeight + "px";
-    dragImage.style.transform = 'rotate(3deg) scale(1.03)';
-    dragImage.style.boxShadow = '0 12px 40px 0 hsla(var(--shadow-color-rgb), 0.15)';
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-1000px';
+    dragImage.style.width = targetElement.offsetWidth + 'px';
+    dragImage.style.height = targetElement.offsetHeight + 'px';
+    dragImage.style.transform = 'rotate(2deg) scale(1.02)';
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, targetElement.offsetWidth / 2, 20);
-    
+
     setTimeout(() => {
-        if (document.body.contains(dragImage)) {
-            document.body.removeChild(dragImage);
-        }
+      if (document.body.contains(dragImage)) {
+        document.body.removeChild(dragImage);
+      }
     }, 0);
   };
-  
+
   const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    (e.target as HTMLDivElement).classList.remove('opacity-50', 'shadow-glass-lg', 'scale-105', 'rotate-1');
+    (e.target as HTMLDivElement).classList.remove('opacity-50', 'scale-[1.02]');
   };
+
+  const priorityDotColor =
+    task.priority === TaskPriority.CRITICAL
+      ? 'bg-rose-600'
+      : task.priority === TaskPriority.HIGH
+      ? 'bg-amber-500'
+      : task.priority === TaskPriority.MEDIUM
+      ? 'bg-[#7A8F5B]'
+      : 'bg-[var(--text-muted)]';
 
   return (
     <div
-      data-task-id={task.id} 
-      className={`p-4 rounded-[20px] border backdrop-blur-xl cursor-grab hover:shadow-lg active:cursor-grabbing active:opacity-75 transition-all duration-200 ease-out transform hover:scale-[1.015] hover:-translate-y-0.5 relative group ${darkMode ? 'bg-slate-900/35 border-white/10' : 'bg-white/30 border-white/40 shadow-xs'}
-                  ${isSelected ? 'ring-2 ring-accent border-accent bg-accent/[0.04]' : ''}
-                  ${isFocused && !isSelected ? 'ring-2 ring-indigo-400/80 border-indigo-400/70' : ''}
-                  ${isHighlighted ? 'animate-state-updated ring-2 ring-emerald-500/60 shadow-emerald-500/20' : ''}
-                  ${activeEditors.length > 0 ? 'ring-1 ring-blue-500/50 border-blue-500/40' : activeTypers.length > 0 ? 'ring-1 ring-purple-500/50 border-purple-500/40' : viewers.length > 0 ? 'ring-1 ring-emerald-500/30 border-emerald-500/30' : ''}
-                  ${isBlocked ? 'border-amber-400/60 dark:border-amber-500/50 bg-amber-50/20 dark:bg-amber-950/10' : ''}`}
+      data-task-id={task.id}
+      className={`editorial-surface p-3.5 cursor-grab active:cursor-grabbing transition-all duration-150 ease-out hover:border-[var(--border-strong)] relative group ${
+        isSelected ? 'ring-2 ring-[var(--text-primary)] border-[var(--text-primary)]' : ''
+      } ${isFocused && !isSelected ? 'ring-2 ring-[var(--accent-lime)]' : ''} ${
+        isHighlighted ? 'ring-2 ring-emerald-500/70' : ''
+      } ${isBlocked ? 'border-amber-500/50' : ''}`}
       onClick={handleCardClick}
-      draggable={true} 
+      draggable={true}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Top Badges: Multi-Select Checkbox, Blocked, Story Points, State Updated Indicator, & Single Unified Live Presence Indicator */}
-      <div className="flex items-center justify-between gap-1.5 mb-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Top Meta Line + Quick Hover Actions */}
+      <div className="flex items-center justify-between gap-2 mb-2 min-h-[18px]">
+        <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] min-w-0 flex-wrap">
           {onToggleSelect && (
             <button
               type="button"
@@ -202,169 +193,142 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 e.stopPropagation();
                 onToggleSelect(task.id, e.shiftKey);
               }}
-              title="Select task for bulk actions (Shift+Click or press X)"
-              className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
+              title="Select task (Shift+Click or X)"
+              className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                 isSelected
-                  ? 'bg-accent border-accent text-white opacity-100'
-                  : 'border-slate-300 dark:border-slate-600 opacity-0 group-hover:opacity-100 focus:opacity-100'
+                  ? 'bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg-surface)] opacity-100'
+                  : 'border-[var(--border-strong)] opacity-0 group-hover:opacity-100 focus:opacity-100'
               }`}
             >
-              {isSelected && <ICON_MAP.CheckIcon className="w-3 h-3 stroke-[3]" />}
+              {isSelected && <ICON_MAP.CheckIcon className="w-2.5 h-2.5 stroke-[3]" />}
             </button>
           )}
-          {isTimingThisTask && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-              ⏱ Timing
-            </span>
-          )}
-          {isHighlighted && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/35 animate-state-badge">
-              ✓ Updated
-            </span>
-          )}
-          {isBlocked && (
-            <span
-              title="This task is blocked by unfinished prerequisite tasks."
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60"
-            >
-              <ICON_MAP.ExclamationTriangleIcon className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-              Blocked
-            </span>
-          )}
+
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityDotColor}`} />
+          <span className="font-medium text-[var(--text-secondary)] capitalize">
+            {task.priority?.toLowerCase()}
+          </span>
 
           {task.story_points !== undefined && (
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-white/[0.08]">
-              {task.story_points} pts
-            </span>
+            <>
+              <span>·</span>
+              <span className="font-mono tabular-nums">{task.story_points}p</span>
+            </>
+          )}
+
+          {isBlocked && (
+            <>
+              <span>·</span>
+              <span className="font-semibold text-amber-700 dark:text-amber-400">Blocked</span>
+            </>
+          )}
+
+          {isTimingThisTask && (
+            <>
+              <span>·</span>
+              <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">Timing</span>
+            </>
           )}
         </div>
 
-        {/* Single Unified Live Presence Pill (Other Users Only) */}
-        {viewers.length > 0 && (() => {
-          const primaryEditor = activeEditors[0];
-          const primaryTyper = activeTypers[0];
-          const primaryViewer = viewers[0];
-          const firstName = ((primaryEditor || primaryTyper || primaryViewer)?.userName || 'Teammate').split(' ')[0];
-          const pillTone = primaryEditor
-            ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300'
-            : primaryTyper
-              ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300'
-              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400';
-
-          return (
-            <div
-              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold shadow-xs transition-all ${pillTone}`}
-              title={viewers
-                .map(v => `${v.userName}: ${v.isEditing ? `Editing${v.editingField ? ` ${v.editingField}` : ''}` : v.isTypingComment ? 'Commenting' : 'Viewing'}`)
-                .join(' • ')}
-            >
-              <div className="flex -space-x-1">
-                {viewers.slice(0, 3).map(v => (
-                  <span
-                    key={v.userId}
-                    style={{ backgroundColor: v.color || '#10b981' }}
-                    className="w-3.5 h-3.5 rounded-full ring-1 ring-white dark:ring-slate-900 text-[8px] font-extrabold text-white flex items-center justify-center overflow-hidden"
-                  >
-                    {v.userAvatar ? <img src={v.userAvatar} alt="" className="w-full h-full object-cover" /> : (v.userName || 'U').charAt(0).toUpperCase()}
-                  </span>
-                ))}
-              </div>
-              {primaryEditor ? (
-                <>
-                  <ICON_MAP.PencilIcon className="w-2.5 h-2.5 flex-shrink-0" />
-                  <span className="truncate max-w-[110px]">
-                    {firstName} editing{viewers.length > 1 ? ` +${viewers.length - 1}` : ''}
-                  </span>
-                </>
-              ) : primaryTyper ? (
-                <>
-                  <ICON_MAP.ChatBubbleLeftIcon className="w-2.5 h-2.5 flex-shrink-0" />
-                  <span className="truncate max-w-[110px]">
-                    {firstName} commenting{viewers.length > 1 ? ` +${viewers.length - 1}` : ''}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <ICON_MAP.EyeIcon className="w-2.5 h-2.5 flex-shrink-0" />
-                  <span className="truncate max-w-[110px]">
-                    {viewers.length === 1 ? `${firstName} viewing` : `${viewers.length} viewing`}
-                  </span>
-                </>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
-      <div className="flex justify-between items-start mb-2">
-        <h3 className={`text-sm font-bold ${textColor} leading-snug mr-2`}>{task.title}</h3>
-        <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-                onClick={e => {
-                  e.stopPropagation();
-                  startTaskTimer(task);
-                }}
-                title="Start Focus Timer on this task"
-                className={`p-1 rounded-squircle-sm ${darkMode ? 'text-slate-400 hover:bg-emerald-500/20 hover:text-emerald-300' : 'text-slate-500 hover:bg-emerald-500/15 hover:text-emerald-600'} transition-colors cursor-pointer`}
-            >
-              <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />
-            </button>
-            <button
-                onClick={handleEdit}
-                title="Edit task"
-                className={`p-1 rounded-squircle-sm ${darkMode ? 'text-slate-400 hover:bg-blue-500/20 hover:text-blue-300' : 'text-slate-500 hover:bg-blue-500/15 hover:text-blue-600'} transition-colors cursor-pointer`}
-            >
-              <ICON_MAP.PencilIcon className="w-3.5 h-3.5" />
-            </button>
-            <button
-                onClick={handleDelete}
-                title="Delete task"
-                className={`p-1 rounded-squircle-sm ${darkMode ? 'text-slate-400 hover:bg-status-error/30 hover:text-red-300' : 'text-slate-500 hover:bg-status-error/20 hover:text-red-600'} transition-colors cursor-pointer`}
-            >
-              <ICON_MAP.TrashIcon className="w-3.5 h-3.5" />
-            </button>
+        {/* Hover Actions */}
+        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              startTaskTimer(task);
+            }}
+            title="Start Focus Timer"
+            className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+          >
+            <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleEdit}
+            title="Edit task"
+            className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+          >
+            <ICON_MAP.PencilIcon className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            title="Delete task"
+            className="p-1 rounded-md text-[var(--text-muted)] hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+          >
+            <ICON_MAP.TrashIcon className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
+      {/* Live Presence Banner (Only when another teammate is actively viewing/editing) */}
+      {viewers.length > 0 && (() => {
+        const primaryEditor = activeEditors[0];
+        const primaryTyper = activeTypers[0];
+        const primaryViewer = viewers[0];
+        const firstName = ((primaryEditor || primaryTyper || primaryViewer)?.userName || 'Teammate').split(' ')[0];
+        const label = primaryEditor
+          ? `${firstName} editing`
+          : primaryTyper
+          ? `${firstName} commenting`
+          : viewers.length === 1
+          ? `${firstName} viewing`
+          : `${viewers.length} viewing`;
+        return (
+          <div className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 mb-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>{label}</span>
+          </div>
+        );
+      })()}
+
+      {/* Task Title & Concise Description */}
+      <h3 className="text-[13px] font-semibold text-[var(--text-primary)] leading-snug mb-1.5">
+        {task.title}
+      </h3>
+
       {task.description && (
-        <p className={`text-xs ${subTextColor} mb-2.5 leading-relaxed line-clamp-2`}>
+        <p className="text-[11px] text-[var(--text-secondary)] mb-2.5 leading-relaxed line-clamp-2">
           {task.description}
         </p>
       )}
 
-      {/* Checklist Progress Bar */}
+      {/* Checklist Slim Progress */}
       {checklistStats && (
-        <div className="mb-3 space-y-1 bg-slate-100/60 dark:bg-slate-800/60 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
-          <div className="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-            <span className="flex items-center gap-1">
-              <ICON_MAP.CheckIcon className="w-3 h-3 text-primary" />
-              Checklist
+        <div className="mb-2.5 space-y-1">
+          <div className="flex justify-between text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
+            <span>Checklist</span>
+            <span>
+              {checklistStats.completed}/{checklistStats.total}
             </span>
-            <span>{checklistStats.completed}/{checklistStats.total}</span>
           </div>
-          <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-300 ${
-                checklistStats.percent === 100 ? 'bg-emerald-500' : 'bg-primary'
-              }`}
-              style={{ width: `${checklistStats.percent}%` }}
-            />
-          </div>
+          <SlimProgressBar
+            value={checklistStats.percent}
+            tone={checklistStats.percent === 100 ? 'sage' : 'charcoal'}
+            heightClass="h-1"
+          />
         </div>
       )}
 
-      <div className={`flex items-center justify-between text-xs ${subTextColor} pt-2 border-t border-slate-100 dark:border-slate-800/80`}>
-        <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-white/[0.06]">
-          <PriorityIconComponent className={`w-3.5 h-3.5 ${priorityColor}`} />
-          <span className={`${priorityColor} text-[11px] font-bold`}>{task.priority}</span>
+      {/* Clean Footer: Due date / priority icon + Assignee Avatar */}
+      <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-[var(--border-hairline)] text-[11px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-2 min-w-0 font-mono tabular-nums">
+          <PriorityIconComponent className={`w-3.5 h-3.5 shrink-0 ${priorityStyle.color}`} />
+          {task.due_date ? (
+            <span className="truncate">{new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+          ) : (
+            <span className="truncate font-sans">{task.status.replace(/_/g, ' ')}</span>
+          )}
         </div>
-        <div className="flex items-center space-x-1">
-          {assignee && (
-            <Avatar user={assignee} size="sm" className={`border-2 ${darkMode ? 'border-slate-700/30' : 'border-white/30'}`} />
-          )}
-          {!assignee && task.assignee_id && ( 
-             <div className={`w-6 h-6 rounded-full bg-slate-500/30 dark:bg-slate-600/40 animate-pulse border-2 ${darkMode ? 'border-slate-700/30' : 'border-white/30'}`} title="Loading assignee..."></div>
-          )}
+
+        <div className="flex items-center shrink-0">
+          {assignee ? (
+            <Avatar user={assignee} size="xs" />
+          ) : task.assignee_id ? (
+            <div className="w-5 h-5 rounded-full bg-[var(--bg-sage)] animate-pulse" />
+          ) : null}
         </div>
       </div>
     </div>

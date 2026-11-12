@@ -6,8 +6,21 @@ import geminiService from '../../services/geminiService';
 import { Button } from '../shared/Button';
 import { TeamWorkloadWidget } from '../overview/TeamWorkloadWidget';
 import { KeyMilestonesWidget } from '../overview/KeyMilestonesWidget';
-import { AIInsightsEngineWidget } from '../ai/AIInsightsEngineWidget';
 import soundService from '../../services/soundService';
+import {
+  PageHeader,
+  InlineKpiStrip,
+  SegmentedTabs,
+  HairlineCard,
+  SlideOverDrawer,
+} from '../shared/EditorialUI';
+import {
+  getEditorialChartTheme,
+  RadialProgressRing,
+  RadialHealthTickArc,
+  HatchedActivityHeatmap,
+  HeatmapDayCell,
+} from '../charts/EditorialCharts';
 import {
   BarChart,
   Bar,
@@ -36,12 +49,12 @@ type ReportWidgetId =
   | 'cycle_time';
 
 const DEFAULT_REPORT_WIDGETS: { id: ReportWidgetId; label: string; spanFull?: boolean }[] = [
-  { id: 'cumulative_flow', label: 'Cumulative Flow & Throughput Area', spanFull: true },
-  { id: 'burnup_velocity', label: 'Sprint Burnup & Story Point Velocity' },
-  { id: 'cycle_time', label: 'Cycle Time & Resolution Speed' },
-  { id: 'assignee_throughput', label: 'Team Workload & Story Point Efficiency' },
-  { id: 'status_distribution', label: 'Task Status Distribution' },
-  { id: 'priority_breakdown', label: 'Priority Risk Breakdown' },
+  { id: 'cumulative_flow', label: 'Cumulative Flow & Stage Progression', spanFull: true },
+  { id: 'burnup_velocity', label: 'Sprint Burnup & Velocity' },
+  { id: 'cycle_time', label: 'Cycle Time & Resolution' },
+  { id: 'assignee_throughput', label: 'Teammate Throughput' },
+  { id: 'status_distribution', label: 'Status Distribution' },
+  { id: 'priority_breakdown', label: 'Priority Breakdown' },
 ];
 
 export const ReportsPage: React.FC = () => {
@@ -50,7 +63,6 @@ export const ReportsPage: React.FC = () => {
     tasks,
     projects,
     users,
-    sprints,
     currentUser,
     fetchAllTasksForAllProjects,
     isLoadingTasks,
@@ -58,11 +70,14 @@ export const ReportsPage: React.FC = () => {
     addToast,
   } = useAppStore();
 
+  const chartTheme = useMemo(() => getEditorialChartTheme(darkMode), [darkMode]);
+
+  const [reportTab, setReportTab] = useState<'analytics' | 'team_milestones'>('analytics');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all');
   const [dateRange, setDateRange] = useState<'all' | '7days' | '30days' | '90days'>('30days');
 
-  // Interactive Chart Drill-Down State
+  // Interactive Chart Drill-Down Drawer State
   const [drillDownFilter, setDrillDownFilter] = useState<{
     title: string;
     predicate: (t: Task) => boolean;
@@ -85,7 +100,7 @@ export const ReportsPage: React.FC = () => {
 
   // AI Executive Summary state
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showSummaryDrawer, setShowSummaryDrawer] = useState(false);
   const [executiveSummaryText, setExecutiveSummaryText] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
 
@@ -153,7 +168,6 @@ export const ReportsPage: React.FC = () => {
     return filtered;
   }, [tasks, selectedProjectId, selectedAssigneeId, dateRange]);
 
-  // Core Enriched KPIs
   const metrics = useMemo(() => {
     const total = filteredTasks.length;
     const completed = filteredTasks.filter(t => t.status === TaskStatus.DONE).length;
@@ -168,7 +182,6 @@ export const ReportsPage: React.FC = () => {
       .reduce((acc, t) => acc + (t.story_points || 2), 0);
     const velocityPct = totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0;
 
-    // Average cycle time (hours -> days)
     const doneTasksWithDates = filteredTasks.filter(
       t => t.status === TaskStatus.DONE && t.created_at && t.updated_at
     );
@@ -202,9 +215,71 @@ export const ReportsPage: React.FC = () => {
     };
   }, [filteredTasks]);
 
-  // 1. Cumulative Flow & Throughput Area Data
+  // Activity Heatmap (15 weeks)
+  const heatmapCells = useMemo<HeatmapDayCell[]>(() => {
+    const daysTotal = 15 * 7;
+    const countsByDay: Record<string, { count: number; points: number }> = {};
+    filteredTasks.forEach(t => {
+      const refDate = t.updated_at || t.created_at;
+      if (!refDate) return;
+      const key = format(new Date(refDate), 'yyyy-MM-dd');
+      if (!countsByDay[key]) countsByDay[key] = { count: 0, points: 0 };
+      countsByDay[key].count += 1;
+      countsByDay[key].points += t.story_points || 2;
+    });
+
+    const cells: HeatmapDayCell[] = [];
+    for (let i = daysTotal - 1; i >= 0; i--) {
+      const d = subDays(new Date(), i);
+      const key = format(d, 'yyyy-MM-dd');
+      const hit = countsByDay[key];
+      cells.push({
+        dateKey: key,
+        label: format(d, 'MMM d'),
+        count: hit ? hit.count : 0,
+        points: hit ? hit.points : 0,
+      });
+    }
+    return cells;
+  }, [filteredTasks]);
+
+  // Project Health Arc Breakdown
+  const healthMetrics = useMemo(() => {
+    const now = Date.now();
+    let onTrack = 0;
+    let atRisk = 0;
+    let delayed = 0;
+
+    filteredTasks.forEach(t => {
+      if (t.status === TaskStatus.DONE) {
+        onTrack += 1;
+        return;
+      }
+      const due = t.due_date || t.dueDate;
+      if (due && new Date(due).getTime() < now) {
+        delayed += 1;
+      } else if (t.priority === TaskPriority.CRITICAL) {
+        atRisk += 1;
+      } else {
+        onTrack += 1;
+      }
+    });
+
+    const total = Math.max(1, onTrack + atRisk + delayed);
+    const pct = Math.round((onTrack / total) * 100);
+    return {
+      percentage: pct,
+      statusLabel: pct >= 75 ? 'Healthy' : pct >= 50 ? 'Watch' : 'At Risk',
+      segments: [
+        { id: 'on_track', label: 'On Track', count: onTrack, tone: 'on_track' as const },
+        { id: 'at_risk', label: 'At Risk', count: atRisk, tone: 'at_risk' as const },
+        { id: 'delayed', label: 'Overdue', count: delayed, tone: 'delayed' as const },
+      ],
+    };
+  }, [filteredTasks]);
+
   const cumulativeFlowData = useMemo(() => {
-    const daysCount = dateRange === '7days' ? 7 : dateRange === '30days' ? 14 : 14;
+    const daysCount = dateRange === '7days' ? 7 : 14;
     const result: {
       date: string;
       Done: number;
@@ -231,10 +306,7 @@ export const ReportsPage: React.FC = () => {
       const inProgCount =
         tasksUpToDay.filter(t => t.status === TaskStatus.IN_PROGRESS).length ||
         Math.round(baseCount * 0.25);
-      const todoCount = Math.max(
-        0,
-        tasksUpToDay.filter(t => t.status === TaskStatus.TODO).length
-      );
+      const todoCount = Math.max(0, tasksUpToDay.filter(t => t.status === TaskStatus.TODO).length);
 
       result.push({
         date: label,
@@ -247,7 +319,6 @@ export const ReportsPage: React.FC = () => {
     return result;
   }, [filteredTasks, dateRange]);
 
-  // 2. Sprint Burnup / Burndown & Story Point Velocity
   const burnupData = useMemo(() => {
     const totalPts = Math.max(12, metrics.totalPoints);
     const steps = 8;
@@ -276,7 +347,6 @@ export const ReportsPage: React.FC = () => {
     return points;
   }, [metrics.totalPoints, metrics.completedPoints]);
 
-  // 3. Assignee Throughput & Story Point Efficiency
   const assigneeThroughputData = useMemo(() => {
     const map: Record<
       string,
@@ -301,12 +371,9 @@ export const ReportsPage: React.FC = () => {
       map[uid].storyPoints += task.story_points || 2;
     });
 
-    return Object.values(map).sort(
-      (a, b) => b.completed + b.active - (a.completed + a.active)
-    );
+    return Object.values(map).sort((a, b) => b.completed + b.active - (a.completed + a.active));
   }, [filteredTasks, users]);
 
-  // 4. Task Status Breakdown
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {
       [TaskStatus.TODO]: 0,
@@ -318,19 +385,18 @@ export const ReportsPage: React.FC = () => {
       counts[task.status] = (counts[task.status] || 0) + 1;
     });
     return [
-      { name: 'To Do', statusKey: TaskStatus.TODO, value: counts[TaskStatus.TODO], color: '#64748b' },
+      { name: 'To Do', statusKey: TaskStatus.TODO, value: counts[TaskStatus.TODO], color: chartTheme.series.muted },
       {
         name: 'In Progress',
         statusKey: TaskStatus.IN_PROGRESS,
         value: counts[TaskStatus.IN_PROGRESS],
-        color: '#3b82f6',
+        color: chartTheme.series.charcoal,
       },
-      { name: 'Review', statusKey: TaskStatus.REVIEW, value: counts[TaskStatus.REVIEW], color: '#a855f7' },
-      { name: 'Done', statusKey: TaskStatus.DONE, value: counts[TaskStatus.DONE], color: '#10b981' },
+      { name: 'Review', statusKey: TaskStatus.REVIEW, value: counts[TaskStatus.REVIEW], color: chartTheme.series.amber },
+      { name: 'Done', statusKey: TaskStatus.DONE, value: counts[TaskStatus.DONE], color: chartTheme.series.sage },
     ].filter(d => d.value > 0);
-  }, [filteredTasks]);
+  }, [filteredTasks, chartTheme]);
 
-  // 5. Tasks by Priority
   const priorityData = useMemo(() => {
     const counts: Record<string, number> = {
       [TaskPriority.CRITICAL]: 0,
@@ -346,26 +412,20 @@ export const ReportsPage: React.FC = () => {
         name: 'Critical',
         priorityKey: TaskPriority.CRITICAL,
         count: counts[TaskPriority.CRITICAL],
-        fill: '#ef4444',
+        fill: chartTheme.series.crimson,
       },
-      { name: 'High', priorityKey: TaskPriority.HIGH, count: counts[TaskPriority.HIGH], fill: '#f97316' },
-      {
-        name: 'Medium',
-        priorityKey: TaskPriority.MEDIUM,
-        count: counts[TaskPriority.MEDIUM],
-        fill: '#eab308',
-      },
-      { name: 'Low', priorityKey: TaskPriority.LOW, count: counts[TaskPriority.LOW], fill: '#22c55e' },
+      { name: 'High', priorityKey: TaskPriority.HIGH, count: counts[TaskPriority.HIGH], fill: chartTheme.series.amber },
+      { name: 'Medium', priorityKey: TaskPriority.MEDIUM, count: counts[TaskPriority.MEDIUM], fill: chartTheme.series.sage },
+      { name: 'Low', priorityKey: TaskPriority.LOW, count: counts[TaskPriority.LOW], fill: chartTheme.series.muted },
     ];
-  }, [filteredTasks]);
+  }, [filteredTasks, chartTheme]);
 
-  // 6. Cycle Time Histogram Data
   const cycleTimeData = useMemo(() => {
     const buckets = [
-      { bucket: '< 24h (Fast)', count: 0, color: '#10b981', minHrs: 0, maxHrs: 24 },
-      { bucket: '1–3 Days', count: 0, color: '#3b82f6', minHrs: 24, maxHrs: 72 },
-      { bucket: '4–7 Days', count: 0, color: '#f59e0b', minHrs: 72, maxHrs: 168 },
-      { bucket: '7+ Days', count: 0, color: '#ef4444', minHrs: 168, maxHrs: 99999 },
+      { bucket: '< 24h', count: 0, color: chartTheme.series.sage, minHrs: 0, maxHrs: 24 },
+      { bucket: '1–3 Days', count: 0, color: chartTheme.series.lime, minHrs: 24, maxHrs: 72 },
+      { bucket: '4–7 Days', count: 0, color: chartTheme.series.amber, minHrs: 72, maxHrs: 168 },
+      { bucket: '7+ Days', count: 0, color: chartTheme.series.crimson, minHrs: 168, maxHrs: 99999 },
     ];
 
     filteredTasks.forEach(t => {
@@ -379,7 +439,7 @@ export const ReportsPage: React.FC = () => {
     });
 
     return buckets;
-  }, [filteredTasks]);
+  }, [filteredTasks, chartTheme]);
 
   const drillDownTasks = useMemo(() => {
     if (!drillDownFilter) return [];
@@ -388,7 +448,7 @@ export const ReportsPage: React.FC = () => {
 
   const handleGenerateAISummary = async () => {
     setIsGeneratingSummary(true);
-    setShowSummaryModal(true);
+    setShowSummaryDrawer(true);
     setExecutiveSummaryText(null);
 
     try {
@@ -403,9 +463,7 @@ export const ReportsPage: React.FC = () => {
 
       const targetProject = activeProj || ({ id: 'default', name: 'Project Overview' } as Project);
       const targetTasks =
-        selectedProjectId !== 'all'
-          ? tasks.filter(t => t.projectId === selectedProjectId)
-          : tasks;
+        selectedProjectId !== 'all' ? tasks.filter(t => t.projectId === selectedProjectId) : tasks;
 
       const summary = await geminiService.generateProjectExecutiveSummary(
         targetProject,
@@ -415,7 +473,7 @@ export const ReportsPage: React.FC = () => {
       setExecutiveSummaryText(summary);
     } catch (err: any) {
       setExecutiveSummaryText(
-        `⚠️ Failed to generate AI Executive Summary: ${err.message || 'Check network connection.'}`
+        `Unable to generate summary: ${err.message || 'Check network connection.'}`
       );
     } finally {
       setIsGeneratingSummary(false);
@@ -429,7 +487,6 @@ export const ReportsPage: React.FC = () => {
     setTimeout(() => setCopiedSummary(false), 2000);
   };
 
-  // Multi-Format Export Helper
   const triggerFileDownload = (content: string, filename: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
@@ -454,8 +511,7 @@ export const ReportsPage: React.FC = () => {
 
     const enrichedRows = filteredTasks.map(t => {
       const proj = projects.find(p => p.id === (t.projectId || t.project_id))?.name || 'General';
-      const assignee =
-        users.find(u => u.id === (t.assignee_id || t.assigneeId))?.full_name || 'Unassigned';
+      const assignee = users.find(u => u.id === (t.assignee_id || t.assigneeId))?.full_name || 'Unassigned';
       const created = t.created_at ? format(new Date(t.created_at), 'yyyy-MM-dd') : '';
       const due = t.due_date || t.dueDate ? format(new Date((t.due_date || t.dueDate)!), 'yyyy-MM-dd') : '';
       return {
@@ -524,17 +580,7 @@ export const ReportsPage: React.FC = () => {
         'Due Date',
       ];
       const tsvRows = enrichedRows.map(r =>
-        [
-          r.title,
-          r.project,
-          r.status,
-          r.priority,
-          r.storyPoints,
-          r.loggedHours,
-          r.assignee,
-          r.createdDate,
-          r.dueDate,
-        ].join('\t')
+        [r.title, r.project, r.status, r.priority, r.storyPoints, r.loggedHours, r.assignee, r.createdDate, r.dueDate].join('\t')
       );
       triggerFileDownload(
         [headers.join('\t'), ...tsvRows].join('\n'),
@@ -588,127 +634,91 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  const ChartBarIcon = ICON_MAP.ChartBarIcon;
-  const FilterIcon = ICON_MAP.FilterIcon;
-  const textColor = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const cardBg = darkMode
-    ? 'bg-slate-900/75 border-slate-800/90'
-    : 'bg-white/95 border-slate-200/90';
-
   const renderWidgetById = (widgetId: ReportWidgetId) => {
     if (!visibleWidgets.includes(widgetId)) return null;
 
     if (widgetId === 'cumulative_flow') {
       return (
-        <div
-          key={widgetId}
-          className={`col-span-1 lg:col-span-2 p-5 rounded-[28px] border shadow-sm min-w-0 ${cardBg}`}
-        >
+        <HairlineCard key={widgetId} padding="lg" className="col-span-1 lg:col-span-2 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
-              <h3 className={`text-base font-bold ${textColor}`}>
-                Cumulative Flow & Stage Progression
-              </h3>
-              <p className="text-xs text-slate-400">
-                Stacked daily work-in-progress and completed delivery across workflow stages
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Cumulative Flow & Stage Progression</h3>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Daily work-in-progress and completed delivery across workflow stages
               </p>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-              {metrics.completionPct}% Flow Efficiency
+            <span className="font-mono text-xs font-semibold text-[var(--text-secondary)] tabular-nums">
+              {metrics.completionPct}% flow efficiency
             </span>
           </div>
           <div className="h-64 sm:h-72 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={cumulativeFlowData} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="cfDone" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.55} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                  <linearGradient id="edDone" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartTheme.series.sage} stopOpacity={0.45} />
+                    <stop offset="95%" stopColor={chartTheme.series.sage} stopOpacity={0.04} />
                   </linearGradient>
-                  <linearGradient id="cfReview" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.45} />
-                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0.05} />
-                  </linearGradient>
-                  <linearGradient id="cfInProg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.45} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
+                  <linearGradient id="edProg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartTheme.series.lime} stopOpacity={0.45} />
+                    <stop offset="95%" stopColor={chartTheme.series.lime} stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#1e293b' : '#e2e8f0'} vertical={false} />
-                <XAxis dataKey="date" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                    borderColor: darkMode ? '#334155' : '#e2e8f0',
-                    borderRadius: '14px',
-                  }}
-                />
-                <Legend verticalAlign="bottom" height={32} wrapperStyle={{ fontSize: '11px' }} />
-                <Area type="monotone" dataKey="Done" stackId="1" stroke="#10b981" strokeWidth={2.5} fill="url(#cfDone)" />
-                <Area type="monotone" dataKey="Review" stackId="1" stroke="#a855f7" strokeWidth={2} fill="url(#cfReview)" />
-                <Area type="monotone" dataKey="In Progress" stackId="1" stroke="#3b82f6" strokeWidth={2} fill="url(#cfInProg)" />
-                <Area type="monotone" dataKey="To Do" stackId="1" stroke="#64748b" strokeWidth={1.5} fillOpacity={0.15} fill="#64748b" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} vertical={false} />
+                <XAxis dataKey="date" stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={chartTheme.tooltipStyle} />
+                <Legend verticalAlign="bottom" height={30} wrapperStyle={{ fontSize: '11px' }} />
+                <Area type="monotone" dataKey="Done" stackId="1" stroke={chartTheme.series.sage} strokeWidth={2.2} fill="url(#edDone)" />
+                <Area type="monotone" dataKey="Review" stackId="1" stroke={chartTheme.series.amber} strokeWidth={1.8} fillOpacity={0.18} fill={chartTheme.series.amber} />
+                <Area type="monotone" dataKey="In Progress" stackId="1" stroke={chartTheme.series.charcoal} strokeWidth={2} fill="url(#edProg)" />
+                <Area type="monotone" dataKey="To Do" stackId="1" stroke={chartTheme.series.muted} strokeWidth={1.5} fillOpacity={0.12} fill={chartTheme.series.muted} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </HairlineCard>
       );
     }
 
     if (widgetId === 'burnup_velocity') {
       return (
-        <div key={widgetId} className={`p-5 rounded-[28px] border shadow-sm min-w-0 ${cardBg}`}>
+        <HairlineCard key={widgetId} padding="lg" className="min-w-0">
           <div className="flex items-center justify-between gap-2 mb-4">
             <div>
-              <h3 className={`text-base font-bold ${textColor}`}>
-                Sprint Burnup & Burndown Trajectory
-              </h3>
-              <p className="text-xs text-slate-400">
-                Ideal vs. actual remaining story points & cumulative velocity
-              </p>
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Sprint Burnup & Burndown</h3>
+              <p className="text-xs text-[var(--text-secondary)]">Ideal vs. actual remaining story points</p>
             </div>
-            <span className="font-mono tabular-nums text-xs font-bold text-emerald-500">
-              {metrics.completedPoints}/{metrics.totalPoints} pts
+            <span className="font-mono tabular-nums text-xs font-semibold text-[var(--text-primary)]">
+              {metrics.completedPoints}/{metrics.totalPoints}p
             </span>
           </div>
           <div className="h-60 sm:h-64 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={burnupData} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#1e293b' : '#e2e8f0'} vertical={false} />
-                <XAxis dataKey="day" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                    borderColor: darkMode ? '#334155' : '#e2e8f0',
-                    borderRadius: '14px',
-                  }}
-                />
-                <Legend verticalAlign="bottom" height={32} wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="completedVelocity" name="Completed Points" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                <Line type="monotone" dataKey="actualRemaining" name="Actual Remaining" stroke="#6366f1" strokeWidth={3} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="idealRemaining" name="Ideal Guideline" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} dot={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} vertical={false} />
+                <XAxis dataKey="day" stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={chartTheme.tooltipStyle} />
+                <Legend verticalAlign="bottom" height={30} wrapperStyle={{ fontSize: '11px' }} />
+                <Bar dataKey="completedVelocity" name="Completed Points" fill={chartTheme.series.sage} radius={[5, 5, 0, 0]} maxBarSize={26} />
+                <Line type="monotone" dataKey="actualRemaining" name="Actual Remaining" stroke={chartTheme.series.charcoal} strokeWidth={2.5} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="idealRemaining" name="Ideal Guideline" stroke={chartTheme.series.muted} strokeDasharray="5 5" strokeWidth={1.8} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </HairlineCard>
       );
     }
 
     if (widgetId === 'cycle_time') {
       return (
-        <div key={widgetId} className={`p-5 rounded-[28px] border shadow-sm min-w-0 ${cardBg}`}>
+        <HairlineCard key={widgetId} padding="lg" className="min-w-0">
           <div className="flex items-center justify-between gap-2 mb-4">
             <div>
-              <h3 className={`text-base font-bold ${textColor}`}>
-                Cycle Time & Resolution Speed
-              </h3>
-              <p className="text-xs text-slate-400">
-                Click any bar to drill down into tasks in that resolution window
-              </p>
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Cycle Time & Resolution</h3>
+              <p className="text-xs text-[var(--text-secondary)]">Click any bar to inspect matching tasks</p>
             </div>
-            <span className="font-mono tabular-nums text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-500">
+            <span className="font-mono tabular-nums text-xs font-semibold text-[var(--text-primary)]">
               Avg {metrics.avgCycleHours}h
             </span>
           </div>
@@ -733,18 +743,11 @@ export const ReportsPage: React.FC = () => {
                   }
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#1e293b' : '#e2e8f0'} vertical={false} />
-                <XAxis dataKey="bucket" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip
-                  cursor={{ fill: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}
-                  contentStyle={{
-                    backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                    borderColor: darkMode ? '#334155' : '#e2e8f0',
-                    borderRadius: '14px',
-                  }}
-                />
-                <Bar dataKey="count" name="Tasks" radius={[8, 8, 0, 0]} maxBarSize={44} className="cursor-pointer">
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} vertical={false} />
+                <XAxis dataKey="bucket" stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip cursor={{ fill: 'rgba(125,135,110,0.08)' }} contentStyle={chartTheme.tooltipStyle} />
+                <Bar dataKey="count" name="Tasks" radius={[6, 6, 0, 0]} maxBarSize={42} className="cursor-pointer">
                   {cycleTimeData.map((entry, idx) => (
                     <Cell key={idx} fill={entry.color} />
                   ))}
@@ -752,21 +755,17 @@ export const ReportsPage: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </HairlineCard>
       );
     }
 
     if (widgetId === 'assignee_throughput') {
       return (
-        <div key={widgetId} className={`p-5 rounded-[28px] border shadow-sm min-w-0 ${cardBg}`}>
+        <HairlineCard key={widgetId} padding="lg" className="min-w-0">
           <div className="flex items-center justify-between gap-2 mb-4">
             <div>
-              <h3 className={`text-base font-bold ${textColor}`}>
-                Teammate Throughput & Active Load
-              </h3>
-              <p className="text-xs text-slate-400">
-                Click any teammate bar to inspect their assigned tasks
-              </p>
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Teammate Throughput</h3>
+              <p className="text-xs text-[var(--text-secondary)]">Click a bar to drill down into teammate tasks</p>
             </div>
           </div>
           <div className="h-60 sm:h-64 min-w-0">
@@ -788,34 +787,26 @@ export const ReportsPage: React.FC = () => {
                   }
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#1e293b' : '#e2e8f0'} vertical={false} />
-                <XAxis dataKey="name" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                    borderColor: darkMode ? '#334155' : '#e2e8f0',
-                    borderRadius: '14px',
-                  }}
-                />
-                <Legend verticalAlign="bottom" height={32} wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="completed" name="Completed" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={38} className="cursor-pointer" />
-                <Bar dataKey="active" name="In Flight" stackId="a" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={38} className="cursor-pointer" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} vertical={false} />
+                <XAxis dataKey="name" stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={chartTheme.tooltipStyle} />
+                <Legend verticalAlign="bottom" height={30} wrapperStyle={{ fontSize: '11px' }} />
+                <Bar dataKey="completed" name="Completed" stackId="a" fill={chartTheme.series.sage} maxBarSize={36} className="cursor-pointer" />
+                <Bar dataKey="active" name="In Flight" stackId="a" fill={chartTheme.series.charcoal} radius={[5, 5, 0, 0]} maxBarSize={36} className="cursor-pointer" />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </HairlineCard>
       );
     }
 
     if (widgetId === 'status_distribution') {
       return (
-        <div key={widgetId} className={`p-5 rounded-[28px] border shadow-sm min-w-0 ${cardBg}`}>
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div>
-              <h3 className={`text-base font-bold ${textColor}`}>Task Status Distribution</h3>
-              <p className="text-xs text-slate-400">Click any slice to filter tasks by stage</p>
-            </div>
+        <HairlineCard key={widgetId} padding="lg" className="min-w-0">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">Task Status Distribution</h3>
+            <p className="text-xs text-[var(--text-secondary)]">Click any slice to inspect matching tasks</p>
           </div>
           <div className="h-60 sm:h-64 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
@@ -824,8 +815,8 @@ export const ReportsPage: React.FC = () => {
                   data={statusData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={54}
-                  outerRadius={84}
+                  innerRadius={52}
+                  outerRadius={82}
                   paddingAngle={3}
                   dataKey="value"
                   onClick={(entry: any) => {
@@ -843,29 +834,21 @@ export const ReportsPage: React.FC = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                    borderColor: darkMode ? '#334155' : '#e2e8f0',
-                    borderRadius: '14px',
-                  }}
-                />
-                <Legend verticalAlign="bottom" height={32} wrapperStyle={{ fontSize: '11px' }} />
+                <Tooltip contentStyle={chartTheme.tooltipStyle} />
+                <Legend verticalAlign="bottom" height={30} wrapperStyle={{ fontSize: '11px' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </HairlineCard>
       );
     }
 
     if (widgetId === 'priority_breakdown') {
       return (
-        <div key={widgetId} className={`p-5 rounded-[28px] border shadow-sm min-w-0 ${cardBg}`}>
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div>
-              <h3 className={`text-base font-bold ${textColor}`}>Tasks by Priority Severity</h3>
-              <p className="text-xs text-slate-400">Click any bar to inspect tasks by priority</p>
-            </div>
+        <HairlineCard key={widgetId} padding="lg" className="min-w-0">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">Tasks by Priority Severity</h3>
+            <p className="text-xs text-[var(--text-secondary)]">Click any bar to inspect priority queue</p>
           </div>
           <div className="h-60 sm:h-64 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
@@ -884,17 +867,11 @@ export const ReportsPage: React.FC = () => {
                   }
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#1e293b' : '#e2e8f0'} horizontal={false} />
-                <XAxis type="number" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <YAxis dataKey="name" type="category" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} axisLine={false} width={65} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                    borderColor: darkMode ? '#334155' : '#e2e8f0',
-                    borderRadius: '14px',
-                  }}
-                />
-                <Bar dataKey="count" name="Tasks" radius={[0, 6, 6, 0]} maxBarSize={28} className="cursor-pointer">
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} horizontal={false} />
+                <XAxis type="number" stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <YAxis dataKey="name" type="category" stroke={chartTheme.axisColor} fontSize={11} tickLine={false} axisLine={false} width={65} />
+                <Tooltip contentStyle={chartTheme.tooltipStyle} />
+                <Bar dataKey="count" name="Tasks" radius={[0, 6, 6, 0]} maxBarSize={26} className="cursor-pointer">
                   {priorityData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
@@ -902,7 +879,7 @@ export const ReportsPage: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </HairlineCard>
       );
     }
 
@@ -910,187 +887,133 @@ export const ReportsPage: React.FC = () => {
   };
 
   return (
-    <div className={`p-4 md:p-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'} space-y-6`}>
-      {/* 1. Compact Icon-First Analytics Header & KPI Strip */}
-      <div className="bg-gradient-to-r from-neutral-950 via-indigo-950/90 to-neutral-950 text-white rounded-[28px] p-5 sm:p-6 shadow-xl border border-white/10 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+    <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
+      <PageHeader
+        eyebrow="Analytics & Telemetry"
+        title="Performance & Delivery Reports"
+        subtitle="Track sprint throughput, cycle time, and portfolio health with interactive chart drill-down."
+        actions={
+          <>
+            <SegmentedTabs
+              size="sm"
+              value={reportTab}
+              onChange={setReportTab}
+              options={[
+                { id: 'analytics', label: 'Analytics' },
+                { id: 'team_milestones', label: 'Team & Milestones' },
+              ]}
+            />
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30 flex items-center justify-center shrink-0">
-              <ChartBarIcon className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
-                Performance & Telemetry
-              </h1>
-              <p className="text-xs text-indigo-200/75">
-                Interactive flow, burnup velocity & click-to-drill-down analytics
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Icon-First Customize Report Widgets Button */}
-            <button
-              type="button"
+            <Button
+              variant={isCustomizingReport ? 'lime' : 'outline'}
+              size="sm"
               onClick={() => {
                 soundService.play('click_soft');
                 setIsCustomizingReport(prev => !prev);
               }}
-              title="Customize Report Charts & Order"
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                isCustomizingReport
-                  ? 'bg-amber-500 text-slate-950 border-amber-400'
-                  : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
-              }`}
             >
-              <ICON_MAP.AdjustmentsHorizontalIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">{isCustomizingReport ? 'Done' : 'Widgets'}</span>
-            </button>
+              <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />
+              {isCustomizingReport ? 'Done' : 'Widgets'}
+            </Button>
 
-            {/* Icon-First Multi-Format Export Dropdown */}
             <div className="relative">
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   soundService.play('click_soft');
                   setIsExportMenuOpen(prev => !prev);
                 }}
-                title="Export Analytics Data (CSV, XLS, JSON, MD, PDF)"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all cursor-pointer"
               >
-                <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4 text-emerald-400" />
-                <span className="hidden sm:inline">Export</span>
-                <ICON_MAP.ChevronDownIcon className="w-3.5 h-3.5 opacity-80" />
-              </button>
+                <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                Export
+                <ICON_MAP.ChevronDownIcon className="w-3 h-3" />
+              </Button>
 
               {isExportMenuOpen && (
-                <div
-                  className={`absolute right-0 mt-2 w-56 rounded-2xl shadow-2xl p-2 z-50 border backdrop-blur-xl ${
-                    darkMode
-                      ? 'bg-neutral-900/95 border-white/15 text-slate-100'
-                      : 'bg-white border-slate-200 text-slate-900'
-                  }`}
-                >
-                  <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="editorial-popover absolute right-0 mt-2 w-56 rounded-2xl p-1.5 z-50">
+                  <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     Export Format
                   </div>
                   {[
-                    { id: 'csv' as const, label: 'CSV (.csv)', sub: 'Task & velocity table' },
-                    { id: 'xls' as const, label: 'Excel (.xls)', sub: 'Spreadsheet workbook' },
-                    { id: 'json' as const, label: 'JSON (.json)', sub: 'KPIs + task objects' },
-                    { id: 'md' as const, label: 'Markdown (.md)', sub: 'Executive doc' },
+                    { id: 'csv' as const, label: 'CSV (.csv)', sub: 'Task table' },
+                    { id: 'xls' as const, label: 'Excel (.xls)', sub: 'Spreadsheet' },
+                    { id: 'json' as const, label: 'JSON (.json)', sub: 'Structured dataset' },
+                    { id: 'md' as const, label: 'Markdown (.md)', sub: 'Executive brief' },
                     { id: 'pdf' as const, label: 'Print / PDF', sub: 'Page snapshot' },
                   ].map(item => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => handleExportFormat(item.id)}
-                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-indigo-500/15 transition-colors flex items-center justify-between cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-[var(--bg-sage)] transition-colors flex items-center justify-between cursor-pointer"
                     >
-                      <span className="text-xs font-bold">{item.label}</span>
-                      <span className="text-[10px] text-slate-400">{item.sub}</span>
+                      <span className="text-xs font-semibold text-[var(--text-primary)]">{item.label}</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">{item.sub}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <button
-              onClick={handleGenerateAISummary}
-              disabled={isGeneratingSummary}
-              title="Generate AI Executive Summary"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/25 bg-indigo-500 hover:bg-indigo-400 text-white transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              {isGeneratingSummary ? (
-                <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin text-white" />
-              ) : (
-                <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
-              )}
-              <span className="hidden sm:inline">{isGeneratingSummary ? 'Synthesizing...' : 'Summary'}</span>
-            </button>
-          </div>
-        </div>
+            <Button variant="primary" size="sm" onClick={handleGenerateAISummary} disabled={isGeneratingSummary}>
+              <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
+              {isGeneratingSummary ? 'Synthesizing...' : 'Executive Brief'}
+            </Button>
+          </>
+        }
+      />
 
-        {/* Compact Icon-First KPI Metric Capsules */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-5 pt-5 border-t border-white/10">
-          {[
-            {
-              label: 'Scope',
-              value: metrics.total,
-              badge: `${metrics.totalPoints} pts`,
-              icon: ICON_MAP.ClipboardListIcon,
-              iconColor: 'bg-indigo-500/20 text-indigo-300',
-            },
-            {
-              label: 'Shipped',
-              value: metrics.completed,
-              badge: `${metrics.velocityPct}% pts`,
-              icon: ICON_MAP.CheckCircleIcon,
-              iconColor: 'bg-emerald-500/20 text-emerald-300',
-            },
-            {
-              label: 'Completion',
-              value: `${metrics.completionPct}%`,
-              badge: 'Rate',
-              icon: ICON_MAP.ChartBarIcon,
-              iconColor: 'bg-violet-500/20 text-violet-300',
-            },
-            {
-              label: 'Cycle Time',
-              value: `${metrics.avgCycleHours}h`,
-              badge: `${metrics.totalLoggedHours}h focus`,
-              icon: ICON_MAP.ClockIcon,
-              iconColor: 'bg-cyan-500/20 text-cyan-300',
-            },
-            {
-              label: 'Team',
-              value: users.length,
-              badge: `${projects.length} boards`,
-              icon: ICON_MAP.UserGroupIcon,
-              iconColor: 'bg-amber-500/20 text-amber-300',
-            },
-          ].map((kpi, idx) => {
-            const KpiIcon = kpi.icon;
-            return (
-              <div
-                key={idx}
-                className="bg-white/[0.05] backdrop-blur-xs rounded-2xl p-3 border border-white/10 flex items-center justify-between gap-2.5"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${kpi.iconColor}`}>
-                    <KpiIcon className="w-4.5 h-4.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[11px] font-bold text-slate-300 block truncate">{kpi.label}</span>
-                    <span className="text-[10px] font-mono text-indigo-200/70 block truncate">{kpi.badge}</span>
-                  </div>
-                </div>
-                <span className="text-xl font-black text-white font-mono tabular-nums shrink-0">
-                  {kpi.value}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <InlineKpiStrip
+        items={[
+          {
+            id: 'scope',
+            label: 'Total Scope',
+            value: metrics.total,
+            sublabel: `${metrics.totalPoints} story points`,
+            tone: 'default',
+          },
+          {
+            id: 'shipped',
+            label: 'Tasks Shipped',
+            value: metrics.completed,
+            sublabel: `${metrics.velocityPct}% pts delivered`,
+            tone: 'success',
+          },
+          {
+            id: 'completion',
+            label: 'Completion Rate',
+            value: `${metrics.completionPct}%`,
+            sublabel: `${metrics.inProgress} in progress`,
+            visual: (
+              <RadialProgressRing
+                value={metrics.completionPct}
+                size={36}
+                strokeWidth={4}
+                tone="lime"
+                showLabel={false}
+              />
+            ),
+          },
+          {
+            id: 'cycle',
+            label: 'Avg Cycle Time',
+            value: `${metrics.avgCycleHours}h`,
+            sublabel: `${metrics.totalLoggedHours}h focus logged`,
+            tone: 'lime',
+          },
+        ]}
+      />
 
-      {/* Customize Report Widgets Drawer */}
+      {/* Customize Report Widgets Bar */}
       {isCustomizingReport && (
-        <div
-          className={`p-4 rounded-2xl border animate-fadeIn flex flex-wrap items-center justify-between gap-3 ${
-            darkMode
-              ? 'bg-indigo-950/40 border-indigo-500/30 text-slate-100'
-              : 'bg-indigo-50 border-indigo-200 text-slate-800'
-          }`}
-        >
+        <HairlineCard padding="md" className="flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-500">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
               Customize Report Charts & Order
             </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Toggle chart visibility or use ← / → to reorder widgets on your report canvas:
+            <p className="text-xs text-[var(--text-secondary)]">
+              Toggle chart visibility or use ← / → to reorder widgets:
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1099,38 +1022,22 @@ export const ReportsPage: React.FC = () => {
               return (
                 <div
                   key={w.id}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold border ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
                     isVis
-                      ? 'bg-accent text-white border-accent'
-                      : darkMode
-                      ? 'bg-slate-900 border-slate-700 text-slate-400'
-                      : 'bg-white border-slate-200 text-slate-500'
+                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                      : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
                   }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleReportWidget(w.id)}
-                    className="cursor-pointer"
-                  >
+                  <button type="button" onClick={() => toggleReportWidget(w.id)} className="cursor-pointer">
                     {isVis ? '✓ ' : '+ '}
                     {w.label}
                   </button>
                   {isVis && (
-                    <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-white/25">
-                      <button
-                        type="button"
-                        onClick={() => moveReportWidget(w.id, -1)}
-                        className="hover:opacity-75 px-0.5 cursor-pointer"
-                        title="Move Earlier"
-                      >
+                    <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-current/25">
+                      <button type="button" onClick={() => moveReportWidget(w.id, -1)} className="px-0.5 cursor-pointer">
                         ←
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => moveReportWidget(w.id, 1)}
-                        className="hover:opacity-75 px-0.5 cursor-pointer"
-                        title="Move Later"
-                      >
+                      <button type="button" onClick={() => moveReportWidget(w.id, 1)} className="px-0.5 cursor-pointer">
                         →
                       </button>
                     </div>
@@ -1139,25 +1046,18 @@ export const ReportsPage: React.FC = () => {
               );
             })}
           </div>
-        </div>
+        </HairlineCard>
       )}
 
-      {/* AI Insights & Predictive Forecasting */}
-      <AIInsightsEngineWidget projectIdFilter={selectedProjectId} />
-
       {/* Filter Bar */}
-      <div
-        className={`p-4 rounded-2xl border ${cardBg} shadow-xs flex flex-wrap gap-3 items-center justify-between`}
-      >
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">
-            <FilterIcon className="w-4 h-4 mr-1.5 text-accent" /> Scope Filters:
-          </div>
+      <div className="editorial-surface px-4 py-2.5 flex flex-wrap gap-3 items-center justify-between text-xs">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            Scope:
+          </span>
 
           <select
-            className={`text-xs font-semibold rounded-xl px-3 py-2 border outline-none cursor-pointer ${
-              darkMode ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-            }`}
+            className="text-xs font-medium rounded-full px-3 py-1.5 border cursor-pointer"
             value={selectedProjectId}
             onChange={e => setSelectedProjectId(e.target.value)}
           >
@@ -1170,9 +1070,7 @@ export const ReportsPage: React.FC = () => {
           </select>
 
           <select
-            className={`text-xs font-semibold rounded-xl px-3 py-2 border outline-none cursor-pointer ${
-              darkMode ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-            }`}
+            className="text-xs font-medium rounded-full px-3 py-1.5 border cursor-pointer"
             value={selectedAssigneeId}
             onChange={e => setSelectedAssigneeId(e.target.value)}
           >
@@ -1185,184 +1083,167 @@ export const ReportsPage: React.FC = () => {
             ))}
           </select>
 
-          <div className="inline-flex items-center p-0.5 rounded-xl border bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-            {[
+          <SegmentedTabs
+            size="sm"
+            value={dateRange}
+            onChange={setDateRange}
+            options={[
               { id: '7days', label: '7D' },
               { id: '30days', label: '30D' },
               { id: '90days', label: '90D' },
               { id: 'all', label: 'All Time' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setDateRange(tab.id as any)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  dateRange === tab.id
-                    ? 'bg-accent text-white shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            ]}
+          />
         </div>
 
-        <span className="text-xs text-slate-400">
-          Tip: Click any chart bar or slice to drill down into matching tasks.
+        <span className="text-[11px] text-[var(--text-muted)]">
+          Click any chart segment to inspect matching tasks
         </span>
       </div>
 
-      {/* Interactive Chart Drill-Down Drawer */}
-      {drillDownFilter && (
-        <div
-          className={`p-5 rounded-[28px] border-2 border-accent/50 shadow-xl animate-fadeIn ${
-            darkMode ? 'bg-slate-900/95 text-slate-100' : 'bg-white text-slate-900'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-accent/15 text-accent border border-accent/30">
-                Drill-Down Inspector
-              </span>
-              <h3 className="text-sm sm:text-base font-bold">{drillDownFilter.title}</h3>
-              <span className="font-mono text-xs text-slate-400">
-                ({drillDownTasks.length} matching tasks)
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setDrillDownFilter(null)}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-200/70 dark:bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 transition-colors cursor-pointer"
-            >
-              Close ✕
-            </button>
-          </div>
-
-          {drillDownTasks.length === 0 ? (
-            <p className="text-xs text-slate-400 py-4 text-center">
-              No tasks match this chart segment in the current filter scope.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
-              {drillDownTasks.map(t => {
-                const assignee = users.find(u => u.id === (t.assignee_id || t.assigneeId));
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => openViewTaskModal(t.id)}
-                    className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between gap-2 cursor-pointer ${
-                      darkMode
-                        ? 'bg-slate-800/70 hover:bg-slate-800 border-slate-700/80'
-                        : 'bg-slate-50 hover:bg-slate-100 border-slate-200/80'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold truncate">{t.title}</p>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                        {t.status.replace(/_/g, ' ')} • {t.priority} • {assignee?.full_name || 'Unassigned'}
-                      </p>
-                    </div>
-                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-accent/15 text-accent shrink-0">
-                      {t.story_points || 1} pts
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+      {reportTab === 'team_milestones' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <TeamWorkloadWidget />
+          <KeyMilestonesWidget />
         </div>
-      )}
-
-      {/* Main Customizable Report Charts Grid */}
-      {isLoadingTasks && tasks.length === 0 ? (
+      ) : isLoadingTasks && tasks.length === 0 ? (
         <div className="flex items-center justify-center p-12">
-          <ICON_MAP.SpinnerIcon className="w-8 h-8 animate-spin text-primary" />
+          <ICON_MAP.SpinnerIcon className="w-7 h-7 animate-spin text-[var(--text-muted)]" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {visibleWidgets.map(wId => renderWidgetById(wId))}
+        <div className="space-y-5">
+          {/* Signature Editorial Top Row: 15-Week Heatmap + Semi-Circle Health Arc */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="lg:col-span-8">
+              <HatchedActivityHeatmap
+                cells={heatmapCells}
+                title="Delivery Cadence (15 Weeks)"
+                onCellClick={cell =>
+                  setDrillDownFilter({
+                    title: `Activity on ${cell.label}`,
+                    predicate: t => {
+                      const d = t.updated_at || t.created_at;
+                      return Boolean(d && format(new Date(d), 'yyyy-MM-dd') === cell.dateKey);
+                    },
+                  })
+                }
+              />
+            </div>
+            <div className="lg:col-span-4">
+              <RadialHealthTickArc
+                percentage={healthMetrics.percentage}
+                statusLabel={healthMetrics.statusLabel}
+                segments={healthMetrics.segments}
+                onSegmentClick={segId => {
+                  const now = Date.now();
+                  setDrillDownFilter({
+                    title:
+                      segId === 'delayed'
+                        ? 'Overdue Tasks'
+                        : segId === 'at_risk'
+                        ? 'At Risk (Critical) Tasks'
+                        : 'On-Track Tasks',
+                    predicate: t => {
+                      const due = t.due_date || t.dueDate;
+                      const isOverdue = Boolean(due && t.status !== TaskStatus.DONE && new Date(due).getTime() < now);
+                      if (segId === 'delayed') return isOverdue;
+                      if (segId === 'at_risk') return !isOverdue && t.status !== TaskStatus.DONE && t.priority === TaskPriority.CRITICAL;
+                      return !isOverdue && (t.status === TaskStatus.DONE || t.priority !== TaskPriority.CRITICAL);
+                    },
+                  });
+                }}
+              />
+            </div>
+          </div>
 
-          {/* Team Workload & Key Project Milestones Widgets */}
-          <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
-            <TeamWorkloadWidget />
-            <KeyMilestonesWidget />
+          {/* Customizable Recharts Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {visibleWidgets.map(wId => renderWidgetById(wId))}
           </div>
         </div>
       )}
 
-      {/* AI Executive Summary Modal */}
-      {showSummaryModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn p-4">
-          <div
-            className={`p-6 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border ${
-              darkMode
-                ? 'bg-slate-800 border-slate-700 text-white'
-                : 'bg-white border-slate-200 text-slate-900'
-            }`}
-          >
-            <div className="flex justify-between items-center mb-4 border-b pb-3 border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2">
-                <ICON_MAP.SparklesIcon className="w-5 h-5 text-purple-500" />
-                <h3 className="text-lg font-bold">AI Executive Project Summary</h3>
-              </div>
-              <button
-                onClick={() => setShowSummaryModal(false)}
-                className="text-sm opacity-60 hover:opacity-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4 my-2 scrollbar-thin">
-              {isGeneratingSummary || !executiveSummaryText ? (
-                <div className="py-16 text-center space-y-3">
-                  <ICON_MAP.SpinnerIcon className="w-10 h-10 mx-auto text-purple-500 animate-spin" />
-                  <h4 className="font-semibold text-base">Synthesizing Executive Insights...</h4>
-                  <p className="text-xs opacity-60 max-w-md mx-auto">
-                    Analyzing project metrics, velocity, risk factors, and completed highlights across tasks.
-                  </p>
-                </div>
-              ) : (
-                <div
-                  className={`p-5 rounded-xl text-sm leading-relaxed whitespace-pre-wrap font-sans border ${
-                    darkMode
-                      ? 'bg-slate-900/60 border-slate-700 text-slate-200'
-                      : 'bg-slate-50 border-slate-200 text-slate-800'
-                  }`}
+      {/* Drill-Down SlideOverDrawer */}
+      <SlideOverDrawer
+        isOpen={Boolean(drillDownFilter)}
+        onClose={() => setDrillDownFilter(null)}
+        title={drillDownFilter?.title || 'Task Drill-Down'}
+        subtitle={`${drillDownTasks.length} matching tasks in current scope`}
+      >
+        {drillDownTasks.length === 0 ? (
+          <p className="text-xs text-[var(--text-muted)] py-10 text-center">
+            No tasks match this segment in the current filter scope.
+          </p>
+        ) : (
+          <div className="divide-y divide-[var(--border-hairline)]">
+            {drillDownTasks.map(t => {
+              const assignee = users.find(u => u.id === (t.assignee_id || t.assigneeId));
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => openViewTaskModal(t.id)}
+                  className="w-full py-3 text-left flex items-center justify-between gap-3 hover:bg-[var(--bg-surface-subtle)] px-2 rounded-xl transition-colors cursor-pointer"
                 >
-                  {executiveSummaryText}
-                </div>
-              )}
-            </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{t.title}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">
+                      {t.status.replace(/_/g, ' ')} · {t.priority} · {assignee?.full_name || 'Unassigned'}
+                    </p>
+                  </div>
+                  <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] shrink-0 tabular-nums">
+                    {t.story_points || 1}p
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </SlideOverDrawer>
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-700">
+      {/* AI Executive Brief SlideOverDrawer */}
+      <SlideOverDrawer
+        isOpen={showSummaryDrawer}
+        onClose={() => setShowSummaryDrawer(false)}
+        title="Executive Project Brief"
+        subtitle={
+          selectedProjectId === 'all'
+            ? 'Organization-wide delivery synthesis'
+            : projects.find(p => p.id === selectedProjectId)?.name
+        }
+        widthClass="max-w-2xl"
+        footer={
+          <div className="flex items-center justify-between gap-2">
+            <Button variant="outline" size="sm" onClick={handleGenerateAISummary} disabled={isGeneratingSummary}>
+              Regenerate
+            </Button>
+            <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant="primary"
                 size="sm"
-                onClick={handleGenerateAISummary}
-                disabled={isGeneratingSummary}
+                onClick={handleCopySummary}
+                disabled={!executiveSummaryText || isGeneratingSummary}
               >
-                Regenerate Report
+                {copiedSummary ? 'Copied!' : 'Copy Brief'}
               </Button>
-              <div className="flex gap-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleCopySummary}
-                  disabled={!executiveSummaryText || isGeneratingSummary}
-                >
-                  {copiedSummary ? 'Copied to Clipboard!' : 'Copy Summary'}
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => setShowSummaryModal(false)}>
-                  Close
-                </Button>
-              </div>
             </div>
           </div>
-        </div>
-      )}
+        }
+      >
+        {isGeneratingSummary || !executiveSummaryText ? (
+          <div className="py-16 text-center space-y-3">
+            <ICON_MAP.SpinnerIcon className="w-8 h-8 mx-auto text-[var(--text-primary)] animate-spin" />
+            <h4 className="font-semibold text-sm text-[var(--text-primary)]">Synthesizing Executive Insights...</h4>
+            <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
+              Analyzing delivery velocity, cycle times, risk factors, and completed milestones.
+            </p>
+          </div>
+        ) : (
+          <div className="editorial-surface-subtle p-4 text-xs sm:text-[13px] leading-relaxed whitespace-pre-wrap text-[var(--text-primary)]">
+            {executiveSummaryText}
+          </div>
+        )}
+      </SlideOverDrawer>
     </div>
   );
 };

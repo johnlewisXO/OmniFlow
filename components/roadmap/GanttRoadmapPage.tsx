@@ -3,6 +3,8 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { Task, TaskPriority, TaskStatus } from '../../types';
 import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
+import { PageHeader, SegmentedTabs, StatusDot } from '../shared/EditorialUI';
+import { Button } from '../shared/Button';
 
 type ZoomScale = 'day' | 'week' | 'month';
 type GroupByMode = 'project' | 'sprint' | 'status' | 'priority';
@@ -31,7 +33,6 @@ export const GanttRoadmapPage: React.FC = () => {
     createTask,
     openViewTaskModal,
     addToast,
-    setActiveView,
   } = useAppStore();
 
   const [zoomScale, setZoomScale] = useState<ZoomScale>('day');
@@ -41,10 +42,8 @@ export const GanttRoadmapPage: React.FC = () => {
   const [showDependencyArrows, setShowDependencyArrows] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Dependency linking mode
   const [linkingFromTaskId, setLinkingFromTaskId] = useState<string | null>(null);
 
-  // Local date/dependency overrides persisted in localStorage so Gantt drags & dependency links are instant and durable
   const [timelineOverrides, setTimelineOverrides] = useState<
     Record<string, { startDate?: string; dueDate?: string; isMilestone?: boolean; blockedBy?: string[] }>
   >(() => {
@@ -62,12 +61,10 @@ export const GanttRoadmapPage: React.FC = () => {
     } catch {}
   }, [timelineOverrides]);
 
-  // Quick Milestone / Roadmap Item Modal
   const [quickTitle, setQuickTitle] = useState('');
   const [quickIsMilestone, setQuickIsMilestone] = useState(false);
-  const [quickDurationDays, setQuickDurationDays] = useState(5);
+  const [quickDurationDays] = useState(5);
 
-  // Dragging bar state
   const [dragState, setDragState] = useState<{
     taskId: string;
     mode: 'move' | 'resize-right' | 'resize-left';
@@ -80,14 +77,12 @@ export const GanttRoadmapPage: React.FC = () => {
 
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
-  // Column width per day based on zoomScale
   const dayPixelWidth = useMemo(() => {
     if (zoomScale === 'day') return 44;
     if (zoomScale === 'week') return 22;
     return 10;
   }, [zoomScale]);
 
-  // Base timeline anchor: 10 days before today, spanning 60 days
   const totalTimelineDays = zoomScale === 'month' ? 120 : 60;
   const timelineOriginDate = useMemo(() => {
     const now = new Date();
@@ -97,7 +92,6 @@ export const GanttRoadmapPage: React.FC = () => {
 
   const todayOffsetDays = 10;
 
-  // Deterministic default schedule for tasks missing startDate/dueDate
   const computedTasks = useMemo<ComputedTimelineTask[]>(() => {
     const filtered = tasks.filter(t => {
       if (selectedProjectId !== 'all' && t.projectId !== selectedProjectId) return false;
@@ -110,7 +104,6 @@ export const GanttRoadmapPage: React.FC = () => {
       return true;
     });
 
-    // Build dependency map first
     const rawList = filtered.map((t, idx) => {
       const ov = timelineOverrides[t.id] || {};
       const dueStr = ov.dueDate || t.dueDate || t.due_date;
@@ -137,7 +130,6 @@ export const GanttRoadmapPage: React.FC = () => {
       const isMilestone = ov.isMilestone ?? t.isMilestone ?? false;
       if (isMilestone) duration = 1;
 
-      // Default realistic dependency links if none set yet for first few tasks
       let blockedByIds = ov.blockedBy ?? t.blockedBy ?? [];
       if (blockedByIds.length === 0 && idx > 0 && idx % 3 === 0 && filtered[idx - 1]) {
         blockedByIds = [filtered[idx - 1].id];
@@ -155,23 +147,23 @@ export const GanttRoadmapPage: React.FC = () => {
       };
     });
 
-    // Mark tasks involved in dependencies or high/urgent priority as critical path
     const dependedOnIds = new Set<string>();
     rawList.forEach(item => {
       item.blockedByIds.forEach(id => dependedOnIds.add(id));
     });
 
-    return rawList.map(item => {
-      const isCrit =
-        item.blockedByIds.length > 0 ||
-        dependedOnIds.has(item.task.id) ||
-        item.task.priority === TaskPriority.CRITICAL ||
-        item.task.priority === TaskPriority.HIGH;
-      return { ...item, isCriticalPath: isCrit };
-    }).filter(item => (!showCriticalPathOnly ? true : item.isCriticalPath));
+    return rawList
+      .map(item => {
+        const isCrit =
+          item.blockedByIds.length > 0 ||
+          dependedOnIds.has(item.task.id) ||
+          item.task.priority === TaskPriority.CRITICAL ||
+          item.task.priority === TaskPriority.HIGH;
+        return { ...item, isCriticalPath: isCrit };
+      })
+      .filter(item => (!showCriticalPathOnly ? true : item.isCriticalPath));
   }, [tasks, selectedProjectId, searchQuery, timelineOverrides, timelineOriginDate, totalTimelineDays, showCriticalPathOnly]);
 
-  // Group tasks for swimlanes
   const groupedSwimlanes = useMemo(() => {
     const groups: { id: string; label: string; badge?: string; items: ComputedTimelineTask[] }[] = [];
     if (groupBy === 'project') {
@@ -186,7 +178,7 @@ export const GanttRoadmapPage: React.FC = () => {
         groups.push({
           id: pid,
           label: proj?.name || 'General Workspace',
-          badge: `${items.length} items`,
+          badge: `${items.length}`,
           items,
         });
       });
@@ -201,8 +193,8 @@ export const GanttRoadmapPage: React.FC = () => {
         const sp = sprints.find(s => s.id === sid);
         groups.push({
           id: sid,
-          label: sp ? `${sp.name} (${sp.status})` : 'Backlog / Unscheduled',
-          badge: `${items.length} items`,
+          label: sp ? `${sp.name} · ${sp.status}` : 'Backlog / Unscheduled',
+          badge: `${items.length}`,
           items,
         });
       });
@@ -224,7 +216,6 @@ export const GanttRoadmapPage: React.FC = () => {
     return groups;
   }, [computedTasks, groupBy, projects, sprints]);
 
-  // Flat ordered row index map for SVG dependency lines
   const rowGeometryMap = useMemo(() => {
     const map = new Map<
       string,
@@ -232,7 +223,7 @@ export const GanttRoadmapPage: React.FC = () => {
     >();
     let currentRow = 0;
     groupedSwimlanes.forEach(group => {
-      currentRow += 1; // Swimlane header row
+      currentRow += 1;
       group.items.forEach(item => {
         const activeStart =
           dragState?.taskId === item.task.id ? dragState.currentStartOffset : item.startOffsetDays;
@@ -250,7 +241,6 @@ export const GanttRoadmapPage: React.FC = () => {
     return { map, totalRows: currentRow };
   }, [groupedSwimlanes, dragState]);
 
-  // Mouse move / up handlers for bar dragging & resizing
   useEffect(() => {
     if (!dragState) return;
 
@@ -410,135 +400,113 @@ export const GanttRoadmapPage: React.FC = () => {
   const ROW_HEIGHT = 44;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.75rem)] bg-slate-50 dark:bg-[#0B0F17] text-slate-900 dark:text-slate-100 overflow-hidden select-none">
-      {/* Compact Top Control Bar */}
-      <div className="h-12 px-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm shrink-0">
-            <ICON_MAP.CalendarIcon className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white truncate">
-                Gantt Timeline & Dependency Roadmap
-              </h1>
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                Critical Path Engine
-              </span>
+    <div className="flex flex-col h-[calc(100vh-5.5rem)] text-[var(--text-primary)] overflow-hidden select-none p-4 sm:p-5 space-y-4">
+      <PageHeader
+        eyebrow="Delivery Roadmap · Critical Path Engine"
+        title="Gantt Timeline & Dependencies"
+        subtitle={`${computedTasks.length} scheduled deliverables across ${groupedSwimlanes.length} swimlanes · Drag bars to reschedule or link dependencies`}
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex items-center">
+              <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Filter roadmap..."
+                className="search-input !pl-9 !pr-3 !py-1.5 text-xs w-44"
+              />
             </div>
-          </div>
-        </div>
 
-        {/* Center Filters & Zoom Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex items-center">
-            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Filter roadmap..."
-              className="search-input !pl-10 !pr-4 !py-1 text-xs rounded-[20px] bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-48"
+            <select
+              value={selectedProjectId}
+              onChange={e => setSelectedProjectId(e.target.value)}
+              className="px-2.5 py-1.5 text-xs font-medium"
+            >
+              <option value="all">All Projects ({projects.length})</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={groupBy}
+              onChange={e => setGroupBy(e.target.value as GroupByMode)}
+              className="px-2.5 py-1.5 text-xs font-medium"
+            >
+              <option value="project">Group: Project</option>
+              <option value="sprint">Group: Sprint</option>
+              <option value="status">Group: Status</option>
+              <option value="priority">Group: Priority</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={() => setShowCriticalPathOnly(v => !v)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                showCriticalPathOnly
+                  ? 'bg-rose-600/10 text-rose-700 dark:text-rose-300 border-rose-500/40'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-hairline)] hover:bg-[var(--bg-sage)]'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full bg-rose-600 ${showCriticalPathOnly ? 'animate-pulse' : ''}`} />
+              <span>Critical Path</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowDependencyArrows(v => !v)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                showDependencyArrows
+                  ? 'bg-[var(--bg-sage)] text-[var(--text-primary)] border-[var(--border-strong)]'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-hairline)]'
+              }`}
+            >
+              Dependencies
+            </button>
+
+            <SegmentedTabs
+              size="sm"
+              value={zoomScale}
+              onChange={setZoomScale}
+              options={[
+                { id: 'day', label: 'Day' },
+                { id: 'week', label: 'Week' },
+                { id: 'month', label: 'Month' },
+              ]}
             />
+
+            <Button variant="primary" size="sm" onClick={scrollToToday}>
+              Today
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Main Split Editorial Gantt Surface */}
+      <div className="flex-1 min-h-0 editorial-surface flex overflow-hidden relative">
+        {/* Left Sticky Hierarchy Column */}
+        <div className="w-80 md:w-96 border-r border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col shrink-0 z-20">
+          <div className="h-12 px-4 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <span>Deliverable Hierarchy</span>
+            <span>Duration · Links</span>
           </div>
 
-          <select
-            value={selectedProjectId}
-            onChange={e => setSelectedProjectId(e.target.value)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-          >
-            <option value="all">All Projects ({projects.length})</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={groupBy}
-            onChange={e => setGroupBy(e.target.value as GroupByMode)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-          >
-            <option value="project">Swimlane: Project</option>
-            <option value="sprint">Swimlane: Sprint</option>
-            <option value="status">Swimlane: Status</option>
-            <option value="priority">Swimlane: Priority</option>
-          </select>
-
-          <button
-            onClick={() => setShowCriticalPathOnly(v => !v)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-              showCriticalPathOnly
-                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/40 shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${showCriticalPathOnly ? 'bg-rose-500 animate-ping' : 'bg-rose-500'}`} />
-            Critical Path
-          </button>
-
-          <button
-            onClick={() => setShowDependencyArrows(v => !v)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
-              showDependencyArrows
-                ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            Dependencies
-          </button>
-
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-            {(['day', 'week', 'month'] as ZoomScale[]).map(scale => (
-              <button
-                key={scale}
-                onClick={() => setZoomScale(scale)}
-                className={`px-2.5 py-0.5 text-[11px] font-semibold uppercase rounded-md transition-all ${
-                  zoomScale === scale
-                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                {scale}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={scrollToToday}
-            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition"
-          >
-            Today
-          </button>
-        </div>
-      </div>
-
-      {/* Main Split Gantt Canvas (Left Hierarchy + Right Interactive Timeline) */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sticky Task & Swimlane Hierarchy Column */}
-        <div className="w-80 md:w-96 border-r border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/95 flex flex-col shrink-0 z-20">
-          {/* Header Row matching Timeline Header height */}
-          <div className="h-12 px-3 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            <span>Task / Milestone Hierarchy</span>
-            <span>Duration & Links</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-hairline)] scrollbar-thin">
             {groupedSwimlanes.map(group => (
               <React.Fragment key={group.id}>
-                {/* Swimlane Header */}
                 <div
                   style={{ height: ROW_HEIGHT }}
-                  className="px-3 bg-slate-100/80 dark:bg-slate-800/60 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200"
+                  className="px-4 bg-[var(--bg-sage)]/55 flex items-center justify-between text-xs font-bold text-[var(--text-primary)]"
                 >
                   <span className="truncate">{group.label}</span>
-                  <span className="px-2 py-0.5 text-[10px] rounded-full bg-white dark:bg-slate-900 text-slate-500 border border-slate-200/70 dark:border-slate-700">
+                  <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
                     {group.badge}
                   </span>
                 </div>
 
-                {/* Swimlane Task Rows */}
                 {group.items.map(item => {
                   const assignee = users.find(u => u.id === item.task.assignee_id);
                   const isSourceForLink = linkingFromTaskId === item.task.id;
@@ -546,54 +514,52 @@ export const GanttRoadmapPage: React.FC = () => {
                     <div
                       key={item.task.id}
                       style={{ height: ROW_HEIGHT }}
-                      className={`px-3 flex items-center justify-between gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${
-                        isSourceForLink ? 'bg-indigo-50/80 dark:bg-indigo-950/40' : ''
+                      className={`px-4 flex items-center justify-between gap-2 hover:bg-[var(--bg-surface-subtle)] transition-colors ${
+                        isSourceForLink ? 'bg-[var(--accent-lime)]/20' : ''
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <button
+                          type="button"
                           onClick={() => handleToggleMilestone(item.task.id, item.isMilestone)}
                           title={item.isMilestone ? 'Milestone Diamond (Click to toggle)' : 'Task Bar (Click to make Milestone)'}
-                          className={`w-4 h-4 flex items-center justify-center rounded transition ${
+                          className={`w-4 h-4 flex items-center justify-center rounded transition cursor-pointer ${
                             item.isMilestone
-                              ? 'text-amber-500 scale-110'
-                              : 'text-slate-300 hover:text-amber-500 dark:text-slate-600'
+                              ? 'text-[#6F8254] dark:text-[var(--accent-lime)] scale-110'
+                              : 'text-[var(--text-disabled)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           ◆
                         </button>
                         <button
+                          type="button"
                           onClick={() => openViewTaskModal(item.task)}
-                          className="text-xs font-medium text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 truncate text-left"
+                          className="text-xs font-medium text-[var(--text-primary)] hover:underline truncate text-left cursor-pointer"
                         >
                           {item.task.title}
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         {item.isCriticalPath && (
-                          <span
-                            title="On Critical Path"
-                            className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                          >
-                            Crit
-                          </span>
+                          <StatusDot tone="danger" label="Crit" className="text-[10px] font-semibold" />
                         )}
-                        <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                        <span className="text-[11px] font-mono text-[var(--text-muted)] tabular-nums">
                           {item.isMilestone ? 'Milestone' : `${item.durationDays}d`}
                         </span>
                         <button
+                          type="button"
                           onClick={() => handleLinkDependency(item.task.id)}
                           title="Link Dependency (Blocks / Blocked By)"
-                          className={`p-1 rounded text-[10px] font-bold transition ${
+                          className={`p-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                             isSourceForLink
-                              ? 'bg-indigo-600 text-white'
-                              : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                              ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
                           }`}
                         >
                           ⛓
                         </button>
-                        {assignee && <Avatar user={assignee} className="w-5 h-5" />}
+                        {assignee && <Avatar user={assignee} size="xs" disableHoverCard />}
                       </div>
                     </div>
                   );
@@ -605,38 +571,35 @@ export const GanttRoadmapPage: React.FC = () => {
           {/* Quick Add Milestone / Scheduled Task Footer */}
           <form
             onSubmit={handleQuickCreateRoadmapItem}
-            className="p-2.5 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900 flex items-center gap-1.5"
+            className="p-2.5 border-t border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center gap-1.5"
           >
             <input
               type="text"
               value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}
               placeholder="+ Add task or milestone..."
-              className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="flex-1 px-3 py-1.5 text-xs"
             />
             <button
               type="button"
               onClick={() => setQuickIsMilestone(v => !v)}
               title="Toggle Milestone Diamond"
-              className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
                 quickIsMilestone
-                  ? 'bg-amber-500/15 text-amber-600 border-amber-500/40'
-                  : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                  ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-hairline)]'
               }`}
             >
               ◆
             </button>
-            <button
-              type="submit"
-              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition"
-            >
+            <Button type="submit" variant="lime" size="sm">
               Add
-            </button>
+            </Button>
           </form>
         </div>
 
         {/* Right Interactive Horizontal Gantt Canvas */}
-        <div ref={timelineScrollRef} className="flex-1 overflow-auto relative bg-slate-50/60 dark:bg-[#0B0F17]">
+        <div ref={timelineScrollRef} className="flex-1 overflow-auto relative bg-[var(--bg-canvas)]/55 scrollbar-thin">
           <div
             style={{
               width: totalTimelineDays * dayPixelWidth,
@@ -645,7 +608,7 @@ export const GanttRoadmapPage: React.FC = () => {
             className="relative"
           >
             {/* Sticky Date Scale Header */}
-            <div className="sticky top-0 z-10 h-12 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex">
+            <div className="sticky top-0 z-10 h-12 bg-[var(--bg-surface)] border-b border-[var(--border-hairline)] flex">
               {timelineDaysArray.map(day => {
                 const showLabel =
                   zoomScale === 'day' ||
@@ -655,12 +618,12 @@ export const GanttRoadmapPage: React.FC = () => {
                   <div
                     key={day.index}
                     style={{ width: dayPixelWidth }}
-                    className={`h-full border-r border-slate-200/50 dark:border-slate-800/60 flex flex-col items-center justify-center shrink-0 ${
+                    className={`h-full border-r border-[var(--border-hairline)] flex flex-col items-center justify-center shrink-0 ${
                       day.isToday
-                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold'
+                        ? 'bg-[var(--accent-lime)]/35 text-[var(--text-primary)] font-bold'
                         : day.isWeekend
-                        ? 'bg-slate-100/60 dark:bg-slate-800/30 text-slate-400'
-                        : 'text-slate-500 dark:text-slate-400'
+                        ? 'bg-[var(--bg-surface-subtle)] text-[var(--text-muted)]'
+                        : 'text-[var(--text-secondary)]'
                     }`}
                   >
                     {showLabel && (
@@ -678,25 +641,25 @@ export const GanttRoadmapPage: React.FC = () => {
               })}
             </div>
 
-            {/* Vertical Grid Columns & Red "TODAY" Marker Line */}
+            {/* Vertical Grid Columns */}
             <div className="absolute inset-0 top-12 pointer-events-none flex">
               {timelineDaysArray.map(day => (
                 <div
                   key={day.index}
                   style={{ width: dayPixelWidth }}
-                  className={`h-full border-r border-slate-200/40 dark:border-slate-800/40 shrink-0 ${
-                    day.isWeekend ? 'bg-slate-200/20 dark:bg-slate-900/30' : ''
+                  className={`h-full border-r border-[var(--border-hairline)]/60 shrink-0 ${
+                    day.isWeekend ? 'bg-[var(--bg-sage)]/25' : ''
                   }`}
                 />
               ))}
             </div>
 
-            {/* Live Today Vertical Line */}
+            {/* Live Today Vertical Marker */}
             <div
               style={{ left: todayOffsetDays * dayPixelWidth + dayPixelWidth / 2 }}
-              className="absolute top-12 bottom-0 w-0.5 bg-rose-500 z-10 pointer-events-none shadow-[0_0_8px_rgba(244,63,94,0.6)]"
+              className="absolute top-12 bottom-0 w-0.5 bg-[var(--text-primary)] z-10 pointer-events-none"
             >
-              <div className="px-1.5 py-0.5 rounded bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider -translate-x-1/2 whitespace-nowrap shadow-xs">
+              <div className="px-2 py-0.5 rounded-md bg-[var(--accent-lime)] text-[var(--accent-ink)] text-[9px] font-bold uppercase tracking-wider -translate-x-1/2 whitespace-nowrap border border-[var(--border-strong)]">
                 Today
               </div>
             </div>
@@ -717,7 +680,7 @@ export const GanttRoadmapPage: React.FC = () => {
                     refY="4"
                     orient="auto"
                   >
-                    <path d="M0,1 L7,4 L0,7 Z" fill="#6366f1" />
+                    <path d="M0,1 L7,4 L0,7 Z" fill="#6F8254" />
                   </marker>
                   <marker
                     id="gantt-arrow-critical"
@@ -727,7 +690,7 @@ export const GanttRoadmapPage: React.FC = () => {
                     refY="4"
                     orient="auto"
                   >
-                    <path d="M0,1 L7,4 L0,7 Z" fill="#f43f5e" />
+                    <path d="M0,1 L7,4 L0,7 Z" fill="#BE123C" />
                   </marker>
                 </defs>
                 {computedTasks.map(targetItem => {
@@ -751,8 +714,8 @@ export const GanttRoadmapPage: React.FC = () => {
                         key={`${sourceId}->${targetItem.task.id}`}
                         d={d}
                         fill="none"
-                        stroke={isCrit ? '#f43f5e' : '#6366f1'}
-                        strokeWidth={isCrit ? 2.2 : 1.6}
+                        stroke={isCrit ? '#BE123C' : '#6F8254'}
+                        strokeWidth={isCrit ? 2 : 1.5}
                         strokeDasharray={isCrit ? undefined : '4 3'}
                         markerEnd={isCrit ? 'url(#gantt-arrow-critical)' : 'url(#gantt-arrow-normal)'}
                         opacity={0.85}
@@ -767,13 +730,11 @@ export const GanttRoadmapPage: React.FC = () => {
             <div className="relative z-10">
               {groupedSwimlanes.map(group => (
                 <React.Fragment key={group.id}>
-                  {/* Swimlane Spacer Row */}
                   <div
                     style={{ height: ROW_HEIGHT }}
-                    className="border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-100/40 dark:bg-slate-800/20"
+                    className="border-b border-[var(--border-hairline)] bg-[var(--bg-sage)]/35"
                   />
 
-                  {/* Task Bar Rows */}
                   {group.items.map(item => {
                     const isDraggingThis = dragState?.taskId === item.task.id;
                     const startOffset = isDraggingThis
@@ -784,23 +745,22 @@ export const GanttRoadmapPage: React.FC = () => {
                     const leftPx = startOffset * dayPixelWidth;
                     const widthPx = Math.max(dayPixelWidth, duration * dayPixelWidth);
 
-                    const barColor =
+                    const barClasses =
                       item.task.status === TaskStatus.DONE
-                        ? 'from-emerald-500 to-teal-600 border-emerald-400/50'
+                        ? 'bg-[#1D7A46] text-white border-[#155E35]'
                         : item.isCriticalPath
-                        ? 'from-rose-500 to-amber-500 border-rose-400/60 shadow-[0_0_14px_rgba(244,63,94,0.28)]'
+                        ? 'bg-[#BE123C] text-white border-[#9F1239]'
                         : item.task.status === TaskStatus.IN_PROGRESS
-                        ? 'from-indigo-500 to-violet-600 border-indigo-400/50'
-                        : 'from-slate-600 to-slate-700 border-slate-500/40';
+                        ? 'bg-[#6F8254] text-white border-[#5A6B43]'
+                        : 'bg-[#191B17] dark:bg-[#3A4032] text-white border-transparent';
 
                     return (
                       <div
                         key={item.task.id}
                         style={{ height: ROW_HEIGHT }}
-                        className="relative border-b border-slate-200/40 dark:border-slate-800/40 flex items-center"
+                        className="relative border-b border-[var(--border-hairline)]/70 flex items-center"
                       >
                         {item.isMilestone ? (
-                          /* Milestone Diamond Node */
                           <div
                             style={{ left: leftPx }}
                             onMouseDown={e => {
@@ -818,15 +778,14 @@ export const GanttRoadmapPage: React.FC = () => {
                             onDoubleClick={() => openViewTaskModal(item.task)}
                             className="absolute flex items-center gap-2 cursor-grab active:cursor-grabbing group"
                           >
-                            <div className="w-6 h-6 rotate-45 rounded-xs bg-gradient-to-br from-amber-400 to-orange-500 border-2 border-white dark:border-slate-900 shadow-md flex items-center justify-center">
-                              <span className="-rotate-45 text-[9px] font-black text-white">★</span>
+                            <div className="w-5 h-5 rotate-45 rounded-[3px] bg-[var(--accent-lime)] border border-[var(--accent-ink)] flex items-center justify-center shadow-xs">
+                              <span className="-rotate-45 text-[9px] font-black text-[var(--accent-ink)]">◆</span>
                             </div>
-                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap shadow-xs">
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-hairline)] whitespace-nowrap">
                               {item.task.title}
                             </span>
                           </div>
                         ) : (
-                          /* Interactive Resizable Gantt Bar */
                           <div
                             style={{ left: leftPx, width: widthPx }}
                             onMouseDown={e => {
@@ -842,9 +801,8 @@ export const GanttRoadmapPage: React.FC = () => {
                               });
                             }}
                             onDoubleClick={() => openViewTaskModal(item.task)}
-                            className={`absolute h-7 rounded-lg bg-gradient-to-r ${barColor} border text-white flex items-center justify-between px-2.5 cursor-grab active:cursor-grabbing group transition-shadow hover:brightness-105`}
+                            className={`absolute h-7 rounded-lg ${barClasses} border flex items-center justify-between px-2.5 cursor-grab active:cursor-grabbing group transition-opacity hover:opacity-95`}
                           >
-                            {/* Left Resize Handle */}
                             <div
                               onMouseDown={e => {
                                 e.stopPropagation();
@@ -861,14 +819,13 @@ export const GanttRoadmapPage: React.FC = () => {
                               className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/30 rounded-l-lg"
                             />
 
-                            <span className="text-[11px] font-semibold truncate drop-shadow-xs">
+                            <span className="text-[11px] font-semibold truncate">
                               {item.task.title}
                             </span>
                             <span className="text-[10px] font-mono opacity-85 ml-2 shrink-0 tabular-nums">
                               {duration}d
                             </span>
 
-                            {/* Right Resize Handle */}
                             <div
                               onMouseDown={e => {
                                 e.stopPropagation();
@@ -882,7 +839,7 @@ export const GanttRoadmapPage: React.FC = () => {
                                   currentDuration: item.durationDays,
                                 });
                               }}
-                              className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/40 rounded-r-lg"
+                              className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/35 rounded-r-lg"
                             />
                           </div>
                         )}
