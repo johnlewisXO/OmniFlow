@@ -43,7 +43,7 @@ export const KnowledgeGraphModal: React.FC = () => {
         id: projNodeId,
         label: centerProj?.name || 'Core Workspace Hub',
         kind: 'project',
-        color: '#6366f1',
+        color: '#CCF048',
         x: 380,
         y: 220,
         targetView: 'overview',
@@ -104,7 +104,7 @@ export const KnowledgeGraphModal: React.FC = () => {
         id: nid,
         label: t.title,
         kind: 'task',
-        color: '#38bdf8',
+        color: '#97B832',
         x: Math.round(380 + Math.cos(angle) * radius),
         y: Math.round(220 + Math.sin(angle) * radius),
         targetView: 'kanban',
@@ -163,32 +163,32 @@ export const KnowledgeGraphModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <div className="w-full max-w-5xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-5xl rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="px-5 py-3.5 border-b border-[var(--border-hairline)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 text-white flex items-center justify-center text-xs font-bold">
-              🕸️
+            <span className="w-7 h-7 rounded-lg bg-[#191B17] text-[#CCF048] flex items-center justify-center text-xs font-bold">
+              KG
             </span>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">
                 Bi-Directional Backlinks & Workspace Knowledge Graph
               </h2>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[var(--text-muted)]">
                 Interactive entity graph across Tasks, Spec Docs, Whiteboards, OKRs & Async Video Clips
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {['all', 'task', 'doc', 'whiteboard', 'okr', 'clip'].map(k => (
               <button
                 key={k}
                 onClick={() => setFilterKind(k)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase transition ${
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase transition cursor-pointer ${
                   filterKind === k
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                    ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]'
+                    : 'bg-[var(--bg-sage)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {k}
@@ -196,7 +196,7 @@ export const KnowledgeGraphModal: React.FC = () => {
             ))}
             <button
               onClick={() => setIsOpen(false)}
-              className="ml-2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white"
+              className="ml-2 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
             >
               ✕
             </button>
@@ -214,7 +214,7 @@ export const KnowledgeGraphModal: React.FC = () => {
               setNodes(prev => prev.map(n => (n.id === draggingId ? { ...n, x, y } : n)));
             }}
             onMouseUp={() => setDraggingId(null)}
-            className="lg:col-span-8 relative bg-slate-950 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:18px_18px] overflow-hidden"
+            className="lg:col-span-8 relative bg-[#131511] bg-[radial-gradient(#2B3026_1px,transparent_1px)] [background-size:18px_18px] overflow-hidden"
           >
             <svg className="w-full h-full">
               {edges.map(edge => {
@@ -230,7 +230,7 @@ export const KnowledgeGraphModal: React.FC = () => {
                       y1={s.y}
                       x2={t.x}
                       y2={t.y}
-                      stroke={isHighlighted ? '#818cf8' : '#334155'}
+                      stroke={isHighlighted ? '#CCF048' : '#3E4637'}
                       strokeWidth={isHighlighted ? 2.2 : 1.2}
                       strokeDasharray={isHighlighted ? undefined : '4 3'}
                     />
@@ -257,13 +257,13 @@ export const KnowledgeGraphModal: React.FC = () => {
                     <circle
                       r={node.kind === 'project' ? 16 : 12}
                       fill={node.color}
-                      stroke="#0f172a"
+                      stroke="#131511"
                       strokeWidth={2.5}
                     />
                     <text
                       y={26}
                       textAnchor="middle"
-                      fill="#e2e8f0"
+                      fill="#e5e8df"
                       fontSize="10"
                       fontWeight="bold"
                     >
@@ -276,7 +276,7 @@ export const KnowledgeGraphModal: React.FC = () => {
           </div>
 
           {/* Right Bi-Directional Backlink Inspector */}
-          <div className="lg:col-span-4 border-l border-slate-200 dark:border-slate-800 p-4 flex flex-col justify-between overflow-y-auto bg-white dark:bg-slate-900">
+          <div className="lg:col-span-4 border-l border-[var(--border-hairline)] p-4 flex flex-col justify-between overflow-y-auto bg-[var(--bg-surface)]">
             {selectedNode && (
               <div className="space-y-4">
                 <div>
@@ -286,13 +286,13 @@ export const KnowledgeGraphModal: React.FC = () => {
                   >
                     {selectedNode.kind} node
                   </span>
-                  <h3 className="mt-1.5 text-sm font-bold text-slate-900 dark:text-white">
+                  <h3 className="mt-1.5 text-sm font-bold text-[var(--text-primary)]">
                     {selectedNode.label}
                   </h3>
                 </div>
 
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
                     Bi-Directional Backlinks ({connectedBacklinks.length})
                   </div>
                   <div className="space-y-2">
@@ -300,13 +300,13 @@ export const KnowledgeGraphModal: React.FC = () => {
                       <button
                         key={edge.id}
                         onClick={() => otherNode && setSelectedNodeId(otherNode.id)}
-                        className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 text-left hover:border-indigo-500/40 transition"
+                        className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-left hover:border-[var(--border-strong)] transition cursor-pointer"
                       >
-                        <div className="flex items-center justify-between text-[10px] text-slate-400">
-                          <span className="font-mono font-bold text-indigo-500">{direction}</span>
+                        <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                          <span className="font-mono font-bold text-[#4E6126] dark:text-[#CCF048]">{direction}</span>
                           <span className="uppercase">{edge.relation}</span>
                         </div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 truncate">
+                        <div className="text-xs font-bold text-[var(--text-primary)] mt-0.5 truncate">
                           {otherNode?.label}
                         </div>
                       </button>
@@ -330,7 +330,7 @@ export const KnowledgeGraphModal: React.FC = () => {
                   setActiveView(selectedNode.targetView);
                   setIsOpen(false);
                 }}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition"
+                className="w-full py-2.5 rounded-full text-xs font-bold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs transition cursor-pointer"
               >
                 Open in Workspace →
               </button>

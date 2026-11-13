@@ -91,24 +91,24 @@ export const AmbientHuddleBar: React.FC = () => {
       {isMinimized ? (
         <button
           onClick={() => setIsMinimized(false)}
-          className="px-3.5 py-2 rounded-full bg-slate-900/95 text-white border border-emerald-500/40 shadow-2xl flex items-center gap-2.5 hover:scale-105 transition"
+          className="px-3.5 py-2 rounded-full bg-[#131511]/95 text-[#F2F3EE] border border-[#CCF048]/35 shadow-2xl flex items-center gap-2.5 hover:scale-105 transition cursor-pointer"
         >
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#CCF048] animate-ping" />
           <span className="text-xs font-bold">🎧 Live Huddle ({mins}:{secs})</span>
         </button>
       ) : (
-        <div className="w-80 rounded-2xl bg-slate-900/95 backdrop-blur-xl text-white border border-slate-700/80 shadow-2xl p-3.5 space-y-3">
+        <div className="w-80 rounded-2xl bg-[#131511]/95 backdrop-blur-xl text-[#F2F3EE] border border-[#2B3026] shadow-2xl p-3.5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#CCF048] animate-pulse" />
               <div>
                 <div className="text-xs font-bold flex items-center gap-1.5">
                   <span>Ambient Workspace Huddle</span>
-                  <span className="font-mono text-[10px] text-emerald-400 tabular-nums">
+                  <span className="font-mono text-[10px] text-[#CCF048] tabular-nums">
                     {mins}:{secs}
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400">
+                <div className="text-[10px] text-[#A6AC9C]">
                   Stay connected while navigating any module
                 </div>
               </div>
@@ -117,18 +117,18 @@ export const AmbientHuddleBar: React.FC = () => {
             <button
               onClick={() => setIsMinimized(true)}
               title="Minimize Huddle Pill"
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 text-xs"
+              className="p-1 rounded-lg text-[#A6AC9C] hover:text-white hover:bg-white/10 text-xs cursor-pointer"
             >
               —
             </button>
           </div>
 
           {/* Active Huddle Participants & Live Waveform */}
-          <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60">
+          <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-[#1D2118] border border-[#2B3026]">
             <div className="flex items-center -space-x-2">
-              {currentUser && <Avatar user={currentUser} className="w-7 h-7 ring-2 ring-emerald-500" />}
+              {currentUser && <Avatar user={currentUser} className="w-7 h-7 ring-2 ring-[#CCF048]" />}
               {huddlePeers.map(u => (
-                <Avatar key={u.id} user={u} className="w-7 h-7 ring-2 ring-slate-900" />
+                <Avatar key={u.id} user={u} className="w-7 h-7 ring-2 ring-[#131511]" />
               ))}
             </div>
 
@@ -139,13 +139,13 @@ export const AmbientHuddleBar: React.FC = () => {
                   key={i}
                   style={{ height: `${h}%` }}
                   className={`w-1 rounded-full transition-all duration-300 ${
-                    isMuted ? 'bg-slate-600' : 'bg-emerald-400'
+                    isMuted ? 'bg-[#4C5245]' : 'bg-[#CCF048]'
                   }`}
                 />
               ))}
             </div>
 
-            <span className="text-[10px] font-semibold text-emerald-300">
+            <span className="text-[10px] font-semibold text-[#CCF048]">
               {isSharingScreen ? '🖥️ Screen Live' : isMuted ? '🔇 Muted' : '🎙️ Voice Live'}
             </span>
           </div>
@@ -154,10 +154,10 @@ export const AmbientHuddleBar: React.FC = () => {
           <div className="grid grid-cols-4 gap-1.5">
             <button
               onClick={() => setIsMuted(m => !m)}
-              className={`py-1.5 rounded-xl text-[11px] font-bold transition ${
+              className={`py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${
                 isMuted
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                  : 'bg-white/10 hover:bg-white/15 text-white'
+                  : 'bg-[#24291F] hover:bg-[#2E3427] text-[#F2F3EE]'
               }`}
             >
               {isMuted ? 'Unmute' : 'Mute'}
@@ -165,10 +165,10 @@ export const AmbientHuddleBar: React.FC = () => {
 
             <button
               onClick={handleToggleScreenShare}
-              className={`py-1.5 rounded-xl text-[11px] font-bold transition ${
+              className={`py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${
                 isSharingScreen
-                  ? 'bg-indigo-500 text-white'
-                  : 'bg-white/10 hover:bg-white/15 text-white'
+                  ? 'bg-[#CCF048] text-[#131511]'
+                  : 'bg-[#24291F] hover:bg-[#2E3427] text-[#F2F3EE]'
               }`}
             >
               Screen
@@ -176,7 +176,7 @@ export const AmbientHuddleBar: React.FC = () => {
 
             <button
               onClick={() => setActiveView('whiteboard_view')}
-              className="py-1.5 rounded-xl text-[11px] font-bold bg-white/10 hover:bg-white/15 text-indigo-300 transition"
+              className="py-1.5 rounded-xl text-[11px] font-bold bg-[#24291F] hover:bg-[#2E3427] text-[#CCF048] transition cursor-pointer"
             >
               Canvas
             </button>
@@ -189,7 +189,7 @@ export const AmbientHuddleBar: React.FC = () => {
                 } catch {}
                 addToast('Left Ambient Huddle', 'Disconnected from workspace voice huddle', 'info');
               }}
-              className="py-1.5 rounded-xl text-[11px] font-bold bg-rose-600 hover:bg-rose-500 text-white transition"
+              className="py-1.5 rounded-xl text-[11px] font-bold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer"
             >
               Leave
             </button>

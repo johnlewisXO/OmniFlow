@@ -160,7 +160,11 @@ export function SegmentedTabs<T extends string = string>({
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent'
             }`}
           >
-            {opt.icon && <span className="shrink-0 opacity-80">{opt.icon}</span>}
+            {opt.icon && (
+              <span className="inline-flex items-center justify-center shrink-0 opacity-85">
+                {opt.icon}
+              </span>
+            )}
             <span>{opt.label}</span>
             {opt.count !== undefined && (
               <span className="font-mono tabular-nums text-[10px] opacity-70">

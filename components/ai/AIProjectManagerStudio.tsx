@@ -7,6 +7,8 @@ import { TaskStatus, TaskPriority } from '../../types';
 import { AIInsightsEngineWidget } from './AIInsightsEngineWidget';
 import { Avatar } from '../shared/Avatar';
 import { AIBotFace } from './AIBotFace';
+import { PageHeader, SegmentedTabs, HairlineCard } from '../shared/EditorialUI';
+import { Button } from '../shared/Button';
 
 const EXAMPLE_INITIATIVES = [
   'Launch mobile app by December with offline sync and biometric login',
@@ -286,69 +288,49 @@ export const AIProjectManagerStudio: React.FC = () => {
   };
 
   return (
-    <div className={`p-4 md:p-6 space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-      {/* Studio Hero Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 border border-indigo-900/60 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full text-[var(--text-primary)] space-y-5 animate-fadeIn">
+      {/* Studio Header */}
+      <PageHeader
+        eyebrow="AI-Native Project Co-Pilot · Autonomous Virtual PM"
+        title="AI Project Manager & Strategy Studio"
+        subtitle="Transform natural-language goals into multi-sprint roadmaps, balance team story-point capacity, extract action items from standup transcripts, and resolve delivery risks."
+        actions={
+          <div className="flex items-center gap-3">
             <AIBotFace
               mood={isGeneratingBlueprint || isMaterializing || isRebalancing || isExtractingMeeting ? 'thinking' : 'happy'}
-              size="lg"
-              className="flex-shrink-0 mt-1"
+              size="md"
+              className="flex-shrink-0"
             />
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-xs text-indigo-300 font-semibold">
-                <ICON_MAP.SparklesIcon className="w-4 h-4 text-amber-300" />
-                <span>AI-Native Project Co-Pilot · Autonomous Virtual PM</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                AI Project Manager & Strategy Studio
-              </h1>
-              <p className="text-sm text-indigo-200/80 max-w-2xl leading-relaxed">
-                Transform natural-language goals into multi-sprint roadmaps, balance team story-point capacity, extract action items from standup transcripts, and resolve delivery risks.
-              </p>
-            </div>
           </div>
+        }
+      />
 
-          {/* Segmented Studio Mode Selector */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-white/10 border border-white/15 self-start">
-            {[
-              { id: 'architect', label: '1. Blueprint Architect' },
-              { id: 'capacity', label: '2. Capacity Balancer' },
-              { id: 'meetings', label: '3. Meeting Intelligence' },
-              { id: 'insights', label: '4. Risk & Insights' },
-              { id: 'edge', label: '5. Edge Compute' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveStudioTab(tab.id as any)}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                  activeStudioTab === tab.id
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-indigo-100 hover:bg-white/10'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Segmented Studio Mode Selector */}
+      <div className="flex items-center">
+        <SegmentedTabs
+          value={activeStudioTab}
+          onChange={setActiveStudioTab}
+          size="sm"
+          options={[
+            { id: 'architect', label: '1. Blueprint Architect', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
+            { id: 'capacity', label: '2. Capacity Balancer', icon: <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" /> },
+            { id: 'meetings', label: '3. Meeting Intelligence', icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> },
+            { id: 'insights', label: '4. Risk & Insights', icon: <ICON_MAP.ChartBarIcon className="w-3.5 h-3.5" /> },
+            { id: 'edge', label: '5. Edge Compute', icon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" /> },
+          ]}
+        />
       </div>
 
       {/* TAB 1: AI Initiative Blueprint Architect */}
       {activeStudioTab === 'architect' && (
         <div className="space-y-6">
-          <div
-            className={`p-6 rounded-2xl border ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90 shadow-xs'
-            }`}
-          >
+          <HairlineCard>
             <div className="max-w-3xl space-y-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">
                   Natural Language Goal → Full Project Execution Blueprint
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
                   Describe your target outcome and deadline. The AI Project Manager will architect milestones, sprints, Fibonacci-estimated tasks, acceptance checklists, and risk mitigations.
                 </p>
               </div>
@@ -360,16 +342,13 @@ export const AIProjectManagerStudio: React.FC = () => {
                     value={goalPrompt}
                     onChange={e => setGoalPrompt(e.target.value)}
                     placeholder='e.g. "Launch mobile app by December" or "Migrate auth to Passkeys in 4 weeks"'
-                    className={`flex-1 px-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      darkMode
-                        ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500'
-                        : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
-                    }`}
+                    className="flex-1 px-4 py-2.5 rounded-full border text-sm font-medium"
                   />
-                  <button
+                  <Button
                     type="submit"
+                    variant="lime"
                     disabled={isGeneratingBlueprint || !goalPrompt.trim()}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                    className="whitespace-nowrap"
                   >
                     {isGeneratingBlueprint ? (
                       <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
@@ -377,22 +356,18 @@ export const AIProjectManagerStudio: React.FC = () => {
                       <ICON_MAP.SparklesIcon className="w-4 h-4" />
                     )}
                     <span>{isGeneratingBlueprint ? 'Architecting Plan...' : 'Generate Execution Blueprint'}</span>
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Preset Prompt Starters */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="text-[11px] text-slate-400 font-medium">Examples:</span>
+                  <span className="text-[11px] text-[var(--text-muted)] font-medium">Examples:</span>
                   {EXAMPLE_INITIATIVES.map((sample, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setGoalPrompt(sample)}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
-                        darkMode
-                          ? 'bg-slate-800/70 border-slate-700 text-slate-300 hover:text-white hover:border-indigo-500/50'
-                          : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
-                      }`}
+                      className="text-[11px] px-2.5 py-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                     >
                       {sample}
                     </button>
@@ -400,37 +375,34 @@ export const AIProjectManagerStudio: React.FC = () => {
                 </div>
               </form>
             </div>
-          </div>
+          </HairlineCard>
 
           {/* Generated Blueprint Output */}
           {blueprint && (
-            <div
-              className={`p-6 rounded-2xl border space-y-6 ${
-                darkMode ? 'bg-slate-900 border-indigo-500/30' : 'bg-white border-indigo-200 shadow-sm'
-              }`}
-            >
+            <HairlineCard className="space-y-6">
               {/* Blueprint Header & Materialize CTA */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[var(--border-hairline)]">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
-                    <span>AI Execution Blueprint</span>
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] font-semibold">
+                    <span className="text-[#5C7022] dark:text-[#CCF048]">AI Execution Blueprint</span>
                     <span aria-hidden="true">·</span>
                     <span className="font-mono tabular-nums">Target: {blueprint.targetLaunchDate}</span>
                     <span aria-hidden="true">·</span>
-                    <span className="font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
+                    <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
                       {blueprint.confidenceScore}% Delivery Confidence
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">{blueprint.projectName}</h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+                  <h3 className="text-xl font-bold text-[var(--text-primary)]">{blueprint.projectName}</h3>
+                  <p className="text-xs text-[var(--text-secondary)] max-w-2xl leading-relaxed">
                     {blueprint.projectDescription}
                   </p>
                 </div>
 
-                <button
+                <Button
+                  variant="lime"
                   onClick={handleMaterializeBlueprint}
                   disabled={isMaterializing}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap self-start"
+                  className="whitespace-nowrap self-start"
                 >
                   {isMaterializing ? (
                     <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
@@ -442,30 +414,28 @@ export const AIProjectManagerStudio: React.FC = () => {
                       ? 'Deploying Project, Sprints & Tasks...'
                       : 'Deploy Entire Blueprint to Workspace'}
                   </span>
-                </button>
+                </Button>
               </div>
 
               {/* Milestones Strip */}
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3">
                   Key Milestones & Release Gates ({blueprint.milestones.length})
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {blueprint.milestones.map((ms, idx) => (
                     <div
                       key={idx}
-                      className={`p-4 rounded-xl border ${
-                        darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200/80'
-                      }`}
+                      className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]"
                     >
-                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                      <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-1">
+                        <span className="font-semibold text-[#5C7022] dark:text-[#CCF048]">
                           0{idx + 1}. Milestone
                         </span>
                         <span className="font-mono tabular-nums">{ms.targetDate}</span>
                       </div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">{ms.title}</div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{ms.deliverable}</p>
+                      <div className="text-sm font-semibold text-[var(--text-primary)]">{ms.title}</div>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">{ms.deliverable}</p>
                     </div>
                   ))}
                 </div>
@@ -473,7 +443,7 @@ export const AIProjectManagerStudio: React.FC = () => {
 
               {/* Sprints & Tasks Breakdown */}
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3">
                   Phased Agile Sprints & Fibonacci Task Breakdown ({blueprint.sprints.length} Sprints)
                 </h4>
                 <div className="space-y-4">
@@ -482,16 +452,14 @@ export const AIProjectManagerStudio: React.FC = () => {
                     return (
                       <div
                         key={sIdx}
-                        className={`p-4 rounded-xl border ${
-                          darkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50/60 border-slate-200/80'
-                        }`}
+                        className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]"
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200/70 dark:border-slate-800">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--border-hairline)]">
                           <div>
-                            <div className="text-sm font-bold text-slate-900 dark:text-white">{sp.name}</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">{sp.goal}</div>
+                            <div className="text-sm font-bold text-[var(--text-primary)]">{sp.name}</div>
+                            <div className="text-xs text-[var(--text-secondary)]">{sp.goal}</div>
                           </div>
-                          <div className="text-xs font-mono tabular-nums text-indigo-600 dark:text-indigo-400 font-semibold">
+                          <div className="text-xs font-mono tabular-nums text-[#5C7022] dark:text-[#CCF048] font-semibold">
                             {sp.durationDays} days · {sp.tasks.length} tasks · {sprintPts} story pts
                           </div>
                         </div>
@@ -500,26 +468,24 @@ export const AIProjectManagerStudio: React.FC = () => {
                           {sp.tasks.map((t, tIdx) => (
                             <div
                               key={tIdx}
-                              className={`p-3 rounded-lg border flex flex-col justify-between gap-2 ${
-                                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/80'
-                              }`}
+                              className="p-3 rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col justify-between gap-2"
                             >
                               <div>
-                                <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">{t.priority}</span>
-                                  <span className="font-mono tabular-nums font-bold text-indigo-600 dark:text-indigo-400">
+                                <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--text-muted)] mb-1">
+                                  <span className="font-semibold text-[var(--text-secondary)]">{t.priority}</span>
+                                  <span className="font-mono tabular-nums font-bold text-[#5C7022] dark:text-[#CCF048]">
                                     {t.storyPoints} pts
                                   </span>
                                 </div>
-                                <div className="text-xs font-semibold text-slate-900 dark:text-white leading-snug">
+                                <div className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
                                   {t.title}
                                 </div>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">
                                   {t.description}
                                 </p>
                               </div>
                               {t.checklist?.length > 0 && (
-                                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400">
+                                <div className="pt-2 border-t border-[var(--border-hairline)] text-[10px] text-[var(--text-muted)]">
                                   {t.checklist.length} QA checklist items included
                                 </div>
                               )}
@@ -535,24 +501,22 @@ export const AIProjectManagerStudio: React.FC = () => {
               {/* Risk Matrix */}
               {blueprint.keyRisks?.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3">
                     Predictive Risk & Mitigation Matrix
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {blueprint.keyRisks.map((rk, idx) => (
                       <div
                         key={idx}
-                        className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
-                          darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200/80'
-                        }`}
+                        className="p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-xs space-y-1.5"
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-amber-600 dark:text-amber-400">
                             {rk.impact} Impact Risk
                           </span>
                         </div>
-                        <div className="font-semibold text-slate-900 dark:text-white">{rk.risk}</div>
-                        <p className="text-slate-600 dark:text-slate-400">
+                        <div className="font-semibold text-[var(--text-primary)]">{rk.risk}</div>
+                        <p className="text-[var(--text-secondary)]">
                           <strong>Mitigation:</strong> {rk.mitigation}
                         </p>
                       </div>
@@ -560,32 +524,29 @@ export const AIProjectManagerStudio: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
+            </HairlineCard>
           )}
         </div>
       )}
 
       {/* TAB 2: AI Capacity & Workload Balancer */}
       {activeStudioTab === 'capacity' && (
-        <div
-          className={`p-6 rounded-2xl border space-y-5 ${
-            darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90 shadow-xs'
-          }`}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <HairlineCard className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-hairline)]">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">
                 AI Team Capacity & Story-Point Load Balancer
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                 Real-time story point distribution across {users.length} team member(s) · {unassignedOpenTasks.length} unassigned open task(s).
               </p>
             </div>
 
-            <button
+            <Button
+              variant="lime"
               onClick={handleAutoBalanceWorkload}
               disabled={isRebalancing}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
+              className="whitespace-nowrap"
             >
               {isRebalancing ? (
                 <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
@@ -593,25 +554,23 @@ export const AIProjectManagerStudio: React.FC = () => {
                 <ICON_MAP.SparklesIcon className="w-4 h-4" />
               )}
               <span>{isRebalancing ? 'Rebalancing Load...' : 'AI Auto-Balance Team Workload'}</span>
-            </button>
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {teamCapacity.map(item => (
               <div
                 key={item.user.id}
-                className={`p-4 rounded-xl border space-y-3 ${
-                  darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50/70 border-slate-200/80'
-                }`}
+                className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-3"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Avatar user={item.user} size="sm" />
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                      <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
                         {item.user.full_name || item.user.email}
                       </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      <div className="text-[11px] text-[var(--text-muted)]">
                         {(item.user.role || 'MEMBER').replace(/_/g, ' ')}
                       </div>
                     </div>
@@ -619,10 +578,10 @@ export const AIProjectManagerStudio: React.FC = () => {
                   <span
                     className={`text-xs font-semibold ${
                       item.status === 'Overloaded'
-                        ? 'text-red-600 dark:text-red-400'
+                        ? 'text-rose-600 dark:text-rose-400'
                         : item.status === 'Optimal'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-indigo-600 dark:text-indigo-400'
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : 'text-[#5C7022] dark:text-[#CCF048]'
                     }`}
                   >
                     {item.status}
@@ -631,19 +590,19 @@ export const AIProjectManagerStudio: React.FC = () => {
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs font-mono tabular-nums">
-                    <span className="text-slate-500 dark:text-slate-400">
+                    <span className="text-[var(--text-muted)]">
                       {item.activeTasks.length} active · {item.completedCount} shipped
                     </span>
-                    <span className="font-bold text-slate-900 dark:text-white">{item.totalPoints} / 16 pts</span>
+                    <span className="font-bold text-[var(--text-primary)]">{item.totalPoints} / 16 pts</span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-[var(--bg-sage)] overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
                         item.status === 'Overloaded'
-                          ? 'bg-red-500'
+                          ? 'bg-rose-500'
                           : item.status === 'Optimal'
                           ? 'bg-emerald-500'
-                          : 'bg-indigo-500'
+                          : 'bg-[#8FA643] dark:bg-[#CCF048]'
                       }`}
                       style={{ width: `${item.utilizationPct}%` }}
                     />
@@ -652,21 +611,17 @@ export const AIProjectManagerStudio: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
+        </HairlineCard>
       )}
 
       {/* TAB 3: Meeting & Standup Intelligence */}
       {activeStudioTab === 'meetings' && (
-        <div
-          className={`p-6 rounded-2xl border space-y-5 ${
-            darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90 shadow-xs'
-          }`}
-        >
+        <HairlineCard className="space-y-5">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">
               AI Meeting & Standup Transcript Extractor
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
               Paste standup notes, stakeholder call transcripts, or chat threads to automatically extract decisions, blockers, and ready-to-create tasks.
             </p>
           </div>
@@ -675,20 +630,18 @@ export const AIProjectManagerStudio: React.FC = () => {
             rows={5}
             value={meetingTranscript}
             onChange={e => setMeetingTranscript(e.target.value)}
-            className={`w-full p-3.5 rounded-xl border text-xs font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-              darkMode ? 'bg-slate-950 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
-            }`}
+            className="w-full p-3.5 rounded-xl border text-xs font-mono leading-relaxed"
             placeholder="Paste meeting notes or standup transcript here..."
           />
 
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              Target Project: <strong>{activeProject?.name || projects[0]?.name || 'Workspace'}</strong>
+            <span className="text-xs text-[var(--text-secondary)]">
+              Target Project: <strong className="text-[var(--text-primary)]">{activeProject?.name || projects[0]?.name || 'Workspace'}</strong>
             </span>
-            <button
+            <Button
+              variant="lime"
               onClick={handleExtractMeetingNotes}
               disabled={isExtractingMeeting || !meetingTranscript.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
             >
               {isExtractingMeeting ? (
                 <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
@@ -696,35 +649,35 @@ export const AIProjectManagerStudio: React.FC = () => {
                 <ICON_MAP.SparklesIcon className="w-4 h-4" />
               )}
               <span>{isExtractingMeeting ? 'Extracting Action Items...' : 'Extract Decisions & Tasks'}</span>
-            </button>
+            </Button>
           </div>
 
           {meetingResult && (
-            <div className="pt-5 border-t border-slate-200 dark:border-slate-800 space-y-4">
-              <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200/80'}`}>
-                <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">Executive Summary</div>
-                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            <div className="pt-5 border-t border-[var(--border-hairline)] space-y-4">
+              <div className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
+                <div className="text-xs font-bold text-[#5C7022] dark:text-[#CCF048] mb-1">Executive Summary</div>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                   {meetingResult.executiveSummary}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200/80'}`}>
-                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+                <div className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
+                  <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2">
                     Key Decisions ({meetingResult.keyDecisions.length})
                   </div>
-                  <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                  <ul className="space-y-1.5 text-xs text-[var(--text-secondary)]">
                     {meetingResult.keyDecisions.map((d, i) => (
                       <li key={i}>· {d}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200/80'}`}>
+                <div className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
                   <div className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-2">
                     Detected Blockers ({meetingResult.detectedBlockers.length})
                   </div>
-                  <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                  <ul className="space-y-1.5 text-xs text-[var(--text-secondary)]">
                     {meetingResult.detectedBlockers.map((b, i) => (
                       <li key={i}>· {b}</li>
                     ))}
@@ -734,42 +687,41 @@ export const AIProjectManagerStudio: React.FC = () => {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">
                     Extracted Action Items ({meetingResult.actionItems.length})
                   </h3>
-                  <button
+                  <Button
+                    variant="lime"
+                    size="sm"
                     onClick={handleCreateExtractedTasks}
                     disabled={isCreatingMeetingTasks}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                     <span>
                       {isCreatingMeetingTasks ? 'Creating Tasks...' : 'Create All Tasks in Project'}
                     </span>
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {meetingResult.actionItems.map((act, idx) => (
                     <div
                       key={idx}
-                      className={`p-3.5 rounded-xl border text-xs space-y-1 ${
-                        darkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200'
-                      }`}
+                      className="p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-xs space-y-1"
                     >
-                      <div className="flex items-center justify-between text-[11px] text-slate-500">
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">{act.priority}</span>
+                      <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                        <span className="font-semibold text-[#5C7022] dark:text-[#CCF048]">{act.priority}</span>
                         <span className="font-mono tabular-nums font-bold">{act.storyPoints} pts</span>
                       </div>
-                      <div className="font-semibold text-slate-900 dark:text-white">{act.title}</div>
-                      <p className="text-slate-500 dark:text-slate-400">{act.description}</p>
+                      <div className="font-semibold text-[var(--text-primary)]">{act.title}</div>
+                      <p className="text-[var(--text-secondary)]">{act.description}</p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </HairlineCard>
       )}
 
       {/* TAB 4: Full AI Insights Engine */}
@@ -778,24 +730,20 @@ export const AIProjectManagerStudio: React.FC = () => {
       {/* TAB 5: Supabase Edge Functions & Server Compute Pipeline */}
       {activeStudioTab === 'edge' && (
         <div className="space-y-6">
-          <div
-            className={`p-6 rounded-2xl border ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90 shadow-xs'
-            }`}
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
+          <HairlineCard>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[var(--border-hairline)]">
               <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                <div className="text-xs font-mono uppercase tracking-wider text-[#5C7022] dark:text-[#CCF048]">
                   Supabase Edge Functions + Server Compute Runtime
                 </div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                <h2 className="text-lg font-bold text-[var(--text-primary)] mt-0.5">
                   High-Demand Compute Offloading Pipelines
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
                   Execute AI risk synthesis, transactional SMTP/Brevo notifications, scheduled SLA rule evaluations, and 1080p WebRTC TURN/ICE provisioning off the main browser thread.
                 </p>
               </div>
-              <div className="text-xs font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl shrink-0">
+              <div className="text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full shrink-0">
                 4 Edge Pipelines Active
               </div>
             </div>
@@ -849,24 +797,25 @@ export const AIProjectManagerStudio: React.FC = () => {
                 return (
                   <div
                     key={fn.slug}
-                    className={`p-4 rounded-xl border flex flex-col justify-between gap-4 ${
-                      darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200/80'
-                    }`}
+                    className="p-4 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-col justify-between gap-4"
                   >
                     <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-bold text-indigo-500 dark:text-indigo-400">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono font-bold text-[#5C7022] dark:text-[#CCF048]">
                           {fn.title}
                         </span>
-                        <span className="text-[10px] font-mono text-slate-400">
+                        <span className="text-[10px] font-mono text-[var(--text-muted)]">
                           supabase/functions/{fn.slug}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+                      <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">
                         {fn.desc}
                       </p>
                     </div>
-                    <button
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
                       onClick={async () => {
                         setRunningEdgeSlug(fn.slug);
                         try {
@@ -883,10 +832,10 @@ export const AIProjectManagerStudio: React.FC = () => {
                         }
                       }}
                       disabled={isRunning}
-                      className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
+                      className="w-full"
                     >
                       {isRunning ? 'Executing on Edge Runtime...' : 'Invoke Live Edge Function →'}
-                    </button>
+                    </Button>
                   </div>
                 );
               })}
@@ -894,26 +843,24 @@ export const AIProjectManagerStudio: React.FC = () => {
 
             {/* Live Invocation Telemetry Log */}
             {edgeLogs.length > 0 && (
-              <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
-                <div className="text-xs font-mono uppercase tracking-wider text-slate-400">
+              <div className="mt-6 pt-5 border-t border-[var(--border-hairline)] space-y-2.5">
+                <div className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
                   Recent Edge Invocation Telemetry
                 </div>
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {edgeLogs.map(log => (
                     <div
                       key={log.id}
-                      className={`p-3 rounded-xl border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-                        darkMode ? 'bg-slate-950 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
-                      }`}
+                      className="p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={log.status === 'success' ? 'text-emerald-400' : 'text-rose-400'}>
+                        <span className={log.status === 'success' ? 'text-emerald-500' : 'text-rose-500'}>
                           ●
                         </span>
-                        <span className="font-bold text-indigo-400">{log.slug}</span>
-                        <span className="text-slate-400 truncate">· {log.summary}</span>
+                        <span className="font-bold text-[#5C7022] dark:text-[#CCF048]">{log.slug}</span>
+                        <span className="text-[var(--text-secondary)] truncate">· {log.summary}</span>
                       </div>
-                      <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">
+                      <span className="text-[11px] text-[var(--text-muted)] shrink-0 tabular-nums">
                         {log.latencyMs}ms · {new Date(log.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
@@ -921,7 +868,7 @@ export const AIProjectManagerStudio: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+          </HairlineCard>
         </div>
       )}
     </div>

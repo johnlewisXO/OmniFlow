@@ -3,6 +3,7 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { TriageIntakeItem, TaskPriority, TaskStatus } from '../../types';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
+import { HairlineCard, PageHeader, SegmentedTabs } from '../shared/EditorialUI';
 import soundService from '../../services/soundService';
 
 const TRIAGE_STORAGE_KEY = 'omni_flow_triage_intake_v1';
@@ -201,206 +202,155 @@ export const TriageIntakePage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col p-4 sm:p-6 space-y-5 max-w-[1600px] mx-auto w-full">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-accent mb-1">
-            <ICON_MAP.FilterIcon className="w-4 h-4" />
-            <span>Customer & Engineering Intake Pipeline</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Triage Queue & Bug / Feature Intake Forms
-          </h1>
-          <p className={`text-xs sm:text-sm mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Inspect incoming bug reports and feature requests before accepting them into active sprint boards.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className={`flex p-1 rounded-full border ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
-            <button
-              type="button"
-              onClick={() => setActiveTab('queue')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                activeTab === 'queue'
-                  ? 'bg-accent text-white shadow-2xs'
-                  : darkMode
-                  ? 'text-slate-400 hover:text-white'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Triage Queue ({pendingCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('intake_form')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                activeTab === 'intake_form'
-                  ? 'bg-accent text-white shadow-2xs'
-                  : darkMode
-                  ? 'text-slate-400 hover:text-white'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              + Submit Intake Form
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Customer & Engineering Intake"
+        title="Triage Queue & Bug / Feature Intake"
+        subtitle="Inspect incoming bug reports and feature requests before accepting them into active sprint boards."
+        actions={
+          <SegmentedTabs
+            value={activeTab}
+            onChange={setActiveTab}
+            options={[
+              { id: 'queue', label: 'Triage Queue', count: pendingCount },
+              { id: 'intake_form', label: '+ Submit Intake Form' },
+            ]}
+          />
+        }
+      />
 
       {activeTab === 'intake_form' ? (
-        <form
-          onSubmit={handleSubmitIntakeForm}
-          className={`max-w-3xl mx-auto w-full rounded-[28px] border p-6 space-y-4 ${
-            darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200/80'
-          }`}
-        >
-          <div>
-            <h2 className="text-lg font-bold">Submit Structured Bug / Feature Intake Report</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              New submissions enter the Triage Queue for engineering and product review before sprint assignment.
-            </p>
-          </div>
-
-          <div className="space-y-3">
+        <HairlineCard padding="lg" className="max-w-3xl mx-auto w-full">
+          <form onSubmit={handleSubmitIntakeForm} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold mb-1">Summary / Issue Title *</label>
-              <input
-                type="text"
-                required
-                value={formTitle}
-                onChange={e => setFormTitle(e.target.value)}
-                placeholder="e.g., SSO SAML login redirect loops on custom subdomain"
-                className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                }`}
-              />
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                Submit Structured Bug / Feature Intake Report
+              </h2>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                New submissions enter the Triage Queue for engineering and product review before sprint assignment.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold mb-1">Request Category</label>
-                <select
-                  value={formCategory}
-                  onChange={e => setFormCategory(e.target.value as TriageIntakeItem['category'])}
-                  className={`w-full px-3 py-2 rounded-xl border text-xs outline-none ${
-                    darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
-                  }`}
-                >
-                  <option value="bug">Bug Report</option>
-                  <option value="feature_request">Feature Request</option>
-                  <option value="customer_escalation">Customer Escalation</option>
-                  <option value="performance">Performance Issue</option>
-                  <option value="security">Security Advisory</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1">Severity / Priority</label>
-                <select
-                  value={formSeverity}
-                  onChange={e => setFormSeverity(e.target.value as TaskPriority)}
-                  className={`w-full px-3 py-2 rounded-xl border text-xs outline-none ${
-                    darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
-                  }`}
-                >
-                  <option value={TaskPriority.CRITICAL}>Critical (P0)</option>
-                  <option value={TaskPriority.HIGH}>High (P1)</option>
-                  <option value={TaskPriority.MEDIUM}>Medium (P2)</option>
-                  <option value={TaskPriority.LOW}>Low (P3)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1">Environment / Device</label>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Summary / Issue Title *
+                </label>
                 <input
                   type="text"
-                  value={formEnvironment}
-                  onChange={e => setFormEnvironment(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-xl border text-xs outline-none ${
-                    darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
-                  }`}
+                  required
+                  value={formTitle}
+                  onChange={e => setFormTitle(e.target.value)}
+                  placeholder="e.g., SSO SAML login redirect loops on custom subdomain"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-xs outline-none focus:border-[var(--border-strong)]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Request Category
+                  </label>
+                  <select
+                    value={formCategory}
+                    onChange={e => setFormCategory(e.target.value as TriageIntakeItem['category'])}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs outline-none cursor-pointer"
+                  >
+                    <option value="bug">Bug Report</option>
+                    <option value="feature_request">Feature Request</option>
+                    <option value="customer_escalation">Customer Escalation</option>
+                    <option value="performance">Performance Issue</option>
+                    <option value="security">Security Advisory</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Severity / Priority
+                  </label>
+                  <select
+                    value={formSeverity}
+                    onChange={e => setFormSeverity(e.target.value as TaskPriority)}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs outline-none cursor-pointer"
+                  >
+                    <option value={TaskPriority.CRITICAL}>Critical (P0)</option>
+                    <option value={TaskPriority.HIGH}>High (P1)</option>
+                    <option value={TaskPriority.MEDIUM}>Medium (P2)</option>
+                    <option value={TaskPriority.LOW}>Low (P3)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Environment / Device
+                  </label>
+                  <input
+                    type="text"
+                    value={formEnvironment}
+                    onChange={e => setFormEnvironment(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs outline-none focus:border-[var(--border-strong)]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Detailed Description & Impact
+                </label>
+                <textarea
+                  rows={4}
+                  value={formDescription}
+                  onChange={e => setFormDescription(e.target.value)}
+                  placeholder="Describe expected vs. actual behavior or customer business impact..."
+                  className="w-full p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-xs outline-none focus:border-[var(--border-strong)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Steps to Reproduce (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={formSteps}
+                  onChange={e => setFormSteps(e.target.value)}
+                  placeholder="1. Navigate to...\n2. Click on..."
+                  className="w-full p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-xs font-mono outline-none focus:border-[var(--border-strong)]"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold mb-1">Detailed Description & Impact</label>
-              <textarea
-                rows={4}
-                value={formDescription}
-                onChange={e => setFormDescription(e.target.value)}
-                placeholder="Describe expected vs. actual behavior or customer business impact..."
-                className={`w-full p-3 rounded-xl border text-xs outline-none ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
-                }`}
-              />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab('queue')}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="lime" size="sm">
+                Submit to Triage Queue
+              </Button>
             </div>
-
-            <div>
-              <label className="block text-xs font-bold mb-1">Steps to Reproduce (Optional)</label>
-              <textarea
-                rows={3}
-                value={formSteps}
-                onChange={e => setFormSteps(e.target.value)}
-                placeholder="1. Navigate to...\n2. Click on..."
-                className={`w-full p-3 rounded-xl border text-xs font-mono outline-none ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
-                }`}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab('queue')}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" size="sm">
-              Submit to Triage Queue
-            </Button>
-          </div>
-        </form>
+          </form>
+        </HairlineCard>
       ) : (
         <>
           {/* Filter & Routing Target Bar */}
-          <div
-            className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
-              darkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50/80 border-slate-200/80'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              {(['pending_triage', 'accepted', 'declined', 'all'] as const).map(st => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setFilterStatus(st)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    filterStatus === st
-                      ? 'bg-accent text-white shadow-2xs'
-                      : darkMode
-                      ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                      : 'text-slate-600 hover:bg-white hover:text-slate-900'
-                  }`}
-                >
-                  {st === 'pending_triage'
-                    ? `Pending Triage (${pendingCount})`
-                    : st === 'accepted'
-                    ? 'Accepted into Board'
-                    : st === 'declined'
-                    ? 'Declined'
-                    : 'All Submissions'}
-                </button>
-              ))}
-            </div>
+          <HairlineCard padding="sm" className="flex flex-wrap items-center justify-between gap-3">
+            <SegmentedTabs
+              size="sm"
+              value={filterStatus}
+              onChange={setFilterStatus}
+              options={[
+                { id: 'pending_triage', label: 'Pending Triage', count: pendingCount },
+                { id: 'accepted', label: 'Accepted into Board' },
+                { id: 'declined', label: 'Declined' },
+                { id: 'all', label: 'All Submissions' },
+              ]}
+            />
 
             <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-slate-400 font-medium">Route Accepted To:</span>
+              <span className="text-[var(--text-muted)] font-medium">Route Accepted To:</span>
               <select
                 value={selectedProjectId}
                 onChange={e => setSelectedProjectId(e.target.value)}
-                className={`px-3 py-1.5 rounded-xl border font-semibold outline-none ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
-                }`}
+                className="px-3 py-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] font-semibold outline-none cursor-pointer"
               >
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>
@@ -412,9 +362,7 @@ export const TriageIntakePage: React.FC = () => {
               <select
                 value={selectedAssigneeId}
                 onChange={e => setSelectedAssigneeId(e.target.value)}
-                className={`px-3 py-1.5 rounded-xl border font-semibold outline-none ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
-                }`}
+                className="px-3 py-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] font-semibold outline-none cursor-pointer"
               >
                 <option value="">Assign Owner (Optional)</option>
                 {users.map(u => (
@@ -424,30 +372,29 @@ export const TriageIntakePage: React.FC = () => {
                 ))}
               </select>
             </div>
-          </div>
+          </HairlineCard>
 
           {/* Triage Items List */}
           <div className="space-y-3">
             {filteredItems.map(item => (
-              <div
+              <HairlineCard
                 key={item.id}
-                className={`rounded-[26px] border p-5 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
-                  darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/80'
-                }`}
+                padding="md"
+                className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-[var(--border-strong)] transition-colors"
               >
                 <div className="space-y-1.5 flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
-                    <span className="font-bold uppercase tracking-wider text-accent">
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] flex-wrap">
+                    <span className="font-semibold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
                       {item.category.replace(/_/g, ' ')}
                     </span>
                     <span>·</span>
                     <span
                       className={`font-semibold ${
                         item.severity === TaskPriority.CRITICAL
-                          ? 'text-red-500'
+                          ? 'text-rose-600 dark:text-rose-400'
                           : item.severity === TaskPriority.HIGH
-                          ? 'text-amber-500'
-                          : 'text-slate-400'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-[var(--text-secondary)]'
                       }`}
                     >
                       {item.severity} Severity
@@ -462,16 +409,14 @@ export const TriageIntakePage: React.FC = () => {
                     )}
                   </div>
 
-                  <h3 className="text-base font-bold leading-snug">{item.title}</h3>
-                  <p className={`text-xs sm:text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  <h3 className="text-base font-bold leading-snug text-[var(--text-primary)]">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
                     {item.description}
                   </p>
                   {item.stepsToReproduce && (
-                    <pre
-                      className={`mt-2 p-2.5 rounded-xl text-[11px] font-mono whitespace-pre-wrap ${
-                        darkMode ? 'bg-slate-950/60 text-slate-400' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
+                    <pre className="mt-2 p-2.5 rounded-xl text-[11px] font-mono whitespace-pre-wrap bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-secondary)]">
                       {item.stepsToReproduce}
                     </pre>
                   )}
@@ -484,11 +429,13 @@ export const TriageIntakePage: React.FC = () => {
                       size="sm"
                       onClick={() => openViewTaskModal(item.promotedTaskId!)}
                     >
-                      <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-emerald-500 mr-1.5" />
-                      Inspect Board Task →
+                      <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Inspect Board Task →</span>
                     </Button>
                   ) : item.status === 'declined' ? (
-                    <span className="text-xs font-semibold text-slate-400 px-3 py-1.5">Declined</span>
+                    <span className="text-xs font-semibold text-[var(--text-muted)] px-3 py-1.5">
+                      Declined
+                    </span>
                   ) : (
                     <>
                       <Button
@@ -499,28 +446,28 @@ export const TriageIntakePage: React.FC = () => {
                         Decline
                       </Button>
                       <Button
-                        variant="primary"
+                        variant="lime"
                         size="sm"
                         disabled={promotingId === item.id}
                         onClick={() => handlePromoteToSprintBoard(item)}
                       >
-                        <ICON_MAP.RocketLaunchIcon className="w-4 h-4 mr-1.5" />
-                        {promotingId === item.id ? 'Routing...' : 'Accept & Route to Board'}
+                        <ICON_MAP.RocketLaunchIcon className="w-4 h-4" />
+                        <span>{promotingId === item.id ? 'Routing...' : 'Accept & Route to Board'}</span>
                       </Button>
                     </>
                   )}
                 </div>
-              </div>
+              </HairlineCard>
             ))}
 
             {filteredItems.length === 0 && (
-              <div className="text-center py-12 rounded-[28px] border border-dashed border-slate-300 dark:border-slate-800">
-                <ICON_MAP.CheckCircleIcon className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                <h3 className="text-sm font-bold">Triage Queue Clear</h3>
-                <p className="text-xs text-slate-400 mt-1">
+              <HairlineCard className="text-center py-12 border-dashed">
+                <ICON_MAP.CheckCircleIcon className="w-10 h-10 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Triage Queue Clear</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
                   All incoming customer and engineering submissions have been triaged.
                 </p>
-              </div>
+              </HairlineCard>
             )}
           </div>
         </>

@@ -402,9 +402,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     const hasRowTyper = activeRowViewers.some(p => p.isTypingComment);
     const hasRowViewer = activeRowViewers.length > 0;
     const presenceRowClass = hasRowEditor
-      ? 'ring-1 ring-inset ring-blue-500/40 bg-blue-500/5'
+      ? 'ring-1 ring-inset ring-[#97B832]/50 bg-[var(--accent-lime)]/10'
       : hasRowTyper
-      ? 'ring-1 ring-inset ring-purple-500/40 bg-purple-500/5'
+      ? 'ring-1 ring-inset ring-amber-500/40 bg-amber-500/5'
       : hasRowViewer
       ? 'ring-1 ring-inset ring-emerald-500/30 bg-emerald-500/5'
       : '';
@@ -665,7 +665,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
         {/* Nested Subtasks */}
         {!isSubtask && isExpanded && hasSubtasks && (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/40 border-l-2 border-indigo-500/40 ml-3 sm:ml-6">
+          <div className="divide-y divide-[var(--border-hairline)] ml-3 sm:ml-6 pl-2 sm:pl-3">
             {subList.map((st, idx) => renderTaskRow(st, sectionStatus, idx, subList.length, true))}
           </div>
         )}

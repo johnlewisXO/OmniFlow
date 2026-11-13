@@ -101,7 +101,7 @@ export const Modal: React.FC<ModalProps> = ({
       className={`fixed inset-0 z-50 flex ${
         isDrawer ? 'items-stretch justify-end p-0 sm:p-2.5' : 'items-center justify-center p-2 sm:p-4 overflow-y-auto'
       } ${
-        backdropBlur ? 'bg-black/55 backdrop-blur-md' : 'bg-slate-950/20 backdrop-blur-none'
+        backdropBlur ? 'bg-black/55 backdrop-blur-md' : 'bg-[#131511]/25 backdrop-blur-none'
       } transition-opacity duration-200 ${
         isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
       }`}

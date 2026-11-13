@@ -8,25 +8,8 @@ import { SegmentedTabs, SegmentedTabOption } from '../shared/EditorialUI';
 import { collabService, formatAccurateLastSeen } from '../../services/collabService';
 import soundService from '../../services/soundService';
 import { ActiveView, User, UserPresence, UserRole, normalizeUserRole } from '../../types';
-
-export const StatusDynamicIcon: React.FC<{ status: 'available' | 'away' | 'busy'; className?: string }> = ({
-  status,
-  className = 'w-4 h-4',
-}) => {
-  if (status === 'available') {
-    return (
-      <span className={`inline-block rounded-full bg-emerald-600 dark:bg-emerald-400 ${className}`} title="Available" />
-    );
-  }
-  if (status === 'away') {
-    return (
-      <span className={`inline-block rounded-full bg-amber-500 ${className}`} title="Away" />
-    );
-  }
-  return (
-    <span className={`inline-block rounded-full bg-rose-600 ${className}`} title="Busy / DND" />
-  );
-};
+import { ProfileMiniMenu, StatusDynamicIcon, AvailabilityStatus } from './ProfileMiniMenu';
+export { StatusDynamicIcon } from './ProfileMiniMenu';
 
 export const Header: React.FC = () => {
   const {
@@ -82,7 +65,7 @@ export const Header: React.FC = () => {
     return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
   }, [activeTimer, timerTick]);
 
-  const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
+  const [myStatus, setMyStatus] = useState<AvailabilityStatus>(() => {
     if (typeof window !== 'undefined' && currentUser?.id) {
       try {
         const raw = localStorage.getItem('omni_team_statuses');
@@ -92,6 +75,17 @@ export const Header: React.FC = () => {
     }
     return 'available';
   });
+
+  useEffect(() => {
+    const handleStatusSync = (e: CustomEvent) => {
+      const payload = e.detail;
+      if (payload && currentUser && payload.userId === currentUser.id) {
+        setMyStatus(payload.availabilityStatus);
+      }
+    };
+    window.addEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
+    return () => window.removeEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -108,7 +102,7 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
+  const handleStatusChange = (newStatus: AvailabilityStatus) => {
     setMyStatus(newStatus);
     collabService.broadcastUserStatusChanged(newStatus);
     addToast('Status Updated', `Availability set to ${newStatus}.`, 'info');
@@ -130,38 +124,47 @@ export const Header: React.FC = () => {
   const normalizedRole = normalizeUserRole(currentUser?.role);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Dynamic Nova-Style Centered Top View Tabs matched to active section
+  // Dynamic Nova-Style Centered Top View Tabs matched to active section with icons
   const contextualTabs: SegmentedTabOption<ActiveView>[] = useMemo(() => {
     if (['overview', 'my_tasks_view', 'calendar_view', 'team_chat_view', 'inbox_view'].includes(activeView)) {
       return [
-        { id: 'overview', label: 'Overview' },
-        { id: 'my_tasks_view', label: 'My Tasks' },
-        { id: 'calendar_view', label: 'Calendar' },
-        { id: 'team_chat_view', label: 'Chat & Meet' },
-        { id: 'inbox_view', label: 'Inbox', count: unreadCount > 0 ? unreadCount : undefined },
+        { id: 'overview', label: 'Overview', icon: <ICON_MAP.HomeIcon className="w-3.5 h-3.5" /> },
+        { id: 'my_tasks_view', label: 'My Tasks', icon: <ICON_MAP.ClipboardListIcon className="w-3.5 h-3.5" /> },
+        { id: 'calendar_view', label: 'Calendar', icon: <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" /> },
+        { id: 'team_chat_view', label: 'Chat & Meet', icon: <ICON_MAP.ChatBubbleLeftRightIcon className="w-3.5 h-3.5" /> },
+        {
+          id: 'inbox_view',
+          label: 'Inbox',
+          icon: <ICON_MAP.InboxIcon className="w-3.5 h-3.5" />,
+          count: unreadCount > 0 ? unreadCount : undefined,
+        },
       ];
     }
     if (['projects_overview', 'kanban', 'sprints_view', 'gantt_roadmap_view', 'triage_intake_view'].includes(activeView)) {
       const workTabs: SegmentedTabOption<ActiveView>[] = [
-        { id: 'projects_overview', label: 'Projects' },
+        { id: 'projects_overview', label: 'Projects', icon: <ICON_MAP.FolderIcon className="w-3.5 h-3.5" /> },
       ];
       if (activeProject) {
-        workTabs.push({ id: 'kanban', label: 'Board' });
+        workTabs.push({ id: 'kanban', label: 'Board', icon: <ICON_MAP.ViewColumnsIcon className="w-3.5 h-3.5" /> });
       }
       workTabs.push(
-        { id: 'sprints_view', label: 'Sprints' },
-        { id: 'gantt_roadmap_view', label: 'Roadmap' },
-        { id: 'triage_intake_view', label: 'Triage' }
+        { id: 'sprints_view', label: 'Sprints', icon: <ICON_MAP.RocketLaunchIcon className="w-3.5 h-3.5" /> },
+        { id: 'gantt_roadmap_view', label: 'Roadmap', icon: <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" /> },
+        { id: 'triage_intake_view', label: 'Triage', icon: <ICON_MAP.FilterIcon className="w-3.5 h-3.5" /> }
       );
       return workTabs;
     }
     if (['team_management', 'workload_capacity_view', 'user_logs_view'].includes(activeView)) {
       const teamTabs: SegmentedTabOption<ActiveView>[] = [
-        { id: 'team_management', label: 'Directory' },
-        { id: 'workload_capacity_view', label: 'Workload & Timer' },
+        { id: 'team_management', label: 'Directory', icon: <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" /> },
+        { id: 'workload_capacity_view', label: 'Workload & Timer', icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" /> },
       ];
       if (normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN) {
-        teamTabs.push({ id: 'user_logs_view', label: 'Audit Logs' });
+        teamTabs.push({
+          id: 'user_logs_view',
+          label: 'Audit Logs',
+          icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" />,
+        });
       }
       return teamTabs;
     }
@@ -172,24 +175,32 @@ export const Header: React.FC = () => {
         normalizedRole === UserRole.ADMIN ||
         normalizedRole === UserRole.PROJECT_MANAGER
       ) {
-        stratTabs.push({ id: 'reports_view', label: 'Reports' });
+        stratTabs.push({
+          id: 'reports_view',
+          label: 'Reports',
+          icon: <ICON_MAP.ChartBarIcon className="w-3.5 h-3.5" />,
+        });
       }
       stratTabs.push(
-        { id: 'okrs_goals_view', label: 'OKRs' },
-        { id: 'docs_wiki_view', label: 'Docs' },
-        { id: 'whiteboard_view', label: 'Whiteboard' },
-        { id: 'client_portal_view', label: 'Portal' }
+        { id: 'okrs_goals_view', label: 'OKRs', icon: <ICON_MAP.FlagIcon className="w-3.5 h-3.5" /> },
+        { id: 'docs_wiki_view', label: 'Docs', icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> },
+        { id: 'whiteboard_view', label: 'Whiteboard', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
+        { id: 'client_portal_view', label: 'Portal', icon: <ICON_MAP.GlobeAltIcon className="w-3.5 h-3.5" /> }
       );
       return stratTabs;
     }
     const adminTabs: SegmentedTabOption<ActiveView>[] = [];
     if (normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN) {
-      adminTabs.push({ id: 'admin_settings', label: 'Governance' });
+      adminTabs.push({
+        id: 'admin_settings',
+        label: 'Governance',
+        icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />,
+      });
     }
     adminTabs.push(
-      { id: 'task_automations', label: 'Automations' },
-      { id: 'ai_copilot_view', label: 'AI Studio' },
-      { id: 'profile_settings', label: 'Preferences' }
+      { id: 'task_automations', label: 'Automations', icon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" /> },
+      { id: 'ai_copilot_view', label: 'AI Studio', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
+      { id: 'profile_settings', label: 'Preferences', icon: <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5" /> }
     );
     return adminTabs;
   }, [activeView, activeProject, unreadCount, normalizedRole]);
@@ -211,18 +222,17 @@ export const Header: React.FC = () => {
   return (
     <header className="relative z-30 shrink-0">
       {/* Desktop Sculpted Nova Top Bezel Layout (lg+) */}
-      <div className="hidden lg:flex items-start justify-between w-full min-h-[54px]">
+      <div className="hidden lg:flex items-start justify-between w-full min-h-[60px]">
         {/* Left Bezel Circular Menu Pocket + Sweeping Shoulder Breadcrumb */}
         <div className="flex items-start flex-1 min-w-0">
-          <div className="relative w-[84px] h-[54px] shrink-0">
+          <div className="relative w-[88px] h-[60px] shrink-0 overflow-visible">
             <svg
-              viewBox="0 0 84 54"
-              preserveAspectRatio="none"
-              className="w-full h-full block pointer-events-none"
+              viewBox="-1 -1 89 70"
+              className="absolute -top-[1px] -left-[1px] w-[89px] h-[70px] block pointer-events-none"
               aria-hidden="true"
             >
               <path
-                d="M 0,0 L 84,0 C 66,0 59,7 56,20 C 52,35 42,45 26,45 C 12,45 0,49 0,54 Z"
+                d="M -1,-1 L 85,-1 L 84,0 A 28 28 0 0 0 56 28 A 28 28 0 0 1 28 56 A 28 12 0 0 0 0 68 L -1,68 Z"
                 fill="var(--bg-bezel)"
               />
             </svg>
@@ -235,7 +245,7 @@ export const Header: React.FC = () => {
               aria-pressed={isSidebarPinned}
               title={isSidebarPinned ? 'Unpin side menu (hover-to-expand)' : 'Pin side menu open'}
               aria-label={isSidebarPinned ? 'Unpin side menu' : 'Pin side menu open'}
-              className={`absolute top-[4px] left-[9px] w-[38px] h-[38px] rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-sm ${
+              className={`absolute top-[10px] left-[10px] w-[36px] h-[36px] rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-sm ${
                 isSidebarPinned
                   ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] ring-2 ring-[var(--accent-lime)]/35'
                   : 'bg-[#F4F4EF] text-[#191B17] hover:bg-white dark:bg-[#20241C] dark:text-[#F2F3EE] dark:hover:bg-[#2B3025]'
@@ -249,8 +259,9 @@ export const Header: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 min-w-0 pt-2.5 pr-3">
+          <div className="flex items-center gap-2 min-w-0 pt-4 pr-3 pl-1">
             <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)] min-w-0">
+              <ICON_MAP.BuildingOfficeIcon className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
               <span className="truncate max-w-[140px]">
                 {currentOrganization?.name || 'Personal Workspace'}
               </span>
@@ -267,17 +278,16 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Center Sculpted S-Curve Bezel Dock with Floating View Tabs */}
-        <div className="flex items-start shrink-0 max-w-[54vw]">
+        <div className="flex items-start shrink-0 max-w-[58vw]">
           <svg
-            viewBox="0 0 46 44"
-            preserveAspectRatio="none"
-            className="w-[46px] h-[44px] shrink-0 -mr-[0.5px] pointer-events-none block"
+            viewBox="0 0 72 56"
+            className="w-[72px] h-[56px] shrink-0 -mr-[0.5px] pointer-events-none block"
             aria-hidden="true"
           >
-            <path d="M 0,0 L 46,0 L 46,44 C 24,44 22,0 0,0 Z" fill="var(--bg-bezel)" />
+            <path d="M 0,0 L 72,0 L 72,56 C 40,56 32,0 0,0 Z" fill="var(--bg-bezel)" />
           </svg>
 
-          <div className="h-[44px] bg-[var(--bg-bezel)] px-1.5 pb-1.5 flex items-center justify-center min-w-0">
+          <div className="h-[56px] bg-[var(--bg-bezel)] px-4 py-[10px] flex items-center justify-center min-w-0">
             <SegmentedTabs
               options={contextualTabs}
               value={activeView === 'task_automations_view' ? 'task_automations' : activeView}
@@ -286,22 +296,21 @@ export const Header: React.FC = () => {
                 setActiveView(view);
               }}
               size="sm"
-              className="!bg-[#ECEFE6]/95 dark:!bg-[#1D2119]/95 !border-white/30 dark:!border-white/10 shadow-xs"
+              className="!bg-[#ECEFE6]/95 dark:!bg-[#1D2119]/95 !border-white/25 dark:!border-white/10 shadow-xs"
             />
           </div>
 
           <svg
-            viewBox="0 0 46 44"
-            preserveAspectRatio="none"
-            className="w-[46px] h-[44px] shrink-0 -ml-[0.5px] pointer-events-none block"
+            viewBox="0 0 72 56"
+            className="w-[72px] h-[56px] shrink-0 -ml-[0.5px] pointer-events-none block"
             aria-hidden="true"
           >
-            <path d="M 0,0 L 46,0 C 24,0 22,44 0,44 Z" fill="var(--bg-bezel)" />
+            <path d="M 0,0 L 72,0 C 40,0 32,56 0,56 Z" fill="var(--bg-bezel)" />
           </svg>
         </div>
 
         {/* Right Curved Shoulder Utility Zone */}
-        <div className="flex items-center justify-end gap-1.5 pt-2 pr-4 pl-2 flex-1 min-w-0">
+        <div className="flex items-center justify-end gap-1.5 pt-3 pr-4 pl-2 flex-1 min-w-0">
           {uniquePresences.length > 0 && (
             <div className="hidden 2xl:flex items-center -space-x-1.5 mr-1">
               {uniquePresences.slice(0, 3).map(p => {
@@ -412,129 +421,58 @@ export const Header: React.FC = () => {
             <span className="hidden xl:inline">{primaryCtaLabel}</span>
           </button>
 
-          {/* Compact Avatar Menu */}
+          {/* Compact Avatar Menu with Unobstructed Status Icon Overlay */}
           <div className="relative" ref={profileMenuRef}>
             {currentUser && (
               <button
                 ref={avatarButtonRef}
                 type="button"
                 onClick={() => setProfileMenuOpen(prev => !prev)}
-                className="relative flex items-center gap-1.5 p-0.5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)] cursor-pointer"
+                className="flex items-center gap-1 p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)] cursor-pointer"
                 aria-expanded={isProfileMenuOpen}
                 aria-haspopup="true"
+                title={currentUser.full_name || currentUser.email}
               >
-                <Avatar user={currentUser} size="sm" disableHoverCard />
-                <span className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-white dark:bg-[#1E221A]">
-                  <StatusDynamicIcon status={myStatus} className="w-2 h-2" />
+                <span className="relative inline-flex shrink-0">
+                  <Avatar user={currentUser} size="md" disableHoverCard />
+                  <span className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center leading-none pointer-events-none">
+                    <StatusDynamicIcon status={myStatus} className="w-3 h-3 block" />
+                  </span>
                 </span>
+                <ICON_MAP.ChevronDownIcon
+                  className={`w-3.5 h-3.5 text-[var(--text-secondary)] transition-transform duration-150 ${
+                    isProfileMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
               </button>
             )}
 
             <AnimatedPopover
               isOpen={Boolean(isProfileMenuOpen && currentUser)}
               direction="down"
-              className="editorial-popover absolute right-0 mt-2 w-64 py-2 z-50"
+              className="editorial-popover absolute right-0 mt-2 w-64 py-1.5 z-50"
             >
               {currentUser && (
-                <div className="text-xs">
-                  <div className="px-3.5 py-2.5 border-b border-[var(--border-hairline)]">
-                    <p className="font-bold text-[var(--text-primary)] truncate">
-                      {currentUser.full_name || currentUser.email}
-                    </p>
-                    <p className="text-[11px] text-[var(--text-muted)] truncate">{currentUser.email}</p>
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] mt-1">
-                      {normalizedRole.replace(/_/g, ' ')} · {currentOrganization?.name || 'Personal'}
-                    </p>
-                  </div>
-
-                  <div className="px-3 py-2 border-b border-[var(--border-hairline)] grid grid-cols-3 gap-1">
-                    {(['available', 'away', 'busy'] as const).map(st => (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => handleStatusChange(st)}
-                        className={`py-1 rounded-lg text-[11px] font-medium capitalize border cursor-pointer ${
-                          myStatus === st
-                            ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--text-primary)] font-semibold'
-                            : 'border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface-subtle)]'
-                        }`}
-                      >
-                        {st}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="p-1.5 space-y-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveView('profile_settings');
-                        setProfileMenuOpen(false);
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[var(--bg-sage)] text-[var(--text-primary)] cursor-pointer"
-                    >
-                      Profile &amp; Workspace Settings
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        openOrganizationModal('join');
-                        setProfileMenuOpen(false);
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[var(--bg-sage)] text-[var(--text-primary)] cursor-pointer"
-                    >
-                      Switch / Manage Organization
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toggleDarkMode();
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-[var(--bg-sage)] text-[var(--text-primary)] cursor-pointer"
-                    >
-                      <span>Appearance</span>
-                      <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                        {darkMode ? 'Dark' : 'Light'}
-                      </span>
-                    </button>
-                    {(normalizedRole === UserRole.OWNER || normalizedRole === UserRole.PROJECT_MANAGER) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'));
-                          setProfileMenuOpen(false);
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[var(--bg-sage)] text-[var(--text-primary)] cursor-pointer"
-                      >
-                        System Log Monitor
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        openShortcutsModal();
-                        setProfileMenuOpen(false);
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-[var(--bg-sage)] text-[var(--text-primary)] cursor-pointer"
-                    >
-                      <span>Keyboard Shortcuts</span>
-                      <kbd className="font-mono text-[10px] text-[var(--text-muted)]">?</kbd>
-                    </button>
-                  </div>
-
-                  <div className="px-1.5 pt-1 border-t border-[var(--border-hairline)]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileMenuOpen(false);
-                        signOut();
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 font-medium cursor-pointer"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
+                <ProfileMiniMenu
+                  currentUser={currentUser}
+                  currentOrganizationName={currentOrganization?.name}
+                  normalizedRole={normalizedRole}
+                  myStatus={myStatus}
+                  onStatusChange={handleStatusChange}
+                  darkMode={darkMode}
+                  onToggleDarkMode={toggleDarkMode}
+                  onNavigateProfile={() => setActiveView('profile_settings')}
+                  onManageOrganization={() => openOrganizationModal('join')}
+                  canViewSystemLogs={
+                    normalizedRole === UserRole.OWNER || normalizedRole === UserRole.PROJECT_MANAGER
+                  }
+                  onOpenSystemLogs={() =>
+                    window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'))
+                  }
+                  onOpenShortcuts={openShortcutsModal}
+                  onSignOut={signOut}
+                  onClose={() => setProfileMenuOpen(false)}
+                />
               )}
             </AnimatedPopover>
           </div>

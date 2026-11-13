@@ -167,7 +167,7 @@ const ToastContainer: React.FC = () => {
         label: 'Reply',
         categoryLabel: 'Chat',
         categoryIcon: <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
+        categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
         projectBadge: projectBadge || '#direct-msg',
         actorName,
         actorRole,
@@ -180,7 +180,7 @@ const ToastContainer: React.FC = () => {
         label: 'Reply',
         categoryLabel: 'Mention',
         categoryIcon: <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+        categoryColorClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30',
         priorityBadge,
         diffPill,
         projectBadge,
@@ -223,7 +223,7 @@ const ToastContainer: React.FC = () => {
         label: 'Inspect',
         categoryLabel: 'Task',
         categoryIcon: <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+        categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
         priorityBadge,
         diffPill,
         projectBadge,
@@ -239,7 +239,7 @@ const ToastContainer: React.FC = () => {
         label: 'Open',
         categoryLabel: 'Project',
         categoryIcon: <ICON_MAP.FolderIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+        categoryColorClass: 'bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] border-[var(--border-strong)]',
         projectBadge,
         actorName,
         actorRole,
@@ -276,7 +276,7 @@ const ToastContainer: React.FC = () => {
         label: 'Calendar',
         categoryLabel: 'Event',
         categoryIcon: <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+        categoryColorClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30',
         actorName,
         actorRole,
       };
@@ -316,7 +316,7 @@ const ToastContainer: React.FC = () => {
         label: 'Outbox',
         categoryLabel: 'Email',
         categoryIcon: <ICON_MAP.InboxIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+        categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
         actorName,
       };
     }
@@ -326,7 +326,7 @@ const ToastContainer: React.FC = () => {
       label: null,
       categoryLabel: 'System',
       categoryIcon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />,
-      categoryColorClass: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+      categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
       projectBadge,
       actorName,
       actorRole,
@@ -472,10 +472,10 @@ const ToastContainer: React.FC = () => {
           stripClass = 'bg-amber-500';
           bgAccent = 'bg-amber-500/15';
         } else if (type === 'info') {
-          iconEl = <ICON_MAP.SparklesIcon className="w-4 h-4 text-indigo-400 flex-shrink-0" />;
-          borderClass = 'border-indigo-500/35 dark:border-indigo-500/40';
-          stripClass = 'bg-indigo-500';
-          bgAccent = 'bg-indigo-500/15';
+          iconEl = <ICON_MAP.SparklesIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048] flex-shrink-0" />;
+          borderClass = 'border-[var(--border-strong)]';
+          stripClass = 'bg-[#97B832] dark:bg-[#CCF048]';
+          bgAccent = 'bg-[var(--bg-sage)]';
         }
 
         const timeLabel = new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -497,7 +497,7 @@ const ToastContainer: React.FC = () => {
             className={`pointer-events-auto relative overflow-hidden p-3.5 rounded-2xl shadow-2xl border backdrop-blur-xl flex items-start gap-3 transition-all duration-300 transform translate-y-0 animate-in slide-in-from-bottom-4 ${borderClass} ${
               isInteractive ? 'cursor-pointer hover:scale-[1.015] active:scale-[0.99]' : ''
             } ${
-              darkMode ? 'bg-[#090A0F]/95 text-slate-100' : 'bg-white/95 text-slate-900'
+              darkMode ? 'bg-[#161913]/95 text-[#F2F3EE]' : 'bg-white/95 text-[#191B17]'
             }`}
           >
             {/* Priority / Status Accent Strip */}
@@ -544,8 +544,8 @@ const ToastContainer: React.FC = () => {
               <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-slate-200/60 dark:border-white/10">
                 <div className="flex items-center gap-1.5 min-w-0 truncate">
                   {actorName && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">
-                      <span className="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-[9px] inline-flex items-center justify-center shrink-0">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)] truncate">
+                      <span className="w-4 h-4 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-bold text-[9px] inline-flex items-center justify-center shrink-0">
                         {actorName.charAt(0).toUpperCase()}
                       </span>
                       <span className="truncate max-w-[90px]">{actorName}</span>
@@ -555,7 +555,7 @@ const ToastContainer: React.FC = () => {
                     </span>
                   )}
                   {diffPill && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 truncate max-w-[115px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-strong)] truncate max-w-[115px]">
                       {diffPill}
                     </span>
                   )}
@@ -572,7 +572,7 @@ const ToastContainer: React.FC = () => {
                         markNotificationAsRead(n.id);
                         setVisibleToasts(prev => prev.filter(id => id !== n.id));
                       }}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer whitespace-nowrap"
                       title={`Undo: ${lastUndoAction?.label}`}
                     >
                       <span>↶</span>
@@ -586,7 +586,7 @@ const ToastContainer: React.FC = () => {
                         e.stopPropagation();
                         handleToastClick(n);
                       }}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] hover:opacity-90 transition-all cursor-pointer whitespace-nowrap"
                       title={actionLabel}
                     >
                       <span>{actionLabel}</span>
@@ -887,7 +887,7 @@ const MainAppLayout: React.FC = () => {
       <Header />
       <div className="flex-1 flex min-h-0 min-w-0 lg:px-3 lg:pb-3 lg:pt-2 lg:gap-3">
         <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden lg:rounded-[20px] frosted-shell-panel">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden lg:rounded-[20px] frosted-shell-panel transition-[width,margin,padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
           {/* In-App Manager / Admin / Owner Join Request Approval Alert Banner */}
           {canManageRequests && pendingJoinRequests.length > 0 && !isBannerDismissed && (
             <div className="mx-4 sm:mx-6 mt-3 px-4 py-2 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] flex items-center justify-between gap-3 shrink-0">
@@ -979,14 +979,14 @@ const MainAppLayout: React.FC = () => {
 const GlobalSpinner: React.FC = () => {
   const isDarkMode = document.documentElement.classList.contains('dark');
   return (
-    <div className={`h-screen w-screen flex gap-3 md:gap-4 p-3 md:p-4 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+    <div className={`h-screen w-screen flex gap-3 md:gap-4 p-3 md:p-4 ${isDarkMode ? 'bg-[#131511]' : 'bg-[#F4F4EF]'}`}>
       {/* Sidebar Skeleton */}
-      <div className={`w-64 flex-shrink-0 rounded-xl border shadow-sm animate-pulse ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
+      <div className={`w-64 flex-shrink-0 rounded-2xl border shadow-sm animate-pulse ${isDarkMode ? 'bg-[#1A1D17] border-[#2B3026]' : 'bg-white border-[#E3E5DD]'}`}>
         <div className="p-6 space-y-6">
-          <div className={`h-8 w-3/4 rounded ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+          <div className={`h-8 w-3/4 rounded-lg ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className={`h-6 w-full rounded ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+              <div key={i} className={`h-6 w-full rounded-lg ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
             ))}
           </div>
         </div>
@@ -995,20 +995,20 @@ const GlobalSpinner: React.FC = () => {
       {/* Main Content Skeleton */}
       <div className="flex-1 flex flex-col gap-3 md:gap-4 min-w-0">
         {/* Header Skeleton */}
-        <div className={`h-16 rounded-xl border shadow-sm animate-pulse flex items-center justify-between px-6 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
-          <div className={`h-6 w-48 rounded ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+        <div className={`h-16 rounded-2xl border shadow-sm animate-pulse flex items-center justify-between px-6 ${isDarkMode ? 'bg-[#1A1D17] border-[#2B3026]' : 'bg-white border-[#E3E5DD]'}`}>
+          <div className={`h-6 w-48 rounded-lg ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
           <div className="flex gap-4">
-            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
+            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
           </div>
         </div>
         
         {/* Content Area Skeleton */}
-        <div className={`flex-1 rounded-xl border shadow-sm animate-pulse p-6 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/30' : 'bg-white/50 border-slate-200/50'}`}>
-          <div className={`h-8 w-64 rounded mb-8 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+        <div className={`flex-1 rounded-2xl border shadow-sm animate-pulse p-6 ${isDarkMode ? 'bg-[#1A1D17] border-[#2B3026]' : 'bg-white border-[#E3E5DD]'}`}>
+          <div className={`h-8 w-64 rounded-lg mb-8 ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className={`h-48 rounded-xl ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+              <div key={i} className={`h-48 rounded-2xl ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
             ))}
           </div>
         </div>

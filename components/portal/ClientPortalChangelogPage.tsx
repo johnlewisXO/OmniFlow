@@ -7,6 +7,8 @@ import {
   TaskStatus,
 } from '../../types';
 import { ICON_MAP } from '../../constants';
+import { Button } from '../shared/Button';
+import { HairlineCard, PageHeader, SegmentedTabs } from '../shared/EditorialUI';
 
 const PORTAL_STORAGE_KEY = 'omni_client_portal_requests_v1';
 const CHANGELOG_STORAGE_KEY = 'omni_release_changelog_v1';
@@ -281,179 +283,147 @@ export const ClientPortalChangelogPage: React.FC = () => {
   const statusBadgeStyle = (st: ClientFeatureRequest['status']) => {
     switch (st) {
       case 'shipped':
-        return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
+        return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
       case 'in_progress':
-        return 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30';
+        return 'bg-[var(--accent-lime)]/25 text-[#4E6126] dark:text-[#CCF048] border-[#97B832]/40';
       case 'planned':
-        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
+        return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
       default:
-        return 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30';
+        return 'bg-[var(--bg-sage)] text-[var(--text-secondary)] border-[var(--border-hairline)]';
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.75rem)] bg-slate-50 dark:bg-[#0B0F17] text-slate-900 dark:text-slate-100 overflow-hidden">
-      {/* Compact Header */}
-      <div className="h-12 px-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-sm">
-            <span className="text-sm font-bold">🌐</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold tracking-tight">
-              Client Portal, Feature Voting & Changelog Hub
-            </h1>
-            <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              {isPublicPreview ? 'External Stakeholder View' : 'Internal PM Console'}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-            {[
-              { id: 'voting', label: 'Feature Voting' },
-              { id: 'roadmap_columns', label: 'Public Roadmap' },
-              { id: 'changelog', label: `Release Notes (${changelogs.length})` },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
-                  activeTab === tab.id
-                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setIsPublicPreview(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-              isPublicPreview
-                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            {isPublicPreview ? '👁 Viewing as External Client' : '👁 Stakeholder Preview'}
-          </button>
-
-          {!isPublicPreview && (
-            <button
-              onClick={handleAutoGenerateChangelogFromDoneTasks}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-sm transition"
+    <div className="flex-1 flex flex-col p-4 sm:p-6 space-y-5 max-w-[1600px] mx-auto w-full">
+      <PageHeader
+        eyebrow={isPublicPreview ? 'External Stakeholder View' : 'Internal PM Console'}
+        title="Client Portal, Feature Voting & Changelog"
+        subtitle="Collect external roadmap votes, promote high-impact requests, and publish release notes."
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <SegmentedTabs
+              size="sm"
+              value={activeTab}
+              onChange={setActiveTab}
+              options={[
+                { id: 'voting', label: 'Feature Voting' },
+                { id: 'roadmap_columns', label: 'Public Roadmap' },
+                { id: 'changelog', label: 'Release Notes', count: changelogs.length },
+              ]}
+            />
+            <Button
+              variant={isPublicPreview ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setIsPublicPreview(v => !v)}
             >
-              ✨ Auto-Compile Release Notes
-            </button>
-          )}
-        </div>
-      </div>
+              {isPublicPreview ? 'Viewing as Client' : 'Stakeholder Preview'}
+            </Button>
+            {!isPublicPreview && (
+              <Button variant="lime" size="sm" onClick={handleAutoGenerateChangelogFromDoneTasks}>
+                <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
+                <span>Auto-Compile Notes</span>
+              </Button>
+            )}
+          </div>
+        }
+      />
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <div className="flex-1">
         {activeTab === 'voting' && (
-          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Left 4 cols: Submit Customer Feature Request */}
             <div className="lg:col-span-4">
-              <form
-                onSubmit={handleSubmitRequest}
-                className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3 sticky top-2"
-              >
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Submit Feature Request
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Customers and stakeholders can propose and upvote roadmap capabilities.
-                </p>
+              <HairlineCard padding="md" className="sticky top-2">
+                <form onSubmit={handleSubmitRequest} className="space-y-3">
+                  <h2 className="text-sm font-bold text-[var(--text-primary)]">
+                    Submit Feature Request
+                  </h2>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Customers and stakeholders can propose and upvote roadmap capabilities.
+                  </p>
 
-                <input
-                  type="text"
-                  value={newReqTitle}
-                  onChange={e => setNewReqTitle(e.target.value)}
-                  placeholder="Feature title (e.g., SSO SAML 2.0 Enforcement)..."
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-                <input
-                  type="text"
-                  value={newReqOrg}
-                  onChange={e => setNewReqOrg(e.target.value)}
-                  placeholder="Customer / Organization Name..."
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={newReqCategory}
-                    onChange={e => setNewReqCategory(e.target.value as any)}
-                    className="px-2.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                  >
-                    <option value="feature">Core Feature</option>
-                    <option value="integration">Integration</option>
-                    <option value="performance">Performance</option>
-                    <option value="ux">UI / UX</option>
-                  </select>
-                  <select
-                    value={newReqImpact}
-                    onChange={e => setNewReqImpact(e.target.value as any)}
-                    className="px-2.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                  >
-                    <option value="high">High Impact</option>
-                    <option value="critical">Critical Blocker</option>
-                    <option value="medium">Nice to Have</option>
-                  </select>
-                </div>
-                <textarea
-                  value={newReqDesc}
-                  onChange={e => setNewReqDesc(e.target.value)}
-                  rows={3}
-                  placeholder="Describe the workflow problem and business impact..."
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-                <button
-                  type="submit"
-                  className="w-full py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition"
-                >
-                  + Submit to Voting Board
-                </button>
-              </form>
+                  <input
+                    type="text"
+                    value={newReqTitle}
+                    onChange={e => setNewReqTitle(e.target.value)}
+                    placeholder="Feature title (e.g., SSO SAML 2.0 Enforcement)..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--border-strong)]"
+                  />
+                  <input
+                    type="text"
+                    value={newReqOrg}
+                    onChange={e => setNewReqOrg(e.target.value)}
+                    placeholder="Customer / Organization Name..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--border-strong)]"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={newReqCategory}
+                      onChange={e => setNewReqCategory(e.target.value as any)}
+                      className="px-2.5 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] outline-none cursor-pointer"
+                    >
+                      <option value="feature">Core Feature</option>
+                      <option value="integration">Integration</option>
+                      <option value="performance">Performance</option>
+                      <option value="ux">UI / UX</option>
+                    </select>
+                    <select
+                      value={newReqImpact}
+                      onChange={e => setNewReqImpact(e.target.value as any)}
+                      className="px-2.5 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] outline-none cursor-pointer"
+                    >
+                      <option value="high">High Impact</option>
+                      <option value="critical">Critical Blocker</option>
+                      <option value="medium">Nice to Have</option>
+                    </select>
+                  </div>
+                  <textarea
+                    value={newReqDesc}
+                    onChange={e => setNewReqDesc(e.target.value)}
+                    rows={3}
+                    placeholder="Describe the workflow problem and business impact..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--border-strong)]"
+                  />
+                  <Button type="submit" variant="lime" size="sm" className="w-full">
+                    + Submit to Voting Board
+                  </Button>
+                </form>
+              </HairlineCard>
             </div>
 
             {/* Right 8 cols: Ranked Feature Voting Feed */}
             <div className="lg:col-span-8 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {['all', 'under_review', 'planned', 'in_progress', 'shipped'].map(st => (
-                    <button
-                      key={st}
-                      onClick={() => setStatusFilter(st)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize transition ${
-                        statusFilter === st
-                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                          : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800'
-                      }`}
-                    >
-                      {st.replace('_', ' ')}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedTabs
+                  size="sm"
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  options={[
+                    { id: 'all', label: 'All' },
+                    { id: 'under_review', label: 'Under Review' },
+                    { id: 'planned', label: 'Planned' },
+                    { id: 'in_progress', label: 'In Progress' },
+                    { id: 'shipped', label: 'Shipped' },
+                  ]}
+                />
               </div>
 
               {filteredRequests.map(req => {
                 const hasVoted = req.voterIds.includes(currentUser?.id || 'guest-voter');
                 return (
-                  <div
+                  <HairlineCard
                     key={req.id}
-                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-start gap-4 hover:border-emerald-500/40 transition"
+                    padding="md"
+                    className="flex items-start gap-4 hover:border-[var(--border-strong)] transition-colors"
                   >
                     {/* Upvote Counter Button */}
                     <button
                       onClick={() => handleToggleVote(req.id)}
-                      className={`w-14 h-16 rounded-xl border flex flex-col items-center justify-center shrink-0 transition ${
+                      className={`w-14 h-16 rounded-xl border flex flex-col items-center justify-center shrink-0 transition cursor-pointer ${
                         hasVoted
-                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
-                          : 'bg-slate-50 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-emerald-500/50'
+                          ? 'bg-[var(--accent-lime)]/25 border-[#97B832] text-[#4E6126] dark:text-[#CCF048] font-bold'
+                          : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-primary)] hover:border-[var(--border-strong)]'
                       }`}
                     >
                       <span className="text-xs">▲</span>
@@ -461,7 +431,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap text-[11px]">
                         <span
                           className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${statusBadgeStyle(
                             req.status
@@ -469,23 +439,24 @@ export const ClientPortalChangelogPage: React.FC = () => {
                         >
                           {req.status.replace('_', ' ')}
                         </span>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                        <span className="font-semibold uppercase text-[var(--text-muted)]">
                           {req.category}
                         </span>
-                        <span className="text-[11px] text-slate-400">
-                          {req.requesterOrg} • {req.requesterName}
+                        <span className="text-[var(--text-muted)]">·</span>
+                        <span className="text-[var(--text-muted)]">
+                          {req.requesterOrg} · {req.requesterName}
                         </span>
                       </div>
 
-                      <h3 className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+                      <h3 className="mt-1 text-sm font-bold text-[var(--text-primary)]">
                         {req.title}
                       </h3>
-                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
                         {req.description}
                       </p>
 
                       {!isPublicPreview && (
-                        <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/70">
+                        <div className="mt-3 flex items-center justify-between pt-2.5 border-t border-[var(--border-hairline)]">
                           <div className="flex items-center gap-2">
                             <select
                               value={req.status}
@@ -495,7 +466,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
                                   prev.map(r => (r.id === req.id ? { ...r, status: val } : r))
                                 );
                               }}
-                              className="px-2 py-1 text-[11px] rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                              className="px-2.5 py-1 text-[11px] rounded-full bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] outline-none cursor-pointer"
                             >
                               <option value="under_review">Under Review</option>
                               <option value="planned">Planned</option>
@@ -504,16 +475,17 @@ export const ClientPortalChangelogPage: React.FC = () => {
                             </select>
                           </div>
 
-                          <button
+                          <Button
+                            variant={req.linkedTaskId ? 'secondary' : 'outline'}
+                            size="sm"
                             onClick={() => handlePromoteToTask(req)}
-                            className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600/10 hover:bg-indigo-600 text-indigo-600 dark:text-indigo-400 hover:text-white transition"
                           >
-                            {req.linkedTaskId ? '✓ Linked to Engineering Task' : '⚡ Promote to Engineering Task'}
-                          </button>
+                            {req.linkedTaskId ? 'Linked to Task' : 'Promote to Engineering Task'}
+                          </Button>
                         </div>
                       )}
                     </div>
-                  </div>
+                  </HairlineCard>
                 );
               })}
             </div>
@@ -521,114 +493,110 @@ export const ClientPortalChangelogPage: React.FC = () => {
         )}
 
         {activeTab === 'roadmap_columns' && (
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {(
               [
-                { id: 'under_review', label: '🔍 Under Review' },
-                { id: 'planned', label: '🗓️ Planned' },
-                { id: 'in_progress', label: '⚡ In Progress' },
-                { id: 'shipped', label: '🚀 Shipped' },
+                { id: 'under_review', label: 'Under Review' },
+                { id: 'planned', label: 'Planned' },
+                { id: 'in_progress', label: 'In Progress' },
+                { id: 'shipped', label: 'Shipped' },
               ] as const
             ).map(col => {
               const items = requests.filter(r => r.status === col.id);
               return (
-                <div
-                  key={col.id}
-                  className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 flex flex-col gap-2.5"
-                >
-                  <div className="flex items-center justify-between px-1 py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-xs font-bold">{col.label}</span>
-                    <span className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-slate-100 dark:bg-slate-800">
+                <HairlineCard key={col.id} padding="sm" className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between px-1 py-1.5 border-b border-[var(--border-hairline)]">
+                    <span className="text-xs font-bold text-[var(--text-primary)]">{col.label}</span>
+                    <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
                       {items.length}
                     </span>
                   </div>
                   {items.map(item => (
                     <div
                       key={item.id}
-                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 space-y-1.5"
+                      className="p-3 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] space-y-1.5"
                     >
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
                         <span>{item.requesterOrg}</span>
-                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        <span className="font-mono font-bold text-[#4E6126] dark:text-[#CCF048]">
                           ▲ {item.votes}
                         </span>
                       </div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      <h4 className="text-xs font-bold text-[var(--text-primary)]">
                         {item.title}
                       </h4>
-                      <p className="text-[11px] text-slate-500 line-clamp-2">{item.description}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2">
+                        {item.description}
+                      </p>
                     </div>
                   ))}
-                </div>
+                </HairlineCard>
               );
             })}
           </div>
         )}
 
         {activeTab === 'changelog' && (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-4xl mx-auto space-y-5">
             {changelogs.map(entry => (
-              <div
-                key={entry.id}
-                className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4"
-              >
+              <HairlineCard key={entry.id} padding="lg" className="space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-mono font-bold">
+                    <span className="px-3 py-1 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-xs font-mono font-bold">
                       {entry.version}
                     </span>
-                    <span className="text-xs font-mono text-slate-400">{entry.releaseDate}</span>
-                    <span className="text-xs text-slate-500">by {entry.authorName}</span>
+                    <span className="text-xs font-mono text-[var(--text-muted)]">{entry.releaseDate}</span>
+                    <span className="text-xs text-[var(--text-secondary)]">by {entry.authorName}</span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                     Published Release
                   </span>
                 </div>
 
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h2 className="text-base font-bold text-[var(--text-primary)]">
                     {entry.title}
                   </h2>
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
                     {entry.summary}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                  <div className="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/20 space-y-1.5">
-                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                      ✨ New Features
+                  <div className="p-3.5 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] space-y-1.5">
+                    <div className="text-xs font-bold text-[#4E6126] dark:text-[#CCF048]">
+                      New Features
                     </div>
-                    <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc list-inside">
+                    <ul className="space-y-1 text-xs text-[var(--text-secondary)] list-disc list-inside">
                       {entry.features.map((f, i) => (
                         <li key={i}>{f}</li>
                       ))}
                     </ul>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
-                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      ⚡ Improvements
+                  <div className="p-3.5 rounded-xl bg-emerald-500/8 border border-emerald-500/20 space-y-1.5">
+                    <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      Improvements
                     </div>
-                    <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc list-inside">
+                    <ul className="space-y-1 text-xs text-[var(--text-secondary)] list-disc list-inside">
                       {entry.improvements.map((imp, i) => (
                         <li key={i}>{imp}</li>
                       ))}
                     </ul>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-1.5">
-                    <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                      🐛 Bug Fixes
+                  <div className="p-3.5 rounded-xl bg-amber-500/8 border border-amber-500/20 space-y-1.5">
+                    <div className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      Bug Fixes
                     </div>
-                    <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc list-inside">
+                    <ul className="space-y-1 text-xs text-[var(--text-secondary)] list-disc list-inside">
                       {entry.fixes.map((fix, i) => (
                         <li key={i}>{fix}</li>
                       ))}
                     </ul>
                   </div>
                 </div>
-              </div>
+              </HairlineCard>
             ))}
           </div>
         )}

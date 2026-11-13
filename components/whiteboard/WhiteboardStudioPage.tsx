@@ -1663,7 +1663,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
 
     const svgParts: string[] = [
       `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">`,
-      `<rect width="100%" height="100%" fill="${darkMode ? '#0f172a' : '#f8fafc'}" />`,
+      `<rect width="100%" height="100%" fill="${darkMode ? '#131511' : '#FAFBF7'}" />`,
     ];
 
     activeBoard.connectors.forEach(c => {
@@ -1682,16 +1682,16 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
     activeBoard.nodes.forEach(n => {
       svgParts.push(
         `<rect x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="18" fill="${
-          darkMode ? '#1e293b' : '#ffffff'
+          darkMode ? '#1A1D17' : '#ffffff'
         }" stroke="${n.color}" stroke-width="2" />`,
         `<text x="${n.x + 16}" y="${n.y + 28}" fill="${
-          darkMode ? '#f8fafc' : '#0f172a'
+          darkMode ? '#F2F3EE' : '#191B17'
         }" font-family="sans-serif" font-size="14" font-weight="bold">${(n.title || n.type).replace(
           /[<>&]/g,
           ''
         )}</text>`,
         `<text x="${n.x + 16}" y="${n.y + 52}" fill="${
-          darkMode ? '#94a3b8' : '#475569'
+          darkMode ? '#A6AC9C' : '#5A5F52'
         }" font-family="sans-serif" font-size="12">${n.content
           .slice(0, 75)
           .replace(/[<>&]/g, '')}</text>`
@@ -1727,7 +1727,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
   return (
     <div
       className={`flex-1 flex flex-col h-full min-h-0 overflow-hidden select-none relative ${
-        darkMode ? 'bg-[#0B0F19] text-slate-100' : 'bg-[#F4F4F6] text-slate-900'
+        darkMode ? 'bg-[#131511] text-[#F2F3EE]' : 'bg-[#F4F4EF] text-[#191B17]'
       }`}
     >
       {/* 1. FIGMA / NOTION / FRAME FLOATING TOP BAR (Clean 3-Zone Contract) */}
@@ -1736,11 +1736,11 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
         <div
           className={`pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-2xl border shadow-lg backdrop-blur-xl ${
             darkMode
-              ? 'bg-slate-900/90 border-white/10 text-slate-100'
-              : 'bg-white/95 border-slate-200/90 text-slate-900'
+              ? 'bg-[#1A1D17]/92 border-[#2B3026] text-[#F2F3EE]'
+              : 'bg-white/95 border-[#E3E5DD] text-[#191B17]'
           }`}
         >
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-rose-500 flex items-center justify-center text-white shadow-sm shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] flex items-center justify-center shadow-xs shrink-0">
             <ICON_MAP.SparklesIcon className="w-4 h-4" />
           </div>
 
@@ -1756,27 +1756,27 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
               else setActiveBoardId(val);
             }}
             className={`text-xs font-bold bg-transparent outline-none cursor-pointer pr-1 max-w-[200px] sm:max-w-[240px] truncate ${
-              darkMode ? 'text-white' : 'text-slate-900'
+              darkMode ? 'text-[#F2F3EE]' : 'text-[#191B17]'
             }`}
           >
             <optgroup label="Workspace Boards">
               {boards.map(b => (
-                <option key={b.id} value={b.id} className={darkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
+                <option key={b.id} value={b.id} className={darkMode ? 'bg-[#1A1D17] text-[#F2F3EE]' : 'bg-white text-[#191B17]'}>
                   {b.name}
                 </option>
               ))}
             </optgroup>
             <optgroup label="Starter Templates">
-              <option value="__tpl_arch" className={darkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
+              <option value="__tpl_arch" className={darkMode ? 'bg-[#1A1D17] text-[#F2F3EE]' : 'bg-white text-[#191B17]'}>
                 + Reset Community Portal & Spec
               </option>
-              <option value="__tpl_retro" className={darkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
+              <option value="__tpl_retro" className={darkMode ? 'bg-[#1A1D17] text-[#F2F3EE]' : 'bg-white text-[#191B17]'}>
                 + Load Sprint Retrospective
               </option>
-              <option value="__tpl_flow" className={darkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
+              <option value="__tpl_flow" className={darkMode ? 'bg-[#1A1D17] text-[#F2F3EE]' : 'bg-white text-[#191B17]'}>
                 + Load Customer Journey Flow
               </option>
-              <option value="__new_page" className={darkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
+              <option value="__new_page" className={darkMode ? 'bg-[#1A1D17] text-[#F2F3EE]' : 'bg-white text-[#191B17]'}>
                 + New Blank Page...
               </option>
             </optgroup>
@@ -1840,7 +1840,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           {/* Active Collaborators Stack with 1-Click Follow Mode */}
           <div className="flex items-center -space-x-1.5 mr-1">
             <div
-              className="w-7 h-7 rounded-full ring-2 ring-indigo-500 bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center"
+              className="w-7 h-7 rounded-full ring-2 ring-[#97B832] bg-[#191B17] text-[#CCF048] text-[11px] font-bold flex items-center justify-center"
               title={`You (${currentUser?.full_name || 'Active'})`}
             >
               {(currentUser?.full_name || currentUser?.email || 'U').charAt(0).toUpperCase()}
@@ -1879,9 +1879,9 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             <button
               type="button"
               onClick={() => setShowEmoteMenu(prev => !prev)}
-              className={`px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
                 showEmoteMenu || isCursorChatOpen
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511]'
                   : darkMode
                     ? 'hover:bg-slate-800 text-slate-300'
                     : 'hover:bg-slate-100 text-slate-700'
@@ -1963,7 +1963,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             <button
               type="button"
               onClick={() => setZoom(z => Math.max(0.4, Math.round((z - 0.15) * 100) / 100))}
-              className="px-1.5 text-xs font-bold hover:text-indigo-500 cursor-pointer"
+              className="px-1.5 text-xs font-bold hover:text-[#4E6126] dark:hover:text-[#CCF048] cursor-pointer"
             >
               −
             </button>
@@ -1981,7 +1981,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             <button
               type="button"
               onClick={() => setZoom(z => Math.min(2, Math.round((z + 0.15) * 100) / 100))}
-              className="px-1.5 text-xs font-bold hover:text-indigo-500 cursor-pointer"
+              className="px-1.5 text-xs font-bold hover:text-[#4E6126] dark:hover:text-[#CCF048] cursor-pointer"
             >
               +
             </button>
@@ -1991,7 +1991,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           <button
             type="button"
             onClick={() => setShowShareModal(true)}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             Share
           </button>
@@ -2012,7 +2012,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
 
       {/* FOLLOWING SPOTLIGHT BANNER */}
       {followingUserId && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-1.5 rounded-full bg-amber-500 text-slate-950 text-xs font-bold shadow-lg">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#CCF048] text-[#131511] text-xs font-bold shadow-lg">
           <span>
             Following {remoteCursors[followingUserId]?.userName || 'Teammate'}'s live viewport
           </span>
@@ -2053,7 +2053,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                 }}
                 style={{ backgroundColor: c.hex }}
                 className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
-                  selectedNode.color === c.hex ? 'scale-125 ring-2 ring-offset-1 ring-indigo-500' : ' opacity-80 hover:opacity-100'
+                  selectedNode.color === c.hex ? 'scale-125 ring-2 ring-offset-1 ring-[#97B832]' : ' opacity-80 hover:opacity-100'
                 }`}
                 title={c.label}
               />
@@ -2107,7 +2107,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             <button
               type="button"
               onClick={() => handleConvertNodeToTask(selectedNode)}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 text-white hover:bg-indigo-500 cursor-pointer whitespace-nowrap"
+              className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--accent-lime)] text-[var(--accent-ink)] hover:bg-[var(--accent-lime-hover)] cursor-pointer whitespace-nowrap"
               title="Convert this note into a tracked Kanban task"
             >
               + To Task
@@ -2331,7 +2331,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                             ? '#111827'
                             : '#ffffff',
                     borderColor: isSelected
-                      ? '#4f46e5'
+                      ? '#97B832'
                       : remoteSelector
                         ? remoteSelector.color
                         : node.type === 'sticky' && !darkMode
@@ -2346,7 +2346,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                         : 'rounded-[22px] border-2'
                   } ${
                     isSelected
-                      ? 'ring-4 ring-indigo-500/25 shadow-2xl z-20'
+                      ? 'ring-4 ring-[#CCF048]/30 shadow-2xl z-20'
                       : isConnectSource
                         ? 'ring-4 ring-amber-500/40 z-20'
                         : 'shadow-md hover:shadow-xl z-10'
@@ -2397,7 +2397,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                           });
                         }}
                         title="Drag to connect to another node"
-                        className={`absolute ${posClass} w-3.5 h-3.5 rounded-full bg-white dark:bg-slate-900 border-2 border-indigo-500 opacity-0 group-hover:opacity-100 ${
+                        className={`absolute ${posClass} w-3.5 h-3.5 rounded-full bg-white dark:bg-[#1A1D17] border-2 border-[#97B832] opacity-0 group-hover:opacity-100 ${
                           isSelected ? 'opacity-100' : ''
                         } hover:scale-125 transition-all cursor-crosshair z-30`}
                       />
@@ -2472,8 +2472,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                     <div
                       className={`-mb-6 self-start -rotate-3 px-2.5 py-0.5 rounded-lg text-[10px] font-bold shadow-sm border ${
                         darkMode
-                          ? 'bg-slate-900 border-white/15 text-indigo-300'
-                          : 'bg-white border-slate-200 text-slate-700'
+                          ? 'bg-[#1A1D17] border-white/15 text-[#CCF048]'
+                          : 'bg-white border-slate-200 text-[#4E6126]'
                       }`}
                     >
                       {node.mentionTag}
@@ -2513,7 +2513,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                         e.stopPropagation();
                         setResizingNodeId(node.id);
                       }}
-                      className="absolute bottom-1.5 right-1.5 w-3.5 h-3.5 rounded-sm bg-indigo-500 cursor-se-resize"
+                      className="absolute bottom-1.5 right-1.5 w-3.5 h-3.5 rounded-sm bg-[#97B832] cursor-se-resize"
                       title="Drag to resize"
                     />
                   )}
@@ -2622,7 +2622,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleAddCommentReply(thread)}
-                        className="w-6 h-6 rounded-full bg-slate-900 dark:bg-indigo-600 text-white flex items-center justify-center text-[10px] cursor-pointer"
+                        className="w-6 h-6 rounded-full bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] flex items-center justify-center text-[10px] cursor-pointer"
                       >
                         ➤
                       </button>
@@ -2709,36 +2709,32 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
               : 'bg-white/95 border-slate-200 text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+          <span className="w-2 h-2 rounded-full bg-[#97B832] dark:bg-[#CCF048]" />
           <span className="font-bold truncate max-w-[140px]">
             {activeBoard?.name?.split('·')[0] || 'Page 1'}
           </span>
-          <span className="text-slate-400 font-mono tabular-nums">
+          <span className="text-[var(--text-muted)] font-mono tabular-nums">
             {(activeBoard?.nodes.length || 0) + (activeBoard?.connectors.length || 0)} layers
           </span>
         </button>
 
         {showPagesDrawer && (
           <div
-            className={`mt-2 w-72 rounded-2xl border p-3 shadow-2xl backdrop-blur-xl ${
-              darkMode
-                ? 'bg-slate-900/95 border-white/15 text-slate-100'
-                : 'bg-white/95 border-slate-200 text-slate-900'
-            }`}
+            className="mt-2 w-72 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-3 shadow-2xl backdrop-blur-xl"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 Boards & Pages ({boards.length})
               </span>
               <button
                 type="button"
                 onClick={handleCreateNewBoardPage}
-                className="text-[11px] font-bold text-indigo-500 hover:underline cursor-pointer"
+                className="text-[11px] font-bold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
               >
                 + New Page
               </button>
             </div>
-            <div className="space-y-1 max-h-36 overflow-y-auto mb-3 pr-1">
+            <div className="space-y-1 max-h-36 overflow-y-auto mb-3 pr-1 scrollbar-thin">
               {boards.map(b => (
                 <button
                   key={b.id}
@@ -2749,10 +2745,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                   }}
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium text-left cursor-pointer ${
                     b.id === activeBoard?.id
-                      ? 'bg-indigo-600 text-white font-bold'
-                      : darkMode
-                        ? 'hover:bg-slate-800 text-slate-300'
-                        : 'hover:bg-slate-100 text-slate-700'
+                      ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] font-bold'
+                      : 'hover:bg-[var(--bg-sage)] text-[var(--text-secondary)]'
                   }`}
                 >
                   <span className="truncate">{b.name}</span>
@@ -2761,11 +2755,11 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
               ))}
             </div>
 
-            <div className="border-t border-slate-300/20 pt-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+            <div className="border-t border-[var(--border-hairline)] pt-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
                 Canvas Layers ({activeBoard?.nodes.length || 0})
               </div>
-              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
                 {(activeBoard?.nodes || []).map(n => (
                   <button
                     key={n.id}
@@ -2779,10 +2773,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                     }}
                     className={`w-full flex items-center justify-between px-2.5 py-1 rounded-lg text-xs text-left cursor-pointer ${
                       selectedNodeId === n.id
-                        ? 'bg-indigo-500/20 text-indigo-400 font-bold'
-                        : darkMode
-                          ? 'hover:bg-slate-800 text-slate-300'
-                          : 'hover:bg-slate-100 text-slate-700'
+                        ? 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-bold'
+                        : 'hover:bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)]'
                     }`}
                   >
                     <span className="truncate">{n.title || n.content.slice(0, 24)}</span>
@@ -2798,14 +2790,14 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
       {/* 5. CENTERED TACTILE BOTTOM DOCK (Inspired by FigJam Image 1 & Frame Image 3) */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-2 rounded-[24px] border shadow-2xl backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 border-slate-200/90 dark:border-white/15">
         {/* Select / Hand Pan Pair */}
-        <div className="flex items-center gap-1 pr-2 border-r border-slate-300/30">
+        <div className="flex items-center gap-1 pr-2 border-r border-[var(--border-hairline)]">
           <button
             type="button"
             onClick={() => setActiveTool('select')}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTool === 'select'
-                ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Select & Move (V)"
           >
@@ -2816,8 +2808,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             onClick={() => setActiveTool('pan')}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTool === 'pan'
-                ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Pan Canvas (H)"
           >
@@ -2831,8 +2823,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('pen')}
           className={`px-3 h-9 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
             activeTool === 'pen'
-              ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Freehand Marker / Pen (P)"
         >
@@ -2846,8 +2838,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('sticky')}
           className={`px-3 h-9 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
             activeTool === 'sticky'
-              ? 'bg-amber-400 text-slate-950 shadow-md scale-105'
-              : 'bg-amber-100 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 hover:bg-amber-200'
+              ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] shadow-md scale-105'
+              : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-sage-hover)]'
           }`}
           title="Add Sticky Note (S)"
         >
@@ -2862,8 +2854,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             onClick={() => setShowShapeMenu(prev => !prev)}
             className={`px-3 h-9 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
               ['rectangle', 'diamond', 'circle', 'frame'].includes(activeTool)
-                ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Shapes & Frames"
           >
@@ -2876,11 +2868,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
 
           {showShapeMenu && (
             <div
-              className={`absolute bottom-12 left-1/2 -translate-x-1/2 w-48 rounded-2xl border p-1.5 shadow-2xl z-50 ${
-                darkMode
-                  ? 'bg-slate-900 border-white/15 text-slate-100'
-                  : 'bg-white border-slate-200 text-slate-800'
-              }`}
+              className="absolute bottom-12 left-1/2 -translate-x-1/2 w-48 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-1.5 shadow-2xl z-50"
             >
               {[
                 { id: 'frame' as const, label: 'Section Frame (F)', icon: '⊞' },
@@ -2898,10 +2886,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                   }}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-left cursor-pointer ${
                     activeTool === s.id
-                      ? 'bg-indigo-600 text-white'
-                      : darkMode
-                        ? 'hover:bg-slate-800'
-                        : 'hover:bg-slate-100'
+                      ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511]'
+                      : 'hover:bg-[var(--bg-sage)]'
                   }`}
                 >
                   <span>{s.icon}</span>
@@ -2918,8 +2904,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('text')}
           className={`w-9 h-9 rounded-xl font-serif font-extrabold text-sm flex items-center justify-center transition-all cursor-pointer ${
             activeTool === 'text'
-              ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Text Label (T)"
         >
@@ -2932,8 +2918,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('connector')}
           className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
             activeTool === 'connector'
-              ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Connect Nodes (L or drag node edge handles)"
         >
@@ -2950,8 +2936,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             }}
             className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
               activeTool === 'stamp'
-                ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Stamp Sticker on Card (E)"
           >
@@ -2960,9 +2946,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
 
           {showStampMenu && (
             <div
-              className={`absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1.5 rounded-2xl border shadow-2xl z-50 ${
-                darkMode ? 'bg-slate-900 border-white/15' : 'bg-white border-slate-200'
-              }`}
+              className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-2xl z-50"
             >
               {STAMP_EMOJIS.map(emoji => (
                 <button
@@ -2974,7 +2958,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                     setShowStampMenu(false);
                   }}
                   className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition-transform hover:scale-125 cursor-pointer ${
-                    selectedStamp === emoji ? 'bg-indigo-500/20' : ''
+                    selectedStamp === emoji ? 'bg-[var(--bg-sage)] ring-1 ring-[var(--border-strong)]' : ''
                   }`}
                 >
                   {emoji}
@@ -2990,8 +2974,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('comment')}
           className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
             activeTool === 'comment'
-              ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
-              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Pin Comment Thread on Canvas (C)"
         >
@@ -3039,37 +3023,33 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             <button
               type="button"
               onClick={handleCreateVersionSnapshot}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer whitespace-nowrap"
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] cursor-pointer whitespace-nowrap"
             >
               Save
             </button>
           </div>
 
-          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-56 overflow-y-auto scrollbar-thin pr-1">
             {(activeBoard?.history || []).length === 0 ? (
-              <div className="text-xs text-slate-400 py-4 text-center">
+              <div className="text-xs text-[var(--text-muted)] py-4 text-center">
                 All live edits auto-sync across teammates (v{boardVersion}). Save a named checkpoint above to revert anytime.
               </div>
             ) : (
               (activeBoard.history || []).map(snap => (
                 <div
                   key={snap.id}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border ${
-                    darkMode
-                      ? 'bg-slate-800/70 border-white/10'
-                      : 'bg-slate-50 border-slate-200'
-                  }`}
+                  className="flex items-center justify-between p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]"
                 >
                   <div className="min-w-0">
                     <div className="text-xs font-bold truncate">{snap.label}</div>
-                    <div className="text-[10px] text-slate-400">
+                    <div className="text-[10px] text-[var(--text-muted)]">
                       by {snap.authorName} · {snap.nodes.length} nodes
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRestoreSnapshot(snap)}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 cursor-pointer shrink-0"
+                    className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--accent-lime)] hover:text-[#131511] cursor-pointer shrink-0 transition-colors"
                   >
                     Restore
                   </button>
@@ -3088,23 +3068,19 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
         >
           <div
             onClick={e => e.stopPropagation()}
-            className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl ${
-              darkMode
-                ? 'bg-slate-900 border-white/15 text-slate-100'
-                : 'bg-white border-slate-200 text-slate-900'
-            }`}
+            className="w-full max-w-md rounded-3xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-6 shadow-2xl"
           >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-extrabold">Share & Export Whiteboard</h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-[var(--text-muted)]">
                   {activeBoard?.name} · Version v{boardVersion} (Auto-synced to cloud)
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowShareModal(false)}
-                className="text-sm text-slate-400 hover:text-slate-200 cursor-pointer"
+                className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               >
                 ✕
               </button>
@@ -3118,11 +3094,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                 <select
                   value={shareChannelId}
                   onChange={e => setShareChannelId(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-xl text-xs font-semibold border outline-none ${
-                    darkMode
-                      ? 'bg-slate-800 border-white/10 text-white'
-                      : 'bg-slate-100 border-slate-200 text-slate-900'
-                  }`}
+                  className="w-full px-3 py-2 rounded-xl text-xs font-semibold border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] outline-none"
                 >
                   <option value="general">#general</option>
                   <option value="engineering">#engineering</option>
@@ -3138,18 +3110,14 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                   value={shareNote}
                   onChange={e => setShareNote(e.target.value)}
                   placeholder="e.g., Please review the Q4 architecture flow before standup..."
-                  className={`w-full px-3 py-2 rounded-xl text-xs border outline-none ${
-                    darkMode
-                      ? 'bg-slate-800 border-white/10 text-white'
-                      : 'bg-slate-100 border-slate-200 text-slate-900'
-                  }`}
+                  className="w-full px-3 py-2 rounded-xl text-xs border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] outline-none"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={handleShareBoardToChat}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md cursor-pointer"
+                className="w-full py-2.5 rounded-full text-xs font-bold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs cursor-pointer transition-colors"
               >
                 Share Live Whiteboard to #{shareChannelId}
               </button>

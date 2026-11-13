@@ -78,12 +78,12 @@ export const TaskLivePresenceBadge: React.FC<TaskLivePresenceBadgeProps> = ({
   const firstName = ((primaryEditor || primaryTyper || primaryViewer)?.userName || 'Teammate').split(' ')[0];
 
   const pillTone = primaryEditor
-    ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300'
+    ? 'bg-[var(--accent-lime)]/20 border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
     : primaryTyper
-      ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300'
+      ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300'
       : viewers.length > 0
         ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
-        : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-700 dark:text-indigo-300';
+        : 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048]';
 
   const tooltip = viewers.length > 0
     ? viewers
@@ -145,7 +145,7 @@ export const TaskLivePresenceBadge: React.FC<TaskLivePresenceBadgeProps> = ({
         </>
       ) : recentRemoteBroadcast ? (
         <>
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#4E6126] dark:bg-[#CCF048]" />
           <span className="truncate max-w-[130px]">
             {recentRemoteBroadcast.actorName} {recentRemoteBroadcast.summary}
           </span>
@@ -173,9 +173,9 @@ export const useTaskPresenceHighlight = (taskId: string) => {
     });
 
     const ringClass = hasEditor
-      ? 'ring-1 ring-blue-500/50 border-blue-500/40'
+      ? 'ring-1 ring-[#97B832]/60 border-[#97B832]/50'
       : hasTyper
-        ? 'ring-1 ring-purple-500/50 border-purple-500/40'
+        ? 'ring-1 ring-amber-500/40 border-amber-500/40'
         : hasViewer
           ? 'ring-1 ring-emerald-500/30 border-emerald-500/30'
           : '';

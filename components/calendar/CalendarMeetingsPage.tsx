@@ -20,37 +20,37 @@ const CATEGORY_METADATA: Record<
 > = {
   sprint_planning: {
     label: 'Sprint Planning & Prep',
-    accent: 'border-l-[#6F8254] bg-[var(--bg-sage)] text-[var(--text-primary)]',
+    accent: 'border border-[#6F8254]/30 bg-[var(--bg-sage)] text-[var(--text-primary)]',
     dotColor: 'bg-[#6F8254] dark:bg-[var(--accent-lime)]',
     defaultDurationMin: 60,
   },
   sprint_retro: {
     label: 'Sprint Review & Retro',
-    accent: 'border-l-[#191B17] dark:border-l-[#CCF048] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)]',
+    accent: 'border border-[var(--border-strong)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)]',
     dotColor: 'bg-[var(--text-primary)]',
     defaultDurationMin: 45,
   },
   project_update: {
     label: 'Project Update & Sync',
-    accent: 'border-l-emerald-600 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300',
+    accent: 'border border-emerald-600/30 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300',
     dotColor: 'bg-emerald-600 dark:bg-emerald-400',
     defaultDurationMin: 45,
   },
   daily_standup: {
     label: 'Daily Standup',
-    accent: 'border-l-sky-600 bg-sky-600/10 text-sky-800 dark:text-sky-300',
-    dotColor: 'bg-sky-600 dark:bg-sky-400',
+    accent: 'border border-teal-600/30 bg-teal-600/10 text-teal-800 dark:text-teal-300',
+    dotColor: 'bg-teal-600 dark:bg-teal-400',
     defaultDurationMin: 15,
   },
   one_on_one: {
     label: '1:1 Video Sync',
-    accent: 'border-l-amber-600 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+    accent: 'border border-amber-600/30 bg-amber-500/10 text-amber-800 dark:text-amber-300',
     dotColor: 'bg-amber-600 dark:bg-amber-400',
     defaultDurationMin: 30,
   },
   team_workshop: {
     label: 'Architecture & Workshop',
-    accent: 'border-l-rose-600 bg-rose-600/10 text-rose-800 dark:text-rose-300',
+    accent: 'border border-rose-600/30 bg-rose-600/10 text-rose-800 dark:text-rose-300',
     dotColor: 'bg-rose-600 dark:bg-rose-400',
     defaultDurationMin: 60,
   },
@@ -534,7 +534,7 @@ export const CalendarMeetingsPage: React.FC = () => {
 
       {/* 2. PENDING RSVP INVITATIONS BANNER */}
       {myPendingInvites.length > 0 && (
-        <HairlineCard className="border-l-4 border-l-[var(--accent-lime)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <HairlineCard className="border-[var(--border-strong)] bg-[var(--bg-sage)]/45 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <StatusDot
               tone="lime"
@@ -712,7 +712,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                             e.stopPropagation();
                             setSelectedEventId(ev.id);
                           }}
-                          className={`px-2 py-1 rounded-md border-l-2 text-[11px] font-medium truncate transition-opacity hover:opacity-85 ${catStyle.accent}`}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-medium truncate transition-opacity hover:opacity-85 ${catStyle.accent}`}
                           title={`${ev.title} (${new Date(ev.startTime).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -842,12 +842,12 @@ export const CalendarMeetingsPage: React.FC = () => {
                           key={opt.id}
                           type="button"
                           onClick={() => handleUserRsvp(ev, opt.id)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                             active
                               ? opt.id === 'going'
                                 ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
                                 : opt.id === 'maybe'
-                                ? 'bg-amber-500 text-slate-950 border-amber-400'
+                                ? 'bg-amber-500 text-[#131511] border-amber-400'
                                 : 'bg-rose-600 text-white border-rose-500'
                               : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
                           }`}
@@ -1049,7 +1049,7 @@ export const CalendarMeetingsPage: React.FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-bold">Your RSVP Response</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <div className="text-[11px] text-[var(--text-secondary)]">
                     Let {selectedEvent.organizerName} and the team know your attendance status
                   </div>
                 </div>
@@ -1071,16 +1071,14 @@ export const CalendarMeetingsPage: React.FC = () => {
                         key={opt.id}
                         type="button"
                         onClick={() => handleUserRsvp(selectedEvent, opt.id)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                           active
                             ? opt.id === 'going'
-                              ? 'bg-emerald-600 text-white border-emerald-500'
+                              ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
                               : opt.id === 'maybe'
-                              ? 'bg-amber-500 text-slate-950 border-amber-400'
+                              ? 'bg-amber-500 text-[#131511] border-amber-400'
                               : 'bg-rose-600 text-white border-rose-500'
-                            : darkMode
-                            ? 'bg-slate-800 border-slate-700 text-slate-300'
-                            : 'bg-white border-slate-200 text-slate-700'
+                            : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
                         }`}
                       >
                         {opt.label}
@@ -1096,11 +1094,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                   value={rsvpNoteInput}
                   onChange={e => setRsvpNoteInput(e.target.value)}
                   placeholder="Optional RSVP note (e.g. 'Will demo Sprint 4 API', 'Joining 5m late')..."
-                  className={`flex-1 px-3 py-1.5 rounded-xl border text-xs outline-none ${
-                    darkMode
-                      ? 'bg-slate-900 border-slate-800 text-white placeholder-slate-500'
-                      : 'bg-white border-slate-200 text-slate-900'
-                  }`}
+                  className="flex-1 px-3 py-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-xs outline-none"
                 />
                 {rsvpNoteInput.trim() && (
                   <button
@@ -1112,7 +1106,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                       handleUserRsvp(selectedEvent, currentStatus, rsvpNoteInput);
                       setRsvpNoteInput('');
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold cursor-pointer whitespace-nowrap"
                   >
                     Save Note
                   </button>
@@ -1125,13 +1119,13 @@ export const CalendarMeetingsPage: React.FC = () => {
               {/* Left: Attendee List & RSVP Statuses */}
               <div className="md:col-span-6 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     Invited Attendees ({selectedEvent.attendees.length})
                   </h4>
                   <button
                     type="button"
                     onClick={() => handleSimulateTeammateRsvps(selectedEvent)}
-                    className="text-[11px] font-semibold text-indigo-500 hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
                   >
                     Simulate Teammate RSVPs
                   </button>
@@ -1141,11 +1135,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                   {selectedEvent.attendees.map(att => (
                     <div
                       key={att.userId}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
-                        darkMode
-                          ? 'bg-slate-950/40 border-slate-800'
-                          : 'bg-slate-50/70 border-slate-200/70'
-                      }`}
+                      className="p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center justify-between gap-2"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Avatar
@@ -1208,7 +1198,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                         'success'
                       );
                     }}
-                    className="w-full py-2 px-3 rounded-xl border border-dashed border-indigo-500/40 text-indigo-500 text-xs font-semibold hover:bg-indigo-500/10 transition-colors cursor-pointer"
+                    className="w-full py-2 px-3 rounded-xl border border-dashed border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] text-xs font-semibold hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                   >
                     + Invite All Remaining Organization Members
                   </button>
@@ -1217,7 +1207,7 @@ export const CalendarMeetingsPage: React.FC = () => {
 
               {/* Right: Meeting Prep Agenda & Notes */}
               <div className="md:col-span-6 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   Meeting Prep & Agenda ({selectedEvent.agenda.length})
                 </h4>
 
@@ -1225,11 +1215,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                   {selectedEvent.agenda.map(ag => (
                     <label
                       key={ag.id}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs cursor-pointer ${
-                        darkMode
-                          ? 'bg-slate-950/40 border-slate-800'
-                          : 'bg-slate-50/70 border-slate-200/70'
-                      }`}
+                      className="p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center justify-between gap-2 text-xs cursor-pointer"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <input
@@ -1239,11 +1225,11 @@ export const CalendarMeetingsPage: React.FC = () => {
                             meetingAndCallService.toggleAgendaItem(selectedEvent.id, ag.id)
                           }
                         />
-                        <span className={`truncate ${ag.completed ? 'line-through text-slate-400' : ''}`}>
+                        <span className={`truncate ${ag.completed ? 'line-through text-[var(--text-muted)]' : ''}`}>
                           {ag.title}
                         </span>
                       </div>
-                      <span className="font-mono text-[10px] text-slate-400 flex-shrink-0">
+                      <span className="font-mono text-[10px] text-[var(--text-muted)] flex-shrink-0">
                         {ag.durationMinutes}m
                       </span>
                     </label>
@@ -1269,9 +1255,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                     value={newAgendaTitle}
                     onChange={e => setNewAgendaTitle(e.target.value)}
                     placeholder="Add agenda topic..."
-                    className={`flex-1 px-3 py-1.5 rounded-xl border text-xs outline-none ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200'
-                    }`}
+                    className="flex-1 px-3 py-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs outline-none"
                   />
                   <input
                     type="number"
@@ -1279,13 +1263,11 @@ export const CalendarMeetingsPage: React.FC = () => {
                     max={120}
                     value={newAgendaDuration}
                     onChange={e => setNewAgendaDuration(Number(e.target.value))}
-                    className={`w-16 px-2 py-1.5 rounded-xl border text-xs font-mono ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200'
-                    }`}
+                    className="w-16 px-2 py-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs font-mono"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold cursor-pointer whitespace-nowrap"
                   >
                     + Add
                   </button>
@@ -1293,7 +1275,7 @@ export const CalendarMeetingsPage: React.FC = () => {
 
                 {/* Shared Prep Notes */}
                 <div className="pt-2">
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  <label className="block text-[11px] font-semibold text-[var(--text-muted)] mb-1">
                     Sprint / Project Prep Notes
                   </label>
                   <textarea
@@ -1303,9 +1285,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                       meetingAndCallService.updateEventPrepNotes(selectedEvent.id, e.target.value)
                     }
                     placeholder="Pre-read context, sprint links, or questions for attendees..."
-                    className={`w-full p-2.5 rounded-xl border text-xs outline-none resize-none ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs outline-none resize-none"
                   />
                 </div>
               </div>
@@ -1345,7 +1325,7 @@ export const CalendarMeetingsPage: React.FC = () => {
             <form onSubmit={handleCreateMeetingSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-400">Meeting Type</label>
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Meeting Type</label>
                   <select
                     value={formCategory}
                     onChange={e => {
@@ -1353,9 +1333,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                       setFormCategory(nextCat);
                       handleAutoPopulatePrepTemplate(nextCat, formProjectId, formSprintId);
                     }}
-                    className={`w-full px-3 py-2 rounded-xl border ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)]"
                   >
                     <option value="sprint_planning">Sprint Planning & Prep</option>
                     <option value="project_update">Project Update & Stakeholder Review</option>
@@ -1367,7 +1345,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-400">
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                     Link Project / Sprint Context
                   </label>
                   <select
@@ -1376,9 +1354,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                       setFormProjectId(e.target.value);
                       handleAutoPopulatePrepTemplate(formCategory, e.target.value, formSprintId);
                     }}
-                    className={`w-full px-3 py-2 rounded-xl border ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)]"
                   >
                     <option value="">General Organization Workspace</option>
                     {projects.map(p => (
@@ -1391,54 +1367,46 @@ export const CalendarMeetingsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-400">Meeting Title</label>
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Meeting Title</label>
                 <input
                   type="text"
                   required
                   value={formTitle}
                   onChange={e => setFormTitle(e.target.value)}
                   placeholder="e.g. Sprint 5 Planning & Velocity Alignment"
-                  className={`w-full px-3 py-2 rounded-xl border ${
-                    darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'
-                  }`}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)]"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-400">Date</label>
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Date</label>
                   <input
                     type="date"
                     required
                     value={formDate}
                     onChange={e => setFormDate(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-xl border font-mono ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-400">Start Time</label>
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Start Time</label>
                   <input
                     type="time"
                     required
                     value={formStartTime}
                     onChange={e => setFormStartTime(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-xl border font-mono ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-400">End Time</label>
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">End Time</label>
                   <input
                     type="time"
                     required
                     value={formEndTime}
                     onChange={e => setFormEndTime(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-xl border font-mono ${
-                      darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] font-mono"
                   />
                 </div>
               </div>
@@ -1446,7 +1414,7 @@ export const CalendarMeetingsPage: React.FC = () => {
               {/* Invite Attendees with RSVP */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-semibold text-slate-400">
+                  <label className="font-semibold text-[var(--text-secondary)]">
                     Invite Organization Teammates ({formSelectedUserIds.length} invited — will receive RSVP request)
                   </label>
                   <button
@@ -1458,7 +1426,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                         setFormSelectedUserIds(orgTeammates.map(u => u.id));
                       }
                     }}
-                    className="text-[11px] font-semibold text-indigo-500 hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
                   >
                     {formSelectedUserIds.length === orgTeammates.length
                       ? 'Clear Selection'
@@ -1466,17 +1434,13 @@ export const CalendarMeetingsPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div
-                  className={`max-h-36 overflow-y-auto p-2 rounded-xl border space-y-1 scrollbar-thin ${
-                    darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
+                <div className="max-h-36 overflow-y-auto p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-1 scrollbar-thin">
                   {orgTeammates.map(u => {
                     const checked = formSelectedUserIds.includes(u.id);
                     return (
                       <label
                         key={u.id}
-                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-800/40 cursor-pointer"
+                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-[var(--bg-sage)] cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
                           <input
@@ -1491,7 +1455,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                           <Avatar user={u} size="sm" showHoverCard={false} />
                           <span className="font-semibold">{u.full_name || u.email}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-[var(--text-muted)]">
                           {normalizeUserRole(u.role).replace(/_/g, ' ')}
                         </span>
                       </label>
@@ -1502,20 +1466,18 @@ export const CalendarMeetingsPage: React.FC = () => {
 
               {/* Prep Notes */}
               <div>
-                <label className="block font-semibold mb-1 text-slate-400">
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                   Meeting Prep Notes & Pre-Read Agenda
                 </label>
                 <textarea
                   rows={2}
                   value={formPrepNotes}
                   onChange={e => setFormPrepNotes(e.target.value)}
-                  className={`w-full p-2.5 rounded-xl border resize-none ${
-                    darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'
-                  }`}
+                  className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
                 <Button
                   type="button"
                   variant="secondary"

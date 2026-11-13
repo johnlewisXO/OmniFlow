@@ -4,7 +4,7 @@ import supabaseService, { saveUserProfileExtension, getUserProfileExtensions, no
 import { collabService } from '../services/collabService';
 import { ICON_MAP } from '../constants';
 import { ActiveView, normalizeUserRole, UserProfilePreferences, WORKSPACE_ACCENT_PRESETS, WorkspaceAccentId } from '../types';
-import { StatusDynamicIcon } from './layout/Header';
+import { StatusDynamicIcon } from './layout/ProfileMiniMenu';
 import { HairlineCard, StatusDot } from './shared/EditorialUI';
 import { SlimProgressBar } from './charts/EditorialCharts';
 import { Button } from './shared/Button';

@@ -12,58 +12,58 @@ export const ChromaticGeometryCanvas: React.FC = () => {
       {/* Base Canvas */}
       <div
         className={`absolute inset-0 transition-colors duration-500 ${
-          darkMode ? 'bg-[#060913]' : 'bg-[#EBF1FA]'
+          darkMode ? 'bg-[#131511]' : 'bg-[#F4F4EF]'
         }`}
       />
 
-      {/* 1. Top-Left Electric Cyan Circle (Positioned behind the upper sidebar & workspace title) */}
+      {/* 1. Top-Left Soft Sage Glow */}
       <div
         className={`absolute -top-16 -left-16 w-80 h-80 sm:w-96 sm:h-96 md:w-[460px] md:h-[460px] rounded-full transition-opacity duration-500 ${
           darkMode
-            ? 'bg-gradient-to-br from-[#00D2FF] via-[#0085FF] to-[#0051FF] opacity-55'
-            : 'bg-gradient-to-br from-[#38BDF8] via-[#0284C7] to-[#0369A1] opacity-70'
+            ? 'bg-gradient-to-br from-[#3B4B24] via-[#273119] to-[#1A2013] opacity-55'
+            : 'bg-gradient-to-br from-[#D9E7BA] via-[#C3D895] to-[#E9EDE2] opacity-75'
+        }`}
+        style={{ filter: 'blur(36px)' }}
+      />
+
+      {/* 2. Top-Right Lime & Moss Prism */}
+      <div
+        className={`absolute -top-24 right-[10%] sm:right-[18%] md:right-[22%] w-[420px] sm:w-[560px] md:w-[680px] h-72 sm:h-88 md:h-96 rounded-[52px] rotate-[-16deg] transition-opacity duration-500 ${
+          darkMode
+            ? 'bg-gradient-to-r from-[#2E3A1C] via-[#465A27] to-[#242C18] opacity-40'
+            : 'bg-gradient-to-r from-[#E4F39C] via-[#D6E7B0] to-[#E9EDE2] opacity-60'
+        }`}
+        style={{ filter: 'blur(32px)' }}
+      />
+
+      {/* 3. Bottom-Left Warm Stone & Lime Sphere */}
+      <div
+        className={`absolute -bottom-20 -left-12 w-72 h-72 sm:w-88 sm:h-88 md:w-[400px] md:h-[400px] rounded-full transition-opacity duration-500 ${
+          darkMode
+            ? 'bg-gradient-to-tr from-[#3E4C23] via-[#2B341C] to-[#1D2118] opacity-50'
+            : 'bg-gradient-to-tr from-[#DCE6B8] via-[#E5F29E] to-[#F0F2E8] opacity-70'
         }`}
         style={{ filter: 'blur(30px)' }}
       />
 
-      {/* 2. Top-Right Angled Royal Indigo / Violet Prism (Slab passing behind top bar & upper cards) */}
-      <div
-        className={`absolute -top-24 right-[10%] sm:right-[18%] md:right-[22%] w-[420px] sm:w-[560px] md:w-[680px] h-72 sm:h-88 md:h-96 rounded-[52px] rotate-[-16deg] transition-opacity duration-500 ${
-          darkMode
-            ? 'bg-gradient-to-r from-[#2563EB] via-[#4F46E5] to-[#7C3AED] opacity-45'
-            : 'bg-gradient-to-r from-[#60A5FA] via-[#818CF8] to-[#A78BFA] opacity-65'
-        }`}
-        style={{ filter: 'blur(28px)' }}
-      />
-
-      {/* 3. Bottom-Left Sunset Coral Sphere (Positioned behind bottom sidebar area & user card) */}
-      <div
-        className={`absolute -bottom-20 -left-12 w-72 h-72 sm:w-88 sm:h-88 md:w-[400px] md:h-[400px] rounded-full transition-opacity duration-500 ${
-          darkMode
-            ? 'bg-gradient-to-tr from-[#FF3366] via-[#FF5E62] to-[#FFA07A] opacity-60'
-            : 'bg-gradient-to-tr from-[#F43F5E] via-[#FB7185] to-[#FDBA74] opacity-75'
-        }`}
-        style={{ filter: 'blur(26px)' }}
-      />
-
-      {/* 4. Center-Bottom Warm Amber / Peach Glow (Diffusing warm light through card interstices) */}
+      {/* 4. Center-Bottom Soft Moss Glow */}
       <div
         className={`absolute bottom-4 left-[28%] sm:left-[35%] w-[380px] sm:w-[500px] h-64 sm:h-80 rounded-full transition-opacity duration-500 ${
           darkMode
-            ? 'bg-gradient-to-r from-[#F59E0B] via-[#EA580C] to-[#E11D48] opacity-25'
-            : 'bg-gradient-to-r from-[#FBBF24] via-[#F97316] to-[#FB7185] opacity-35'
+            ? 'bg-gradient-to-r from-[#2D381C] via-[#3F4E24] to-[#1D2118] opacity-30'
+            : 'bg-gradient-to-r from-[#E3EEB0] via-[#D8E5C0] to-[#EDEFE5] opacity-45'
         }`}
         style={{ filter: 'blur(64px)' }}
       />
 
-      {/* 5. Upper-Right Soft Silver / Moon Orb (Matches the circular orb in the top right of the reference) */}
+      {/* 5. Upper-Right Subtle Stone Highlight Orb */}
       <div
         className={`absolute top-10 sm:top-14 right-10 sm:right-24 w-28 h-28 sm:w-36 sm:h-36 rounded-full transition-opacity duration-500 ${
           darkMode
-            ? 'bg-gradient-to-br from-slate-200 to-indigo-200 opacity-25'
-            : 'bg-gradient-to-br from-white to-blue-200 opacity-60'
+            ? 'bg-gradient-to-br from-[#CCF048]/25 to-[#3B4234]/20 opacity-30'
+            : 'bg-gradient-to-br from-white to-[#DFE8C3] opacity-65'
         }`}
-        style={{ filter: 'blur(16px)' }}
+        style={{ filter: 'blur(18px)' }}
       />
     </div>
   );

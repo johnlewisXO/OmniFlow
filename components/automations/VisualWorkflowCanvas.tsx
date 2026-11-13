@@ -48,7 +48,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
       title: 'When Task Status Changes',
       subtitle: 'Event: task.status_changed',
       badge: 'TRIGGER',
-      color: 'from-indigo-500 to-violet-600',
+      color: 'bg-[#CCF048] text-[#131511]',
       x: 50,
       y: 150,
       configValue: 'status_change',
@@ -59,7 +59,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
       title: 'Filter: Status == In Review & Priority >= High',
       subtitle: 'Guard Condition Evaluates True',
       badge: 'CONDITION',
-      color: 'from-amber-500 to-orange-600',
+      color: 'bg-amber-400/20 text-amber-300 border border-amber-400/30',
       x: 370,
       y: 150,
       configValue: TaskStatus.REVIEW,
@@ -70,7 +70,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
       title: 'Escalate Priority & Assign Lead Reviewer',
       subtitle: 'Action: escalate_priority + assign_user',
       badge: 'ACTION #1',
-      color: 'from-emerald-500 to-teal-600',
+      color: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
       x: 710,
       y: 70,
       configValue: 'escalate_priority',
@@ -81,7 +81,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
       title: 'Dispatch Outbound Webhook & Team Chat Alert',
       subtitle: 'POST https://api.enterprise.internal/hooks/sprint',
       badge: 'ACTION #2',
-      color: 'from-rose-500 to-pink-600',
+      color: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
       x: 710,
       y: 235,
       configValue: 'send_notification',
@@ -186,7 +186,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
       title: 'Add Checklist & Notify Assignee',
       subtitle: 'Action: add_checklist + notify',
       badge: `ACTION #${nodes.filter(n => n.kind === 'action').length + 1}`,
-      color: 'from-cyan-500 to-blue-600',
+      color: 'bg-[#CCF048]/20 text-[#CCF048] border border-[#CCF048]/30',
       x: 710,
       y: 340,
       configValue: 'add_checklist',
@@ -215,7 +215,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
       triggerEvent: (triggerNode?.configValue as AutomationTriggerType) || 'status_change',
       triggerConditionValue: condNode?.configValue || TaskStatus.REVIEW,
       actionType: (actNode?.configValue as AutomationActionType) || 'escalate_priority',
-      actionTargetValue: TaskPriority.URGENT,
+      actionTargetValue: TaskPriority.CRITICAL,
       executionCount: 1,
       createdAt: new Date().toISOString(),
     };
@@ -227,18 +227,18 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
   const NODE_H = 92;
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-lg">
+    <div className="editorial-surface overflow-hidden">
       {/* Top Studio Bar */}
-      <div className="px-4 py-3 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/90">
+      <div className="px-4 py-3 border-b border-[var(--border-hairline)] flex flex-wrap items-center justify-between gap-3 bg-[var(--bg-surface-subtle)]">
         <div className="flex items-center gap-2.5 flex-1 min-w-[240px]">
-          <span className="px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-wider border border-indigo-500/30">
+          <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] text-[10px] font-bold uppercase tracking-wider border border-[var(--border-hairline)]">
             Node-Graph Studio
           </span>
           <input
             type="text"
             value={workflowName}
             onChange={e => setWorkflowName(e.target.value)}
-            className="flex-1 max-w-md px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            className="flex-1 max-w-md px-3 py-1 text-xs font-bold rounded-full"
           />
         </div>
 
@@ -246,21 +246,21 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
           <button
             type="button"
             onClick={handleAddActionNode}
-            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition"
+            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--text-primary)] border border-[var(--border-hairline)] transition cursor-pointer"
           >
             + Add Action Node
           </button>
           <button
             type="button"
             onClick={handleRunDryRunSimulation}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
           >
             <span>▶</span> {isDryRunning ? 'Simulating Pipeline...' : 'Dry-Run Pipeline'}
           </button>
           <button
             type="button"
             onClick={handleCompileAndSave}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition"
+            className="px-4 py-1.5 rounded-full text-xs font-bold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs transition cursor-pointer"
           >
             ✓ Compile & Activate Rule
           </button>
@@ -270,7 +270,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
       {/* Interactive Node Graph Canvas */}
       <div
         ref={canvasRef}
-        className="relative h-[470px] w-full overflow-x-auto bg-slate-950 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:20px_20px] select-none"
+        className="relative h-[470px] w-full overflow-x-auto bg-[#131511] bg-[radial-gradient(#2E3427_1px,transparent_1px)] [background-size:20px_20px] select-none"
       >
         {/* SVG Edges Layer */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minWidth: 1020 }}>
@@ -283,7 +283,7 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
               refY="4"
               orient="auto"
             >
-              <path d="M0,1 L7,4 L0,7 Z" fill="#818cf8" />
+              <path d="M0,1 L7,4 L0,7 Z" fill="#CCF048" />
             </marker>
           </defs>
           {edges.map(edge => {
@@ -305,8 +305,8 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
                 <path
                   d={d}
                   fill="none"
-                  stroke={isDryRunning ? '#34d399' : '#6366f1'}
-                  strokeWidth={2.4}
+                  stroke={isDryRunning ? '#34d399' : '#97B832'}
+                  strokeWidth={2.2}
                   strokeDasharray={isDryRunning ? '6 4' : undefined}
                   markerEnd="url(#flow-arrow)"
                 />
@@ -316,15 +316,15 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
                       width="68"
                       height="18"
                       rx="6"
-                      fill="#0f172a"
-                      stroke="#334155"
+                      fill="#1A1D17"
+                      stroke="#3B4234"
                       strokeWidth="1"
                     />
                     <text
                       x="34"
                       y="12"
                       textAnchor="middle"
-                      fill="#94a3b8"
+                      fill="#A6AC9C"
                       fontSize="9"
                       fontWeight="bold"
                     >
@@ -355,34 +355,34 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
                   origY: node.y,
                 });
               }}
-              className={`absolute rounded-2xl bg-slate-900/95 border p-3 cursor-grab active:cursor-grabbing transition-shadow flex flex-col justify-between ${
+              className={`absolute rounded-2xl bg-[#1A1D17]/95 border p-3 cursor-grab active:cursor-grabbing transition-shadow flex flex-col justify-between ${
                 isSelected
-                  ? 'border-indigo-400 ring-2 ring-indigo-500/30 shadow-xl'
-                  : 'border-slate-700/90 hover:border-slate-500 shadow-md'
+                  ? 'border-[#CCF048] ring-2 ring-[#CCF048]/25 shadow-xl'
+                  : 'border-[#3B4234] hover:border-[#687358] shadow-md'
               }`}
             >
               {/* Input & Output Port Handles */}
               {node.kind !== 'trigger' && (
-                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-indigo-400 border-2 border-slate-950" />
+                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-[#CCF048] border-2 border-[#131511]" />
               )}
-              <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-950" />
+              <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-[#131511]" />
 
               <div className="flex items-center justify-between gap-2">
                 <span
-                  className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider text-white bg-gradient-to-r ${node.color}`}
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${node.color}`}
                 >
                   {node.badge}
                 </span>
                 {node.runState === 'passed' && (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold tabular-nums border border-emerald-500/30">
+                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold tabular-nums border border-emerald-500/30">
                     ✓ {node.latencyMs}ms PASS
                   </span>
                 )}
               </div>
 
               <div>
-                <div className="text-xs font-bold text-white truncate">{node.title}</div>
-                <div className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
+                <div className="text-xs font-bold text-[#F2F3EE] truncate">{node.title}</div>
+                <div className="text-[10px] text-[#A6AC9C] font-mono truncate mt-0.5">
                   {node.subtitle}
                 </div>
               </div>
@@ -393,9 +393,9 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
 
       {/* Selected Node Inspector Footer */}
       {selectedNode && (
-        <div className="px-4 py-3 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex flex-wrap items-center justify-between gap-3">
+        <div className="px-4 py-3 border-t border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-slate-500 uppercase">Selected Node:</span>
+            <span className="text-xs font-bold text-[var(--text-muted)] uppercase">Selected Node:</span>
             <input
               type="text"
               value={selectedNode.title}
@@ -405,11 +405,11 @@ export const VisualWorkflowCanvas: React.FC<VisualWorkflowCanvasProps> = ({
                   prev.map(n => (n.id === selectedNode.id ? { ...n, title: val } : n))
                 );
               }}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-72"
+              className="px-3 py-1 text-xs font-semibold rounded-full w-72"
             />
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
-            Drag nodes anywhere on the grid • Click "Dry-Run Pipeline" to verify latency
+          <div className="text-[11px] text-[var(--text-muted)] font-mono">
+            Drag nodes anywhere on the grid · Click "Dry-Run Pipeline" to verify latency
           </div>
         </div>
       )}

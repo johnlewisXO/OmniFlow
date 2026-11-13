@@ -23,17 +23,17 @@ export const SplitWorkspaceSecondaryPane: React.FC<SplitWorkspaceSecondaryPanePr
     useState<SecondaryModuleId>('whiteboard_view');
 
   return (
-    <div className="w-1/2 h-full border-l-2 border-indigo-500/30 dark:border-indigo-500/40 bg-white dark:bg-[#0B0F17] flex flex-col overflow-hidden shrink-0">
+    <div className="w-1/2 h-full border-l border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col overflow-hidden shrink-0">
       {/* Compact Split-Pane Switcher Header */}
-      <div className="h-10 px-3 bg-indigo-50/70 dark:bg-indigo-950/30 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0">
+      <div className="h-10 px-3 bg-[var(--bg-sage)] border-b border-[var(--border-hairline)] flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider">
+          <span className="px-2.5 py-0.5 rounded-full bg-[#191B17] text-[#CCF048] text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
             Split Pane
           </span>
           <select
             value={secondaryModule}
             onChange={e => setSecondaryModule(e.target.value as SecondaryModuleId)}
-            className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100"
+            className="px-2.5 py-1 text-xs font-bold rounded-xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
           >
             <option value="whiteboard_view">🎨 Collaborative Whiteboard Studio</option>
             <option value="docs_wiki_view">📄 Project Docs & Spec Wiki</option>
@@ -46,7 +46,7 @@ export const SplitWorkspaceSecondaryPane: React.FC<SplitWorkspaceSecondaryPanePr
         <button
           onClick={onClose}
           title="Close Split-Screen Pane"
-          className="px-2 py-0.5 rounded-lg text-xs font-bold text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 transition"
+          className="px-2.5 py-1 rounded-full text-xs font-bold text-[var(--text-secondary)] hover:text-rose-600 hover:bg-rose-500/10 transition cursor-pointer"
         >
           ✕ Close Split
         </button>

@@ -155,7 +155,7 @@ const LandingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070A12] text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-[#131511] text-[#F2F3EE] antialiased selection:bg-[#CCF048] selection:text-[#131511]">
       <LandingHeader />
 
       <main className="flex-grow">
@@ -163,24 +163,24 @@ const LandingPage: React.FC = () => {
         <HeroSection />
 
         {/* 2. Claim-to-Proof Adjacency: Attributable Impact Metrics */}
-        <section className="py-16 border-y border-white/[0.07] bg-[#090D18]">
+        <section className="py-16 border-y border-[#2B3026] bg-[#171A14]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {IMPACT_METRICS.map((item, idx) => (
                 <div
                   key={idx}
-                  className="p-6 rounded-2xl bg-slate-900/60 border border-white/[0.08] flex flex-col justify-between space-y-4"
+                  className="p-6 rounded-2xl bg-[#1D2118]/90 border border-[#2B3026] flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-2">
-                    <div className="font-mono tabular-nums text-3xl sm:text-4xl font-extrabold text-white">
+                    <div className="font-mono tabular-nums text-3xl sm:text-4xl font-extrabold text-[#F2F3EE]">
                       {item.metric}
                     </div>
-                    <div className="text-sm font-bold text-indigo-300">{item.unit}</div>
-                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                    <div className="text-sm font-bold text-[#CCF048]">{item.unit}</div>
+                    <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
                       {item.detail}
                     </p>
                   </div>
-                  <div className="pt-3 border-t border-white/[0.06] text-xs font-mono text-slate-400">
+                  <div className="pt-3 border-t border-[#2B3026] text-xs font-mono text-[#7C8273]">
                     Verified · {item.attribution}
                   </div>
                 </div>
@@ -190,10 +190,10 @@ const LandingPage: React.FC = () => {
         </section>
 
         {/* 3. Asymmetric Bento Capabilities Grid */}
-        <section id="capabilities" className="py-20 md:py-28 bg-[#070A12]">
+        <section id="capabilities" className="py-20 md:py-28 bg-[#131511]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
             <div className="max-w-3xl space-y-3">
-              <div className="text-xs font-mono uppercase tracking-widest text-indigo-400">
+              <div className="text-xs font-mono uppercase tracking-widest text-[#CCF048]">
                 Platform Architecture &amp; Ergonomics
               </div>
               <h2
@@ -202,8 +202,8 @@ const LandingPage: React.FC = () => {
               >
                 Engineered for High-Velocity Execution Across Desktop and Mobile.
               </h2>
-              <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-                Every module adheres to a strict 60-30-10 obsidian glassmorphic hierarchy, tabular
+              <p className="text-sm sm:text-base text-[#A6AC9C] leading-relaxed">
+                Every module adheres to a strict obsidian-sage glassmorphic hierarchy, tabular
                 numeric discipline, and native mobile thumb-zone navigation.
               </p>
             </div>
@@ -211,15 +211,15 @@ const LandingPage: React.FC = () => {
             {/* Asymmetric 2-Row Bento Grid (col-span-2 + col-span-1) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Row 1, Card 1 (Span 2) */}
-              <div className="lg:col-span-2 p-6 sm:p-8 rounded-2xl bg-slate-900/65 border border-white/[0.08] flex flex-col justify-between space-y-6">
+              <div className="lg:col-span-2 p-6 sm:p-8 rounded-2xl bg-[#1D2118]/90 border border-[#2B3026] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
-                  <span className="text-xs font-mono text-indigo-400">
+                  <span className="text-xs font-mono text-[#CCF048]">
                     01. Multi-Tenant RBAC &amp; Approval Governance
                   </span>
                   <h3 className="text-xl sm:text-2xl font-bold text-white">
                     Deterministic Session Persistence &amp; Instant Organization Approval Gates
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+                  <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed max-w-2xl">
                     Owners, Admins, Project Managers, Members, and Client Viewers operate within
                     role-tailored command centers. Join requests notify Owners &amp; PMs in real
                     time and unlock the requester’s workspace immediately upon approval.
@@ -234,19 +234,19 @@ const LandingPage: React.FC = () => {
                   ].map((r, i) => (
                     <div
                       key={i}
-                      className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.07]"
+                      className="p-3.5 rounded-xl bg-[#24291F]/80 border border-[#2B3026]"
                     >
-                      <div className="text-[11px] font-mono font-bold text-indigo-400">
+                      <div className="text-[11px] font-mono font-bold text-[#CCF048]">
                         {r.role}
                       </div>
-                      <div className="text-xs text-slate-300 mt-1">{r.scope}</div>
+                      <div className="text-xs text-[#D6DACF] mt-1">{r.scope}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Row 1, Card 2 (Span 1) */}
-              <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/65 border border-white/[0.08] flex flex-col justify-between space-y-6">
+              <div className="p-6 sm:p-8 rounded-2xl bg-[#1D2118]/90 border border-[#2B3026] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
                   <span className="text-xs font-mono text-emerald-400">
                     02. Segmented Mobile Switcher &amp; Thumb Zone
@@ -254,17 +254,17 @@ const LandingPage: React.FC = () => {
                   <h3 className="text-xl font-bold text-white">
                     Segmented Tabs (Overview, Schedule, Chat) with Zero Overlap
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
                     On phones and tablets, the workspace dynamically isolates dashboard modules into instant segmented switcher tabs, eliminating squishing and element collision with 100% full-width layout precision.
                   </p>
                 </div>
-                <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                <div className="relative rounded-xl overflow-hidden border border-[#2B3026] shadow-lg">
                   <img
                     src="/images/landing_mobile_studio.jpg"
                     alt="Mobile and Tablet Segmented Switcher Tabs Mockup"
                     className="w-full h-48 object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent flex items-end p-3">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#131511]/85 via-transparent to-transparent flex items-end p-3">
                     <span className="text-[10px] font-mono text-emerald-400 font-bold">
                       ✓ Phone &amp; Tablet: Overview · Schedule · Team Chat · Focus
                     </span>
@@ -273,26 +273,26 @@ const LandingPage: React.FC = () => {
               </div>
 
               {/* Row 2, Card 3 (Span 1) */}
-              <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/65 border border-white/[0.08] flex flex-col justify-between space-y-6">
+              <div className="p-6 sm:p-8 rounded-2xl bg-[#1D2118]/90 border border-[#2B3026] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
-                  <span className="text-xs font-mono text-indigo-400">
+                  <span className="text-xs font-mono text-[#CCF048]">
                     03. Autonomous AI Co-Pilot &amp; Risk Radar
                   </span>
                   <h3 className="text-xl font-bold text-white">
                     Fibonacci Burndown &amp; Capacity Rebalancing
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
                     Track real-time story points across active sprints, generate multi-phase architecture roadmaps, and monitor automated risk radar telemetry in one unified view.
                   </p>
                 </div>
-                <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                <div className="relative rounded-xl overflow-hidden border border-[#2B3026] shadow-lg">
                   <img
                     src="/images/landing_copilot_studio.jpg"
                     alt="AI Project Management Copilot 3D Studio"
                     className="w-full h-48 object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent flex items-end p-3">
-                    <span className="text-[10px] font-mono text-indigo-300 font-bold">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#131511]/85 via-transparent to-transparent flex items-end p-3">
+                    <span className="text-[10px] font-mono text-[#CCF048] font-bold">
                       Sprint 14 Burndown · 92% On Track
                     </span>
                   </div>
@@ -300,33 +300,33 @@ const LandingPage: React.FC = () => {
               </div>
 
               {/* Row 2, Card 4 (Span 2) */}
-              <div className="lg:col-span-2 p-6 sm:p-8 rounded-2xl bg-slate-900/65 border border-white/[0.08] flex flex-col justify-between space-y-6">
+              <div className="lg:col-span-2 p-6 sm:p-8 rounded-2xl bg-[#1D2118]/90 border border-[#2B3026] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
-                  <span className="text-xs font-mono text-indigo-400">
+                  <span className="text-xs font-mono text-[#CCF048]">
                     04. Studio-Grade 1080p WebRTC &amp; Screen Sharing
                   </span>
                   <h3 className="text-xl sm:text-2xl font-bold text-white">
                     Lossless 48kHz Opus Audio, 1080p60 Mesh &amp; Collaborative Code Canvas
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+                  <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed max-w-2xl">
                     Launch instant video standups from any channel or calendar event. Share application windows at 60fps, eliminate echo with hardware-level AEC, and turn live discussions into tracked deliverables without context switching.
                   </p>
                 </div>
-                <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                <div className="relative rounded-xl overflow-hidden border border-[#2B3026] shadow-lg">
                   <img
                     src="/images/landing_webrtc_studio.jpg"
                     alt="1080p WebRTC Video Studio and Collaborative Canvas"
                     className="w-full h-56 object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent flex items-end justify-between p-4">
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-300">
-                      <span className="px-2.5 py-1 rounded bg-black/60 border border-white/15">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#131511]/85 via-transparent to-transparent flex items-end justify-between p-4">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-[#F2F3EE]">
+                      <span className="px-2.5 py-1 rounded bg-[#131511]/80 border border-white/15">
                         48kHz Stereo Opus
                       </span>
-                      <span className="px-2.5 py-1 rounded bg-black/60 border border-white/15">
+                      <span className="px-2.5 py-1 rounded bg-[#131511]/80 border border-white/15">
                         Hardware AEC
                       </span>
-                      <span className="px-2.5 py-1 rounded bg-black/60 border border-white/15">
+                      <span className="px-2.5 py-1 rounded bg-[#131511]/80 border border-white/15">
                         1080p60 Adaptive Mesh
                       </span>
                     </div>
@@ -340,12 +340,12 @@ const LandingPage: React.FC = () => {
         {/* 4. Supabase Edge Functions & Compute Architecture Section */}
         <section
           id="edge-architecture"
-          className="py-20 md:py-28 border-t border-white/[0.07] bg-[#090D18]"
+          className="py-20 md:py-28 border-t border-[#2B3026] bg-[#171A14]"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
               <div className="max-w-3xl space-y-3">
-                <div className="text-xs font-mono uppercase tracking-widest text-indigo-400">
+                <div className="text-xs font-mono uppercase tracking-widest text-[#CCF048]">
                   Supabase Edge Functions &amp; Server Compute
                 </div>
                 <h2
@@ -354,7 +354,7 @@ const LandingPage: React.FC = () => {
                 >
                   Demanding Workflows Offloaded to the Edge.
                 </h2>
-                <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-[#A6AC9C] leading-relaxed">
                   Heavy AI synthesis, transactional SMTP/Brevo email delivery, SLA rule evaluation,
                   and WebRTC TURN provisioning execute on server-side Edge endpoints so your
                   workspace UI stays instantaneous.
@@ -362,7 +362,7 @@ const LandingPage: React.FC = () => {
               </div>
               <a
                 href="#/app"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs sm:text-sm font-semibold text-white whitespace-nowrap self-start"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs sm:text-sm font-semibold text-white whitespace-nowrap self-start"
               >
                 <span>Inspect Live Edge Telemetry in App</span>
                 <span aria-hidden="true">→</span>
@@ -373,21 +373,21 @@ const LandingPage: React.FC = () => {
               {EDGE_FUNCTIONS_SHOWCASE.map(fn => (
                 <div
                   key={fn.fnName}
-                  className="p-6 rounded-2xl bg-slate-900/70 border border-white/[0.08] flex flex-col justify-between space-y-4"
+                  className="p-6 rounded-2xl bg-[#1D2118]/90 border border-[#2B3026] flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-indigo-400">
+                      <span className="text-[#CCF048]">
                         {fn.number}. supabase/functions/{fn.fnName}
                       </span>
                       <span className="text-emerald-400">● ACTIVE</span>
                     </div>
                     <h3 className="text-lg font-bold text-white">{fn.title}</h3>
-                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
                       {fn.description}
                     </p>
                   </div>
-                  <div className="pt-3 border-t border-white/[0.06] text-[11px] font-mono text-slate-400">
+                  <div className="pt-3 border-t border-[#2B3026] text-[11px] font-mono text-[#7C8273]">
                     {fn.specs}
                   </div>
                 </div>
@@ -397,11 +397,11 @@ const LandingPage: React.FC = () => {
         </section>
 
         {/* 5. Audience-Named Pricing Matrix */}
-        <section id="pricing" className="py-20 md:py-28 border-t border-white/[0.07] bg-[#070A12]">
+        <section id="pricing" className="py-20 md:py-28 border-t border-[#2B3026] bg-[#131511]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="space-y-3 max-w-2xl">
-                <div className="text-xs font-mono uppercase tracking-widest text-indigo-400">
+                <div className="text-xs font-mono uppercase tracking-widest text-[#CCF048]">
                   Transparent Workspace Tiers
                 </div>
                 <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -410,14 +410,14 @@ const LandingPage: React.FC = () => {
               </div>
 
               {/* Billing Cycle Toggle placed strictly inside Pricing */}
-              <div className="inline-flex items-center p-1 rounded-xl bg-slate-900 border border-white/10 self-start">
+              <div className="inline-flex items-center p-1 rounded-full bg-[#1D2118] border border-[#2B3026] self-start">
                 <button
                   type="button"
                   onClick={() => setBillingCycle('annual')}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                     billingCycle === 'annual'
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-[#CCF048] text-[#131511]'
+                      : 'text-[#A6AC9C] hover:text-white'
                   }`}
                 >
                   Annual Billing (Save 25%)
@@ -425,10 +425,10 @@ const LandingPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setBillingCycle('monthly')}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                     billingCycle === 'monthly'
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-[#CCF048] text-[#131511]'
+                      : 'text-[#A6AC9C] hover:text-white'
                   }`}
                 >
                   Monthly
@@ -442,12 +442,12 @@ const LandingPage: React.FC = () => {
                   key={plan.name}
                   className={`p-6 sm:p-8 rounded-2xl border flex flex-col justify-between space-y-6 ${
                     plan.highlighted
-                      ? 'bg-slate-900/90 border-indigo-500/60 shadow-2xl shadow-indigo-950/40'
-                      : 'bg-slate-900/50 border-white/[0.08]'
+                      ? 'bg-[#1D2118] border-[#97B832]/70 shadow-2xl shadow-black/50'
+                      : 'bg-[#171A14] border-[#2B3026]'
                   }`}
                 >
                   <div className="space-y-4">
-                    <div className="text-xs font-mono text-indigo-400">{plan.audience}</div>
+                    <div className="text-xs font-mono text-[#CCF048]">{plan.audience}</div>
                     <div className="flex items-baseline justify-between gap-2">
                       <h3 className="text-xl font-bold text-white">{plan.name}</h3>
                       {plan.highlighted && (
@@ -460,16 +460,16 @@ const LandingPage: React.FC = () => {
                       <span className="font-mono tabular-nums text-4xl font-extrabold text-white">
                         {billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice}
                       </span>
-                      <span className="text-xs text-slate-400">{plan.period}</span>
+                      <span className="text-xs text-[#A6AC9C]">{plan.period}</span>
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-[#D6DACF] leading-relaxed">
                       {plan.description}
                     </p>
 
-                    <ul className="space-y-2.5 pt-3 border-t border-white/[0.07] text-xs sm:text-sm text-slate-200">
+                    <ul className="space-y-2.5 pt-3 border-t border-[#2B3026] text-xs sm:text-sm text-[#E5E8DE]">
                       {plan.features.map((feat, i) => (
                         <li key={i} className="flex items-start gap-2.5">
-                          <ICON_MAP.CheckIcon className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <ICON_MAP.CheckIcon className="w-4 h-4 text-[#CCF048] shrink-0 mt-0.5" />
                           <span>{feat}</span>
                         </li>
                       ))}
@@ -485,7 +485,7 @@ const LandingPage: React.FC = () => {
                     }}
                     className={`w-full py-3 px-5 rounded-full text-center text-xs sm:text-sm font-semibold transition-all ${
                       plan.highlighted
-                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25'
+                        ? 'bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] shadow-lg shadow-black/25'
                         : 'bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/10'
                     }`}
                   >
@@ -500,13 +500,13 @@ const LandingPage: React.FC = () => {
         {/* 6. FAQ & Validated Enterprise Lead Capture */}
         <section
           id="enterprise-contact"
-          className="py-20 md:py-24 border-t border-white/[0.07] bg-[#090D18]"
+          className="py-20 md:py-24 border-t border-[#2B3026] bg-[#171A14]"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12">
             {/* FAQ Column */}
             <div className="lg:col-span-7 space-y-6">
               <div className="space-y-2">
-                <div className="text-xs font-mono uppercase tracking-widest text-indigo-400">
+                <div className="text-xs font-mono uppercase tracking-widest text-[#CCF048]">
                   Technical &amp; Operational FAQ
                 </div>
                 <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-white">
@@ -514,14 +514,14 @@ const LandingPage: React.FC = () => {
                 </h2>
               </div>
 
-              <div className="divide-y divide-white/[0.08] border-y border-white/[0.08]">
+              <div className="divide-y divide-[#2B3026] border-y border-[#2B3026]">
                 {FAQ_ITEMS.map((item, idx) => (
                   <details key={idx} className="group py-4">
-                    <summary className="flex items-center justify-between gap-4 cursor-pointer list-none text-sm sm:text-base font-semibold text-white group-hover:text-indigo-300">
+                    <summary className="flex items-center justify-between gap-4 cursor-pointer list-none text-sm sm:text-base font-semibold text-white group-hover:text-[#CCF048]">
                       <span>{item.q}</span>
-                      <ICON_MAP.ChevronDownIcon className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform shrink-0" />
+                      <ICON_MAP.ChevronDownIcon className="w-4 h-4 text-[#A6AC9C] group-open:rotate-180 transition-transform shrink-0" />
                     </summary>
-                    <p className="mt-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    <p className="mt-2.5 text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
                       {item.a}
                     </p>
                   </details>
@@ -531,15 +531,15 @@ const LandingPage: React.FC = () => {
 
             {/* Enterprise Briefing / Fast-Track Setup Card */}
             <div className="lg:col-span-5">
-              <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/80 border border-white/10 space-y-5">
+              <div className="p-6 sm:p-8 rounded-2xl bg-[#1D2118] border border-[#2B3026] space-y-5">
                 <div className="space-y-1.5">
-                  <div className="text-xs font-mono text-indigo-400">
+                  <div className="text-xs font-mono text-[#CCF048]">
                     Direct Architecture &amp; Onboarding
                   </div>
                   <h3 className="text-xl font-bold text-white">
                     Deploy Omni Flow for Your Organization
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
                     Launch your workspace immediately or request custom Edge Function and SSO
                     provisioning for your engineering team.
                   </p>
@@ -566,7 +566,7 @@ const LandingPage: React.FC = () => {
                 ) : (
                   <form onSubmit={handleLeadSubmit} className="space-y-3.5">
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                      <label className="block text-xs font-medium text-[#D6DACF] mb-1">
                         Work Email
                       </label>
                       <input
@@ -575,11 +575,11 @@ const LandingPage: React.FC = () => {
                         value={leadEmail}
                         onChange={e => setLeadEmail(e.target.value)}
                         placeholder="you@company.com"
-                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#070A12] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#131511] border border-[#2B3026] text-sm text-white placeholder-[#7C8273] focus:outline-none focus:border-[#CCF048]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                      <label className="block text-xs font-medium text-[#D6DACF] mb-1">
                         Organization Name
                       </label>
                       <input
@@ -587,12 +587,12 @@ const LandingPage: React.FC = () => {
                         value={leadOrg}
                         onChange={e => setLeadOrg(e.target.value)}
                         placeholder="e.g. Regal Logistics"
-                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#070A12] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#131511] border border-[#2B3026] text-sm text-white placeholder-[#7C8273] focus:outline-none focus:border-[#CCF048]"
                       />
                     </div>
                     <button
                       type="submit"
-                      className="w-full py-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/25 cursor-pointer transition-all"
+                      className="w-full py-3 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-xs sm:text-sm font-semibold shadow-lg shadow-black/25 cursor-pointer transition-all"
                     >
                       Request Custom Onboarding
                     </button>
@@ -600,7 +600,7 @@ const LandingPage: React.FC = () => {
                       <a
                         href="#/signup"
                         onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
-                        className="text-xs text-slate-400 hover:text-white underline"
+                        className="text-xs text-[#A6AC9C] hover:text-white underline"
                       >
                         Or jump straight into your workspace now →
                       </a>

@@ -189,11 +189,11 @@ export const EditTaskModal: React.FC = () => {
             return (
               <span
                 key={p.userId}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${
                   p.isEditing
-                    ? 'bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300'
+                    ? 'bg-[var(--accent-lime)]/20 border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
                     : p.isTypingComment
-                      ? 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300'
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300'
                       : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
                 }`}
               >
@@ -258,7 +258,7 @@ export const EditTaskModal: React.FC = () => {
                 <label htmlFor="edit-task-assignee" className={labelClass}>Assignee</label>
                 {isLoadingUsersForAssignment && (
                 <div className={`flex items-center text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'} h-11 py-2.5 px-3.5 border border-transparent rounded-squircle-sm`}>
-                    <SpinnerIcon className="w-4 h-4 mr-2 animate-spin text-accent" /> Loading assignees...
+                    <SpinnerIcon className="w-4 h-4 mr-2 animate-spin text-[#4E6126] dark:text-[#CCF048]" /> Loading assignees...
                 </div>
                 )}
                 {usersForAssignmentError && !isLoadingUsersForAssignment && (

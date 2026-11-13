@@ -996,7 +996,7 @@ export const TeamManagementPage: React.FC = () => {
 
       {/* Pending Organization Join Requests Approval Banner */}
       {canActorManageTeam && joinRequests.filter(r => r.status === 'pending').length > 0 && (
-        <HairlineCard className="border-l-4 border-l-[var(--accent-lime)] space-y-4">
+        <HairlineCard className="border-[var(--border-strong)] bg-[var(--bg-sage)]/45 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <StatusDot
               tone="lime"
@@ -1225,8 +1225,8 @@ export const TeamManagementPage: React.FC = () => {
 
           {isLoadingUsersForAssignment ? (
             <div className="text-center py-10">
-              <SpinnerIcon className="w-10 h-10 mx-auto text-indigo-500 animate-spin" />
-              <p className="mt-3 text-sm text-slate-400">Loading team members...</p>
+              <SpinnerIcon className="w-10 h-10 mx-auto text-[#6F8254] dark:text-[var(--accent-lime)] animate-spin" />
+              <p className="mt-3 text-sm text-[var(--text-muted)]">Loading team members...</p>
             </div>
           ) : filteredDirectoryUsers.length === 0 ? (
             <HairlineCard padding="lg" className="text-center">
@@ -1310,7 +1310,7 @@ export const TeamManagementPage: React.FC = () => {
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-xs sm:text-sm truncate">{user.full_name || 'Team Member'}</span>
                                 {isCurrentUserRow && (
-                                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-indigo-500/20 text-indigo-400">You</span>
+                                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-[var(--accent-lime)]/25 text-[#4E6126] dark:text-[#CCF048]">You</span>
                                 )}
                               </div>
                               <div className="text-[11px] text-slate-400 truncate">{user.email}</div>
@@ -1398,14 +1398,14 @@ export const TeamManagementPage: React.FC = () => {
                             <span
                               className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border ${
                                 normalizedUserRole === UserRole.OWNER
-                                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                                   : normalizedUserRole === UserRole.ADMIN
-                                    ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                                    ? 'bg-[#191B17] text-white dark:bg-[#CCF048]/15 dark:text-[#CCF048] border-[#191B17]/30 dark:border-[#CCF048]/30'
                                     : normalizedUserRole === UserRole.PROJECT_MANAGER
-                                      ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+                                      ? 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border-[#97B832]/35'
                                       : normalizedUserRole === UserRole.CLIENT_VIEWER
-                                        ? 'bg-slate-500/15 text-slate-400 border-slate-500/30'
-                                        : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                        ? 'bg-[var(--bg-surface-subtle)] text-[var(--text-muted)] border-[var(--border-hairline)]'
+                                        : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                               }`}
                             >
                               {formatRoleForDisplay(normalizedUserRole)}
@@ -1462,12 +1462,10 @@ export const TeamManagementPage: React.FC = () => {
                                       }
                                     }}
                                     disabled={isSavingThisUser || isThisUserBeingDeleted}
-                                    className={`text-xs rounded-xl border px-3 py-1.5 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-all ${
+                                    className={`text-xs rounded-xl border px-3 py-1.5 font-semibold focus:ring-2 focus:ring-[#97B832] outline-none cursor-pointer transition-all ${
                                       hasUnsavedRoleChange
-                                        ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-indigo-50/10'
-                                        : darkMode
-                                          ? 'bg-slate-800 border-slate-700 text-white'
-                                          : 'bg-white border-slate-300 text-slate-900'
+                                        ? 'border-[#97B832] ring-2 ring-[#97B832]/40 bg-[var(--bg-sage)]'
+                                        : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-primary)]'
                                     }`}
                                   >
                                     {assignableRolesForThisUser.map(role => (
@@ -1517,7 +1515,7 @@ export const TeamManagementPage: React.FC = () => {
                                   )}
 
                                   {isSavingThisUser && !hasUnsavedRoleChange && (
-                                    <SpinnerIcon className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                                    <SpinnerIcon className="w-3.5 h-3.5 animate-spin text-[#6F8254] dark:text-[var(--accent-lime)]" />
                                   )}
                                 </div>
                               );
@@ -1622,7 +1620,7 @@ export const TeamManagementPage: React.FC = () => {
                                 —
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
                                 {val}
                               </span>
                             )}
@@ -1644,7 +1642,7 @@ export const TeamManagementPage: React.FC = () => {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <ICON_MAP.MailIcon className="w-5 h-5 text-accent" />
+                <ICON_MAP.MailIcon className="w-5 h-5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
                 Active Organization Invitations ({invitations.length})
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1751,9 +1749,7 @@ export const TeamManagementPage: React.FC = () => {
                 placeholder="Search audit trail by actor, action, or target..."
                 value={auditSearchQuery}
                 onChange={e => setAuditSearchQuery(e.target.value)}
-                className={`w-full !pl-10 !pr-8 !py-2 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
-                  darkMode ? 'bg-neutral-900 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
-                }`}
+                className="w-full !pl-10 !pr-8 !py-2 text-xs rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-hidden focus:ring-2 focus:ring-[#97B832]"
               />
               {auditSearchQuery && (
                 <button
@@ -1834,10 +1830,10 @@ export const TeamManagementPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center text-[10px]">
+                                <div className="w-6 h-6 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-[#4E6126] dark:text-[#CCF048] font-bold flex items-center justify-center text-[10px]">
                                   {(log.actor_name || log.actor_email || 'U').charAt(0).toUpperCase()}
                                 </div>
-                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                <span className="font-semibold text-[var(--text-primary)]">
                                   {log.actor_name || log.actor_email || 'System'}
                                 </span>
                               </div>
@@ -1846,10 +1842,10 @@ export const TeamManagementPage: React.FC = () => {
                               <span
                                 className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide border ${
                                   isSecurityAction
-                                    ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
+                                    ? 'bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300'
                                     : isTaskAction
-                                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                                      : 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
+                                      ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300'
+                                      : 'bg-[var(--bg-sage)] text-[#4E6126] border-[var(--border-hairline)] dark:text-[#CCF048]'
                                 }`}
                               >
                                 {log.action.replace(/_/g, ' ')}
@@ -1857,8 +1853,8 @@ export const TeamManagementPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-slate-400 font-mono text-[10px] uppercase">{log.target_type}:</span>
-                                <span className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[180px]">
+                                <span className="text-[var(--text-muted)] font-mono text-[10px] uppercase">{log.target_type}:</span>
+                                <span className="font-medium text-[var(--text-primary)] truncate max-w-[180px]">
                                   {log.target_name || log.target_id || 'N/A'}
                                 </span>
                               </div>
@@ -1867,23 +1863,23 @@ export const TeamManagementPage: React.FC = () => {
                               {log.details ? (
                                 <button
                                   onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                                  className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                                  className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline flex items-center gap-1 cursor-pointer"
                                 >
                                   <span>{isExpanded ? 'Hide Payload' : 'View Payload'}</span>
                                   <ICON_MAP.ChevronDownIcon className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                 </button>
                               ) : (
-                                <span className="text-slate-400 italic text-[11px]">No payload</span>
+                                <span className="text-[var(--text-muted)] italic text-[11px]">No payload</span>
                               )}
                             </td>
                           </tr>
 
                           {isExpanded && log.details && (
-                            <tr className={darkMode ? 'bg-slate-900/50' : 'bg-slate-100/60'}>
+                            <tr className="bg-[var(--bg-surface-subtle)]">
                               <td colSpan={5} className="px-6 py-3">
                                 <div className="space-y-1">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Event Context Payload:</span>
-                                  <pre className="text-[11px] font-mono p-3 rounded-xl bg-slate-950 text-emerald-400 overflow-x-auto border border-slate-800 max-h-48">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Event Context Payload:</span>
+                                  <pre className="text-[11px] font-mono p-3 rounded-xl bg-[#131511] text-[#CCF048] overflow-x-auto border border-[#2B3026] max-h-48">
                                     {typeof log.details === 'object' ? JSON.stringify(log.details, null, 2) : log.details}
                                   </pre>
                                 </div>
@@ -1951,7 +1947,7 @@ export const TeamManagementPage: React.FC = () => {
                       key={req.id}
                       className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
                         isPending
-                          ? 'bg-[var(--bg-surface)] border-[var(--border-strong)] border-l-4 border-l-[var(--accent-lime)]'
+                          ? 'bg-[var(--bg-surface)] border-[var(--border-strong)]'
                           : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] opacity-85'
                       }`}
                     >
@@ -1968,13 +1964,13 @@ export const TeamManagementPage: React.FC = () => {
                         />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                            <span className="font-bold text-sm text-[var(--text-primary)] truncate">
                               {req.requester_name}
                             </span>
-                            <span className="text-xs text-slate-400 font-mono">
+                            <span className="text-xs text-[var(--text-muted)] font-mono">
                               ({req.requester_email})
                             </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
                               Requested: {formatRoleForDisplay(req.requested_role)}
                             </span>
                             {isApproved && (
@@ -2338,7 +2334,7 @@ export const TeamManagementPage: React.FC = () => {
                       setTimeout(() => setHasCopiedRlsSql(false), 2500);
                       addToast('Copied to Clipboard', 'SQL migration script copied. Paste into Supabase SQL Editor.', 'success');
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-xs active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--accent-lime)] text-[var(--accent-ink)] hover:bg-[var(--accent-lime-hover)] transition-all cursor-pointer shadow-xs active:scale-95"
                   >
                     {hasCopiedRlsSql ? (
                       <>
@@ -2355,29 +2351,29 @@ export const TeamManagementPage: React.FC = () => {
                 </div>
 
                 <div className="relative">
-                  <pre className="p-3.5 rounded-xl bg-slate-950 text-indigo-300 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-56 border border-slate-800">
+                  <pre className="p-3.5 rounded-xl bg-[#131511] text-[#CCF048] font-mono text-[11px] leading-relaxed overflow-x-auto max-h-56 border border-[#2B3026]">
                     <code>{SUPABASE_RLS_FIX_SQL}</code>
                   </pre>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-2">
-                <div className="font-bold text-slate-900 dark:text-white">Quick 30-Second Setup:</div>
-                <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-300">
+              <div className="p-3.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-xs space-y-2">
+                <div className="font-bold text-[var(--text-primary)]">Quick 30-Second Setup:</div>
+                <ol className="list-decimal list-inside space-y-1 text-[var(--text-secondary)]">
                   <li>Click <strong>Copy SQL Script</strong> above.</li>
-                  <li>Open your <a href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new" target="_blank" rel="noreferrer" className="text-indigo-400 underline font-semibold hover:text-indigo-300">Supabase SQL Editor ↗</a>.</li>
+                  <li>Open your <a href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new" target="_blank" rel="noreferrer" className="text-[#4E6126] dark:text-[#CCF048] underline font-semibold hover:opacity-80">Supabase SQL Editor ↗</a>.</li>
                   <li>Click <strong>New query</strong>, paste the script, and click <strong>Run</strong>.</li>
                   <li>Back in Team Management, change the role and click <strong>Save role</strong> — it will immediately update in the Supabase table!</li>
                 </ol>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between pt-4 border-t border-[var(--border-hairline)]">
               <a
                 href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1"
+                className="text-xs font-semibold text-[#4E6126] dark:text-[#CCF048] hover:opacity-80 inline-flex items-center gap-1"
               >
                 <span>Open Supabase SQL Editor</span>
                 <span>↗</span>

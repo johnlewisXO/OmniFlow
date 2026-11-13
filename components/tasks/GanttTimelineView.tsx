@@ -172,13 +172,13 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
   const getStatusColor = (status: TaskStatus) => {
     switch (status) {
       case TaskStatus.DONE:
-        return 'bg-emerald-500 border-emerald-600 text-white shadow-emerald-500/20';
+        return 'bg-emerald-600 border-emerald-700 text-white shadow-emerald-500/20';
       case TaskStatus.REVIEW:
-        return 'bg-amber-500 border-amber-600 text-white shadow-amber-500/20';
+        return 'bg-amber-500 border-amber-600 text-[#131511] shadow-amber-500/20';
       case TaskStatus.IN_PROGRESS:
-        return 'bg-blue-600 border-blue-700 text-white shadow-blue-500/20';
+        return 'bg-[#191B17] dark:bg-[#CCF048] border-[#2B3026] dark:border-[#97B832] text-white dark:text-[#131511] shadow-xs';
       default:
-        return 'bg-rose-500 border-rose-600 text-white shadow-rose-500/20';
+        return 'bg-rose-600 border-rose-700 text-white shadow-rose-500/20';
     }
   };
 
@@ -189,7 +189,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
       case TaskStatus.REVIEW:
         return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
       case TaskStatus.IN_PROGRESS:
-        return 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30';
+        return 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border-[#97B832]/40';
       default:
         return 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30';
     }
@@ -246,11 +246,11 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
     const hasRowTyper = activeRowViewers.some(p => p.isTypingComment);
     const hasRowViewer = activeRowViewers.length > 0;
     const barRingClass = hasRowEditor
-      ? 'ring-2 ring-blue-400 shadow-lg shadow-blue-500/30'
+      ? 'ring-2 ring-[#97B832] shadow-lg'
       : hasRowTyper
-        ? 'ring-2 ring-purple-400 shadow-lg shadow-purple-500/30'
+        ? 'ring-2 ring-amber-400 shadow-lg'
         : hasRowViewer
-          ? 'ring-2 ring-emerald-400 shadow-md shadow-emerald-500/20'
+          ? 'ring-2 ring-emerald-400 shadow-md'
           : '';
 
     return (
@@ -259,8 +259,8 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           onClick={() => onTaskClick(task.id)}
           onMouseEnter={() => setHoveredTask(task)}
           onMouseLeave={() => setHoveredTask(null)}
-          className={`flex items-center hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group ${
-            isSubtask ? (darkMode ? 'bg-slate-950/40' : 'bg-slate-50/50') : ''
+          className={`flex items-center hover:bg-[var(--bg-sage-hover)] transition-colors cursor-pointer group ${
+            isSubtask ? 'bg-[var(--bg-surface-subtle)]' : ''
           }`}
         >
           {/* Left Task Metadata Column (Sticky Left) */}
@@ -287,7 +287,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                 )}
 
                 {/* Task Title */}
-                <span className={`text-xs font-semibold truncate ${darkMode ? 'text-slate-200' : 'text-slate-800'} group-hover:text-accent`}>
+                <span className="text-xs font-semibold truncate text-[var(--text-primary)] group-hover:text-[#4E6126] dark:group-hover:text-[#CCF048]">
                   {task.title}
                 </span>
 
@@ -329,8 +329,8 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                   <div
                     key={idx}
                     style={{ width: `${dayColWidth}px`, minWidth: `${dayColWidth}px` }}
-                    className={`border-r ${darkMode ? 'border-slate-800/40' : 'border-slate-100'} ${
-                      isToday ? 'bg-accent/10 border-accent/30' : ''
+                    className={`border-r border-[var(--border-hairline)] ${
+                      isToday ? 'bg-[var(--accent-lime)]/15 border-[#97B832]/40' : ''
                     }`}
                   />
                 );
@@ -349,7 +349,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             >
               {/* Task Title preview inside bar */}
               <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0 pr-1">
-                <span className="truncate text-xs font-extrabold text-white drop-shadow-xs">
+                <span className={`truncate text-xs font-extrabold ${task.status === TaskStatus.REVIEW || (task.status === TaskStatus.IN_PROGRESS && darkMode) ? '' : 'drop-shadow-xs'}`}>
                   {task.title}
                 </span>
                 {hasRowViewer && (
@@ -420,11 +420,11 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
               Project Schedule & Gantt Timeline
             </h1>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-accent/15 text-accent font-bold">
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] font-bold tabular-nums whitespace-nowrap">
               {allFlatFiltered.length} Scheduled
             </span>
           </div>
-          <p className={`text-xs mt-0.5 hidden sm:block ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className="text-xs mt-0.5 hidden sm:block text-[var(--text-secondary)]">
             Track project milestones, task durations, status progression, and team dependencies.
           </p>
         </div>
@@ -432,19 +432,17 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowStatsOverview((prev) => !prev)}
-            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all cursor-pointer whitespace-nowrap ${
               showStatsOverview
-                ? 'bg-accent/10 border-accent/30 text-accent'
-                : darkMode
-                ? 'bg-slate-800 border-slate-700 text-slate-300'
-                : 'bg-white border-slate-300 text-slate-700'
+                ? 'bg-[var(--bg-sage)] border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
+                : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             {showStatsOverview ? 'Hide Dashboard' : 'Analytics Dashboard'}
           </button>
           <button
             onClick={() => openCreateTaskModal()}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white shadow-xs transition-all flex items-center gap-1"
+            className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] shadow-xs transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
           >
             <ICON_MAP.PlusIcon className="w-4 h-4" />
             <span>New Task</span>
@@ -454,14 +452,14 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
 
       {/* Analytics & Breakdown Cards */}
       {showStatsOverview && (
-        <div className={`p-3 sm:p-4 border-b grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-slate-50/30'}`}>
+        <div className="p-3 sm:p-4 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {/* Donut Category / Status Progress Chart */}
-          <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col justify-between">
             <div className="flex items-center justify-between mb-1.5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">
                 Category Breakdown
               </h3>
-              <span className="text-xs font-bold text-accent">{stats.completionRate}% Done</span>
+              <span className="text-xs font-bold text-[#4E6126] dark:text-[#CCF048] tabular-nums">{stats.completionRate}% Done</span>
             </div>
 
             <div className="flex items-center gap-3 h-32">
@@ -569,9 +567,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             placeholder="Search timeline tasks..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`w-full search-input !pl-10 !pr-8 !py-1.5 rounded-[20px] border text-xs font-medium outline-hidden transition-all ${
-              darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-accent' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-accent'
-            }`}
+            className="w-full search-input !pl-10 !pr-8 !py-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[#97B832] text-xs font-medium outline-hidden transition-all"
           />
           {searchQuery && (
             <button
@@ -588,7 +584,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           {/* Scroll To Today Button */}
           <button
             onClick={scrollToToday}
-            className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1"
+            className="px-3 py-1.5 text-xs font-bold rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
             title="Scroll Gantt view to Today"
           >
             <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />
@@ -598,12 +594,10 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           {/* Left Sidebar Toggle */}
           <button
             onClick={() => setShowLeftSidebar((prev) => !prev)}
-            className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap ${
               showLeftSidebar
-                ? 'bg-accent/10 border-accent/30 text-accent'
-                : darkMode
-                ? 'bg-slate-800 border-slate-700 text-slate-400'
-                : 'bg-white border-slate-300 text-slate-600'
+                ? 'bg-[var(--bg-sage)] border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
+                : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
             }`}
             title="Toggle Task List Sidebar"
           >
@@ -611,38 +605,38 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           </button>
 
           {/* Scale Zoom Toggle */}
-          <div className={`flex rounded-xl border overflow-hidden ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-300 bg-slate-100'}`}>
+          <div className="flex rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] p-0.5 overflow-hidden">
             <button
               onClick={() => setViewScale('days')}
-              className={`px-3 py-1 text-xs font-bold transition-colors ${viewScale === 'days' ? 'bg-accent text-white' : darkMode ? 'text-slate-400' : 'text-slate-600'}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'days' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Days
             </button>
             <button
               onClick={() => setViewScale('weeks')}
-              className={`px-3 py-1 text-xs font-bold transition-colors ${viewScale === 'weeks' ? 'bg-accent text-white' : darkMode ? 'text-slate-400' : 'text-slate-600'}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'weeks' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Weeks
             </button>
             <button
               onClick={() => setViewScale('months')}
-              className={`px-3 py-1 text-xs font-bold transition-colors ${viewScale === 'months' ? 'bg-accent text-white' : darkMode ? 'text-slate-400' : 'text-slate-600'}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'months' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Months
             </button>
           </div>
 
           {/* Hierarchy Mode */}
-          <div className={`flex rounded-xl border overflow-hidden ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-300 bg-slate-100'}`}>
+          <div className="flex rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] p-0.5 overflow-hidden">
             <button
               onClick={() => setHierarchyMode('tree')}
-              className={`px-2.5 py-1 text-xs font-bold transition-colors ${hierarchyMode === 'tree' ? 'bg-accent text-white' : darkMode ? 'text-slate-400' : 'text-slate-600'}`}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${hierarchyMode === 'tree' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Tree
             </button>
             <button
               onClick={() => setHierarchyMode('flat')}
-              className={`px-2.5 py-1 text-xs font-bold transition-colors ${hierarchyMode === 'flat' ? 'bg-accent text-white' : darkMode ? 'text-slate-400' : 'text-slate-600'}`}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${hierarchyMode === 'flat' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Flat
             </button>
@@ -692,11 +686,9 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
         ) : (
           <div style={{ minWidth: `${(showLeftSidebar ? 280 : 0) + daysHeader.length * dayColWidth}px` }}>
             {/* Header Row (Sticky Top & Left Corner) */}
-            <div className={`flex border-b sticky top-0 z-40 shadow-xs ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+            <div className="flex border-b border-[var(--border-hairline)] sticky top-0 z-40 shadow-xs bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)]">
               {showLeftSidebar && (
-                <div className={`w-[200px] sm:w-[240px] md:w-[280px] min-w-[200px] sm:min-w-[240px] md:min-w-[280px] p-2.5 text-xs font-bold uppercase tracking-wider border-r border-slate-200 dark:border-slate-800 flex-shrink-0 sticky left-0 z-50 ${
-                  darkMode ? 'bg-slate-950' : 'bg-slate-100'
-                }`}>
+                <div className="w-[200px] sm:w-[240px] md:w-[280px] min-w-[200px] sm:min-w-[240px] md:min-w-[280px] p-2.5 text-xs font-bold uppercase tracking-wider border-r border-[var(--border-hairline)] flex-shrink-0 sticky left-0 z-50 bg-[var(--bg-surface-subtle)]">
                   Task Title
                 </div>
               )}
@@ -707,9 +699,9 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                     <div
                       key={index}
                       style={{ width: `${dayColWidth}px`, minWidth: `${dayColWidth}px` }}
-                      className={`py-2 px-1 text-center border-r text-[10px] font-semibold transition-colors flex-shrink-0 ${
-                        darkMode ? 'border-slate-800/60' : 'border-slate-200/80'
-                      } ${isToday ? 'bg-accent/20 text-accent font-black' : ''}`}
+                      className={`py-2 px-1 text-center border-r border-[var(--border-hairline)] text-[10px] font-semibold transition-colors flex-shrink-0 ${
+                        isToday ? 'bg-[var(--accent-lime)]/20 text-[#4E6126] dark:text-[#CCF048] font-black' : ''
+                      }`}
                     >
                       <div>{format(d, 'EEE')}</div>
                       <div className="font-extrabold text-xs">{format(d, 'd')}</div>

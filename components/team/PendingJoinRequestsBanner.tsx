@@ -114,24 +114,18 @@ export const PendingJoinRequestsBanner: React.FC = () => {
   };
 
   return (
-    <div
-      className={`p-4 sm:p-5 rounded-2xl border shadow-lg transition-all ${
-        darkMode
-          ? 'bg-indigo-950/45 border-indigo-500/45 text-slate-100'
-          : 'bg-indigo-50/90 border-indigo-200 text-slate-800'
-      }`}
-    >
+    <div className="p-4 sm:p-5 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-sage)] text-[var(--text-primary)] shadow-sm transition-all">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5">
         <div className="flex items-center gap-2.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-          <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+          <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
             Pending Organization Join Requests ({joinRequests.length})
           </h2>
         </div>
         <button
           type="button"
           onClick={() => setActiveView('team_management')}
-          className="text-xs font-semibold text-indigo-500 hover:text-indigo-400 underline cursor-pointer self-start sm:self-auto"
+          className="text-xs font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer self-start sm:self-auto"
         >
           Open Team Directory & Access Control →
         </button>
@@ -145,9 +139,7 @@ export const PendingJoinRequestsBanner: React.FC = () => {
           return (
             <div
               key={req.id}
-              className={`p-3.5 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 ${
-                darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-              }`}
+              className="p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col lg:flex-row lg:items-center justify-between gap-3.5"
             >
               <div className="flex items-start gap-3">
                 <Avatar
@@ -162,14 +154,14 @@ export const PendingJoinRequestsBanner: React.FC = () => {
                 />
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm">{req.requester_name}</span>
-                    <span className="text-xs text-slate-400">({req.requester_email})</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                    <span className="font-bold text-sm text-[var(--text-primary)]">{req.requester_name}</span>
+                    <span className="text-xs text-[var(--text-muted)]">({req.requester_email})</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
                       Requested: {formatRoleForDisplay(req.requested_role)}
                     </span>
                   </div>
-                  {req.message && <p className="text-xs text-slate-400 mt-1">{req.message}</p>}
-                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  {req.message && <p className="text-xs text-[var(--text-secondary)] mt-1">{req.message}</p>}
+                  <span className="text-[10px] text-[var(--text-muted)] mt-0.5 block">
                     Requested {new Date(req.created_at).toLocaleString()}
                   </span>
                 </div>
@@ -177,7 +169,7 @@ export const PendingJoinRequestsBanner: React.FC = () => {
 
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase">Role:</label>
+                  <label className="text-[11px] font-bold text-[var(--text-muted)] uppercase">Role:</label>
                   <select
                     value={selectedGrantRole}
                     onChange={e =>
@@ -187,11 +179,7 @@ export const PendingJoinRequestsBanner: React.FC = () => {
                       }))
                     }
                     disabled={isProcessing}
-                    className={`text-xs font-bold rounded-xl border px-2.5 py-1.5 ${
-                      darkMode
-                        ? 'bg-slate-800 border-slate-700 text-white'
-                        : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="text-xs font-bold rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] px-2.5 py-1.5 outline-none"
                   >
                     <option value={UserRole.MEMBER}>Member (MEMBER)</option>
                     <option value={UserRole.PROJECT_MANAGER}>
@@ -202,7 +190,7 @@ export const PendingJoinRequestsBanner: React.FC = () => {
 
                 <Button
                   type="button"
-                  variant="primary"
+                  variant="lime"
                   size="sm"
                   disabled={isProcessing}
                   onClick={() => handleApprove(req)}
@@ -213,11 +201,11 @@ export const PendingJoinRequestsBanner: React.FC = () => {
 
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
                   disabled={isProcessing}
                   onClick={() => handleDecline(req)}
-                  className="text-xs font-semibold px-3 py-1.5 text-rose-400 hover:text-rose-300"
+                  className="text-xs font-semibold px-3 py-1.5 text-rose-600 dark:text-rose-400"
                 >
                   Decline
                 </Button>

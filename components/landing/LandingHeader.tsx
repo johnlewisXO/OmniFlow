@@ -35,7 +35,7 @@ export const LandingHeader: React.FC = () => {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-[#070A12]/85 backdrop-blur-xl border-b border-white/[0.08] shadow-2xl shadow-black/50'
+          ? 'bg-[#131511]/85 backdrop-blur-xl border-b border-white/[0.08] shadow-2xl shadow-black/50'
           : 'bg-transparent border-b border-white/[0.04]'
       }`}
     >
@@ -45,8 +45,8 @@ export const LandingHeader: React.FC = () => {
           href="#"
           className="flex items-center gap-2.5 whitespace-nowrap shrink-0 group focus:outline-none"
         >
-          <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center shadow-inner">
-            <ICON_MAP.SparklesIcon className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+          <div className="w-8 h-8 rounded-lg bg-[#CCF048]/15 border border-[#CCF048]/40 flex items-center justify-center shadow-inner">
+            <ICON_MAP.SparklesIcon className="w-4 h-4 text-[#CCF048] group-hover:text-[#D9F66A] transition-colors" />
           </div>
           <span className="font-display text-lg font-bold tracking-tight text-white">
             Omni Flow
@@ -81,7 +81,7 @@ export const LandingHeader: React.FC = () => {
           <a
             href={currentUser ? '#/app/overview' : '#/signup'}
             onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/25 border border-indigo-400/30 transition-all whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-xs sm:text-sm font-semibold shadow-lg shadow-black/20 border border-[#CCF048]/40 transition-all whitespace-nowrap"
           >
             <span>{currentUser ? 'Open Workspace' : 'Start Free Workspace'}</span>
             <span aria-hidden="true">→</span>
@@ -105,7 +105,7 @@ export const LandingHeader: React.FC = () => {
 
       {/* Mobile Slide-Down Sheet */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#090D18]/95 backdrop-blur-2xl border-b border-white/10 px-4 pt-3 pb-5 space-y-2">
+        <div className="md:hidden bg-[#161913]/95 backdrop-blur-2xl border-b border-white/10 px-4 pt-3 pb-5 space-y-2">
           {navItems.map(item => (
             <a
               key={item.label}
@@ -129,7 +129,7 @@ export const LandingHeader: React.FC = () => {
             <a
               href={currentUser ? '#/app/overview' : '#/signup'}
               onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
-              className="w-full py-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-center text-sm font-semibold text-white shadow-lg shadow-indigo-600/25"
+              className="w-full py-3 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-center text-sm font-semibold text-[#131511] shadow-lg shadow-black/20"
             >
               {currentUser ? 'Open Workspace →' : 'Start Free Workspace →'}
             </a>

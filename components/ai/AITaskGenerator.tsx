@@ -52,10 +52,7 @@ export const AITaskGenerator: React.FC<AITaskGeneratorProps> = ({
   // Textarea will inherit global styles from index.html
 
   return (
-    <div 
-      className={`my-4 p-4 border rounded-squircle-md shadow-inner-glass`}
-      style={{backgroundColor: darkMode ? 'hsla(var(--page-background-base-dark),0.1)' : 'hsla(var(--page-background-base-light),0.2)', borderColor: 'hsl(var(--panel-border))'}}
-    >
+    <div className="my-4 p-4 border border-[var(--border-hairline)] bg-[var(--bg-sage)] rounded-2xl">
       <label htmlFor="task-description-ai" className={labelClass}>
         AI Task Helper <span className="text-xs opacity-70">(Optional)</span>
       </label>
@@ -67,30 +64,29 @@ export const AITaskGenerator: React.FC<AITaskGeneratorProps> = ({
         placeholder="Describe the task, and AI can suggest titles..."
         disabled={isAISuggesting}
       />
-      <Button 
-        onClick={handleGenerateTitles} 
-        disabled={isAISuggesting || !description.trim()} 
-        variant="secondary" 
-        size="sm" 
+      <Button
+        onClick={handleGenerateTitles}
+        disabled={isAISuggesting || !description.trim()}
+        variant="secondary"
+        size="sm"
         className="mt-2.5"
       >
-        <SparklesIcon className="w-4 h-4 mr-1.5 text-accent" />
+        <SparklesIcon className="w-4 h-4 mr-1.5 text-[#4E6126] dark:text-[#CCF048]" />
         {isAISuggesting ? 'Generating...' : 'Suggest Titles'}
       </Button>
-      
-      {aiError && <p className={`mt-2.5 text-xs text-status-error`}>{aiError}</p>}
-      
+
+      {aiError && <p className="mt-2.5 text-xs text-rose-600 dark:text-rose-400">{aiError}</p>}
+
       {suggestedTaskTitles.length > 0 && (
         <div className="mt-3">
-          <h4 className={`text-xs font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1.5`}>Suggestions:</h4>
+          <h4 className="text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Suggestions:</h4>
           <ul className="space-y-1">
             {suggestedTaskTitles.map((title, index) => (
               <li key={index}>
                 <button
-                  type="button" 
+                  type="button"
                   onClick={() => onSuggestionSelect(title)}
-                  className={`w-full text-left p-1.5 text-sm rounded-squircle-sm transition-colors
-                              ${darkMode ? 'text-accent-light hover:bg-accent/20' : 'text-accent hover:bg-accent/10'}`}
+                  className="w-full text-left p-1.5 text-sm rounded-lg transition-colors text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-surface)] cursor-pointer"
                 >
                   {title}
                 </button>

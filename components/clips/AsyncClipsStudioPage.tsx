@@ -16,7 +16,7 @@ const INITIAL_CLIPS: AsyncVideoClip[] = [
     authorId: 'system-lead',
     authorName: 'Alex Rivera',
     recordingMode: 'screen_cam',
-    thumbnailColor: 'from-indigo-600 via-violet-600 to-fuchsia-600',
+    thumbnailColor: 'from-[#2A3320] via-[#1B2214] to-[#131511]',
     transcriptSummary: [
       '00:00 — Overview of multi-region WebSocket delta sync and Supabase Storage reconciliation.',
       '00:48 — Walkthrough of the Gantt critical path dependency solver and sprint burndown telemetry.',
@@ -272,10 +272,10 @@ export const AsyncClipsStudioPage: React.FC = () => {
       recordingMode,
       thumbnailColor:
         recordingMode === 'screen_cam'
-          ? 'from-indigo-600 via-purple-600 to-pink-600'
+          ? 'from-[#2D3822] via-[#1B2214] to-[#131511]'
           : recordingMode === 'screen_only'
-          ? 'from-cyan-600 via-blue-600 to-indigo-700'
-          : 'from-emerald-600 via-teal-600 to-cyan-700',
+          ? 'from-[#242D1E] via-[#191F15] to-[#11140E]'
+          : 'from-[#203224] via-[#152218] to-[#111512]',
       transcriptSummary: [
         `00:00 — Context & walkthrough for ${title}`,
         `${formatTimecode(Math.floor(finalDuration * 0.45))} — Live demonstration of key UI & system states`,
@@ -368,20 +368,20 @@ export const AsyncClipsStudioPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.75rem)] bg-slate-50 dark:bg-[#0B0F17] text-slate-900 dark:text-slate-100 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-3.75rem)] bg-[var(--bg-canvas)] text-[var(--text-primary)] overflow-hidden">
       {/* Compact Header */}
-      <div className="h-12 px-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md flex items-center justify-between gap-3 shrink-0">
+      <div className="h-12 px-4 border-b border-[var(--border-hairline)] bg-[var(--bg-surface)] flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] flex items-center justify-center shadow-xs">
             <span className="text-sm font-bold">▶</span>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold tracking-tight">
+              <h1 className="text-sm font-bold tracking-tight text-[var(--text-primary)]">
                 Async Screen & Camera Clips Studio
               </h1>
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                Loom-Grade Video Updates
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)] whitespace-nowrap">
+                Async Video Updates
               </span>
             </div>
           </div>
@@ -390,15 +390,15 @@ export const AsyncClipsStudioPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleShareClipToChat}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--text-primary)] border border-[var(--border-hairline)] transition flex items-center gap-1.5 cursor-pointer"
           >
             <span>💬</span> Share to Team Chat
           </button>
           <button
             onClick={() => setIsRecorderOpen(true)}
-            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-sm flex items-center gap-1.5 transition"
+            className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs flex items-center gap-1.5 transition cursor-pointer"
           >
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
             Record New Clip
           </button>
         </div>
@@ -407,13 +407,13 @@ export const AsyncClipsStudioPage: React.FC = () => {
       {/* Main Studio Body */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Left Sidebar: Library of Recorded Clips */}
-        <div className="lg:col-span-3 border-r border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/80 flex flex-col overflow-hidden">
-          <div className="p-3 border-b border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        <div className="lg:col-span-3 border-r border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col overflow-hidden">
+          <div className="p-3 border-b border-[var(--border-hairline)] flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
               Workspace Clips ({clips.length})
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-2.5 space-y-2">
             {clips.map(clip => {
               const isSelected = selectedClip?.id === clip.id;
               return (
@@ -424,14 +424,14 @@ export const AsyncClipsStudioPage: React.FC = () => {
                     setPlaybackSeconds(0);
                     setIsPlaying(false);
                   }}
-                  className={`w-full text-left p-2.5 rounded-xl border transition-all flex gap-3 items-start ${
+                  className={`w-full text-left p-2.5 rounded-2xl border transition-all flex gap-3 items-start cursor-pointer ${
                     isSelected
-                      ? 'bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-500/40 shadow-xs'
-                      : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                      ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] shadow-xs'
+                      : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:border-[var(--border-strong)]'
                   }`}
                 >
                   <div
-                    className={`w-20 h-14 rounded-lg bg-gradient-to-br ${clip.thumbnailColor} shrink-0 relative flex items-center justify-center text-white shadow-xs`}
+                    className={`w-20 h-14 rounded-xl bg-gradient-to-br ${clip.thumbnailColor} shrink-0 relative flex items-center justify-center text-white shadow-xs`}
                   >
                     <span className="w-6 h-6 rounded-full bg-black/40 backdrop-blur-xs flex items-center justify-center text-[10px]">
                       ▶
@@ -441,10 +441,10 @@ export const AsyncClipsStudioPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2">
+                    <h3 className="text-xs font-bold text-[var(--text-primary)] line-clamp-2">
                       {clip.title}
                     </h3>
-                    <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
                       <span>{clip.authorName}</span>
                       <span>•</span>
                       <span>{clip.comments.length} pins</span>
@@ -458,9 +458,9 @@ export const AsyncClipsStudioPage: React.FC = () => {
 
         {/* Center Stage: Interactive Video Player + Timestamp Pin Scrub Bar */}
         {selectedClip && (
-          <div className="lg:col-span-6 flex flex-col overflow-y-auto p-4 lg:p-6 space-y-4">
+          <div className="lg:col-span-6 flex flex-col overflow-y-auto scrollbar-thin p-4 lg:p-6 space-y-4">
             {/* Interactive Video Viewport */}
-            <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 bg-slate-950 shadow-xl flex flex-col justify-between">
+            <div className="relative aspect-video rounded-2xl overflow-hidden border border-[#2B3026] bg-[#131511] shadow-xl flex flex-col justify-between">
               {selectedClip.videoUrl ? (
                 <video
                   ref={videoPlaybackRef}
@@ -476,19 +476,19 @@ export const AsyncClipsStudioPage: React.FC = () => {
                 >
                   {/* Simulated Live Code / Architecture HUD inside video */}
                   <div className="flex items-center justify-between text-white/90 text-xs">
-                    <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/35 backdrop-blur-md">
-                      <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
+                    <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md">
+                      <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-[#CCF048] animate-ping' : 'bg-amber-400'}`} />
                       <span className="font-semibold">{selectedClip.title}</span>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full bg-black/35 backdrop-blur-md font-mono tabular-nums">
+                    <span className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md font-mono tabular-nums">
                       {formatTimecode(playbackSeconds)} / {formatTimecode(selectedClip.durationSeconds)}
                     </span>
                   </div>
 
                   {/* Center Play/Pause Overlay & Animated Telemetry Frame */}
-                  <div className="my-auto mx-auto max-w-md w-full bg-slate-950/75 backdrop-blur-xl border border-white/15 rounded-2xl p-4 text-white shadow-2xl">
+                  <div className="my-auto mx-auto max-w-md w-full bg-[#131511]/85 backdrop-blur-xl border border-[#2B3026] rounded-2xl p-4 text-[#F2F3EE] shadow-2xl">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] uppercase tracking-widest text-indigo-300 font-bold">
+                      <span className="text-[10px] uppercase tracking-widest text-[#CCF048] font-bold">
                         Live Walkthrough Frame @ {formatTimecode(playbackSeconds)}
                       </span>
                       <span className="text-[10px] font-mono text-emerald-400">60 FPS HD</span>
@@ -538,14 +538,14 @@ export const AsyncClipsStudioPage: React.FC = () => {
               )}
 
               {/* Interactive Scrubber Timeline with Timestamped Comment Pins */}
-              <div className="bg-slate-950/95 px-4 py-3 border-t border-white/10">
+              <div className="bg-[#131511]/95 px-4 py-3 border-t border-[#2B3026]">
                 <div
                   onClick={e => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                     setPlaybackSeconds(Math.round(pct * selectedClip.durationSeconds));
                   }}
-                  className="relative h-2.5 bg-slate-800 rounded-full cursor-pointer group"
+                  className="relative h-2.5 bg-[#24291F] rounded-full cursor-pointer group"
                 >
                   <div
                     style={{
@@ -554,7 +554,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                         (playbackSeconds / Math.max(1, selectedClip.durationSeconds)) * 100
                       )}%`,
                     }}
-                    className="h-full rounded-full bg-gradient-to-r from-rose-500 to-indigo-500"
+                    className="h-full rounded-full bg-[#CCF048]"
                   />
 
                   {/* Comment Pin Markers along the timeline */}
@@ -573,7 +573,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                         }}
                         style={{ left: `${leftPct}%` }}
                         title={`@${formatTimecode(pin.timestampSeconds)} ${pin.authorName}: ${pin.text}`}
-                        className="absolute -top-1.5 -translate-x-1/2 w-5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-bold flex items-center justify-center shadow-md hover:scale-125 transition"
+                        className="absolute -top-1.5 -translate-x-1/2 w-5 h-5 rounded-full bg-[#CCF048] text-[#131511] text-[10px] font-bold flex items-center justify-center shadow-md hover:scale-125 transition cursor-pointer"
                       >
                         {pin.reaction || '💬'}
                       </button>
@@ -582,15 +582,15 @@ export const AsyncClipsStudioPage: React.FC = () => {
                 </div>
 
                 {/* Transport & Speed Controls */}
-                <div className="mt-2.5 flex items-center justify-between text-xs text-slate-300">
+                <div className="mt-2.5 flex items-center justify-between text-xs text-[#A6AC9C]">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setIsPlaying(p => !p)}
-                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold"
+                      className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-semibold cursor-pointer"
                     >
                       {isPlaying ? 'Pause' : 'Play'}
                     </button>
-                    <span className="font-mono tabular-nums text-slate-400">
+                    <span className="font-mono tabular-nums text-[#A6AC9C]">
                       {formatTimecode(playbackSeconds)} / {formatTimecode(selectedClip.durationSeconds)}
                     </span>
                   </div>
@@ -601,7 +601,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                       <button
                         key={emoji}
                         onClick={() => handleReactionClick(emoji)}
-                        className="px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-xs flex items-center gap-1 transition"
+                        className="px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-xs flex items-center gap-1 transition cursor-pointer"
                       >
                         <span>{emoji}</span>
                         <span className="font-mono text-[10px] tabular-nums">
@@ -613,7 +613,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                       onClick={() =>
                         setPlaybackSpeed(s => (s === 1 ? 1.25 : s === 1.25 ? 1.5 : s === 1.5 ? 2 : 1))
                       }
-                      className="ml-2 px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[11px] font-bold"
+                      className="ml-2 px-2 py-0.5 rounded-full bg-[#CCF048]/20 text-[#CCF048] font-mono text-[11px] font-bold cursor-pointer"
                     >
                       {playbackSpeed}x
                     </button>
@@ -625,15 +625,15 @@ export const AsyncClipsStudioPage: React.FC = () => {
             {/* Add Timestamped Comment Form */}
             <form
               onSubmit={handleAddTimestampComment}
-              className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2"
+              className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] flex items-center gap-2"
             >
-              <span className="px-2 py-1 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 font-mono text-xs font-bold tabular-nums shrink-0">
+              <span className="px-2 py-1 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-mono text-xs font-bold tabular-nums shrink-0">
                 @{formatTimecode(playbackSeconds)}
               </span>
               <select
                 value={newCommentReaction}
                 onChange={e => setNewCommentReaction(e.target.value)}
-                className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs"
+                className="px-2 py-1 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-xs"
               >
                 <option value="🔥">🔥</option>
                 <option value="💡">💡</option>
@@ -645,11 +645,11 @@ export const AsyncClipsStudioPage: React.FC = () => {
                 value={newCommentText}
                 onChange={e => setNewCommentText(e.target.value)}
                 placeholder={`Drop a comment pin at ${formatTimecode(playbackSeconds)}...`}
-                className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
               />
               <button
                 type="submit"
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition"
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] transition cursor-pointer"
               >
                 Pin Comment
               </button>
@@ -659,25 +659,25 @@ export const AsyncClipsStudioPage: React.FC = () => {
 
         {/* Right Panel: Transcript Chapters, Action Items -> Task Converter & Timestamped Thread */}
         {selectedClip && (
-          <div className="lg:col-span-3 border-l border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 flex flex-col overflow-y-auto p-4 space-y-5">
+          <div className="lg:col-span-3 border-l border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col overflow-y-auto scrollbar-thin p-4 space-y-5">
             {/* Extracted Action Items with 1-Click Task Conversion */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   Clip Action Items
                 </h3>
-                <span className="text-[10px] text-indigo-500 font-semibold">1-Click to Board</span>
+                <span className="text-[10px] text-[#4E6126] dark:text-[#CCF048] font-semibold">1-Click to Board</span>
               </div>
               <div className="space-y-2">
                 {selectedClip.actionItems.map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2"
+                    className="p-2.5 rounded-2xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] flex items-center justify-between gap-2"
                   >
-                    <span className="text-xs text-slate-700 dark:text-slate-200">{item}</span>
+                    <span className="text-xs text-[var(--text-primary)]">{item}</span>
                     <button
                       onClick={() => handleConvertActionItemToTask(item)}
-                      className="px-2 py-1 rounded-lg bg-indigo-600/10 hover:bg-indigo-600 text-indigo-600 dark:text-indigo-400 hover:text-white text-[10px] font-bold shrink-0 transition"
+                      className="px-2.5 py-1 rounded-full bg-[var(--bg-sage)] hover:bg-[var(--accent-lime)] text-[#4E6126] dark:text-[#CCF048] hover:text-[#131511] text-[10px] font-bold shrink-0 transition cursor-pointer"
                     >
                       + Task
                     </button>
@@ -688,14 +688,14 @@ export const AsyncClipsStudioPage: React.FC = () => {
 
             {/* Timestamped Chapters */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
                 Chapters & Summary
               </h3>
               <div className="space-y-1.5">
                 {selectedClip.transcriptSummary.map((line, idx) => (
                   <div
                     key={idx}
-                    className="p-2 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 text-xs text-slate-600 dark:text-slate-300 leading-relaxed"
+                    className="p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-xs text-[var(--text-secondary)] leading-relaxed"
                   >
                     {line}
                   </div>
@@ -705,7 +705,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
 
             {/* Timestamped Comment Pins List */}
             <div className="flex-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
                 Timestamped Pins ({selectedClip.comments.length})
               </h3>
               <div className="space-y-2">
@@ -713,17 +713,17 @@ export const AsyncClipsStudioPage: React.FC = () => {
                   <div
                     key={pin.id}
                     onClick={() => setPlaybackSeconds(pin.timestampSeconds)}
-                    className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 cursor-pointer hover:border-indigo-500/40 transition"
+                    className="p-2.5 rounded-2xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] cursor-pointer hover:border-[var(--border-strong)] transition"
                   >
                     <div className="flex items-center justify-between text-[11px] mb-1">
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                      <span className="font-bold text-[var(--text-primary)]">
                         {pin.authorName}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold tabular-nums">
+                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-mono text-[10px] font-bold tabular-nums">
                         {pin.reaction} @{formatTimecode(pin.timestampSeconds)}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300">{pin.text}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{pin.text}</p>
                   </div>
                 ))}
               </div>
@@ -735,7 +735,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
       {/* Record New Clip Studio Modal */}
       {isRecorderOpen && (
         <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
+          <div className="w-full max-w-xl rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] shadow-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
@@ -807,7 +807,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
               </div>
 
               {/* Live Preview Stage */}
-              <div className="relative h-44 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden">
+              <div className="relative h-44 rounded-xl bg-[#131511] border border-[#2B3026] flex items-center justify-center overflow-hidden">
                 <video
                   ref={liveVideoPreviewRef}
                   autoPlay

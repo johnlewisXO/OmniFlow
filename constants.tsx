@@ -136,6 +136,9 @@ const RAW_ICON_MAP = {
   PaperAirplaneIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />),
   MenuIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />),
   ChatBubbleLeftRightIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />),
+  ListBulletIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />),
+  BellSlashIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 003.844.148m-3.844-.148a23.856 23.856 0 01-5.455-1.31 8.964 8.964 0 002.3-5.542m3.155 6.852a3 3 0 005.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 003.536-1.003A8.967 8.967 0 0118 9.75V9A6 6 0 006.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />),
+  TagIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />),
   StarIcon: createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />),
 };
 
@@ -184,9 +187,9 @@ export const SIDENAV_ITEMS: {
 // Task Status Columns Configuration
 export const TASK_STATUS_COLUMNS = [
   { id: TaskStatus.TODO, title: 'To Do', color: 'bg-slate-400 dark:bg-slate-500' },
-  { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: 'bg-blue-500 dark:bg-blue-400' },
+  { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: 'bg-[#191B17] dark:bg-[#CCF048]' },
   { id: TaskStatus.REVIEW, title: 'Review', color: 'bg-amber-500 dark:bg-amber-400' },
-  { id: TaskStatus.DONE, title: 'Done', color: 'bg-green-500 dark:bg-green-400' },
+  { id: TaskStatus.DONE, title: 'Done', color: 'bg-emerald-500 dark:bg-emerald-400' },
 ];
 
 const MEDIUM_PRIORITY_ICON = createIcon(<path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 0a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5h16.5a1.5 1.5 0 011.5 1.5v1.5a1.5 1.5 0 01-1.5 1.5M3.75 9V3.75M3.75 9h16.5" />);

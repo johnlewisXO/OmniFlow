@@ -3,6 +3,8 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { TaskStatus, TaskPriority, AutomationRule, AutomationLog, AutomationTriggerType, AutomationActionType } from '../../types';
 import { Button } from '../shared/Button';
+import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard } from '../shared/EditorialUI';
+import { RadialProgressRing } from '../charts/EditorialCharts';
 import { 
   getStoredRules, 
   saveStoredRules, 
@@ -356,171 +358,96 @@ export const TaskAutomationsDashboard: React.FC = () => {
   }, [rules, searchQuery, filterTrigger]);
 
   return (
-    <div className={`flex flex-col p-4 md:p-6 space-y-6 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      {/* 1. Analytics Hero Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/60 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-400/30">
-                <BoltIcon className="w-5 h-5" />
-              </span>
-              <span className="text-xs font-bold tracking-wider uppercase text-indigo-300">
-                Trigger & Webhook Automation Engine
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Task Triggers & Rules Engine
-            </h1>
-            <p className="text-sm text-indigo-200/80 max-w-xl leading-relaxed">
-              Automate assignments, status transitions, priority escalations, webhooks, and team alerts.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full text-[var(--text-primary)] space-y-5 animate-fadeIn">
+      {/* 1. Editorial PageHeader */}
+      <PageHeader
+        eyebrow="Trigger & Webhook Engine"
+        title="Task Triggers & Rules Engine"
+        subtitle="Automate assignments, status transitions, priority escalations, webhooks, and team alerts."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setLogs(getStoredLogs())}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition-all cursor-pointer"
             >
-              <ArrowPathIcon className="w-4 h-4 mr-1" />
+              <ArrowPathIcon className="w-3.5 h-3.5 mr-1.5" />
               <span>Refresh</span>
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="lime"
+              size="sm"
               onClick={() => setActiveTab('builder')}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold shadow-lg shadow-indigo-500/30 transition-all transform active:scale-95 cursor-pointer"
             >
-              <PlusIcon className="w-4 h-4 mr-1" />
+              <PlusIcon className="w-3.5 h-3.5 mr-1.5" />
               <span>Create Trigger Rule</span>
-            </button>
-          </div>
-        </div>
+            </Button>
+          </>
+        }
+      />
 
-        {/* Analytics KPI Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-indigo-800/40">
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Configured Rules</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">{stats.total}</span>
-              <span className="text-xs text-emerald-400 font-bold">({stats.active} Active)</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              Automated rules in workspace
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Total Executions</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white">{stats.totalRuns}</span>
-              <span className="text-xs text-indigo-300 font-medium">runs</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              Lifecycle events processed
-            </p>
-          </div>
-
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Success Rate</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-emerald-400">{stats.successRate}%</span>
-              <span className="text-xs text-emerald-300 font-medium">reliable</span>
-            </div>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
-              <div 
-                className="bg-emerald-400 h-full rounded-full transition-all duration-500" 
-                style={{ width: `${stats.successRate}%` }}
+      {/* 2. Inline KPI Strip */}
+      <InlineKpiStrip
+        items={[
+          {
+            id: 'configured_rules',
+            label: 'Configured Rules',
+            value: stats.total,
+            sublabel: `${stats.active} active`,
+            tone: stats.active > 0 ? 'lime' : 'default',
+            onClick: () => setActiveTab('rules'),
+          },
+          {
+            id: 'total_executions',
+            label: 'Total Executions',
+            value: stats.totalRuns,
+            sublabel: 'Lifecycle events processed',
+            tone: 'default',
+            onClick: () => setActiveTab('logs'),
+          },
+          {
+            id: 'success_rate',
+            label: 'Success Rate',
+            value: `${stats.successRate}%`,
+            sublabel: 'Execution reliability',
+            visual: (
+              <RadialProgressRing
+                value={stats.successRate}
+                size={40}
+                strokeWidth={4}
+                tone="lime"
+                showLabel={false}
               />
-            </div>
-          </div>
+            ),
+            onClick: () => setActiveTab('logs'),
+          },
+          {
+            id: 'webhooks_logs',
+            label: 'Webhooks & Logs',
+            value: webhooks.length,
+            sublabel: `${stats.logCount} trigger logs`,
+            tone: webhooks.length > 0 ? 'success' : 'default',
+            onClick: () => setActiveTab('webhooks'),
+          },
+        ]}
+      />
 
-          <div className="bg-white/5 backdrop-blur-xs rounded-xl p-3.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Webhooks & Logs</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-purple-300">{webhooks.length}</span>
-              <span className="text-xs text-indigo-300 font-medium">webhooks</span>
-            </div>
-            <p className="text-[11px] text-indigo-200/70 mt-1">
-              {stats.logCount} trigger execution logs
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className={`flex flex-wrap border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-        <button
-          onClick={() => setActiveTab('visual_canvas')}
-          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
-            activeTab === 'visual_canvas'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <span>⚡</span>
-          <span>Visual Node Canvas</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('rules')}
-          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'rules'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          Active Rules ({rules.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('builder')}
-          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'builder'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          Rule Builder & Custom Actions
-        </button>
-        <button
-          onClick={() => setActiveTab('templates')}
-          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'templates'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          Preset Automation Library
-        </button>
-        <button
-          onClick={() => setActiveTab('webhooks')}
-          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'webhooks'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          Webhooks & Integrations ({webhooks.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('portability')}
-          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'portability'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          Data Export & Portability
-        </button>
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 ${
-            activeTab === 'logs'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          Execution History Logs ({logs.length})
-        </button>
+      {/* 3. Segmented Navigation Tabs */}
+      <div className="flex items-center">
+        <SegmentedTabs
+          value={activeTab}
+          onChange={setActiveTab}
+          size="sm"
+          options={[
+            { id: 'visual_canvas', label: 'Visual Canvas', icon: <BoltIcon className="w-3.5 h-3.5" /> },
+            { id: 'rules', label: 'Active Rules', count: rules.length, icon: <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5" /> },
+            { id: 'builder', label: 'Rule Builder', icon: <ICON_MAP.PlusIcon className="w-3.5 h-3.5" /> },
+            { id: 'templates', label: 'Preset Library', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
+            { id: 'webhooks', label: 'Webhooks', count: webhooks.length, icon: <ICON_MAP.GlobeAltIcon className="w-3.5 h-3.5" /> },
+            { id: 'portability', label: 'Portability', icon: <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" /> },
+            { id: 'logs', label: 'Logs', count: logs.length, icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> },
+          ]}
+        />
       </div>
 
       {/* Tab Content: Visual Node-Based Workflow Canvas */}
@@ -545,24 +472,20 @@ export const TaskAutomationsDashboard: React.FC = () => {
           {/* Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="relative flex-1 min-w-[200px] max-w-md">
-              <ICON_MAP.MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+              <ICON_MAP.MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-[var(--text-muted)]" />
               <input
                 type="text"
                 placeholder="Search trigger rules..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full search-input !pl-10 !pr-8 py-2 rounded-[20px] border text-xs font-medium outline-hidden transition-all ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-accent' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-accent'
-                }`}
+                className="w-full search-input !pl-10 !pr-8 py-2 rounded-full border text-xs font-medium outline-hidden transition-all"
               />
             </div>
 
             <select
               value={filterTrigger}
               onChange={(e) => setFilterTrigger(e.target.value)}
-              className={`text-xs rounded-lg px-3 py-1.5 border font-semibold ${
-                darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-700'
-              }`}
+              className="text-xs rounded-full px-3.5 py-2 border font-semibold"
             >
               <option value="all">All Trigger Events</option>
               <option value="status_change">Status Change</option>
@@ -577,57 +500,56 @@ export const TaskAutomationsDashboard: React.FC = () => {
           {/* Rules Cards */}
           <div className="grid grid-cols-1 gap-3">
             {filteredRules.length === 0 ? (
-              <div className="p-12 text-center border-2 border-dashed rounded-2xl text-slate-400">
+              <HairlineCard className="p-12 text-center border-dashed text-[var(--text-muted)]">
                 No matching automation rules found. Click "Create Trigger Rule" to build one!
-              </div>
+              </HairlineCard>
             ) : (
               filteredRules.map((rule) => {
                 const targetUser = users.find((u) => u.id === rule.actionTargetValue);
                 return (
-                  <div
+                  <HairlineCard
                     key={rule.id}
-                    className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                      darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-                    } ${!rule.enabled ? 'opacity-60' : ''}`}
+                    padding="sm"
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${!rule.enabled ? 'opacity-60' : ''}`}
                   >
                     <div className="flex items-start gap-3 min-w-0">
                       <input
                         type="checkbox"
                         checked={rule.enabled}
                         onChange={() => handleToggleRule(rule.id)}
-                        className="mt-1 w-4 h-4 rounded text-accent focus:ring-accent cursor-pointer"
+                        className="mt-1 w-4 h-4 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
                       />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">{rule.name}</h4>
+                          <h4 className="text-sm font-bold text-[var(--text-primary)]">{rule.name}</h4>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                               rule.enabled
-                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-slate-500/15 text-slate-500'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                                : 'bg-[var(--bg-sage)] text-[var(--text-muted)]'
                             }`}
                           >
                             {rule.enabled ? 'Active' : 'Disabled'}
                           </span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-accent/10 text-accent">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--text-secondary)] border border-[var(--border-hairline)]">
                             {rule.triggerEvent.replace('_', ' ').toUpperCase()}
                           </span>
                         </div>
 
                         {rule.description && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{rule.description}</p>
+                          <p className="text-xs text-[var(--text-secondary)] mt-1">{rule.description}</p>
                         )}
 
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-[var(--text-secondary)] font-medium">
                           <span>
                             When condition:{' '}
-                            <strong className="text-accent">{rule.triggerConditionValue}</strong>
+                            <strong className="text-[var(--text-primary)] font-mono">{rule.triggerConditionValue}</strong>
                           </span>
                           <span>→</span>
                           <span>
                             Then action:{' '}
-                            <strong className="text-emerald-600 dark:text-emerald-400">
+                            <strong className="text-emerald-700 dark:text-emerald-400">
                               {rule.actionType === 'assign_user'
                                 ? `Assign to ${targetUser?.full_name || targetUser?.email || 'User'}`
                                 : rule.actionType === 'set_priority'
@@ -646,14 +568,15 @@ export const TaskAutomationsDashboard: React.FC = () => {
                         Test Run
                       </Button>
                       <button
+                        type="button"
                         onClick={() => handleDeleteRule(rule.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        className="p-2 text-[var(--text-muted)] hover:text-rose-600 rounded-full hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                         title="Delete Rule"
                       >
                         <ICON_MAP.TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
-                  </div>
+                  </HairlineCard>
                 );
               })
             )}
@@ -665,48 +588,42 @@ export const TaskAutomationsDashboard: React.FC = () => {
       {activeTab === 'builder' && (
         <form
           onSubmit={handleCreateRule}
-          className={`p-6 rounded-2xl border space-y-5 max-w-3xl ${
-            darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
-          }`}
+          className="editorial-surface p-6 space-y-5 max-w-3xl"
         >
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Custom Automation Rule Builder</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <h3 className="text-base font-bold text-[var(--text-primary)]">Custom Automation Rule Builder</h3>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
               Configure trigger events, matching rules, and automatic execution targets.
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Rule Name *</label>
+              <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1">Rule Name *</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Escalate Critical Bugs to Lead Engineer"
                 value={ruleName}
                 onChange={(e) => setRuleName(e.target.value)}
-                className={`w-full p-2.5 rounded-xl border text-sm font-medium ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                }`}
+                className="w-full p-2.5 rounded-xl border text-sm font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
+              <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1">Description</label>
               <input
                 type="text"
                 placeholder="Short explanation of when and why this rule triggers..."
                 value={ruleDescription}
                 onChange={(e) => setRuleDescription(e.target.value)}
-                className={`w-full p-2.5 rounded-xl border text-sm font-medium ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                }`}
+                className="w-full p-2.5 rounded-xl border text-sm font-medium"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">When (Trigger Event)</label>
+                <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1">When (Trigger Event)</label>
                 <select
                   value={triggerEvent}
                   onChange={(e) => {
@@ -717,9 +634,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                     else if (evt === 'due_date_approaching') setTriggerConditionValue('24h');
                     else setTriggerConditionValue('any');
                   }}
-                  className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
-                    darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  className="w-full p-2.5 rounded-xl border text-sm font-semibold"
                 >
                   <option value="status_change">Task Status Changes To...</option>
                   <option value="priority_change">Task Priority Changes To...</option>
@@ -731,14 +646,12 @@ export const TaskAutomationsDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Trigger Condition Value</label>
+                <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1">Trigger Condition Value</label>
                 {triggerEvent === 'status_change' ? (
                   <select
                     value={triggerConditionValue}
                     onChange={(e) => setTriggerConditionValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-sm font-semibold"
                   >
                     <option value={TaskStatus.TODO}>To Do</option>
                     <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
@@ -749,9 +662,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                   <select
                     value={triggerConditionValue}
                     onChange={(e) => setTriggerConditionValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-sm font-semibold"
                   >
                     <option value={TaskPriority.LOW}>Low Priority</option>
                     <option value={TaskPriority.MEDIUM}>Medium Priority</option>
@@ -764,9 +675,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                     value={triggerConditionValue}
                     onChange={(e) => setTriggerConditionValue(e.target.value)}
                     placeholder="Condition rule value"
-                    className={`w-full p-2.5 rounded-xl border text-sm font-medium ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-sm font-medium"
                   />
                 )}
               </div>
@@ -774,7 +683,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Then (Action)</label>
+                <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1">Then (Action)</label>
                 <select
                   value={actionType}
                   onChange={(e) => {
@@ -785,9 +694,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                     else if (act === 'set_status') setActionTargetValue(TaskStatus.IN_PROGRESS);
                     else setActionTargetValue('Automated rule trigger executed.');
                   }}
-                  className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
-                    darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  className="w-full p-2.5 rounded-xl border text-sm font-semibold"
                 >
                   <option value="assign_user">Automatically Assign User</option>
                   <option value="set_priority">Set Task Priority</option>
@@ -798,14 +705,12 @@ export const TaskAutomationsDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Action Parameter</label>
+                <label className="block text-xs font-bold text-[var(--text-secondary)] mb-1">Action Parameter</label>
                 {actionType === 'assign_user' ? (
                   <select
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-sm font-semibold"
                   >
                     <option value="">Select Assignee</option>
                     {users.map((u) => (
@@ -818,9 +723,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                   <select
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-sm font-semibold"
                   >
                     <option value={TaskPriority.LOW}>Low</option>
                     <option value={TaskPriority.MEDIUM}>Medium</option>
@@ -831,9 +734,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                   <select
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-xl border text-sm font-semibold ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-sm font-semibold"
                   >
                     <option value={TaskStatus.TODO}>To Do</option>
                     <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
@@ -846,20 +747,18 @@ export const TaskAutomationsDashboard: React.FC = () => {
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
                     placeholder="Notification message or comment text"
-                    className={`w-full p-2.5 rounded-xl border text-sm font-medium ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-sm font-medium"
                   />
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-hairline)]">
             <Button variant="ghost" type="button" onClick={() => setActiveTab('rules')}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button variant="lime" type="submit">
               Save Automation Rule
             </Button>
           </div>
@@ -869,37 +768,35 @@ export const TaskAutomationsDashboard: React.FC = () => {
       {/* Tab Content: Preset Automation Library */}
       {activeTab === 'templates' && (
         <div className="space-y-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)]">
             Click "Install Rule" on any pre-built template to immediately add it to your project workflow.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {DEFAULT_PRESET_RULES.map((preset) => (
-              <div
+              <HairlineCard
                 key={preset.id}
-                className={`p-5 rounded-xl border flex flex-col justify-between gap-3 ${
-                  darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-                }`}
+                className="flex flex-col justify-between gap-3"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">{preset.name}</h4>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-accent/10 text-accent">
+                    <h4 className="text-sm font-bold text-[var(--text-primary)]">{preset.name}</h4>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--text-secondary)] border border-[var(--border-hairline)]">
                       {preset.triggerEvent.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{preset.description}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{preset.description}</p>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    Action: <strong className="text-slate-800 dark:text-slate-200">{preset.actionType}</strong>
+                <div className="flex items-center justify-between pt-3 border-t border-[var(--border-hairline)]">
+                  <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                    Action: <strong className="text-[var(--text-primary)]">{preset.actionType}</strong>
                   </span>
-                  <Button size="sm" onClick={() => handleInstallTemplate(preset)}>
+                  <Button variant="lime" size="sm" onClick={() => handleInstallTemplate(preset)}>
                     Install Rule
                   </Button>
                 </div>
-              </div>
+              </HairlineCard>
             ))}
           </div>
         </div>
@@ -913,39 +810,34 @@ export const TaskAutomationsDashboard: React.FC = () => {
             <div className="lg:col-span-2 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Active Webhook Endpoints</h3>
-                  <p className="text-xs text-slate-500">Outbound events are dispatched in real-time when task or sprint mutations occur.</p>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Active Webhook Endpoints</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">Outbound events are dispatched in real-time when task or sprint mutations occur.</p>
                 </div>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-accent/10 text-accent font-semibold">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] border border-[var(--border-hairline)] font-semibold font-mono tabular-nums">
                   {webhooks.length} Endpoints
                 </span>
               </div>
 
               {webhooks.length === 0 ? (
-                <div className="p-8 text-center border-2 border-dashed rounded-2xl text-slate-400">
+                <HairlineCard className="p-8 text-center border-dashed text-[var(--text-muted)]">
                   <ICON_MAP.GlobeAltIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs font-medium">No webhooks configured yet.</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Use the registration form on the right to connect Zapier, Slack, Discord, or custom microservices.</p>
-                </div>
+                  <p className="text-xs font-medium text-[var(--text-primary)]">No webhooks configured yet.</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Use the registration form on the right to connect Zapier, Slack, Discord, or custom microservices.</p>
+                </HairlineCard>
               ) : (
                 <div className="space-y-3">
                   {webhooks.map((hook) => (
-                    <div
-                      key={hook.id}
-                      className={`p-4 rounded-xl border transition-all ${
-                        darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-                      }`}
-                    >
+                    <HairlineCard key={hook.id} padding="sm">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{hook.name}</h4>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
+                            <h4 className="text-sm font-bold text-[var(--text-primary)] truncate">{hook.name}</h4>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--text-secondary)] font-mono">
                               {hook.active ? 'ACTIVE' : 'DISABLED'}
                             </span>
                           </div>
-                          <div className="mt-1 flex items-center gap-1 text-xs font-mono text-slate-500 dark:text-slate-400 truncate">
+                          <div className="mt-1 flex items-center gap-1 text-xs font-mono text-[var(--text-muted)] truncate">
                             <ICON_MAP.LinkIcon className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">{hook.url}</span>
                           </div>
@@ -967,8 +859,9 @@ export const TaskAutomationsDashboard: React.FC = () => {
                             Test Ping
                           </Button>
                           <button
+                            type="button"
                             onClick={() => deleteWebhook(hook.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            className="p-1.5 rounded-full text-[var(--text-muted)] hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
                             title="Delete Webhook"
                           >
                             <ICON_MAP.TrashIcon className="w-4 h-4" />
@@ -977,37 +870,36 @@ export const TaskAutomationsDashboard: React.FC = () => {
                       </div>
 
                       {/* Subscribed Events Tags */}
-                      <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-                        <span className="text-[11px] font-semibold text-slate-400">Events:</span>
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-3 border-t border-[var(--border-hairline)]">
+                        <span className="text-[11px] font-semibold text-[var(--text-muted)]">Events:</span>
                         {hook.events.map((evt) => (
                           <span
                             key={evt}
-                            className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono"
+                            className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[var(--bg-sage)] text-[var(--text-secondary)] font-mono"
                           >
                             {evt}
                           </span>
                         ))}
                       </div>
-                    </div>
+                    </HairlineCard>
                   ))}
                 </div>
               )}
 
               {/* Test Payload Inspector */}
               {testResult && (
-                <div className={`p-4 rounded-xl border animate-in fade-in duration-200 ${
-                  darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-900 text-white border-slate-800'
-                }`}>
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div className="p-4 rounded-2xl border border-[#2B3026] bg-[#131511] text-[#F2F3EE] animate-fadeIn">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#2B3026]">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 font-mono">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 font-mono">
                         HTTP {testResult.status} OK
                       </span>
-                      <span className="text-xs text-slate-400 font-mono">{testResult.durationMs}ms latency</span>
+                      <span className="text-xs text-[#A6AC9C] font-mono">{testResult.durationMs}ms latency</span>
                     </div>
                     <button
+                      type="button"
                       onClick={() => setTestResult(null)}
-                      className="text-xs text-slate-400 hover:text-white"
+                      className="text-xs text-[#A6AC9C] hover:text-white cursor-pointer"
                     >
                       Clear
                     </button>
@@ -1020,43 +912,39 @@ export const TaskAutomationsDashboard: React.FC = () => {
             </div>
 
             {/* Right Column: Register New Webhook */}
-            <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ICON_MAP.PlusIcon className="w-4 h-4 text-accent" /> Register Webhook
+            <HairlineCard>
+              <h4 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <ICON_MAP.PlusIcon className="w-4 h-4 text-[var(--text-primary)]" /> Register Webhook
               </h4>
-              <p className="text-xs text-slate-500 mt-1 mb-4">Send real-time event notifications to any external HTTPS endpoint.</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1 mb-4">Send real-time event notifications to any external HTTPS endpoint.</p>
 
               <form onSubmit={handleCreateWebhook} className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Webhook Name</label>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Webhook Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Discord #deployments or Zapier Sync"
                     value={newWebhookName}
                     onChange={(e) => setNewWebhookName(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-xs outline-hidden ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-xs outline-hidden"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Payload URL</label>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Payload URL</label>
                   <input
                     type="url"
                     required
                     placeholder="https://api.domain.com/webhook"
                     value={newWebhookUrl}
                     onChange={(e) => setNewWebhookUrl(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-xs font-mono outline-hidden ${
-                      darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border text-xs font-mono outline-hidden"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">Subscribed Events</label>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1.5">Subscribed Events</label>
                   <div className="space-y-1.5">
                     {[
                       { id: 'task.created', label: 'task.created (When new task is added)' },
@@ -1065,7 +953,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                       { id: 'sprint.started', label: 'sprint.started (When sprint goes active)' },
                       { id: 'sprint.completed', label: 'sprint.completed (When sprint is closed)' },
                     ].map((evt) => (
-                      <label key={evt.id} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
+                      <label key={evt.id} className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={selectedWebhookEvents.includes(evt.id)}
@@ -1076,7 +964,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                               setSelectedWebhookEvents(selectedWebhookEvents.filter(x => x !== evt.id));
                             }
                           }}
-                          className="rounded text-accent focus:ring-accent"
+                          className="rounded accent-[#191B17] dark:accent-[#CCF048]"
                         />
                         <span className="font-mono text-[11px]">{evt.id}</span>
                       </label>
@@ -1084,11 +972,11 @@ export const TaskAutomationsDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <Button type="submit" variant="primary" className="w-full text-xs font-bold py-2 mt-2">
+                <Button type="submit" variant="lime" className="w-full text-xs font-bold py-2 mt-2">
                   Register Webhook Destination
                 </Button>
               </form>
-            </div>
+            </HairlineCard>
           </div>
         </div>
       )}
@@ -1098,27 +986,25 @@ export const TaskAutomationsDashboard: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Export Cards */}
-            <div className={`p-6 rounded-2xl border space-y-4 ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
+            <HairlineCard className="space-y-4">
               <div className="flex items-center gap-3">
-                <span className="p-3 rounded-xl bg-accent/10 text-accent">
-                  <ICON_MAP.ArrowDownTrayIcon className="w-6 h-6" />
+                <span className="w-11 h-11 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-[var(--text-primary)] flex items-center justify-center shrink-0">
+                  <ICON_MAP.ArrowDownTrayIcon className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Export Workspace Data</h3>
-                  <p className="text-xs text-slate-500">Download complete backups of all tasks, sprints, and automations.</p>
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">Export Workspace Data</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">Download complete backups of all tasks, sprints, and automations.</p>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-300">
+              <p className="text-xs text-[var(--text-secondary)]">
                 Your data belongs to you. Export the entire workspace or specific task collections in open, industry-standard JSON and CSV formats.
               </p>
 
               <div className="pt-2 flex flex-col sm:flex-row gap-3">
                 <Button
                   onClick={handleExportJSON}
-                  variant="primary"
+                  variant="lime"
                   className="flex-1 text-xs font-bold py-2.5"
                 >
                   <ICON_MAP.DocumentTextIcon className="w-4 h-4 mr-1.5 inline" />
@@ -1134,29 +1020,27 @@ export const TaskAutomationsDashboard: React.FC = () => {
                 </Button>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-500 space-y-1">
-                <p>• Includes {tasks.length} total tasks across active workspace</p>
-                <p>• Includes {sprints.length} agile sprint iterations</p>
-                <p>• Includes dependencies, subtask checklists, and custom rules</p>
+              <div className="p-3 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[11px] text-[var(--text-secondary)] space-y-1">
+                <p>· Includes {tasks.length} total tasks across active workspace</p>
+                <p>· Includes {sprints.length} agile sprint iterations</p>
+                <p>· Includes dependencies, subtask checklists, and custom rules</p>
               </div>
-            </div>
+            </HairlineCard>
 
             {/* Import Tasks Card */}
-            <div className={`p-6 rounded-2xl border space-y-4 ${
-              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
+            <HairlineCard className="space-y-4">
               <div className="flex items-center gap-3">
-                <span className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500">
-                  <ICON_MAP.ArrowUpTrayIcon className="w-6 h-6" />
+                <span className="w-11 h-11 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <ICON_MAP.ArrowUpTrayIcon className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Import Tasks & Backlog</h3>
-                  <p className="text-xs text-slate-500">Bulk import tasks from JSON arrays or migration files.</p>
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">Import Tasks & Backlog</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">Bulk import tasks from JSON arrays or migration files.</p>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                <label className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">
                   Paste JSON Task Array
                 </label>
                 <textarea
@@ -1164,15 +1048,13 @@ export const TaskAutomationsDashboard: React.FC = () => {
                   value={importJsonText}
                   onChange={(e) => setImportJsonText(e.target.value)}
                   placeholder={`[\n  {\n    "title": "Design user onboarding flow",\n    "priority": "HIGH",\n    "storyPoints": 5\n  }\n]`}
-                  className={`w-full p-3 rounded-xl border text-xs font-mono outline-hidden resize-none ${
-                    darkMode ? 'bg-slate-950 border-slate-800 text-emerald-400 placeholder-slate-600' : 'bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400'
-                  }`}
+                  className="w-full p-3 rounded-xl border text-xs font-mono outline-hidden resize-none"
                 />
               </div>
 
               {importStatus && (
                 <p className={`text-xs font-medium ${
-                  importStatus.includes('failed') ? 'text-red-500' : 'text-emerald-500'
+                  importStatus.includes('failed') ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}>
                   {importStatus}
                 </p>
@@ -1182,26 +1064,26 @@ export const TaskAutomationsDashboard: React.FC = () => {
                 onClick={handleImportJSON}
                 disabled={!importJsonText.trim()}
                 variant="primary"
-                className="w-full text-xs font-bold py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="w-full text-xs font-bold py-2.5"
               >
                 Import Tasks to Active Project
               </Button>
-            </div>
+            </HairlineCard>
           </div>
         </div>
       )}
 
       {/* Tab Content: Execution History Logs */}
       {activeTab === 'logs' && (
-        <div className={`rounded-xl border shadow-xs overflow-hidden ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <div className="p-4 border-b flex items-center justify-between gap-2">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Rule Execution History</h3>
-            <span className="text-xs text-slate-400">{logs.length} Logged Runs</span>
+        <HairlineCard padding="none" className="overflow-hidden">
+          <div className="p-4 border-b border-[var(--border-hairline)] flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">Rule Execution History</h3>
+            <span className="text-xs font-mono text-[var(--text-muted)]">{logs.length} Logged Runs</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className={`border-b ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+              <thead className="border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-muted)]">
                 <tr>
                   <th className="p-3 font-semibold">Timestamp</th>
                   <th className="p-3 font-semibold">Rule Name</th>
@@ -1211,29 +1093,29 @@ export const TaskAutomationsDashboard: React.FC = () => {
                   <th className="p-3 font-semibold">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-[var(--border-hairline)]">
                 {logs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center text-slate-400 italic">
+                    <td colSpan={6} className="p-6 text-center text-[var(--text-muted)] italic">
                       No automation logs recorded yet.
                     </td>
                   </tr>
                 ) : (
                   logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="p-3 font-mono text-slate-400">
+                    <tr key={log.id} className="hover:bg-[var(--bg-surface-subtle)]">
+                      <td className="p-3 font-mono text-[var(--text-muted)] tabular-nums">
                         {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </td>
-                      <td className="p-3 font-bold text-slate-900 dark:text-slate-100">{log.ruleName}</td>
-                      <td className="p-3 font-medium text-accent truncate max-w-[150px]">{log.taskTitle}</td>
-                      <td className="p-3 text-slate-600 dark:text-slate-300">{log.triggerEvent}</td>
-                      <td className="p-3 text-slate-600 dark:text-slate-300">{log.actionTaken}</td>
+                      <td className="p-3 font-bold text-[var(--text-primary)]">{log.ruleName}</td>
+                      <td className="p-3 font-medium text-[var(--text-primary)] truncate max-w-[150px]">{log.taskTitle}</td>
+                      <td className="p-3 text-[var(--text-secondary)]">{log.triggerEvent}</td>
+                      <td className="p-3 text-[var(--text-secondary)]">{log.actionTaken}</td>
                       <td className="p-3">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             log.status === 'success'
-                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-red-500/15 text-red-600 dark:text-red-400'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                              : 'bg-rose-500/15 text-rose-700 dark:text-rose-400'
                           }`}
                         >
                           {log.status.toUpperCase()}
@@ -1245,7 +1127,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </div>
+        </HairlineCard>
       )}
     </div>
   );

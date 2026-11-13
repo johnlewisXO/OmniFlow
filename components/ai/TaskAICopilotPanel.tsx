@@ -109,21 +109,15 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
     : null;
 
   return (
-    <div
-      className={`rounded-xl border p-4 transition-all ${
-        darkMode
-          ? 'bg-slate-900/90 border-indigo-500/30 text-slate-100'
-          : 'bg-indigo-50/30 border-indigo-200/80 text-slate-900'
-      }`}
-    >
+    <div className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-sage)]/55 p-4 transition-all text-[var(--text-primary)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <AIBotFace mood={isAnalyzing ? 'thinking' : analysis ? 'happy' : 'idle'} size="sm" className="flex-shrink-0" />
           <div>
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-semibold text-indigo-600 dark:text-indigo-400">Context-Aware Task Co-Pilot</span>
-              <span aria-hidden="true" className="text-slate-400">·</span>
-              <span className="text-slate-500 dark:text-slate-400">
+              <span className="font-semibold text-[var(--text-primary)]">Context-Aware Task Co-Pilot</span>
+              <span aria-hidden="true" className="text-[var(--text-muted)]">·</span>
+              <span className="text-[var(--text-secondary)]">
                 Effort Estimation · Risk Detection · Subtask & Spec Synthesis
               </span>
             </div>
@@ -135,7 +129,7 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
             type="button"
             onClick={handleRunCopilot}
             disabled={isAnalyzing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap shadow-xs"
           >
             {isAnalyzing ? (
               <ICON_MAP.SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
@@ -149,7 +143,7 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
             <button
               type="button"
               onClick={() => setIsExpanded(prev => !prev)}
-              className="p-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+              className="p-1.5 rounded-full text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               title={isExpanded ? 'Collapse AI Panel' : 'Expand AI Panel'}
             >
               <ICON_MAP.ChevronDownIcon className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -160,45 +154,45 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
 
       {/* Analysis Output */}
       {analysis && isExpanded && (
-        <div className="mt-4 pt-4 border-t border-indigo-200/60 dark:border-slate-800 space-y-4 text-xs">
+        <div className="mt-4 pt-4 border-t border-[var(--border-hairline)] space-y-4 text-xs">
           {/* Top Row: Effort Estimate, Smart Assignee, Risk Posture */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* 1. Effort & Priority */}
-            <div className={`p-3 rounded-lg border ${darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-white border-slate-200/80'}`}>
-              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)]">
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
                 <span>Effort & Priority</span>
-                <span className="font-mono tabular-nums font-bold text-indigo-600 dark:text-indigo-400">
+                <span className="font-mono tabular-nums font-bold text-[#5C7022] dark:text-[#CCF048]">
                   {analysis.estimatedStoryPoints} pts · {analysis.recommendedPriority}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+              <p className="text-[11px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
                 {analysis.estimationRationale}
               </p>
               <button
                 type="button"
                 onClick={handleApplyStoryPoints}
-                className="mt-2.5 w-full py-1.5 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600/20 dark:hover:bg-indigo-600/30 dark:text-indigo-300 text-white font-semibold text-[11px] transition-colors cursor-pointer"
+                className="mt-2.5 w-full py-1.5 px-2.5 rounded-full bg-[#191B17] hover:bg-[#2C3028] dark:bg-[var(--bg-sage)] dark:hover:bg-[var(--bg-sage-hover)] dark:text-[var(--text-primary)] text-white font-semibold text-[11px] transition-colors cursor-pointer"
               >
                 Apply {analysis.estimatedStoryPoints} Story Points
               </button>
             </div>
 
             {/* 2. Smart Assignee */}
-            <div className={`p-3 rounded-lg border ${darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-white border-slate-200/80'}`}>
-              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)]">
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
                 <span>Smart Capacity Match</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400 truncate max-w-[120px]">
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400 truncate max-w-[120px]">
                   {recommendedUser ? recommendedUser.full_name || recommendedUser.email : 'Balanced Load'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+              <p className="text-[11px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
                 {analysis.recommendedAssigneeReason}
               </p>
               {recommendedUser && (
                 <button
                   type="button"
                   onClick={handleApplySmartAssignee}
-                  className="mt-2.5 w-full py-1.5 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600/20 dark:hover:bg-emerald-600/30 dark:text-emerald-300 text-white font-semibold text-[11px] transition-colors cursor-pointer"
+                  className="mt-2.5 w-full py-1.5 px-2.5 rounded-full bg-[#191B17] hover:bg-[#2C3028] dark:bg-emerald-600/20 dark:hover:bg-emerald-600/30 dark:text-emerald-300 text-white font-semibold text-[11px] transition-colors cursor-pointer"
                 >
                   Assign to {recommendedUser.full_name?.split(' ')[0] || recommendedUser.email}
                 </button>
@@ -206,22 +200,22 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
             </div>
 
             {/* 3. Risk & Blocker Detection */}
-            <div className={`p-3 rounded-lg border ${darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-white border-slate-200/80'}`}>
-              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)]">
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
                 <span>Delivery Risk Level</span>
                 <span
                   className={`font-semibold ${
                     analysis.riskLevel === 'High'
-                      ? 'text-red-600 dark:text-red-400'
+                      ? 'text-rose-600 dark:text-rose-400'
                       : analysis.riskLevel === 'Medium'
                       ? 'text-amber-600 dark:text-amber-400'
-                      : 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-emerald-700 dark:text-emerald-400'
                   }`}
                 >
                   {analysis.riskLevel} Risk
                 </span>
               </div>
-              <ul className="mt-1.5 space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+              <ul className="mt-1.5 space-y-1 text-[11px] text-[var(--text-secondary)]">
                 {analysis.riskAnalysis.slice(0, 2).map((r, i) => (
                   <li key={i} className="leading-snug">
                     · {r}
@@ -232,7 +226,7 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => onLinkBlocker(analysis.potentialBlockerTaskIds[0])}
-                  className="mt-2.5 w-full py-1.5 px-2.5 rounded-lg bg-amber-600/15 hover:bg-amber-600/25 text-amber-700 dark:text-amber-300 font-semibold text-[11px] transition-colors cursor-pointer"
+                  className="mt-2.5 w-full py-1.5 px-2.5 rounded-full bg-amber-600/15 hover:bg-amber-600/25 text-amber-700 dark:text-amber-300 font-semibold text-[11px] transition-colors cursor-pointer"
                 >
                   Link Detected Prerequisite Blocker
                 </button>
@@ -243,17 +237,17 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
           {/* Bottom Row: Acceptance Checklist, Subtasks, and Spec Enhancement */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Suggested Subtasks & Acceptance Criteria */}
-            <div className={`p-3 rounded-lg border ${darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-white border-slate-200/80'} space-y-2`}>
+            <div className="p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                <span className="font-semibold text-[var(--text-primary)]">
                   Suggested Subtasks ({analysis.suggestedSubtasks.length}) & QA Criteria ({analysis.acceptanceCriteria.length})
                 </span>
               </div>
-              <ul className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+              <ul className="space-y-1 text-[11px] text-[var(--text-secondary)]">
                 {analysis.suggestedSubtasks.map((s, idx) => (
                   <li key={idx} className="flex items-center justify-between gap-2">
                     <span className="truncate">· {s.title}</span>
-                    <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">{s.priority}</span>
+                    <span className="text-[10px] font-mono text-[var(--text-muted)] flex-shrink-0">{s.priority}</span>
                   </li>
                 ))}
               </ul>
@@ -262,14 +256,14 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
                   type="button"
                   onClick={handleCreateAllSuggestedSubtasks}
                   disabled={creatingSubtasks}
-                  className="flex-1 py-1.5 px-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] transition-colors cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-1.5 px-2.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] font-semibold text-[11px] transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {creatingSubtasks ? 'Creating...' : '+ Create Subtasks'}
                 </button>
                 <button
                   type="button"
                   onClick={handleApplyChecklist}
-                  className="flex-1 py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-[11px] transition-colors cursor-pointer"
+                  className="flex-1 py-1.5 px-2.5 rounded-full border border-[var(--border-hairline)] hover:bg-[var(--bg-sage)] font-semibold text-[11px] transition-colors cursor-pointer"
                 >
                   + Add QA Checklist
                 </button>
@@ -277,19 +271,19 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
             </div>
 
             {/* Enhanced Specification Preview */}
-            <div className={`p-3 rounded-lg border ${darkMode ? 'bg-slate-950/70 border-slate-800' : 'bg-white border-slate-200/80'} flex flex-col justify-between space-y-2`}>
+            <div className="p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col justify-between space-y-2">
               <div>
-                <div className="font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                <div className="font-semibold text-[var(--text-primary)] mb-1">
                   AI Engineering Specification Draft
                 </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-3 whitespace-pre-line leading-relaxed">
+                <p className="text-[11px] text-[var(--text-secondary)] line-clamp-3 whitespace-pre-line leading-relaxed">
                   {analysis.enhancedDescription}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleApplyEnhancedSpec}
-                className="w-full py-1.5 px-2.5 rounded-lg border border-indigo-500/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/10 font-semibold text-[11px] transition-colors cursor-pointer"
+                className="w-full py-1.5 px-2.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--text-primary)] font-semibold text-[11px] transition-colors cursor-pointer"
               >
                 Apply Structured Specification to Ticket
               </button>

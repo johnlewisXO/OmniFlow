@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
+import { SegmentedTabs } from '../shared/EditorialUI';
 import {
   TaskStatus,
   TaskPriority,
@@ -155,45 +156,20 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Automated Task Triggers & Rules">
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70">
-            <button
-              type="button"
-              onClick={() => setActiveTab('rules')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'rules'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Active Rules ({rules.filter((r) => r.enabled).length}/{rules.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('presets')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'presets'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Presets ({DEFAULT_PRESET_RULES.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('logs')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'logs'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Execution Logs ({logs.length})
-            </button>
-          </div>
+          <SegmentedTabs
+            size="sm"
+            value={activeTab}
+            onChange={(val) => setActiveTab(val)}
+            options={[
+              { id: 'rules', label: 'Active Rules', count: rules.length },
+              { id: 'presets', label: 'Presets', count: DEFAULT_PRESET_RULES.length },
+              { id: 'logs', label: 'Execution Logs', count: logs.length },
+            ]}
+          />
 
           {!isAddingRule && activeTab === 'rules' && (
-            <Button size="sm" onClick={() => setIsAddingRule(true)}>
-              <ICON_MAP.PlusIcon className="w-4 h-4 mr-1.5" />
+            <Button variant="lime" size="sm" onClick={() => setIsAddingRule(true)}>
+              <ICON_MAP.PlusIcon className="w-4 h-4" />
               New Trigger Rule
             </Button>
           )}
@@ -203,29 +179,25 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
         {isAddingRule && activeTab === 'rules' && (
           <form
             onSubmit={handleCreateRule}
-            className={`p-4 rounded-2xl border space-y-4 ${
-              darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-50 border-slate-200'
-            }`}
+            className="p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-4"
           >
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white">Create Automation Trigger Rule</h4>
+            <h4 className="text-sm font-bold text-[var(--text-primary)]">Create Automation Trigger Rule</h4>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Rule Name</label>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Rule Name</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Assign Lead Reviewer on In Review"
                 value={ruleName}
                 onChange={(e) => setRuleName(e.target.value)}
-                className={`w-full p-2.5 rounded-lg border text-sm ${
-                  darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                }`}
+                className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   When (Trigger Event)
                 </label>
                 <select
@@ -238,9 +210,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                     else if (evt === 'due_date_approaching') setTriggerConditionValue('24h');
                     else setTriggerConditionValue('any');
                   }}
-                  className={`w-full p-2.5 rounded-lg border text-sm ${
-                    darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                  }`}
+                  className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                 >
                   <option value="status_change">Task Status Changes To...</option>
                   <option value="priority_change">Task Priority Changes To...</option>
@@ -251,16 +221,14 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Condition Value
                 </label>
                 {triggerEvent === 'status_change' ? (
                   <select
                     value={triggerConditionValue}
                     onChange={(e) => setTriggerConditionValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-sm ${
-                      darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                   >
                     <option value={TaskStatus.TODO}>To Do</option>
                     <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
@@ -271,9 +239,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                   <select
                     value={triggerConditionValue}
                     onChange={(e) => setTriggerConditionValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-sm ${
-                      darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                   >
                     <option value={TaskPriority.LOW}>Low</option>
                     <option value={TaskPriority.MEDIUM}>Medium</option>
@@ -285,9 +251,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                     type="text"
                     value={triggerConditionValue}
                     onChange={(e) => setTriggerConditionValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-sm ${
-                      darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                   />
                 )}
               </div>
@@ -295,7 +259,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Then (Action)
                 </label>
                 <select
@@ -308,9 +272,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                     else if (act === 'set_status') setActionTargetValue(TaskStatus.IN_PROGRESS);
                     else setActionTargetValue('Automated workflow verification completed.');
                   }}
-                  className={`w-full p-2.5 rounded-lg border text-sm ${
-                    darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                  }`}
+                  className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                 >
                   <option value="assign_user">Automatically Assign User</option>
                   <option value="set_priority">Set Task Priority</option>
@@ -321,16 +283,14 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Action Parameter
                 </label>
                 {actionType === 'assign_user' ? (
                   <select
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-sm ${
-                      darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                   >
                     <option value="">Auto-Select Lead Reviewer</option>
                     {users.map((u) => (
@@ -343,9 +303,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                   <select
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-sm ${
-                      darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                   >
                     <option value={TaskPriority.LOW}>Low</option>
                     <option value={TaskPriority.MEDIUM}>Medium</option>
@@ -356,9 +314,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                   <select
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border text-sm ${
-                      darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                   >
                     <option value={TaskStatus.TODO}>To Do</option>
                     <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
@@ -371,9 +327,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                     value={actionTargetValue}
                     onChange={(e) => setActionTargetValue(e.target.value)}
                     placeholder="Comment or alert text"
-                    className={`w-full p-2.5 rounded-lg border text-sm ${
-                      darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300'
-                    }`}
+                    className="w-full p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm"
                   />
                 )}
               </div>
@@ -383,7 +337,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
               <Button variant="ghost" size="sm" type="button" onClick={() => setIsAddingRule(false)}>
                 Cancel
               </Button>
-              <Button size="sm" type="submit">
+              <Button variant="lime" size="sm" type="submit">
                 Save Trigger Rule
               </Button>
             </div>
@@ -392,9 +346,9 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
 
         {/* Active Rules List */}
         {activeTab === 'rules' && (
-          <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[55vh] overflow-y-auto scrollbar-thin pr-1">
             {rules.length === 0 ? (
-              <div className="p-8 text-center border-2 border-dashed rounded-xl text-slate-400 text-sm">
+              <div className="p-8 text-center border border-dashed border-[var(--border-strong)] rounded-2xl text-[var(--text-muted)] text-sm">
                 No automation rules configured. Enable a preset or click "New Trigger Rule".
               </div>
             ) : (
@@ -403,40 +357,38 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                 return (
                   <div
                     key={rule.id}
-                    className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                      darkMode ? 'bg-slate-800/40 border-slate-700/80' : 'bg-white border-slate-200 shadow-2xs'
-                    } ${!rule.enabled ? 'opacity-60' : ''}`}
+                    className={`p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${!rule.enabled ? 'opacity-60' : ''}`}
                   >
                     <div className="flex items-start gap-3 min-w-0 flex-1">
                       <input
                         type="checkbox"
                         checked={rule.enabled}
                         onChange={() => handleToggleRule(rule.id)}
-                        className="mt-1 rounded text-accent focus:ring-accent cursor-pointer"
+                        className="mt-1 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{rule.name}</p>
+                          <p className="text-sm font-bold text-[var(--text-primary)] truncate">{rule.name}</p>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
                               rule.enabled
-                                ? 'bg-emerald-500/15 text-emerald-500'
-                                : 'bg-slate-500/15 text-slate-400'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                                : 'bg-[var(--bg-surface-subtle)] text-[var(--text-muted)]'
                             }`}
                           >
                             {rule.enabled ? 'Active' : 'Paused'}
                           </span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400">
+                          <span className="text-[10px] font-semibold font-mono tabular-nums px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] whitespace-nowrap">
                             Ran {rule.executionCount || 0}x
                           </span>
                         </div>
                         {rule.description && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rule.description}</p>
+                          <p className="text-xs text-[var(--text-secondary)] mt-0.5">{rule.description}</p>
                         )}
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                          When <span className="font-semibold text-accent">{rule.triggerEvent.replace(/_/g, ' ')}</span> ={' '}
-                          <span className="font-semibold">{rule.triggerConditionValue}</span> →{' '}
-                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+                          When <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">{rule.triggerEvent.replace(/_/g, ' ')}</span> ={' '}
+                          <span className="font-semibold text-[var(--text-primary)]">{rule.triggerConditionValue}</span> →{' '}
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                             {rule.actionType === 'assign_user'
                               ? `Assign to ${targetUser?.full_name || targetUser?.email || 'Lead Reviewer'}`
                               : rule.actionType === 'set_priority'
@@ -450,18 +402,20 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={() => handleTestRunRule(rule)}
-                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition-colors cursor-pointer"
                         title="Execute this rule immediately on a task"
                       >
-                        ⚡ Test Run
-                      </button>
+                        <ICON_MAP.BoltIcon className="w-3.5 h-3.5 text-[#4E6126] dark:text-[#CCF048]" />
+                        Test Run
+                      </Button>
                       <button
                         type="button"
                         onClick={() => handleDeleteRule(rule.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        className="p-1.5 text-[var(--text-muted)] hover:text-rose-600 rounded-lg hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                         title="Delete Rule"
                       >
                         <ICON_MAP.TrashIcon className="w-4 h-4" />
@@ -476,28 +430,26 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
 
         {/* Presets Library Tab */}
         {activeTab === 'presets' && (
-          <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[55vh] overflow-y-auto scrollbar-thin pr-1">
             {DEFAULT_PRESET_RULES.map((preset) => {
               const isInstalled = rules.some((r) => r.id === preset.id && r.enabled);
               return (
                 <div
                   key={preset.id}
-                  className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    darkMode ? 'bg-slate-800/40 border-slate-700/80' : 'bg-white border-slate-200'
-                  }`}
+                  className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">{preset.name}</h4>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 uppercase">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-bold text-[var(--text-primary)]">{preset.name}</h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] uppercase whitespace-nowrap">
                         {preset.triggerEvent.replace(/_/g, ' ')}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{preset.description}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{preset.description}</p>
                   </div>
                   <Button
                     size="sm"
-                    variant={isInstalled ? 'secondary' : 'primary'}
+                    variant={isInstalled ? 'secondary' : 'lime'}
                     onClick={() => handleInstallPreset(preset)}
                   >
                     {isInstalled ? '✓ Active' : 'Enable Preset'}
@@ -510,33 +462,31 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
 
         {/* Execution Logs Tab */}
         {activeTab === 'logs' && (
-          <div className="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
+          <div className="space-y-2.5 max-h-[55vh] overflow-y-auto scrollbar-thin pr-1">
             {logs.length === 0 ? (
-              <div className="p-8 text-center border-2 border-dashed rounded-xl text-slate-400 text-xs">
-                No automation triggers have fired yet. Move a task to In Review or Done, or click "⚡ Test Run" on any rule!
+              <div className="p-8 text-center border border-dashed border-[var(--border-strong)] rounded-2xl text-[var(--text-muted)] text-xs">
+                No automation triggers have fired yet. Move a task to In Review or Done, or click "Test Run" on any rule!
               </div>
             ) : (
               logs.map((log) => (
                 <div
                   key={log.id}
-                  className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-                    darkMode ? 'bg-slate-800/40 border-slate-700/70' : 'bg-slate-50 border-slate-200/80'
-                  }`}
+                  className="p-3 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                 >
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500 font-bold text-[10px]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] whitespace-nowrap">
                         SUCCESS
                       </span>
-                      <span className="font-bold text-slate-900 dark:text-white">{log.ruleName}</span>
-                      <span className="text-slate-400">•</span>
-                      <span className="font-semibold text-indigo-400">{log.taskTitle}</span>
+                      <span className="font-bold text-[var(--text-primary)]">{log.ruleName}</span>
+                      <span className="text-[var(--text-muted)]">•</span>
+                      <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">{log.taskTitle}</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                      {log.triggerEvent} → <span className="text-slate-700 dark:text-slate-200 font-medium">{log.actionTaken}</span>
+                    <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+                      {log.triggerEvent} → <span className="text-[var(--text-primary)] font-medium">{log.actionTaken}</span>
                     </p>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                  <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)] shrink-0">
                     {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </span>
                 </div>

@@ -79,14 +79,14 @@ export const AIBotFace: React.FC<AIBotFaceProps> = ({
       <span
         className={`absolute inset-0 rounded-2xl transition-opacity duration-500 ${
           mood === 'thinking'
-            ? 'bg-indigo-500/40 animate-ping opacity-75'
+            ? 'bg-[#CCF048]/35 animate-ping opacity-75'
             : mood === 'speaking' || mood === 'guiding'
-            ? 'bg-indigo-400/30 animate-pulse opacity-90'
-            : 'bg-indigo-500/15 opacity-60'
+            ? 'bg-[#97B832]/30 animate-pulse opacity-90'
+            : 'bg-[#97B832]/15 opacity-60'
         }`}
       />
 
-      {/* Minimalist Liquid-Glass Bot Head SVG */}
+      {/* Minimalist Obsidian-Sage & Lime Bot Head SVG */}
       <svg
         viewBox="0 0 40 40"
         fill="none"
@@ -97,27 +97,27 @@ export const AIBotFace: React.FC<AIBotFaceProps> = ({
       >
         <defs>
           <linearGradient id="omniBotShell" x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#6366F1" />
-            <stop offset="55%" stopColor="#4F46E5" />
-            <stop offset="100%" stopColor="#312E81" />
+            <stop offset="0%" stopColor="#353B2E" />
+            <stop offset="55%" stopColor="#22271D" />
+            <stop offset="100%" stopColor="#131511" />
           </linearGradient>
           <linearGradient id="omniBotVisor" x1="8" y1="11" x2="32" y2="29" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0F172A" />
-            <stop offset="100%" stopColor="#1E1B4B" />
+            <stop offset="0%" stopColor="#131511" />
+            <stop offset="100%" stopColor="#1D2118" />
           </linearGradient>
           <linearGradient id="omniBotEyeGlow" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#A5F3FC" />
-            <stop offset="100%" stopColor="#818CF8" />
+            <stop offset="0%" stopColor="#E6FB82" />
+            <stop offset="100%" stopColor="#CCF048" />
           </linearGradient>
         </defs>
 
         {/* Top Antenna Node */}
-        <line x1="20" y1="2.5" x2="20" y2="6.5" stroke="#818CF8" strokeWidth="1.8" strokeLinecap="round" />
+        <line x1="20" y1="2.5" x2="20" y2="6.5" stroke="#97B832" strokeWidth="1.8" strokeLinecap="round" />
         <circle
           cx="20"
           cy="2.5"
           r="2"
-          fill={mood === 'thinking' ? '#FBBF24' : '#38BDF8'}
+          fill={mood === 'thinking' ? '#FBBF24' : '#CCF048'}
         />
 
         {/* Outer Squircle Head */}
@@ -128,13 +128,13 @@ export const AIBotFace: React.FC<AIBotFaceProps> = ({
           height="27"
           rx="10"
           fill="url(#omniBotShell)"
-          stroke="rgba(255,255,255,0.35)"
+          stroke="rgba(204, 240, 72, 0.35)"
           strokeWidth="1.2"
         />
 
         {/* Side Acoustic Ear Pads */}
-        <rect x="2.5" y="15" width="2.5" height="9" rx="1.25" fill="#818CF8" />
-        <rect x="35" y="15" width="2.5" height="9" rx="1.25" fill="#818CF8" />
+        <rect x="2.5" y="15" width="2.5" height="9" rx="1.25" fill="#97B832" />
+        <rect x="35" y="15" width="2.5" height="9" rx="1.25" fill="#97B832" />
 
         {/* Inner Glass Visor */}
         <rect
@@ -144,7 +144,7 @@ export const AIBotFace: React.FC<AIBotFaceProps> = ({
           height="19"
           rx="6.5"
           fill="url(#omniBotVisor)"
-          stroke="rgba(165, 243, 252, 0.25)"
+          stroke="rgba(204, 240, 72, 0.25)"
           strokeWidth="0.9"
         />
 
@@ -165,20 +165,20 @@ export const AIBotFace: React.FC<AIBotFaceProps> = ({
         >
           {isBlinking ? (
             <>
-              <path d="M12.5 18.5H17.5" stroke="#67E8F9" strokeWidth="2" strokeLinecap="round" />
-              <path d="M22.5 18.5H27.5" stroke="#67E8F9" strokeWidth="2" strokeLinecap="round" />
+              <path d="M12.5 18.5H17.5" stroke="#CCF048" strokeWidth="2" strokeLinecap="round" />
+              <path d="M22.5 18.5H27.5" stroke="#CCF048" strokeWidth="2" strokeLinecap="round" />
             </>
           ) : mood === 'happy' ? (
             <>
               <path
                 d="M12.5 19.5C13.3 17.5 16.7 17.5 17.5 19.5"
-                stroke="#67E8F9"
+                stroke="#CCF048"
                 strokeWidth="2"
                 strokeLinecap="round"
               />
               <path
                 d="M22.5 19.5C23.3 17.5 26.7 17.5 27.5 19.5"
-                stroke="#67E8F9"
+                stroke="#CCF048"
                 strokeWidth="2"
                 strokeLinecap="round"
               />
@@ -196,15 +196,15 @@ export const AIBotFace: React.FC<AIBotFaceProps> = ({
           {mood === 'thinking' ? (
             <g>
               <circle cx="17" cy="24.5" r="1" fill="#FBBF24" />
-              <circle cx="20" cy="24.5" r="1" fill="#67E8F9" />
-              <circle cx="23" cy="24.5" r="1" fill="#818CF8" />
+              <circle cx="20" cy="24.5" r="1" fill="#CCF048" />
+              <circle cx="23" cy="24.5" r="1" fill="#97B832" />
             </g>
           ) : mood === 'speaking' || mood === 'guiding' ? (
-            <rect x="16" y="23.5" width="8" height="2.4" rx="1.2" fill="#67E8F9" />
+            <rect x="16" y="23.5" width="8" height="2.4" rx="1.2" fill="#CCF048" />
           ) : (
             <path
               d="M16.5 24C17.8 25.4 22.2 25.4 23.5 24"
-              stroke="#67E8F9"
+              stroke="#CCF048"
               strokeWidth="1.6"
               strokeLinecap="round"
             />
@@ -414,7 +414,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
     const targetEl = document.querySelector(activeSelector) as HTMLElement | null;
     if (targetEl) {
       targetEl.style.transition = 'outline 0.25s ease, box-shadow 0.25s ease';
-      targetEl.style.outline = '2px solid rgba(56, 189, 248, 0.9)';
+      targetEl.style.outline = '2px solid #97B832';
       targetEl.style.outlineOffset = '5px';
       targetEl.style.borderRadius = '14px';
       try {
@@ -557,15 +557,15 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
 
   return (
     <>
-      <div className="mb-4 p-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/20 transition-all duration-300">
+      <div className="mb-4 p-3 rounded-2xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] transition-all duration-300">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="sm" className="flex-shrink-0" />
             <div className="min-w-0">
-              <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 truncate">
+              <div className="text-[11px] font-bold text-[#4E6126] dark:text-[#CCF048] truncate">
                 {currentTip.title}
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 truncate">
+              <p className="text-[11px] text-[var(--text-secondary)] truncate">
                 {currentTip.tip}
               </p>
             </div>
@@ -582,17 +582,17 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                 setIsAutoPlaying(false);
               }
             }}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
               isSpatialGuideActive
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300'
+                ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] shadow-xs'
+                : 'bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-hairline)] hover:bg-[var(--bg-surface-subtle)]'
             }`}
           >
             {isSpatialGuideActive ? 'Stop Guide' : 'Guide Me Live'}
           </button>
         </div>
 
-        <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-indigo-500/15 text-[11px]">
+        <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-[var(--border-hairline)] text-[11px]">
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
             {guideSteps.map((st, idx) => (
               <button
@@ -605,10 +605,10 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                   setTimeout(updateAuthTargetRect, 40);
                 }}
                 title={st.title}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   idx === stepIdx % guideSteps.length
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-indigo-500'
+                    ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {st.shortTitle}
@@ -625,7 +625,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                 focusStepField(guideSteps[nextIdx]);
                 setTimeout(updateAuthTargetRect, 40);
               }}
-              className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+              className="font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
             >
               Next ({(stepIdx % guideSteps.length) + 1}/{guideSteps.length}) →
             </button>
@@ -647,11 +647,11 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                   width: `${Math.round(targetRect.width + 12)}px`,
                   height: `${Math.round(targetRect.height + 12)}px`,
                   transition: 'all 0.42s cubic-bezier(0.22, 1, 0.36, 1)',
-                  border: '2px solid rgba(56, 189, 248, 0.95)',
+                  border: '2px solid #97B832',
                 }}
               >
-                <div className="absolute -top-7 left-2 px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
+                <div className="absolute -top-7 left-2 px-2.5 py-0.5 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#CCF048] dark:bg-[#191B17]" />
                   <span>{currentTip.title}</span>
                 </div>
               </div>
@@ -660,14 +660,10 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
             {/* Unified Spatial Moving AI Bot Guide Card for Auth Flow */}
             <div
               style={getFloatingBotStyle()}
-              className={`pointer-events-auto p-4 rounded-2xl border shadow-2xl backdrop-blur-xl animate-modal-appear ${
-                darkMode
-                  ? 'bg-slate-900/95 border-indigo-500/45 text-slate-100 shadow-black/60'
-                  : 'bg-white/95 border-indigo-200/90 text-slate-900 shadow-indigo-950/15'
-              }`}
+              className="pointer-events-auto p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-2xl backdrop-blur-xl animate-modal-appear"
             >
               {/* Integrated Step Switcher Strip inside Card */}
-              <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-2.5 border-b border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-2.5 border-b border-[var(--border-hairline)]">
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
                   {guideSteps.map((st, idx) => {
                     const active = idx === stepIdx % guideSteps.length;
@@ -680,12 +676,10 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                           focusStepField(guideSteps[idx]);
                           setTimeout(updateAuthTargetRect, 30);
                         }}
-                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
                           active
-                            ? 'bg-indigo-600 text-white shadow-xs'
-                            : darkMode
-                            ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
                         }`}
                       >
                         {st.shortTitle}
@@ -698,12 +692,10 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsAutoPlaying(p => !p)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                       isAutoPlaying
                         ? 'bg-emerald-600 text-white'
-                        : darkMode
-                        ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        : 'bg-[var(--bg-sage)] text-[var(--text-primary)] hover:bg-[var(--bg-sage-hover)]'
                     }`}
                   >
                     {isAutoPlaying ? '⏸' : '▶ Auto'}
@@ -714,7 +706,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                       setIsSpatialGuideActive(false);
                       setIsAutoPlaying(false);
                     }}
-                    className="p-1 rounded-lg text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                    className="p-1 rounded-lg text-[var(--text-muted)] hover:text-rose-500 transition-colors cursor-pointer"
                     title="Close Auth Guide"
                   >
                     <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
@@ -725,32 +717,26 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
               <div className="flex items-start gap-2.5">
                 <div className="relative flex-shrink-0">
                   <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="md" />
-                  <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-indigo-600 text-[9px] font-mono font-bold text-white shadow-xs">
+                  <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[9px] font-mono font-bold shadow-xs">
                     {(stepIdx % guideSteps.length) + 1}/{guideSteps.length}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
                     Auth Walkthrough · {mode.replace('_', ' ')}
                   </div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                  <h4 className="text-xs font-bold text-[var(--text-primary)] mt-0.5">
                     {currentTip.title}
                   </h4>
                 </div>
               </div>
 
-              <div
-                className={`mt-2.5 p-2.5 rounded-xl border text-xs leading-relaxed ${
-                  darkMode
-                    ? 'bg-indigo-950/35 border-indigo-500/25 text-indigo-200'
-                    : 'bg-indigo-50/80 border-indigo-100 text-indigo-950'
-                }`}
-              >
-                <span className="font-semibold">📍 Highlighted: </span>
+              <div className="mt-2.5 p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] text-[var(--text-primary)] text-xs leading-relaxed">
+                <span className="font-semibold">Highlighted: </span>
                 {currentTip.tip}
               </div>
 
-              <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-[var(--border-hairline)]">
                 <button
                   type="button"
                   onClick={() => {
@@ -759,11 +745,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                     focusStepField(guideSteps[prevIdx]);
                     setTimeout(updateAuthTargetRect, 30);
                   }}
-                  className={`px-2.5 py-1 rounded-xl border text-[11px] font-semibold transition-colors cursor-pointer ${
-                    darkMode
-                      ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
-                      : 'border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
+                  className="px-2.5 py-1 rounded-full border border-[var(--border-hairline)] text-[11px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                 >
                   ← Prev
                 </button>
@@ -775,7 +757,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                     focusStepField(guideSteps[nextIdx]);
                     setTimeout(updateAuthTargetRect, 30);
                   }}
-                  className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
+                  className="px-3 py-1 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] hover:bg-[var(--accent-lime-hover)] text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
                 >
                   Next Field →
                 </button>
@@ -1179,16 +1161,16 @@ export const AIPlatformGuideModal: React.FC<{
             width: `${Math.round(targetRect.width + (isLargeContainer ? -8 : 10))}px`,
             height: `${Math.round(targetRect.height + (isLargeContainer ? -8 : 10))}px`,
             transition: 'all 0.52s cubic-bezier(0.22, 1, 0.36, 1)',
-            border: '2px solid rgba(56, 189, 248, 0.95)',
+            border: '2px solid #97B832',
           }}
         >
           {/* Floating Target Label Tag — automatically positions BELOW header items when near top edge */}
           <div
             className={`absolute ${
               isNearTopEdge ? '-bottom-7 right-0' : '-top-7 left-2'
-            } px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5`}
+            } px-2.5 py-0.5 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#CCF048] dark:bg-[#191B17]" />
             <span>{currentWaypoint?.label || currentStep.shortTitle}</span>
           </div>
         </div>
@@ -1201,16 +1183,12 @@ export const AIPlatformGuideModal: React.FC<{
           transition:
             'top 0.55s cubic-bezier(0.22, 1, 0.36, 1), left 0.55s cubic-bezier(0.22, 1, 0.36, 1), width 0.3s ease',
         }}
-        className={`fixed z-50 pointer-events-auto rounded-2xl border shadow-2xl p-4 backdrop-blur-xl ${
+        className={`fixed z-50 pointer-events-auto rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-2xl p-4 backdrop-blur-xl ${
           isClosing ? 'animate-modal-disappear' : 'animate-modal-appear'
-        } ${
-          darkMode
-            ? 'bg-slate-900/95 border-indigo-500/45 text-slate-100 shadow-black/60'
-            : 'bg-white/95 border-indigo-200/90 text-slate-900 shadow-indigo-950/15'
         }`}
       >
         {/* Integrated Horizontal Section Switcher Strip inside the Card */}
-        <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-3 border-b border-slate-200/80 dark:border-slate-800">
+        <div className="flex items-center justify-between gap-1.5 pb-2.5 mb-3 border-b border-[var(--border-hairline)]">
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
             {PLATFORM_TOUR_STEPS.map((step, idx) => {
               const active = idx === activeStepIndex;
@@ -1219,12 +1197,10 @@ export const AIPlatformGuideModal: React.FC<{
                   key={step.id}
                   type="button"
                   onClick={() => handleSelectStep(idx)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
                     active
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : darkMode
-                      ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
                   }`}
                 >
                   {step.shortTitle}
@@ -1237,12 +1213,10 @@ export const AIPlatformGuideModal: React.FC<{
             <button
               type="button"
               onClick={() => setIsAutoPlaying(p => !p)}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                 isAutoPlaying
                   ? 'bg-emerald-600 text-white'
-                  : darkMode
-                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : 'bg-[var(--bg-sage)] text-[var(--text-primary)] hover:bg-[var(--bg-sage-hover)]'
               }`}
               title="Automatically glide the AI Bot across every feature"
             >
@@ -1251,7 +1225,7 @@ export const AIPlatformGuideModal: React.FC<{
             <button
               type="button"
               onClick={onClose}
-              className="p-1 rounded-lg text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+              className="p-1 rounded-lg text-[var(--text-muted)] hover:text-rose-500 transition-colors cursor-pointer"
               title="Exit Interactive Tour (Esc)"
             >
               <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
@@ -1263,50 +1237,44 @@ export const AIPlatformGuideModal: React.FC<{
         <div className="flex items-start gap-3">
           <div className="relative flex-shrink-0">
             <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="md" />
-            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-indigo-600 text-[9px] font-mono font-bold text-white shadow-xs">
+            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[9px] font-mono font-bold shadow-xs">
               {activeStepIndex + 1}/{PLATFORM_TOUR_STEPS.length}
             </span>
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-500 dark:text-indigo-400 truncate">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048] truncate">
                 {currentWaypoint?.label || `Step ${activeStepIndex + 1}`}
               </span>
-              <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] flex-shrink-0">
                 Point {(waypointIndex % currentStep.waypoints.length) + 1}/{currentStep.waypoints.length}
               </span>
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mt-0.5 truncate">
               {currentStep.title}
             </h3>
           </div>
         </div>
 
         {/* Live Pointer Explanation */}
-        <div
-          className={`mt-2.5 p-2.5 rounded-xl border text-xs leading-relaxed ${
-            darkMode
-              ? 'bg-indigo-950/35 border-indigo-500/25 text-indigo-200'
-              : 'bg-indigo-50/80 border-indigo-100 text-indigo-950'
-          }`}
-        >
-          <span className="font-semibold">📍 Highlighted: </span>
+        <div className="mt-2.5 p-2.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] text-[var(--text-primary)] text-xs leading-relaxed">
+          <span className="font-semibold">Highlighted: </span>
           {currentWaypoint?.caption || currentStep.summary}
         </div>
 
         {/* Key Highlights for this Workspace Module */}
         <ul className="mt-2 space-y-1">
           {currentStep.highlights.map((h, i) => (
-            <li key={i} className="flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-300">
-              <ICON_MAP.CheckIcon className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+            <li key={i} className="flex items-start gap-2 text-[11px] text-[var(--text-secondary)]">
+              <ICON_MAP.CheckIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
               <span>{h}</span>
             </li>
           ))}
         </ul>
 
         {/* Waypoint Dots & Navigation Controls */}
-        <div className="mt-3 pt-2.5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
+        <div className="mt-3 pt-2.5 border-t border-[var(--border-hairline)] flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             {currentStep.waypoints.map((wp, idx) => (
               <button
@@ -1316,8 +1284,8 @@ export const AIPlatformGuideModal: React.FC<{
                 title={wp.label}
                 className={`h-1.5 rounded-full transition-all cursor-pointer ${
                   idx === waypointIndex % currentStep.waypoints.length
-                    ? 'w-5 bg-indigo-500'
-                    : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-indigo-400'
+                    ? 'w-5 bg-[#4E6126] dark:bg-[#CCF048]'
+                    : 'w-2 bg-[var(--border-strong)] hover:bg-[#97B832]'
                 }`}
               />
             ))}
@@ -1328,18 +1296,14 @@ export const AIPlatformGuideModal: React.FC<{
               type="button"
               onClick={handlePrevPoint}
               disabled={activeStepIndex === 0 && waypointIndex === 0}
-              className={`px-2.5 py-1 rounded-xl border text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-35 ${
-                darkMode
-                  ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-100'
-              }`}
+              className="px-2.5 py-1 rounded-full border border-[var(--border-hairline)] text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-35"
             >
               ← Prev
             </button>
             <button
               type="button"
               onClick={handleNextPoint}
-              className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
+              className="px-3 py-1 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] hover:bg-[var(--accent-lime-hover)] text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
             >
               {waypointIndex < currentStep.waypoints.length - 1
                 ? 'Next Feature Here →'

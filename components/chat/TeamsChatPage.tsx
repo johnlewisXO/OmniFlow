@@ -153,10 +153,10 @@ const VoiceNotePlayer: React.FC<{
 
   return (
     <div
-      className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl min-w-[210px] sm:min-w-[245px] ${
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl min-w-[210px] sm:min-w-[245px] border ${
         isMe
-          ? 'bg-indigo-700/70 text-white border border-indigo-400/30'
-          : 'bg-slate-200/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 border border-slate-300/60 dark:border-slate-600/60'
+          ? 'bg-[#191B17] text-[#F2F3EE] border-[#2B3026] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[#97B832]'
+          : 'bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] border-[var(--border-hairline)]'
       }`}
     >
       <audio
@@ -179,8 +179,8 @@ const VoiceNotePlayer: React.FC<{
         title={isPlaying ? 'Pause voice note' : 'Play voice note'}
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer ${
           isMe
-            ? 'bg-white text-indigo-600 hover:bg-indigo-50'
-            : 'bg-indigo-600 text-white hover:bg-indigo-500'
+            ? 'bg-[#CCF048] text-[#131511] hover:bg-[#D9F66A] dark:bg-[#131511] dark:text-[#CCF048]'
+            : 'bg-[#191B17] text-[#CCF048] hover:bg-[#2A2E25] dark:bg-[#CCF048] dark:text-[#131511]'
         }`}
       >
         {isPlaying ? (
@@ -210,11 +210,11 @@ const VoiceNotePlayer: React.FC<{
                 className={`flex-1 rounded-full transition-colors ${
                   filled
                     ? isMe
-                      ? 'bg-white'
-                      : 'bg-indigo-600 dark:bg-indigo-400'
+                      ? 'bg-[#CCF048] dark:bg-[#131511]'
+                      : 'bg-[#4E6126] dark:bg-[#CCF048]'
                     : isMe
-                    ? 'bg-indigo-300/40'
-                    : 'bg-slate-400/40 dark:bg-slate-600'
+                    ? 'bg-white/25 dark:bg-[#131511]/25'
+                    : 'bg-[var(--border-strong)]'
                 }`}
               />
             );
@@ -234,8 +234,8 @@ const VoiceNotePlayer: React.FC<{
         title="Change playback speed"
         className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono flex-shrink-0 cursor-pointer ${
           isMe
-            ? 'bg-indigo-800/80 text-indigo-100 hover:bg-indigo-800'
-            : 'bg-slate-300/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+            ? 'bg-white/15 text-white hover:bg-white/25 dark:bg-[#131511]/15 dark:text-[#131511]'
+            : 'bg-[var(--bg-sage)] text-[var(--text-primary)]'
         }`}
       >
         {playbackRate}x
@@ -1314,24 +1314,22 @@ export const TeamsChatPage: React.FC = () => {
         <div
           className={`${
             mobilePaneView === 'list' ? 'flex w-full' : 'hidden'
-          } lg:flex lg:w-72 xl:w-80 flex-col flex-shrink-0 rounded-[22px] border shadow-sm overflow-hidden ${
-            darkMode ? 'bg-slate-900/40 border-white/10 backdrop-blur-2xl' : 'bg-white/40 border-slate-200/80 backdrop-blur-2xl shadow-xs'
-          }`}
+          } lg:flex lg:w-72 xl:w-80 flex-col flex-shrink-0 rounded-[22px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
         >
           {/* Fluent Left Directory Header */}
-          <div className="px-3.5 py-3 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-2">
+          <div className="px-3.5 py-3 border-b border-[var(--border-hairline)] flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] flex items-center justify-center shadow-xs flex-shrink-0">
                 <ICON_MAP.ChatBubbleLeftIcon className="w-4 h-4" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                  <h2 className="text-sm font-bold text-[var(--text-primary)] truncate">
                     Teams Hub
                   </h2>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse" title="Live sync" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="Live sync" />
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate tabular-nums">
+                <p className="text-[10px] text-[var(--text-muted)] truncate tabular-nums">
                   {channels.length} channels · {directMessageUsers.length + 1} members
                 </p>
               </div>
@@ -1342,11 +1340,7 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setIsNewChannelModalOpen(true)}
                 title="Create New Channel"
-                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                  darkMode
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
-                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
-                }`}
+                className="p-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-all cursor-pointer"
               >
                 <ICON_MAP.PlusIcon className="w-4 h-4" />
               </button>
@@ -1354,7 +1348,7 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setIsAddPersonModalOpen(true)}
                 title="Start Direct Message"
-                className="p-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="p-1.5 rounded-xl bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs transition-all active:scale-95 cursor-pointer"
               >
                 <ICON_MAP.UserPlusIcon className="w-4 h-4" />
               </button>
@@ -1362,33 +1356,29 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setActiveView('calendar_view')}
                 title="Calendar & RSVPs"
-                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                  darkMode
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
-                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
-                }`}
+                className="p-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] transition-all cursor-pointer"
               >
-                <ICON_MAP.CalendarIcon className="w-4 h-4 text-indigo-500" />
+                <ICON_MAP.CalendarIcon className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Search Bar + Filter Tabs (Inspired by image_9aff3ae0 and image_330ac4dd) */}
-          <div className="p-3 border-b border-slate-200/70 dark:border-white/10 space-y-2">
+          {/* Search Bar + Filter Tabs */}
+          <div className="p-3 border-b border-[var(--border-hairline)] space-y-2">
             <div className="relative">
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
               <input
                 type="text"
                 placeholder="Search channels or people..."
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                className="w-full search-input !pl-10 !pr-8 py-2 text-xs rounded-xl bg-white/60 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/10"
+                className="w-full search-input !pl-10 !pr-8 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
               />
               {searchFilter && (
                 <button
                   type="button"
                   onClick={() => setSearchFilter('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                   title="Clear search"
                 >
                   <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
@@ -1396,7 +1386,7 @@ export const TeamsChatPage: React.FC = () => {
               )}
             </div>
 
-            {/* Fluent Category Filter Tabs */}
+            {/* Category Filter Tabs */}
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pt-0.5">
               {[
                 { id: 'all', label: 'All' },
@@ -1410,23 +1400,19 @@ export const TeamsChatPage: React.FC = () => {
                     key={tab.id}
                     type="button"
                     onClick={() => setFilterTab(tab.id as any)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
                       active
-                        ? 'bg-indigo-600 text-white shadow-2xs font-bold'
-                        : darkMode
-                        ? 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-2xs font-bold'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
                     }`}
                   >
                     <span>{tab.label}</span>
                     {typeof tab.count === 'number' && (
                       <span
-                        className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full ${
+                        className={`text-[9px] font-mono tabular-nums px-1.5 py-0.2 rounded-full ${
                           active
-                            ? 'bg-white/25 text-white'
-                            : darkMode
-                            ? 'bg-white/10 text-slate-400'
-                            : 'bg-slate-200 text-slate-600'
+                            ? 'bg-white/20 text-white dark:bg-[#131511]/15 dark:text-[#131511]'
+                            : 'bg-[var(--bg-sage)] text-[var(--text-secondary)]'
                         }`}
                       >
                         {tab.count}
@@ -1438,14 +1424,14 @@ export const TeamsChatPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Online Now Horizontal Avatar Strip (Inspired by 7CHAT & Snazzy Studio references) */}
+          {/* Online Now Horizontal Avatar Strip */}
           {directMessageUsers.length > 0 && (
-            <div className="px-3 py-2.5 border-b border-slate-200/60 dark:border-white/8">
+            <div className="px-3 py-2.5 border-b border-[var(--border-hairline)]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
                   Online Now
                 </span>
-                <span className="text-[10px] font-mono font-bold text-emerald-500 tabular-nums">
+                <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                   {directMessageUsers.filter(u => Boolean(findPresenceForUser(u))).length + 1} active
                 </span>
               </div>
@@ -1471,7 +1457,7 @@ export const TeamsChatPage: React.FC = () => {
                       <div
                         className={`relative p-0.5 rounded-full ${
                           isSelected
-                            ? 'ring-2 ring-indigo-500'
+                            ? 'ring-2 ring-[#97B832] dark:ring-[#CCF048]'
                             : isOnline
                             ? 'ring-1 ring-emerald-500/60'
                             : ''
@@ -1479,7 +1465,7 @@ export const TeamsChatPage: React.FC = () => {
                       >
                         <Avatar user={u} size="sm" />
                         <span
-                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#090A0F] ${
+                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#131511] ${
                             isOnline ? 'bg-emerald-500' : 'bg-slate-400'
                           }`}
                         />
@@ -1524,17 +1510,17 @@ export const TeamsChatPage: React.FC = () => {
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-indigo-600 text-white shadow-xs'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                              ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate">
-                            <span className={`text-sm font-bold ${isActive ? 'text-white' : 'text-indigo-500'}`}>#</span>
+                            <span className={`text-sm font-bold ${isActive ? 'text-[#CCF048] dark:text-[#131511]' : 'text-[#4E6126] dark:text-[#CCF048]'}`}>#</span>
                             <span className="truncate">{ch.name}</span>
                           </div>
                           <span
                             onClick={e => toggleFavourite(favKey, e)}
-                            className={`text-xs ${isActive ? 'text-amber-300' : 'text-amber-400 hover:scale-110'}`}
+                            className={`text-xs ${isActive ? 'text-amber-300 dark:text-amber-700' : 'text-amber-400 hover:scale-110'}`}
                             title="Remove from Favourites"
                           >
                             ★
@@ -1559,15 +1545,15 @@ export const TeamsChatPage: React.FC = () => {
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-indigo-600 text-white shadow-xs'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                              ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate">
                             <div className="relative shrink-0">
                               <Avatar user={u} size="sm" />
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-900 ${
+                                className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-[#131511] ${
                                   isOnline ? 'bg-emerald-500' : 'bg-slate-400'
                                 }`}
                               />
@@ -1576,7 +1562,7 @@ export const TeamsChatPage: React.FC = () => {
                           </div>
                           <span
                             onClick={e => toggleFavourite(favKey, e)}
-                            className={`text-xs ${isActive ? 'text-amber-300' : 'text-amber-400 hover:scale-110'}`}
+                            className={`text-xs ${isActive ? 'text-amber-300 dark:text-amber-700' : 'text-amber-400 hover:scale-110'}`}
                             title="Remove from Favourites"
                           >
                             ★
@@ -1592,9 +1578,9 @@ export const TeamsChatPage: React.FC = () => {
 
             {/* Empty Starred Notice */}
             {filterTab === 'starred' && favouriteIds.length === 0 && (
-              <div className="py-8 px-4 text-center text-slate-400 space-y-1.5">
+              <div className="py-8 px-4 text-center text-[var(--text-muted)] space-y-1.5">
                 <div className="text-2xl text-amber-400">★</div>
-                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">No Starred Chats Yet</p>
+                <p className="text-xs font-bold text-[var(--text-primary)]">No Starred Chats Yet</p>
                 <p className="text-[11px]">Hover over any channel or colleague and click the star icon to pin your top chats here for quick access.</p>
               </div>
             )}
@@ -1603,14 +1589,14 @@ export const TeamsChatPage: React.FC = () => {
             {(filterTab === 'all' || filterTab === 'channels') && (
               <div>
                 <div className="flex items-center justify-between px-2 mb-1">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
                     Channels ({filteredChannels.length})
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsNewChannelModalOpen(true)}
                     title="Create New Channel"
-                    className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                    className="p-1 rounded-md text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                   >
                     <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   </button>
@@ -1641,16 +1627,16 @@ export const TeamsChatPage: React.FC = () => {
                         }}
                         className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                           isActive
-                            ? 'bg-indigo-600 text-white shadow-xs'
-                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                            ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span
                             className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
                               isActive
-                                ? 'bg-white/20 text-white'
-                                : 'bg-indigo-500/10 text-indigo-500'
+                                ? 'bg-white/15 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]'
+                                : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]'
                             }`}
                           >
                             #
@@ -1667,7 +1653,7 @@ export const TeamsChatPage: React.FC = () => {
                             </div>
                             <span
                               className={`text-[10px] block truncate font-normal ${
-                                isActive ? 'text-indigo-100' : 'text-slate-400'
+                                isActive ? 'text-white/75 dark:text-[#131511]/75' : 'text-[var(--text-muted)]'
                               }`}
                             >
                               {channel.department} · {memberCount} members
@@ -1681,7 +1667,7 @@ export const TeamsChatPage: React.FC = () => {
                             className={`text-xs transition-opacity ${
                               isFav
                                 ? 'text-amber-400 opacity-100'
-                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-slate-400'
+                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-[var(--text-muted)]'
                             }`}
                           >
                             {isFav ? '★' : '☆'}
@@ -1701,14 +1687,14 @@ export const TeamsChatPage: React.FC = () => {
             {(filterTab === 'all' || filterTab === 'direct') && (
               <div>
                 <div className="px-2 mb-1 flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
                     Direct Messages ({filteredUsers.length})
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsAddPersonModalOpen(true)}
                     title="Start New Direct Message"
-                    className="p-1 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                    className="p-1 rounded-md text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                   >
                     <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   </button>
@@ -1717,11 +1703,11 @@ export const TeamsChatPage: React.FC = () => {
                 <div className="space-y-0.5">
                   {filteredUsers.length === 0 ? (
                     <div className="px-3 py-2 space-y-2">
-                      <p className="text-[11px] text-slate-400 italic">No colleagues found</p>
+                      <p className="text-[11px] text-[var(--text-muted)] italic">No colleagues found</p>
                       <button
                         type="button"
                         onClick={() => setIsAddPersonModalOpen(true)}
-                        className="w-full py-1.5 px-2.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="w-full py-1.5 px-2.5 rounded-lg bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                         Add Person
@@ -1777,15 +1763,15 @@ export const TeamsChatPage: React.FC = () => {
                           }}
                           className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-indigo-600 text-white shadow-xs'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                              ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 truncate">
                             <div className="relative flex-shrink-0">
                               <Avatar user={user} size="sm" />
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#090A0F] ${statusDotClass}`}
+                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#131511] ${statusDotClass}`}
                               />
                             </div>
                             <div className="truncate">
@@ -1794,11 +1780,11 @@ export const TeamsChatPage: React.FC = () => {
                                 className={`text-[10px] block truncate font-normal ${
                                   isUserTyping
                                     ? isActive
-                                     ? 'text-amber-200 font-semibold'
-                                      : 'text-indigo-500 dark:text-indigo-400 font-semibold'
+                                      ? 'text-[#CCF048] dark:text-[#131511] font-semibold'
+                                      : 'text-[#4E6126] dark:text-[#CCF048] font-semibold'
                                     : isActive
-                                    ? 'text-indigo-100'
-                                    : 'text-slate-400'
+                                    ? 'text-white/75 dark:text-[#131511]/75'
+                                    : 'text-[var(--text-muted)]'
                                 }`}
                               >
                                 {simpleStatusText} · {normalizeUserRole(user.role).replace(/_/g, ' ')}
@@ -1811,7 +1797,7 @@ export const TeamsChatPage: React.FC = () => {
                             className={`text-xs transition-opacity shrink-0 ${
                               isFav
                                 ? 'text-amber-400 opacity-100'
-                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-slate-400'
+                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-[var(--text-muted)]'
                             }`}
                           >
                             {isFav ? '★' : '☆'}
@@ -1825,7 +1811,7 @@ export const TeamsChatPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsAddPersonModalOpen(true)}
-                      className="w-full py-2 px-2.5 rounded-xl border border-dashed border-indigo-400/40 hover:border-indigo-500 bg-indigo-500/5 hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full py-2 px-2.5 rounded-xl border border-dashed border-[var(--border-strong)] hover:border-[#97B832] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
                       <span>+ Add Teammate</span>
@@ -1841,19 +1827,17 @@ export const TeamsChatPage: React.FC = () => {
         <div
           className={`${
             mobilePaneView === 'chat' ? 'flex' : 'hidden lg:flex'
-          } flex-1 flex-col min-w-0 rounded-[20px] border shadow-sm overflow-hidden ${
-            darkMode ? 'bg-slate-900/35 border-white/10 backdrop-blur-2xl' : 'bg-white/25 border-white/40 backdrop-blur-2xl shadow-xs'
-          }`}
+          } flex-1 flex-col min-w-0 rounded-[20px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
         >
           {/* Conversation Header */}
-          <div className="px-3 sm:px-4 py-2.5 border-b border-slate-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-2 bg-slate-50/50 dark:bg-white/[0.02]">
+          <div className="px-3 sm:px-4 py-2.5 border-b border-[var(--border-hairline)] flex flex-wrap items-center justify-between gap-2 bg-[var(--bg-surface-subtle)]">
             <div className="flex items-center gap-2.5 min-w-0">
               {/* Mobile & Tablet Back Button to return to Channel/DM list */}
               <button
                 type="button"
                 onClick={() => setMobilePaneView('list')}
                 title="Back to Channels & Direct Messages"
-                className="lg:hidden p-2 rounded-[20px] bg-white/40 dark:bg-white/10 hover:bg-white/60 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 cursor-pointer flex-shrink-0"
+                className="lg:hidden p-2 rounded-[20px] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--text-primary)] cursor-pointer flex-shrink-0"
               >
                 <ICON_MAP.ChevronLeftIcon className="w-5 h-5" />
               </button>
@@ -1896,12 +1880,12 @@ export const TeamsChatPage: React.FC = () => {
                       <div className="relative flex-shrink-0">
                         <Avatar user={activeDirectUser} size="md" />
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#090A0F] ${directDotClass}`}
+                          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#131511] ${directDotClass}`}
                         />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                          <h2 className="text-sm font-bold text-[var(--text-primary)] truncate">
                             {safeName(activeDirectUser)}
                           </h2>
                           <span
@@ -1912,9 +1896,9 @@ export const TeamsChatPage: React.FC = () => {
                             <span className="hidden sm:inline">E2EE</span>
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <p className="text-[11px] text-[var(--text-secondary)] truncate">
                           {isDirectUserTyping ? (
-                            <span className="text-indigo-500 font-semibold animate-pulse">Typing...</span>
+                            <span className="text-[#4E6126] dark:text-[#CCF048] font-semibold animate-pulse">Typing...</span>
                           ) : (
                             <span>{directStatusText}</span>
                           )}
@@ -1925,19 +1909,19 @@ export const TeamsChatPage: React.FC = () => {
                 })()
               ) : activeChannel ? (
                 <>
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-black text-base flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-black text-base flex items-center justify-center flex-shrink-0">
                     #
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                      <h2 className="text-sm font-bold text-[var(--text-primary)] truncate">
                         #{activeChannel.name}
                       </h2>
-                      <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+                      <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-sage)] text-[var(--text-secondary)]">
                         {activeChannel.department}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">
                       {activeChannel.description}
                     </p>
                   </div>
@@ -1946,7 +1930,7 @@ export const TeamsChatPage: React.FC = () => {
             </div>
 
             {/* Center Header Sub-Tabs: Messages | Canvas | Files */}
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-200/60 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)]">
               {[
                 {
                   id: 'messages',
@@ -1970,12 +1954,10 @@ export const TeamsChatPage: React.FC = () => {
                   key={tab.id}
                   type="button"
                   onClick={() => setConversationSubTab(tab.id as any)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                     conversationSubTab === tab.id
-                      ? darkMode
-                        ? 'bg-indigo-600 text-white shadow-2xs'
-                        : 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-2xs'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   {tab.icon}
@@ -2019,7 +2001,7 @@ export const TeamsChatPage: React.FC = () => {
                     ? `Start Video Call with ${safeName(activeDirectUser)}`
                     : `Start Video Call in #${activeChannel?.name}`
                 }
-                className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all cursor-pointer"
+                className="p-2 rounded-xl bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs transition-all cursor-pointer"
               >
                 <ICON_MAP.VideoCameraIcon className="w-4 h-4" />
               </button>
@@ -2050,11 +2032,7 @@ export const TeamsChatPage: React.FC = () => {
                   );
                 }}
                 title="Start Audio Call"
-                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                  darkMode
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200'
-                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
-                }`}
+                className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-colors cursor-pointer"
               >
                 <ICON_MAP.PhoneIcon className="w-4 h-4" />
               </button>
@@ -2077,11 +2055,7 @@ export const TeamsChatPage: React.FC = () => {
                   setIsScheduleModalOpen(true);
                 }}
                 title="Schedule Meeting"
-                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                  darkMode
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-indigo-300'
-                    : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
-                }`}
+                className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] transition-colors cursor-pointer"
               >
                 <ICON_MAP.CalendarIcon className="w-4 h-4" />
               </button>
@@ -2093,10 +2067,8 @@ export const TeamsChatPage: React.FC = () => {
                 title={isDetailsDrawerOpen ? 'Hide Conversation Details' : 'Show Conversation Details'}
                 className={`hidden md:inline-flex p-2 rounded-xl border transition-colors cursor-pointer ${
                   isDetailsDrawerOpen
-                    ? 'bg-indigo-600 text-white border-indigo-500'
-                    : darkMode
-                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
-                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                    ? 'bg-[#191B17] text-[#CCF048] border-[#191B17] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[#CCF048]'
+                    : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
                 }`}
               >
                 <ICON_MAP.ViewColumnsIcon className="w-4 h-4" />
@@ -2188,7 +2160,7 @@ export const TeamsChatPage: React.FC = () => {
                     setConversationSubTab('messages');
                     setTimeout(() => fileInputRef.current?.click(), 80);
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <ICON_MAP.PaperClipIcon className="w-3.5 h-3.5" />
                   <span>Upload File</span>
@@ -2205,9 +2177,9 @@ export const TeamsChatPage: React.FC = () => {
                 );
                 if (allAtts.length === 0) {
                   return (
-                    <div className="py-16 text-center rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
-                      <ICON_MAP.FolderIcon className="w-10 h-10 mx-auto text-slate-400 mb-2 opacity-60" />
-                      <p className="text-xs font-semibold text-slate-500">No files shared in this conversation yet</p>
+                    <div className="py-16 text-center rounded-2xl border border-dashed border-[var(--border-hairline)]">
+                      <ICON_MAP.FolderIcon className="w-10 h-10 mx-auto text-[var(--text-muted)] mb-2 opacity-60" />
+                      <p className="text-xs font-semibold text-[var(--text-secondary)]">No files shared in this conversation yet</p>
                     </div>
                   );
                 }
@@ -2216,9 +2188,7 @@ export const TeamsChatPage: React.FC = () => {
                     {allAtts.map((att, idx) => (
                       <div
                         key={idx}
-                        className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${
-                          darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200/80'
-                        }`}
+                        className="p-3 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center justify-between gap-3"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {att.type === 'image' ? (
@@ -2229,13 +2199,13 @@ export const TeamsChatPage: React.FC = () => {
                               className="w-10 h-10 rounded-xl object-cover cursor-zoom-in shrink-0"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] flex items-center justify-center shrink-0">
                               <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
                             </div>
                           )}
                           <div className="min-w-0">
-                            <div className="text-xs font-bold truncate">{att.name}</div>
-                            <div className="text-[10px] text-slate-400 truncate">
+                            <div className="text-xs font-bold text-[var(--text-primary)] truncate">{att.name}</div>
+                            <div className="text-[10px] text-[var(--text-muted)] truncate">
                               By {att.senderName} · {new Date(att.createdAt).toLocaleDateString()}
                             </div>
                           </div>
@@ -2243,7 +2213,7 @@ export const TeamsChatPage: React.FC = () => {
                         <a
                           href={att.url}
                           download={att.name}
-                          className="p-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 shrink-0"
+                          className="p-2 rounded-xl bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] shrink-0"
                           title="Download"
                         >
                           <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4" />
@@ -2260,15 +2230,15 @@ export const TeamsChatPage: React.FC = () => {
               <div data-bubble-scroll="true" className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 scrollbar-thin">
                 {messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] flex items-center justify-center">
                       <ICON_MAP.ChatBubbleLeftIcon className="w-6 h-6" />
                     </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    <h3 className="text-base font-bold text-[var(--text-primary)]">
                       {activeDirectUser
                         ? `Direct message with ${safeName(activeDirectUser)}`
                         : `Welcome to #${activeChannel?.name}`}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+                    <p className="text-xs text-[var(--text-secondary)] max-w-sm">
                       {activeDirectUser
                         ? 'Your 1:1 messages, voice notes, and attachments are End-to-End Encrypted with AES-256-GCM.'
                         : 'Send a message, voice note, or file attachment to kick off the discussion.'}
@@ -2301,7 +2271,7 @@ export const TeamsChatPage: React.FC = () => {
                         key={msg.id}
                         className={`flex items-start gap-2.5 sm:gap-3 group transition-all ${isMe ? 'flex-row-reverse' : ''}`}
                       >
-                        <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs ring-1 ring-slate-200 dark:ring-slate-700">
+                        <div className="w-8 h-8 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs ring-1 ring-[var(--border-hairline)]">
                           {msg.sender_avatar ? (
                             <img src={msg.sender_avatar} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -2367,15 +2337,11 @@ export const TeamsChatPage: React.FC = () => {
 
                               return (
                                 <div
-                                  className={`p-3.5 sm:p-4 rounded-2xl border shadow-sm space-y-3 min-w-[250px] sm:min-w-[320px] ${
-                                    darkMode
-                                      ? 'bg-slate-900/95 border-indigo-500/40 text-slate-100'
-                                      : 'bg-white border-indigo-200 text-slate-900'
-                                  }`}
+                                  className="p-3.5 sm:p-4 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm space-y-3 min-w-[250px] sm:min-w-[320px]"
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="space-y-0.5">
-                                      <div className="text-[10px] font-semibold text-indigo-500">
+                                      <div className="text-[10px] font-semibold text-[#4E6126] dark:text-[#CCF048]">
                                         Calendar Meeting · Room {meetingCode}
                                       </div>
                                       <h4 className="text-sm font-bold">{title}</h4>
@@ -2449,16 +2415,14 @@ export const TeamsChatPage: React.FC = () => {
                                                   'success'
                                                 );
                                               }}
-                                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                                                 active
                                                   ? opt.id === 'going'
-                                                    ? 'bg-emerald-600 text-white border-emerald-500'
+                                                    ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
                                                     : opt.id === 'maybe'
-                                                    ? 'bg-amber-500 text-slate-950 border-amber-400'
+                                                    ? 'bg-amber-500 text-[#131511] border-amber-400'
                                                     : 'bg-rose-600 text-white border-rose-500'
-                                                  : darkMode
-                                                  ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                                                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
                                               }`}
                                             >
                                               {opt.label}
@@ -2579,11 +2543,7 @@ export const TeamsChatPage: React.FC = () => {
                             if (rawContent.startsWith('🎨 **Shared Live Whiteboard:')) {
                               return (
                                 <div
-                                  className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm ${
-                                    darkMode
-                                      ? 'bg-slate-900/90 border-indigo-500/35 text-slate-100'
-                                      : 'bg-indigo-50/70 border-indigo-200 text-slate-900'
-                                  }`}
+                                  className="p-3.5 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-sage)] text-[var(--text-primary)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
                                 >
                                   <div className="space-y-1 text-xs whitespace-pre-line">
                                     {rawContent.replace(/\*\*/g, '')}
@@ -2591,7 +2551,7 @@ export const TeamsChatPage: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => setConversationSubTab('canvas')}
-                                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+                                    className="px-3.5 py-2 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm whitespace-nowrap"
                                   >
                                     <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
                                     <span>Open Canvas ↗</span>
@@ -2611,19 +2571,17 @@ export const TeamsChatPage: React.FC = () => {
                               <div
                                 className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-xs transition-transform duration-200 space-y-2 ${
                                   isMe
-                                    ? 'bg-indigo-600 text-white rounded-tr-xs'
-                                    : darkMode
-                                    ? 'bg-[#12151E] border border-white/8 text-slate-100 rounded-tl-xs'
-                                    : 'bg-slate-100 text-slate-900 rounded-tl-xs'
+                                    ? 'bg-[#191B17] text-[#F2F3EE] dark:bg-[#CCF048] dark:text-[#131511] rounded-tr-xs'
+                                    : 'bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] rounded-tl-xs'
                                 }`}
                               >
-                                {/* Inline Quote-Reply Block (Inspired by Sofia Petrovna screenshot) */}
+                                {/* Inline Quote-Reply Block */}
                                 {quotedMeta && (
                                   <div
-                                    className={`pl-2.5 py-1 rounded-r-lg border-l-2 text-[11px] ${
+                                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] ${
                                       isMe
-                                        ? 'border-white/70 bg-white/10 text-indigo-100'
-                                        : 'border-indigo-500 bg-indigo-500/10 text-slate-600 dark:text-slate-300'
+                                        ? 'border-white/20 bg-white/10 text-white/85 dark:border-[#131511]/20 dark:bg-[#131511]/10 dark:text-[#131511]/85'
+                                        : 'border-[var(--border-strong)] bg-[var(--bg-sage)] text-[var(--text-secondary)]'
                                     }`}
                                   >
                                     <div className="font-bold text-[10px] opacity-90">{quotedMeta.sender}</div>
@@ -2655,7 +2613,7 @@ export const TeamsChatPage: React.FC = () => {
                                   return (
                                     <div
                                       key={`${msg.id}-att-${idx}`}
-                                      className="relative group/img rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/70 shadow-sm max-w-[260px] sm:max-w-[320px]"
+                                      className="relative group/img rounded-2xl overflow-hidden border border-[var(--border-hairline)] shadow-sm max-w-[260px] sm:max-w-[320px]"
                                     >
                                       <img
                                         src={att.url}
@@ -2669,7 +2627,7 @@ export const TeamsChatPage: React.FC = () => {
                                           download={att.name}
                                           onClick={e => e.stopPropagation()}
                                           title="Download image"
-                                          className="p-1.5 rounded-lg bg-slate-900/80 text-white hover:bg-slate-900 text-xs"
+                                          className="p-1.5 rounded-lg bg-[#131511]/85 text-white hover:bg-[#131511] text-xs"
                                         >
                                           <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
                                         </a>
@@ -2684,16 +2642,14 @@ export const TeamsChatPage: React.FC = () => {
                                     key={`${msg.id}-att-${idx}`}
                                     className={`p-3 rounded-2xl border shadow-xs max-w-[280px] sm:max-w-[340px] transition-all ${
                                       isMe
-                                        ? 'bg-blue-600 border-blue-500 text-white'
-                                        : darkMode
-                                        ? 'bg-slate-800/90 border-slate-700/80 text-slate-100'
-                                        : 'bg-white border-slate-200/90 text-slate-900'
+                                        ? 'bg-[#191B17] border-[#2B3026] text-[#F2F3EE] dark:bg-[#CCF048] dark:border-[#97B832] dark:text-[#131511]'
+                                        : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-primary)]'
                                     }`}
                                   >
                                     <div className="flex items-center justify-between gap-3">
                                       <div className="flex items-center gap-2.5 min-w-0">
                                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                          isMe ? 'bg-white/20 text-white' : 'bg-blue-500/15 text-blue-500 dark:text-blue-400'
+                                          isMe ? 'bg-white/15 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]'
                                         }`}>
                                           <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
                                         </div>
@@ -2701,12 +2657,12 @@ export const TeamsChatPage: React.FC = () => {
                                           <div className="flex items-center gap-1.5 truncate">
                                             <span className="font-bold text-xs truncate">{att.name}</span>
                                             <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
-                                              isMe ? 'bg-white/25 text-white' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                                              isMe ? 'bg-white/20 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]'
                                             }`}>
                                               {ext}
                                             </span>
                                           </div>
-                                          <p className={`text-[10px] mt-0.5 truncate ${isMe ? 'text-blue-100' : 'text-slate-400'}`}>
+                                          <p className={`text-[10px] mt-0.5 truncate ${isMe ? 'text-white/75 dark:text-[#131511]/75' : 'text-[var(--text-muted)]'}`}>
                                             {ext} Document {att.size ? `· ${formatFileSize(att.size)}` : ''}
                                           </p>
                                         </div>
@@ -2717,8 +2673,8 @@ export const TeamsChatPage: React.FC = () => {
                                         title={`Download ${att.name}`}
                                         className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
                                           isMe
-                                            ? 'bg-white/20 hover:bg-white/30 text-white'
-                                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-600 dark:text-slate-200'
+                                            ? 'bg-white/15 hover:bg-white/25 text-white dark:bg-[#131511]/15 dark:text-[#131511]'
+                                            : 'bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--text-secondary)]'
                                         }`}
                                       >
                                         <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4" />
@@ -2747,8 +2703,8 @@ export const TeamsChatPage: React.FC = () => {
                                     onClick={() => handleAddReaction(msg.id, emoji)}
                                     className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
                                       hasReacted
-                                        ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-400 text-indigo-700 dark:text-indigo-300'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                                        ? 'bg-[var(--bg-sage)] border-[#97B832] text-[#4E6126] dark:text-[#CCF048]'
+                                        : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
                                     }`}
                                   >
                                     <span>{emoji}</span>
@@ -2799,11 +2755,11 @@ export const TeamsChatPage: React.FC = () => {
 
               {/* Typing Indicator Bar */}
               {currentTyping.length > 0 && (
-                <div className="px-4 py-1.5 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200/60 dark:border-slate-800 flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 animate-pulse">
+                <div className="px-4 py-1.5 bg-[var(--bg-surface-subtle)] border-t border-[var(--border-hairline)] flex items-center gap-2 text-xs text-[#4E6126] dark:text-[#CCF048] animate-pulse">
                   <span className="flex space-x-1">
-                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </span>
                   <span>
                     {currentTyping.join(', ')} {currentTyping.length === 1 ? 'is' : 'are'} typing...
@@ -2812,7 +2768,7 @@ export const TeamsChatPage: React.FC = () => {
               )}
 
               {/* Composer Input Bar with Quote-Reply Banner, Voice Notes & File/Image Attachments */}
-              <div className="p-2.5 sm:p-3.5 border-t border-slate-200/80 dark:border-white/10 bg-slate-50/40 dark:bg-white/[0.02]">
+              <div className="p-2.5 sm:p-3.5 border-t border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
                 {/* Hidden Multi-File / Image Input */}
                 <input
                   ref={fileInputRef}
@@ -2825,19 +2781,19 @@ export const TeamsChatPage: React.FC = () => {
 
                 {/* Active Quote-Reply Preview Bar */}
                 {replyingToMessage && (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-xl bg-indigo-500/10 border-l-4 border-indigo-500 text-xs">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-strong)] text-xs">
                     <div className="min-w-0">
-                      <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      <span className="font-bold text-[#4E6126] dark:text-[#CCF048]">
                         Replying to {replyingToMessage.sender_name}
                       </span>
-                      <p className="text-[11px] text-slate-600 dark:text-slate-300 truncate">
+                      <p className="text-[11px] text-[var(--text-secondary)] truncate">
                         {(replyingToMessage.content || '').replace(/^\[QUOTE:\{.*?\}\]\n?/, '')}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setReplyingToMessage(null)}
-                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                      className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                       title="Cancel reply"
                     >
                       ✕
@@ -2851,21 +2807,17 @@ export const TeamsChatPage: React.FC = () => {
                     {pendingAttachments.map((att, idx) => (
                       <div
                         key={idx}
-                        className={`relative group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs flex-shrink-0 ${
-                          darkMode
-                            ? 'bg-slate-800 border-slate-700 text-slate-200'
-                            : 'bg-white border-slate-200 text-slate-700'
-                        }`}
+                        className="relative group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs flex-shrink-0"
                       >
                         {att.type === 'image' ? (
                           <img src={att.url} alt={att.name} className="w-8 h-8 rounded-lg object-cover" />
                         ) : (
-                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-indigo-500" />
+                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
                         )}
                         <div className="max-w-[120px] truncate">
                           <div className="font-semibold truncate text-[11px]">{att.name}</div>
                           {att.size && (
-                            <div className="text-[9px] text-slate-400 font-mono">{formatFileSize(att.size)}</div>
+                            <div className="text-[9px] text-[var(--text-muted)] font-mono">{formatFileSize(att.size)}</div>
                           )}
                         </div>
                         <button
@@ -2923,7 +2875,7 @@ export const TeamsChatPage: React.FC = () => {
                         type="button"
                         onClick={finishAndSendVoiceRecording}
                         title="Send Voice Note"
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        className="px-3 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
                       >
                         <ICON_MAP.MicrophoneIcon className="w-3.5 h-3.5" />
                         <span>Send</span>
@@ -2932,19 +2884,13 @@ export const TeamsChatPage: React.FC = () => {
                   </div>
                 ) : (
                   <form onSubmit={handleSendMessage} className="space-y-1.5">
-                    <div className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl border shadow-xs transition-all ${
-                      darkMode ? 'bg-slate-900/70 border-white/10' : 'bg-white border-slate-200/90 shadow-2xs'
-                    }`}>
+                    <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-xs transition-all">
                       {/* Attach File / Image Button */}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         title="Attach files or images"
-                        className={`p-2 rounded-xl transition-colors cursor-pointer flex-shrink-0 ${
-                          darkMode
-                            ? 'text-slate-400 hover:text-white hover:bg-white/10'
-                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
+                        className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer flex-shrink-0"
                       >
                         <ICON_MAP.PlusIcon className="w-4 h-4" />
                       </button>
@@ -2961,7 +2907,7 @@ export const TeamsChatPage: React.FC = () => {
                               ? `Write a message to ${safeName(activeDirectUser)}...`
                               : `Write a message in #${activeChannel?.name || 'channel'}...`
                           }
-                          className="w-full py-1.5 px-2 bg-transparent text-xs resize-none focus:outline-none placeholder:text-slate-400 max-h-24 leading-relaxed"
+                          className="w-full py-1.5 px-2 bg-transparent text-xs text-[var(--text-primary)] resize-none focus:outline-none placeholder:text-[var(--text-muted)] max-h-24 leading-relaxed"
                           style={{ border: 'none', boxShadow: 'none' }}
                         />
                       </div>
@@ -2971,11 +2917,7 @@ export const TeamsChatPage: React.FC = () => {
                         type="button"
                         onClick={startVoiceRecording}
                         title="Record voice note"
-                        className={`p-2 rounded-xl transition-colors cursor-pointer flex-shrink-0 ${
-                          darkMode
-                            ? 'text-slate-400 hover:text-indigo-400 hover:bg-white/10'
-                            : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
-                        }`}
+                        className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[#4E6126] dark:hover:text-[#CCF048] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer flex-shrink-0"
                       >
                         <ICON_MAP.MicrophoneIcon className="w-4 h-4" />
                       </button>
@@ -2987,15 +2929,15 @@ export const TeamsChatPage: React.FC = () => {
                         title="Send Message"
                         className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
                           inputText.trim() || pendingAttachments.length > 0
-                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs active:scale-95'
-                            : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                            ? 'bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs active:scale-95'
+                            : 'bg-[var(--bg-sage)] text-[var(--text-muted)] cursor-not-allowed'
                         }`}
                       >
                         <ICON_MAP.ArrowRightIcon className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="hidden sm:flex items-center justify-between text-[10px] text-slate-400 px-1">
+                    <div className="hidden sm:flex items-center justify-between text-[10px] text-[var(--text-muted)] px-1">
                       <div className="flex items-center gap-1">
                         {EMOJI_OPTIONS.map(emoji => (
                           <button
@@ -3012,7 +2954,7 @@ export const TeamsChatPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setConversationSubTab('canvas')}
-                        className="text-[10px] font-semibold text-indigo-500 hover:underline cursor-pointer flex items-center gap-1"
+                        className="text-[10px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer flex items-center gap-1"
                       >
                         <ICON_MAP.SparklesIcon className="w-3 h-3" />
                         <span>Open Co-Whiteboard Canvas</span>
@@ -3028,19 +2970,17 @@ export const TeamsChatPage: React.FC = () => {
         {/* Right Collapsible Details Inspector Drawer (Inspired by image_9aff3ae0 & image_ae1041ec) */}
         {isDetailsDrawerOpen && (
           <div
-            className={`hidden xl:flex xl:w-80 2xl:w-84 flex-col flex-shrink-0 rounded-[22px] border shadow-sm overflow-hidden ${
-              darkMode ? 'bg-slate-900/40 border-white/10 backdrop-blur-2xl' : 'bg-white/40 border-slate-200/80 backdrop-blur-2xl shadow-xs'
-            }`}
+            className="hidden xl:flex xl:w-80 2xl:w-84 flex-col flex-shrink-0 rounded-[22px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden"
           >
             {/* Details Header with Close button */}
-            <div className="px-4 py-3 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 dark:text-white">
+            <div className="px-4 py-3 border-b border-[var(--border-hairline)] flex items-center justify-between">
+              <span className="text-xs font-bold text-[var(--text-primary)]">
                 {activeDirectUser ? 'User Details' : 'Channel Details'}
               </span>
               <button
                 type="button"
                 onClick={() => setIsDetailsDrawerOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                 title="Close Details"
               >
                 <ICON_MAP.XMarkIcon className="w-4 h-4" />
@@ -3051,34 +2991,34 @@ export const TeamsChatPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
               {activeDirectUser ? (
                 <>
-                  {/* Centered Profile Hero (Matches image_9aff3ae0.png) */}
+                  {/* Centered Profile Hero */}
                   <div className="flex flex-col items-center text-center pt-2 pb-1 space-y-2">
                     <div className="relative">
                       <Avatar user={activeDirectUser} size="lg" />
                       <span
-                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${
+                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full ring-2 ring-white dark:ring-[#131511] ${
                           Boolean(findPresenceForUser(activeDirectUser)) ? 'bg-emerald-500' : 'bg-slate-400'
                         }`}
                       />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      <h3 className="text-base font-bold text-[var(--text-primary)]">
                         {safeName(activeDirectUser)}
                       </h3>
                       <div className="mt-1 flex items-center justify-center gap-1.5">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                           Boolean(findPresenceForUser(activeDirectUser))
                             ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
-                            : 'bg-slate-500/15 text-slate-500 dark:text-slate-400 border border-slate-500/20'
+                            : 'bg-slate-500/15 text-[var(--text-muted)] border border-[var(--border-hairline)]'
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${Boolean(findPresenceForUser(activeDirectUser)) ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${Boolean(findPresenceForUser(activeDirectUser)) ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                           {Boolean(findPresenceForUser(activeDirectUser)) ? 'Online' : 'Offline'}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-1">{activeDirectUser.email}</p>
+                      <p className="text-[11px] text-[var(--text-muted)] mt-1">{activeDirectUser.email}</p>
                     </div>
 
-                    {/* Quick Action Buttons (Call / Video pills matching image_9aff3ae0.png) */}
+                    {/* Quick Action Buttons */}
                     <div className="grid grid-cols-2 gap-2 w-full pt-1">
                       <button
                         type="button"
@@ -3098,7 +3038,7 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.PhoneIcon className="w-3.5 h-3.5" />
                         <span>Call</span>
@@ -3121,11 +3061,7 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
-                          darkMode
-                            ? 'border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300'
-                            : 'border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700'
-                        }`}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[var(--border-strong)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] text-xs font-bold transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
                         <span>Video</span>
@@ -3133,42 +3069,42 @@ export const TeamsChatPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Contact Information Card (Matching image_9aff3ae0.png) */}
-                  <div className={`p-3.5 rounded-2xl border space-y-2.5 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-indigo-500" />
+                  {/* Contact Information Card */}
+                  <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
                       <span>Contact Information</span>
                     </div>
                     <div className="space-y-2 text-xs">
                       <div className="flex items-start gap-2">
-                        <span className="text-slate-400 w-20 shrink-0 text-[11px]">Username</span>
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">@{activeDirectUser.email.split('@')[0]}</span>
+                        <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Username</span>
+                        <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">@{activeDirectUser.email.split('@')[0]}</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <span className="text-slate-400 w-20 shrink-0 text-[11px]">Email</span>
-                        <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{activeDirectUser.email}</span>
+                        <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Email</span>
+                        <span className="font-medium text-[var(--text-secondary)] truncate">{activeDirectUser.email}</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <span className="text-slate-400 w-20 shrink-0 text-[11px]">Role</span>
-                        <span className="font-medium text-slate-700 dark:text-slate-300 capitalize">{normalizeUserRole(activeDirectUser.role).replace(/_/g, ' ')}</span>
+                        <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Role</span>
+                        <span className="font-medium text-[var(--text-secondary)] capitalize">{normalizeUserRole(activeDirectUser.role).replace(/_/g, ' ')}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Activity Section (Matching image_9aff3ae0.png) */}
-                  <div className={`p-3.5 rounded-2xl border space-y-2.5 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-                      <ICON_MAP.ClockIcon className="w-4 h-4 text-indigo-500" />
+                  {/* Activity Section */}
+                  <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                      <ICON_MAP.ClockIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
                       <span>Activity</span>
                     </div>
                     <div className="space-y-2 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400 text-[11px]">Last seen</span>
-                        <span className="font-semibold">{Boolean(findPresenceForUser(activeDirectUser)) ? 'Active now' : 'Recently'}</span>
+                        <span className="text-[var(--text-muted)] text-[11px]">Last seen</span>
+                        <span className="font-semibold text-[var(--text-primary)]">{Boolean(findPresenceForUser(activeDirectUser)) ? 'Active now' : 'Recently'}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400 text-[11px]">Local time</span>
-                        <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        <span className="text-[var(--text-muted)] text-[11px]">Local time</span>
+                        <span className="font-mono text-[11px] text-[var(--text-secondary)]">
                           {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
@@ -3179,19 +3115,19 @@ export const TeamsChatPage: React.FC = () => {
                 <>
                   {/* Channel Hero */}
                   <div className="flex flex-col items-center text-center pt-2 pb-1 space-y-2">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-2xl font-black">
+                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] flex items-center justify-center text-2xl font-black">
                       #
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      <h3 className="text-base font-bold text-[var(--text-primary)]">
                         #{activeChannel.name}
                       </h3>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{activeChannel.description || 'Channel conversation'}</p>
+                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{activeChannel.description || 'Channel conversation'}</p>
                       <div className="mt-1 flex items-center justify-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
                           {activeChannel.department}
                         </span>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-[var(--text-muted)]">
                           {activeChannelMembers.length} members
                         </span>
                       </div>
@@ -3218,7 +3154,7 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
                         <span>Huddle</span>
@@ -3226,11 +3162,7 @@ export const TeamsChatPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsChannelMembersModalOpen(true)}
-                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
-                          darkMode
-                            ? 'border-white/10 bg-white/5 hover:bg-white/10 text-slate-200'
-                            : 'border-slate-200 bg-white hover:bg-slate-100 text-slate-700'
-                        }`}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] text-xs font-bold transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.UsersIcon className="w-3.5 h-3.5" />
                         <span>Members ({activeChannelMembers.length})</span>
@@ -3240,47 +3172,43 @@ export const TeamsChatPage: React.FC = () => {
                 </>
               ) : null}
 
-              {/* Shared Files & Attachments Section (Inspired by image_ae1041ec.png) */}
-              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
-                <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white">
+              {/* Shared Files & Attachments Section */}
+              <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-[var(--text-primary)]">
                   <div className="flex items-center gap-1.5">
-                    <ICON_MAP.FolderIcon className="w-4 h-4 text-indigo-500" />
+                    <ICON_MAP.FolderIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
                     <span>Uploaded Files</span>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
                     {messages.reduce((a, m) => a + (m.attachments?.length || 0), 0)} files
                   </span>
                 </div>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin">
                   {messages.flatMap(m => m.attachments || []).length === 0 ? (
-                    <p className="text-[11px] text-slate-400 italic py-1">No uploaded files in this conversation</p>
+                    <p className="text-[11px] text-[var(--text-muted)] italic py-1">No uploaded files in this conversation</p>
                   ) : (
                     messages.flatMap(m => m.attachments || []).slice(0, 6).map((att, i) => (
                       <a
                         key={`drawer-att-file-${i}`}
                         href={att.url}
                         download={att.name}
-                        className={`flex items-center justify-between p-2 rounded-xl border transition-colors text-xs ${
-                          darkMode
-                            ? 'bg-white/[0.02] border-white/8 hover:bg-white/10 text-slate-200'
-                            : 'bg-white border-slate-200/70 hover:bg-slate-100 text-slate-800'
-                        }`}
+                        className="flex items-center justify-between p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-colors text-xs"
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048] shrink-0" />
                           <span className="truncate max-w-[150px] font-medium">{att.name}</span>
                         </div>
-                        <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                       </a>
                     ))
                   )}
                 </div>
               </div>
 
-              {/* Actions Section (Matching image_9aff3ae0.png) */}
-              <div className={`p-3.5 rounded-2xl border space-y-2 ${darkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50/90 border-slate-200/80'}`}>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-                  <ICON_MAP.CogIcon className="w-4 h-4 text-indigo-500" />
+              {/* Actions Section */}
+              <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                  <ICON_MAP.CogIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
                   <span>Actions</span>
                 </div>
                 <div className="space-y-1">
@@ -3293,9 +3221,7 @@ export const TeamsChatPage: React.FC = () => {
                         toggleFavourite(`channel:${activeChannel.id}`);
                       }
                     }}
-                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
-                      darkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
+                    className="w-full flex items-center justify-between p-2 rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer text-left"
                   >
                     <span className="flex items-center gap-2">
                       <span>★</span>
@@ -3306,22 +3232,20 @@ export const TeamsChatPage: React.FC = () => {
                           : 'Star Conversation'}
                       </span>
                     </span>
-                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-slate-400" />
+                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       addToast('Notifications Muted', 'Conversation notifications muted for 8 hours.', 'info');
                     }}
-                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
-                      darkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
+                    className="w-full flex items-center justify-between p-2 rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer text-left"
                   >
                     <span className="flex items-center gap-2">
-                      <ICON_MAP.BellSlashIcon className="w-4 h-4 text-slate-400" />
+                      <ICON_MAP.BellSlashIcon className="w-4 h-4 text-[var(--text-muted)]" />
                       <span>Mute Notifications</span>
                     </span>
-                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-slate-400" />
+                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                   </button>
                 </div>
               </div>
@@ -3333,7 +3257,7 @@ export const TeamsChatPage: React.FC = () => {
       {/* Image Attachment Lightbox Modal */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#131511]/90 backdrop-blur-xs animate-fadeIn"
           onClick={() => setLightboxImage(null)}
         >
           <div
@@ -3343,14 +3267,14 @@ export const TeamsChatPage: React.FC = () => {
             <img
               src={lightboxImage.url}
               alt={lightboxImage.name}
-              className="max-w-full max-h-[78vh] rounded-2xl object-contain shadow-2xl border border-slate-700"
+              className="max-w-full max-h-[78vh] rounded-2xl object-contain shadow-2xl border border-[#2B3026]"
             />
-            <div className="flex items-center gap-3 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-700 text-white text-xs">
+            <div className="flex items-center gap-3 bg-[#1A1D17] px-4 py-2 rounded-full border border-[#2B3026] text-[#F2F3EE] text-xs">
               <span className="font-semibold truncate max-w-xs">{lightboxImage.name}</span>
               <a
                 href={lightboxImage.url}
                 download={lightboxImage.name}
-                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold flex items-center gap-1"
+                className="px-3 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] font-semibold flex items-center gap-1"
               >
                 <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
                 <span>Download</span>
@@ -3358,7 +3282,7 @@ export const TeamsChatPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setLightboxImage(null)}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                className="px-3 py-1 rounded-full bg-[#24291F] hover:bg-[#2E3427] text-[#F2F3EE] cursor-pointer"
               >
                 Close
               </button>
@@ -3370,22 +3294,22 @@ export const TeamsChatPage: React.FC = () => {
       {/* 3. Create New Channel & Add Members Modal */}
       {isNewChannelModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
           onClick={() => setIsNewChannelModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
+            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5 text-indigo-500" />
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
+              <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5 text-[#4E6126] dark:text-[#CCF048]" />
                 Create New Channel / Group
               </h3>
               <button
                 type="button"
                 onClick={() => setIsNewChannelModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               >
                 ✕
               </button>
@@ -3394,26 +3318,26 @@ export const TeamsChatPage: React.FC = () => {
             <form onSubmit={handleCreateChannelSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Channel Name</label>
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Channel Name</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">#</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] font-bold">#</span>
                     <input
                       type="text"
                       required
                       placeholder="e.g. mobile-release"
                       value={newChannelName}
                       onChange={e => setNewChannelName(e.target.value)}
-                      className="w-full pl-7 pr-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                      className="w-full pl-7 pr-3 py-2 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Department</label>
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Department</label>
                   <select
                     value={newChannelDept}
                     onChange={e => setNewChannelDept(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                   >
                     <option value="Engineering">Engineering</option>
                     <option value="Product">Product</option>
@@ -3425,20 +3349,20 @@ export const TeamsChatPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Description</label>
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Description</label>
                 <input
                   type="text"
                   placeholder="What is this channel or group for?"
                   value={newChannelDesc}
                   onChange={e => setNewChannelDesc(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                  className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 />
               </div>
 
               {/* Select Initial Channel Members */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                  <label className="font-semibold text-[var(--text-secondary)]">
                     Add Team Members ({selectedNewChannelMemberIds.length} selected)
                   </label>
                   <button
@@ -3450,18 +3374,18 @@ export const TeamsChatPage: React.FC = () => {
                         setSelectedNewChannelMemberIds(directMessageUsers.map(u => u.id));
                       }
                     }}
-                    className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
                   >
                     {selectedNewChannelMemberIds.length === directMessageUsers.length ? 'Clear All' : 'Select All'}
                   </button>
                 </div>
-                <div className="max-h-36 overflow-y-auto p-2 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1 scrollbar-thin">
+                <div className="max-h-36 overflow-y-auto p-2 rounded-xl border border-[var(--border-hairline)] space-y-1 scrollbar-thin">
                   {directMessageUsers.map(u => {
                     const checked = selectedNewChannelMemberIds.includes(u.id);
                     return (
                       <label
                         key={u.id}
-                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer"
+                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-[var(--bg-sage)] cursor-pointer"
                       >
                         <div className="flex items-center gap-2 truncate">
                           <input
@@ -3474,11 +3398,11 @@ export const TeamsChatPage: React.FC = () => {
                             }}
                           />
                           <Avatar user={u} size="sm" />
-                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                          <span className="font-semibold text-[var(--text-primary)] truncate">
                             {safeName(u)}
                           </span>
                         </div>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-[var(--text-muted)]">
                           {normalizeUserRole(u.role).replace(/_/g, ' ')}
                         </span>
                       </label>
@@ -3493,16 +3417,16 @@ export const TeamsChatPage: React.FC = () => {
                   checked={newChannelIsPrivate}
                   onChange={e => setNewChannelIsPrivate(e.target.checked)}
                 />
-                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                <span className="text-[var(--text-secondary)] font-medium">
                   Make this a private invite-only group channel
                 </span>
               </label>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
                 <Button variant="outline" size="sm" type="button" onClick={() => setIsNewChannelModalOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="primary" size="sm" type="submit">
+                <Button variant="lime" size="sm" type="submit">
                   Create Channel
                 </Button>
               </div>
@@ -3514,27 +3438,27 @@ export const TeamsChatPage: React.FC = () => {
       {/* 4. Manage / Add People to Active Channel Modal */}
       {isChannelMembersModalOpen && activeChannel && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
           onClick={() => setIsChannelMembersModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
+            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <ICON_MAP.UsersIcon className="w-5 h-5 text-indigo-500" />
+                <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <ICON_MAP.UsersIcon className="w-5 h-5 text-[#4E6126] dark:text-[#CCF048]" />
                   <span>Manage Members in #{activeChannel.name}</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Add or remove teammates from this channel. Updates sync in real time.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsChannelMembersModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               >
                 ✕
               </button>
@@ -3545,7 +3469,7 @@ export const TeamsChatPage: React.FC = () => {
               placeholder="Search teammates to add or remove..."
               value={channelMemberSearch}
               onChange={e => setChannelMemberSearch(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600"
+              className="w-full px-3 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
             />
 
             <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
@@ -3561,24 +3485,24 @@ export const TeamsChatPage: React.FC = () => {
                   return (
                     <div
                       key={u.id}
-                      className="flex items-center justify-between p-2 rounded-xl border border-slate-200/60 dark:border-slate-700/60"
+                      className="flex items-center justify-between p-2 rounded-xl border border-[var(--border-hairline)]"
                     >
                       <div className="flex items-center gap-2.5 truncate">
                         <Avatar user={u} size="sm" />
                         <div className="truncate">
-                          <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          <div className="text-xs font-bold text-[var(--text-primary)] truncate">
                             {safeName(u)}
                           </div>
-                          <div className="text-[10px] text-slate-400 truncate">{safeEmail(u)}</div>
+                          <div className="text-[10px] text-[var(--text-muted)] truncate">{safeEmail(u)}</div>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleToggleChannelMember(u)}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                           inChannel
                             ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-rose-500/15 hover:text-rose-500'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                            : 'bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)]'
                         }`}
                       >
                         {inChannel ? '✓ In Channel' : '+ Add to Channel'}
@@ -3591,9 +3515,9 @@ export const TeamsChatPage: React.FC = () => {
             {/* Quick Add Brand-New Person directly to Channel */}
             <form
               onSubmit={handleQuickAddPersonToChannel}
-              className="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2.5 text-xs"
+              className="pt-3 border-t border-[var(--border-hairline)] space-y-2.5 text-xs"
             >
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 Add New Person Directly to #{activeChannel.name}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -3603,21 +3527,21 @@ export const TeamsChatPage: React.FC = () => {
                   placeholder="Full Name (e.g. Jordan Lee)"
                   value={quickChannelPersonName}
                   onChange={e => setQuickChannelPersonName(e.target.value)}
-                  className="p-2 rounded-xl border text-xs"
+                  className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs"
                 />
                 <input
                   type="email"
                   placeholder="Email (optional)"
                   value={quickChannelPersonEmail}
                   onChange={e => setQuickChannelPersonEmail(e.target.value)}
-                  className="p-2 rounded-xl border text-xs"
+                  className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] text-xs"
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" size="sm" type="button" onClick={() => setIsChannelMembersModalOpen(false)}>
                   Done
                 </Button>
-                <Button variant="primary" size="sm" type="submit" disabled={!quickChannelPersonName.trim()}>
+                <Button variant="lime" size="sm" type="submit" disabled={!quickChannelPersonName.trim()}>
                   + Add Person to #{activeChannel.name}
                 </Button>
               </div>
@@ -3629,23 +3553,23 @@ export const TeamsChatPage: React.FC = () => {
       {/* 5. Add Person / Start Direct Message Modal */}
       {isAddPersonModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
           onClick={() => setIsAddPersonModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear max-h-[90vh] overflow-y-auto scrollbar-thin"
+            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear max-h-[90vh] overflow-y-auto scrollbar-thin"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
+                <span className="p-1.5 rounded-lg bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]">
                   <ICON_MAP.UserPlusIcon className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
                     Start Direct Message or Add Teammate
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] text-[var(--text-secondary)]">
                     Message anyone in your organization or add a new colleague to E2EE Direct Messages.
                   </p>
                 </div>
@@ -3653,7 +3577,7 @@ export const TeamsChatPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAddPersonModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               >
                 ✕
               </button>
@@ -3666,13 +3590,13 @@ export const TeamsChatPage: React.FC = () => {
                   placeholder="Search teammates by name or email..."
                   value={directorySearch}
                   onChange={e => setDirectorySearch(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                  className="w-full px-3 py-1.5 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 />
 
                 {/* Section A: Users you haven't messaged yet */}
                 {unmessagedUsers.length > 0 && (
                   <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
                       Start New Conversation · Not Messaged Yet ({unmessagedUsers.length})
                     </label>
                     <div className="max-h-36 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
@@ -3688,18 +3612,18 @@ export const TeamsChatPage: React.FC = () => {
                               setIsAddPersonModalOpen(false);
                               addToast('Direct Chat Ready', `Started E2EE chat with ${safeName(u)}.`, 'success');
                             }}
-                            className="w-full flex items-center justify-between p-2 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/15 border border-indigo-500/20 text-left transition-colors cursor-pointer"
+                            className="w-full flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-left transition-colors cursor-pointer"
                           >
                             <div className="flex items-center gap-2.5 truncate">
                               <Avatar user={u} size="sm" />
                               <div className="truncate">
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                <p className="text-xs font-bold text-[var(--text-primary)] truncate">
                                   {safeName(u)}
                                 </p>
-                                <p className="text-[10px] text-slate-400 truncate">{safeEmail(u)}</p>
+                                <p className="text-[10px] text-[var(--text-muted)] truncate">{safeEmail(u)}</p>
                               </div>
                             </div>
-                            <span className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold flex-shrink-0">
+                            <span className="px-2.5 py-1 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] text-[10px] font-bold flex-shrink-0">
                               {online ? '● Start Chat' : 'Start Chat →'}
                             </span>
                           </button>
@@ -3712,7 +3636,7 @@ export const TeamsChatPage: React.FC = () => {
                 {/* Section B: Existing Direct Message Contacts */}
                 {messagedUsers.length > 0 && (
                   <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                       Active Conversations ({messagedUsers.length})
                     </label>
                     <div className="max-h-28 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
@@ -3727,22 +3651,22 @@ export const TeamsChatPage: React.FC = () => {
                               setActiveChannelId('');
                               setIsAddPersonModalOpen(false);
                             }}
-                            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/60 text-left transition-colors cursor-pointer"
+                            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[var(--bg-sage)] text-left transition-colors cursor-pointer"
                           >
                             <div className="flex items-center gap-2.5 truncate">
                               <Avatar user={u} size="sm" />
                               <div className="truncate">
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                <p className="text-xs font-bold text-[var(--text-primary)] truncate">
                                   {safeName(u)}
                                 </p>
-                                <p className="text-[10px] text-slate-400 truncate">{safeEmail(u)}</p>
+                                <p className="text-[10px] text-[var(--text-muted)] truncate">{safeEmail(u)}</p>
                               </div>
                             </div>
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 online
                                   ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                                  : 'bg-[var(--bg-surface-subtle)] text-[var(--text-muted)]'
                               }`}
                             >
                               {online ? 'Online' : 'Open Chat'}
@@ -3758,7 +3682,7 @@ export const TeamsChatPage: React.FC = () => {
 
             {/* Non-Organization Users Detected on Platform (Require Invite Link) */}
             {externalNonOrgUsers.length > 0 && (
-              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div className="space-y-1.5 pt-2 border-t border-[var(--border-hairline)]">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                   Outside Your Organization · Invite Link Required ({externalNonOrgUsers.length})
                 </label>
@@ -3771,10 +3695,10 @@ export const TeamsChatPage: React.FC = () => {
                       <div className="flex items-center gap-2.5 truncate">
                         <Avatar user={extUser} size="sm" />
                         <div className="truncate">
-                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                          <p className="text-xs font-bold text-[var(--text-primary)] truncate">
                             {safeName(extUser)}
                           </p>
-                          <p className="text-[10px] text-slate-400 truncate">
+                          <p className="text-[10px] text-[var(--text-muted)] truncate">
                             {safeEmail(extUser)} · Not in Organization
                           </p>
                         </div>
@@ -3811,7 +3735,7 @@ export const TeamsChatPage: React.FC = () => {
               if (availableSuggestions.length === 0) return null;
               return (
                 <div className="space-y-1.5 pt-1">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     External Contacts · Click to Generate Invite Link
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -3833,23 +3757,23 @@ export const TeamsChatPage: React.FC = () => {
 
             {/* Generated Organization Invite Link Callout */}
             {generatedInviteLinkInfo && (
-              <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 space-y-2.5 animate-popup-in">
+              <div className="p-3.5 rounded-2xl bg-[var(--bg-sage)] border border-[var(--border-strong)] space-y-2.5 animate-popup-in">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-300">
                       External User · Organization Invite Link Required
                     </span>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1">
+                    <h4 className="text-xs font-bold text-[var(--text-primary)] mt-1">
                       Invite Link Created for {generatedInviteLinkInfo.name} ({generatedInviteLinkInfo.email})
                     </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] text-[var(--text-secondary)]">
                       Only organization members can join Direct Messages. Share this invite link (also emailed to them) so they can join your organization:
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setGeneratedInviteLinkInfo(null)}
-                    className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                    className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs cursor-pointer"
                   >
                     ✕
                   </button>
@@ -3860,7 +3784,7 @@ export const TeamsChatPage: React.FC = () => {
                     type="text"
                     readOnly
                     value={generatedInviteLinkInfo.inviteUrl}
-                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[10px]"
+                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-[var(--text-primary)] font-mono text-[10px]"
                   />
                   <Button
                     type="button"
@@ -3881,14 +3805,14 @@ export const TeamsChatPage: React.FC = () => {
                     onClick={() => {
                       window.dispatchEvent(new CustomEvent('omni_open_email_center', { detail: { tab: 'outbox' } }));
                     }}
-                    className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
                   >
                     ✉️ View Sent Invite Email in Outbox →
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSimulateInviteAccept(generatedInviteLinkInfo)}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer"
+                    className="px-2.5 py-1 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-[10px] font-bold cursor-pointer"
                   >
                     ⚡ Simulate {generatedInviteLinkInfo.name} Accepting Invite
                   </button>
@@ -3898,30 +3822,30 @@ export const TeamsChatPage: React.FC = () => {
 
             <form
               onSubmit={handleAddPersonSubmit}
-              className="space-y-3 text-xs pt-2 border-t border-slate-100 dark:border-slate-700"
+              className="space-y-3 text-xs pt-2 border-t border-[var(--border-hairline)]"
             >
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                   Find Org Member or Send External Invite Link
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                   If the person is already in your organization, chat opens immediately. Otherwise, an Organization Invite Link will be generated and emailed.
                 </p>
               </div>
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Full Name *</label>
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Full Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Sarah Jenkins"
                   value={newPersonName}
                   onChange={e => setNewPersonName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                  className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                   Email Address *
                 </label>
                 <input
@@ -3930,16 +3854,16 @@ export const TeamsChatPage: React.FC = () => {
                   placeholder="e.g. sarah@company.com"
                   value={newPersonEmail}
                   onChange={e => setNewPersonEmail(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                  className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Role Upon Joining</label>
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">Role Upon Joining</label>
                 <select
                   value={newPersonRole}
                   onChange={e => setNewPersonRole(normalizeUserRole(e.target.value))}
-                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                  className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 >
                   <option value={UserRole.MEMBER}>Member</option>
                   <option value={UserRole.PROJECT_MANAGER}>Project Manager</option>
@@ -3948,11 +3872,11 @@ export const TeamsChatPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
                 <Button variant="outline" size="sm" type="button" onClick={() => setIsAddPersonModalOpen(false)}>
                   Close
                 </Button>
-                <Button variant="primary" size="sm" type="submit" disabled={!newPersonName.trim()}>
+                <Button variant="lime" size="sm" type="submit" disabled={!newPersonName.trim()}>
                   Start Chat or Generate Invite Link
                 </Button>
               </div>
@@ -3964,31 +3888,31 @@ export const TeamsChatPage: React.FC = () => {
       {/* 6. Quick Schedule Meeting & Send RSVP Invite Modal */}
       {isScheduleModalOpen && currentUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
           onClick={() => setIsScheduleModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
+            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <ICON_MAP.CalendarIcon className="w-5 h-5 text-indigo-500" />
+                <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <ICON_MAP.CalendarIcon className="w-5 h-5 text-[#4E6126] dark:text-[#CCF048]" />
                   <span>
                     {activeDirectUser
                       ? `Schedule 1:1 Meeting with ${safeName(activeDirectUser)}`
                       : `Schedule Channel Meeting in #${activeChannel?.name || 'general'}`}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Sends Calendar + Chat invites so all attendees can RSVP (Going / Maybe / Decline)
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsScheduleModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               >
                 ✕
               </button>
@@ -4052,7 +3976,7 @@ export const TeamsChatPage: React.FC = () => {
               className="space-y-3.5 text-xs"
             >
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                   Meeting Title *
                 </label>
                 <input
@@ -4060,19 +3984,19 @@ export const TeamsChatPage: React.FC = () => {
                   required
                   value={schedTitle}
                   onChange={e => setSchedTitle(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                  className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                     Meeting Category
                   </label>
                   <select
                     value={schedCategory}
                     onChange={e => setSchedCategory(e.target.value as CalendarEventCategory)}
-                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+                    className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                   >
                     <option value="sprint_planning">Sprint Planning & Prep</option>
                     <option value="project_update">Project Update & Review</option>
@@ -4084,7 +4008,7 @@ export const TeamsChatPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                     Date
                   </label>
                   <input
@@ -4092,14 +4016,14 @@ export const TeamsChatPage: React.FC = () => {
                     required
                     value={schedDate}
                     onChange={e => setSchedDate(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 font-mono"
+                    className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                     Start Time
                   </label>
                   <input
@@ -4107,11 +4031,11 @@ export const TeamsChatPage: React.FC = () => {
                     required
                     value={schedStart}
                     onChange={e => setSchedStart(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 font-mono"
+                    className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                     End Time
                   </label>
                   <input
@@ -4119,31 +4043,31 @@ export const TeamsChatPage: React.FC = () => {
                     required
                     value={schedEnd}
                     onChange={e => setSchedEnd(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 font-mono"
+                    className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                <label className="block font-semibold mb-1 text-[var(--text-secondary)]">
                   Meeting Agenda & Sprint Prep Notes
                 </label>
                 <textarea
                   rows={2}
                   value={schedNotes}
                   onChange={e => setSchedNotes(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 resize-none"
+                  className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex items-center justify-between pt-3 border-t border-[var(--border-hairline)]">
                 <button
                   type="button"
                   onClick={() => {
                     setIsScheduleModalOpen(false);
                     setActiveView('calendar_view');
                   }}
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
                 >
                   Open Full Calendar View →
                 </button>
@@ -4156,7 +4080,7 @@ export const TeamsChatPage: React.FC = () => {
                   >
                     Cancel
                   </Button>
-                  <Button variant="primary" size="sm" type="submit">
+                  <Button variant="lime" size="sm" type="submit">
                     Send Invite & Request RSVP
                   </Button>
                 </div>

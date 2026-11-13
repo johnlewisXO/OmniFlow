@@ -571,23 +571,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 transition-opacity duration-200 ${
-        darkMode ? 'bg-slate-950/70 backdrop-blur-md' : 'bg-slate-900/40 backdrop-blur-md'
-      } ${
+      className={`fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 transition-opacity duration-200 bg-black/50 backdrop-blur-sm ${
         isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
       }`}
       onClick={onClose}
     >
       <div
         data-command-palette="true"
-        className={`w-full max-w-2xl command-palette-surface rounded-[20px] shadow-2xl border overflow-hidden transition-all ${
+        className={`w-full max-w-2xl command-palette-surface rounded-[20px] shadow-2xl border border-[var(--border-hairline)] overflow-hidden transition-all bg-[var(--bg-surface)] text-[var(--text-primary)] ${
           isClosing ? 'animate-modal-disappear' : 'animate-modal-appear'
-        } ${
-          darkMode ? 'bg-slate-900 border-slate-700/80 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
         }`}
-        style={{
-          backgroundColor: darkMode ? '#0F172A' : '#FFFFFF',
-        }}
         onClick={e => e.stopPropagation()}
       >
         {/* Top Command Input Bar */}
@@ -600,9 +593,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
               items[selectedIndex].action();
             }
           }}
-          className={`flex items-center px-4 py-3.5 border-b ${
-            darkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'
-          }`}
+          className="flex items-center px-4 py-3.5 border-b border-[var(--border-hairline)] bg-[var(--bg-surface)]"
         >
           <AIBotFace mood={isAIThinking ? 'thinking' : aiResponse ? 'speaking' : 'idle'} size="sm" className="mr-3 flex-shrink-0" />
           <input
@@ -614,35 +605,25 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            className={`flex-1 bg-transparent border-none outline-none text-sm sm:text-base font-medium placeholder:font-normal ${
-              darkMode ? 'placeholder:text-slate-500 text-slate-100' : 'placeholder:text-slate-400 text-slate-800'
-            }`}
+            className="flex-1 bg-transparent border-none outline-none text-sm sm:text-base font-medium placeholder:font-normal placeholder:text-[var(--text-muted)] text-[var(--text-primary)] focus:ring-0 focus:shadow-none"
           />
           {query.trim() && (
             <button
               type="button"
               onClick={() => handleRunAICommand()}
               disabled={isAIThinking}
-              className="mr-2 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+              className="mr-2 px-3 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
             >
               {isAIThinking ? 'Thinking...' : 'Run AI ↵'}
             </button>
           )}
-          <kbd
-            className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded border ${
-              darkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
-          >
+          <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded border bg-[var(--bg-sage)] border-[var(--border-hairline)] text-[var(--text-secondary)]">
             ESC
           </kbd>
         </form>
 
         {/* Segmented Search Scope Filter Tabs */}
-        <div
-          className={`flex items-center gap-1 px-4 py-2 border-b overflow-x-auto scrollbar-none ${
-            darkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-100'
-          }`}
-        >
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] overflow-x-auto scrollbar-none">
           {(
             [
               { id: 'all', label: 'All' },
@@ -660,12 +641,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                 setSelectedCategory(tab.id);
                 setSelectedIndex(0);
               }}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                 selectedCategory === tab.id
-                  ? 'bg-indigo-600 text-white'
-                  : darkMode
-                  ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
               }`}
             >
               {tab.label}
@@ -675,13 +654,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
         {/* AI Co-Pilot Natural Language Execution Panel */}
         {(isAIThinking || aiResponse) && (
-          <div
-            className={`p-4 border-b space-y-3 ${
-              darkMode ? 'bg-indigo-950/25 border-slate-800' : 'bg-indigo-50/50 border-indigo-100'
-            }`}
-          >
+          <div className="p-4 border-b border-[var(--border-hairline)] bg-[var(--bg-sage)] space-y-3">
             {isAIThinking ? (
-              <div className="flex items-center gap-3 text-xs text-indigo-600 dark:text-indigo-400 py-2">
+              <div className="flex items-center gap-3 text-xs text-[#4E6126] dark:text-[#CCF048] py-2">
                 <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
                 <span>AI Co-Pilot is analyzing workspace context ({workspaceContext.activeProjectName})...</span>
               </div>
@@ -690,10 +665,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+                      <div className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048]">
                         AI Command Centre · {workspaceContext.activeProjectName}
                       </div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                      <h4 className="text-sm font-bold text-[var(--text-primary)] mt-0.5">
                         {aiResponse.headline}
                       </h4>
                     </div>
@@ -702,30 +677,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                         type="button"
                         onClick={handleExecuteAIAction}
                         disabled={isExecutingAIAction}
-                        className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                        className="px-3.5 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
                       >
                         {isExecutingAIAction ? 'Executing...' : aiResponse.suggestedActionLabel}
                       </button>
                     )}
                   </div>
 
-                  <div className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                  <div className="text-xs text-[var(--text-secondary)] whitespace-pre-line leading-relaxed">
                     {aiResponse.answerMarkdown}
                   </div>
 
                   {aiResponse.followUpPrompts?.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] text-slate-400">Next:</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Next:</span>
                       {aiResponse.followUpPrompts.map((fp, i) => (
                         <button
                           key={i}
                           type="button"
                           onClick={() => handleRunAICommand(fp)}
-                          className={`text-[11px] px-2 py-0.5 rounded border transition-colors cursor-pointer ${
-                            darkMode
-                              ? 'border-slate-700 bg-slate-900 text-slate-300 hover:border-indigo-500'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-400'
-                          }`}
+                          className="text-[11px] px-2.5 py-0.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                         >
                           {fp}
                         </button>
@@ -739,17 +710,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         )}
 
         {/* Results List */}
-        <div ref={listRef} className={`max-h-[340px] sm:max-h-[380px] overflow-y-auto p-2 scrollbar-thin ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
+        <div ref={listRef} className="max-h-[340px] sm:max-h-[380px] overflow-y-auto p-2 scrollbar-thin bg-[var(--bg-surface)]">
           {items.length === 0 ? (
             <div className="py-10 text-center space-y-2">
-              <ICON_MAP.SparklesIcon className="w-7 h-7 mx-auto text-indigo-500 opacity-70" />
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <ICON_MAP.SparklesIcon className="w-7 h-7 mx-auto text-[#4E6126] dark:text-[#CCF048] opacity-80" />
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
                 Execute "{query}" with AI Co-Pilot
               </p>
               <button
                 type="button"
                 onClick={() => handleRunAICommand()}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer"
               >
                 Ask AI Co-Pilot Now
               </button>
@@ -765,32 +736,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                     data-index={idx}
                     onClick={item.action}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-colors ${
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
                       isSelected
-                        ? darkMode
-                          ? 'bg-indigo-600/20 text-white'
-                          : 'bg-indigo-50 text-slate-900'
-                        : darkMode
-                        ? 'hover:bg-slate-800/60 text-slate-300'
-                        : 'hover:bg-slate-50 text-slate-700'
+                        ? 'bg-[var(--bg-sage)] text-[var(--text-primary)]'
+                        : 'hover:bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)]'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 pr-2">
                       <div
                         className={`p-2 rounded-lg flex-shrink-0 ${
                           isSelected
-                            ? 'bg-indigo-600 text-white'
-                            : darkMode
-                            ? 'bg-slate-800 text-slate-400'
-                            : 'bg-slate-100 text-slate-500'
+                            ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511]'
+                            : 'bg-[var(--bg-sage)] text-[var(--text-secondary)]'
                         }`}
                       >
                         <IconComponent className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-xs sm:text-sm truncate">{item.title}</div>
+                        <div className="font-semibold text-xs sm:text-sm text-[var(--text-primary)] truncate">{item.title}</div>
                         {item.subtitle && (
-                          <div className={`text-[11px] truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <div className="text-[11px] truncate text-[var(--text-muted)]">
                             {item.subtitle}
                           </div>
                         )}
@@ -798,7 +763,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                     </div>
 
                     {item.meta && (
-                      <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 whitespace-nowrap">
+                      <span className="text-[11px] font-mono text-[var(--text-muted)] flex-shrink-0 whitespace-nowrap">
                         {item.meta}
                       </span>
                     )}
@@ -810,14 +775,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         </div>
 
         {/* Footer Context & Shortcuts Bar */}
-        <div
-          className={`px-4 py-2.5 border-t flex items-center justify-between text-[11px] ${
-            darkMode ? 'bg-slate-900/90 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'
-          }`}
-        >
+        <div className="px-4 py-2.5 border-t border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
           <div className="flex items-center gap-3">
             <span>
-              Context: <strong className="text-slate-700 dark:text-slate-200">{workspaceContext.activeProjectName}</strong>
+              Context: <strong className="text-[var(--text-primary)]">{workspaceContext.activeProjectName}</strong>
             </span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums">{workspaceContext.completionRate}% velocity</span>

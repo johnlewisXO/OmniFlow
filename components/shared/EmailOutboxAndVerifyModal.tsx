@@ -213,25 +213,25 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
     >
       <div className="space-y-4 text-xs">
         {/* Top Mode Switcher */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-700/80">
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--border-hairline)]">
+          <div className="flex items-center gap-1.5 bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] p-1 rounded-full">
             <button
               type="button"
               onClick={() => setActiveTab('verify')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'verify'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />
               <span>Email Verification</span>
               {isVerified ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px]">
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[9px] whitespace-nowrap">
                   Verified
                 </span>
               ) : (
-                <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[9px]">
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] whitespace-nowrap">
                   Unverified
                 </span>
               )}
@@ -239,22 +239,22 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
             <button
               type="button"
               onClick={() => setActiveTab('outbox')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'outbox'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               <ICON_MAP.InboxIcon className="w-3.5 h-3.5" />
-              <span>Live Email Outbox ({emails.length})</span>
+              <span className="tabular-nums">Live Email Outbox ({emails.length})</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('setup_guide')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'setup_guide'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               <ICON_MAP.CogIcon className="w-3.5 h-3.5" />
@@ -296,7 +296,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       {isVerified ? 'Email Identity Verified' : 'Email Verification Recommended'}
                     </h4>
                     {authProvider === 'google' && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-600 dark:text-indigo-300">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] whitespace-nowrap">
                         Google SSO Verified
                       </span>
                     )}
@@ -330,16 +330,14 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
             {/* Verification Input & 1-Click Test Card */}
             {!isVerified && (
               <div
-                className={`p-4 rounded-2xl border space-y-3 ${
-                  darkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
-                }`}
+                className="p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <h5 className="font-bold text-slate-900 dark:text-white">
+                  <h5 className="font-bold text-[var(--text-primary)]">
                     Enter 6-Digit Verification Code
                   </h5>
                   {generatedOtp && (
-                    <span className="px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-mono text-xs font-bold">
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] font-mono text-xs font-bold tabular-nums whitespace-nowrap">
                       Latest Code: {generatedOtp}
                     </span>
                   )}
@@ -413,14 +411,10 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
           /* Live Email Outbox Split View */
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 min-h-[340px]">
             <div
-              className={`md:col-span-5 rounded-2xl border overflow-y-auto max-h-[380px] divide-y ${
-                darkMode
-                  ? 'bg-slate-900/50 border-slate-700 divide-slate-800'
-                  : 'bg-slate-50 border-slate-200 divide-slate-200/70'
-              }`}
+              className="md:col-span-5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] overflow-y-auto max-h-[380px] divide-y divide-[var(--border-hairline)]"
             >
               {emails.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 space-y-2">
+                <div className="p-8 text-center text-[var(--text-muted)] space-y-2">
                   <ICON_MAP.InboxIcon className="w-8 h-8 mx-auto opacity-50" />
                   <p className="font-semibold">No emails sent yet</p>
                   <p className="text-[11px]">
@@ -440,12 +434,12 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       }}
                       className={`w-full p-3 text-left transition-colors cursor-pointer ${
                         active
-                          ? 'bg-indigo-600/15 dark:bg-indigo-500/20'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                          ? 'bg-[var(--bg-sage)]'
+                          : 'hover:bg-[var(--bg-sage-hover)]'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] whitespace-nowrap">
                           {item.category.replace(/_/g, ' ')}
                         </span>
                         <span className="text-[10px] text-slate-400">
@@ -520,19 +514,17 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
         {activeTab === 'setup_guide' && (
           <div className="space-y-4 max-h-[440px] overflow-y-auto pr-1 scrollbar-thin">
             <div
-              className={`p-4 rounded-2xl border space-y-2.5 ${
-                darkMode ? 'bg-slate-900/70 border-slate-700' : 'bg-slate-50 border-slate-200'
-              }`}
+              className="p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5"
             >
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h4 className="text-sm font-bold text-[var(--text-primary)]">
                 1. Fix Production Links in Supabase Auth Emails (Stop localhost:3000 Redirects)
               </h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 In your Supabase Dashboard (<strong>Authentication → URL Configuration</strong>), replace{' '}
                 <code>http://localhost:3000</code> with your live production URL so Password Reset, Magic Links, and Email Confirmations always point to production:
               </p>
               <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 font-mono text-[11px]">
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#131511] border border-[#2B3026] text-[#F2F3EE] font-mono text-[11px]">
                   <span className="truncate">
                     Site URL: {typeof window !== 'undefined' ? window.location.origin : 'https://ais-pre-ifrhce76mi5e2hi5jqoeac-559987343079.europe-west2.run.app'}
                   </span>
@@ -542,12 +534,12 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       navigator.clipboard?.writeText(window.location.origin);
                       addToast('Copied Site URL', 'Paste this into Supabase → Authentication → URL Configuration → Site URL', 'success');
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0"
+                    className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
                   >
                     Copy
                   </button>
                 </div>
-                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 font-mono text-[11px]">
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#131511] border border-[#2B3026] text-[#F2F3EE] font-mono text-[11px]">
                   <span className="truncate">
                     Redirect URLs: {typeof window !== 'undefined' ? `${window.location.origin}/**` : 'https://ais-pre-ifrhce76mi5e2hi5jqoeac-559987343079.europe-west2.run.app/**'}
                   </span>
@@ -557,7 +549,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       navigator.clipboard?.writeText(`${window.location.origin}/**`);
                       addToast('Copied Redirect Wildcard', 'Add this to Supabase → Authentication → URL Configuration → Redirect URLs', 'success');
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0"
+                    className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
                   >
                     Copy
                   </button>
@@ -566,14 +558,12 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
             </div>
 
             <div
-              className={`p-4 rounded-2xl border space-y-2.5 ${
-                darkMode ? 'bg-slate-900/70 border-slate-700' : 'bg-slate-50 border-slate-200'
-              }`}
+              className="p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5"
             >
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h4 className="text-sm font-bold text-[var(--text-primary)]">
                 2. Configure Google SSO in Supabase & Google Cloud Console
               </h4>
-              <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <ol className="list-decimal list-inside space-y-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
                 <li>
                   Open <strong>Google Cloud Console → APIs &amp; Services → Credentials → Create OAuth 2.0 Client ID</strong> (Web Application).
                 </li>
@@ -581,7 +571,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                   Add this exact <strong>Authorized Redirect URI</strong> to your Google OAuth Client:
                 </li>
               </ol>
-              <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 font-mono text-[11px]">
+              <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#131511] border border-[#2B3026] text-[#F2F3EE] font-mono text-[11px]">
                 <span className="truncate">https://sqzjlxayhghoxjloaddo.supabase.co/auth/v1/callback</span>
                 <button
                   type="button"
@@ -589,21 +579,19 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                     navigator.clipboard?.writeText('https://sqzjlxayhghoxjloaddo.supabase.co/auth/v1/callback');
                     addToast('Copied Callback URI', 'Paste into Google Cloud Console → Authorized redirect URIs', 'success');
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0"
+                  className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
                 >
                   Copy
                 </button>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 3. Copy the resulting <strong>Client ID</strong> and <strong>Client Secret</strong> into{' '}
                 <strong>Supabase Dashboard → Authentication → Providers → Google</strong> and toggle <strong>Enable Sign in with Google</strong> ON.
               </p>
             </div>
 
             <div
-              className={`p-4 rounded-2xl border space-y-2 ${
-                darkMode ? 'bg-slate-900/70 border-slate-700' : 'bg-slate-50 border-slate-200'
-              }`}
+              className="p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2"
             >
               <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                 3. Configure Custom SMTP for Unlimited Transactional &amp; Invite Emails

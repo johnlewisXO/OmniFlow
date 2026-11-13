@@ -137,21 +137,21 @@ export const HeroSection: React.FC = () => {
   return (
     <section
       id="product-studio"
-      className="relative pt-28 pb-20 md:pt-36 md:pb-28 overflow-hidden bg-[#070A12]"
+      className="relative pt-28 pb-20 md:pt-36 md:pb-28 overflow-hidden bg-[#131511]"
     >
-      {/* Subtle Radial Obsidian Atmosphere */}
+      {/* Subtle Radial Obsidian-Sage Atmosphere */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.16) 0%, rgba(15, 23, 42, 0.06) 45%, transparent 75%)',
+            'radial-gradient(circle at 50% 0%, rgba(204, 240, 72, 0.14) 0%, rgba(36, 41, 31, 0.18) 45%, transparent 75%)',
         }}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Hero Proposition */}
         <div className="max-w-3xl mx-auto text-center space-y-6">
-          <p className="text-xs sm:text-sm font-medium tracking-widest uppercase text-indigo-400">
+          <p className="text-xs sm:text-sm font-medium tracking-widest uppercase text-[#CCF048]">
             Enterprise Project Intelligence · Real-Time 1080p Collaboration · Edge Compute
           </p>
 
@@ -162,7 +162,7 @@ export const HeroSection: React.FC = () => {
             Command Every Sprint, Standup, and Deliverable in One Glassmorphic Studio.
           </h1>
 
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-[#D6DACF] leading-relaxed max-w-2xl mx-auto">
             Omni Flow unifies multi-tenant Kanban execution, autonomous AI project blueprints,
             lossless 48kHz Opus &amp; 1080p WebRTC video calls, and Supabase Edge Function
             automations—engineered for desktop precision and mobile thumb-zone speed.
@@ -173,7 +173,7 @@ export const HeroSection: React.FC = () => {
             <a
               href={currentUser ? '#/app/overview' : '#/signup'}
               onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-xl shadow-indigo-600/30 border border-indigo-400/30 transition-all whitespace-nowrap"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-sm font-semibold shadow-xl shadow-black/30 border border-[#CCF048]/40 transition-all whitespace-nowrap"
             >
               <span>{currentUser ? 'Enter Workspace Studio' : 'Start Free Workspace'}</span>
               <span aria-hidden="true">→</span>
@@ -205,29 +205,29 @@ export const HeroSection: React.FC = () => {
         </div>
 
         {/* Interactive Live Product Preview Studio */}
-        <div className="mt-12 md:mt-16 rounded-[32px] border border-white/10 bg-slate-900/65 backdrop-blur-2xl shadow-2xl shadow-black/70 overflow-hidden">
+        <div className="mt-12 md:mt-16 rounded-[32px] border border-[#2B3026] bg-[#1A1D17]/85 backdrop-blur-2xl shadow-2xl shadow-black/70 overflow-hidden">
           {/* Studio Window Header & Interactive Tab Bar */}
-          <div className="px-4 sm:px-6 py-3.5 border-b border-white/[0.08] bg-[#0B0F1C]/90 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="px-4 sm:px-6 py-3.5 border-b border-[#2B3026] bg-[#161913]/95 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-700" />
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-700" />
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-700" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#3B4234]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#3B4234]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#3B4234]" />
               </div>
-              <span className="text-xs font-mono text-slate-400 truncate">
+              <span className="text-xs font-mono text-[#A6AC9C] truncate">
                 omniflow.studio / interactive-preview
               </span>
             </div>
 
             {/* Preview Mode Switcher (Interactive Simulator vs 4K Obsidian Render) */}
-            <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-full border border-white/10">
+            <div className="flex items-center gap-1.5 bg-[#131511]/70 p-1 rounded-full border border-[#2B3026]">
               <button
                 type="button"
                 onClick={() => setPreviewMode('interactive')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   previewMode === 'interactive'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-[#CCF048] text-[#131511] shadow-xs'
+                    : 'text-[#A6AC9C] hover:text-white hover:bg-white/5'
                 }`}
               >
                 ⚡ Live Simulator
@@ -235,10 +235,10 @@ export const HeroSection: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPreviewMode('cinematic')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   previewMode === 'cinematic'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-[#CCF048] text-[#131511] shadow-xs'
+                    : 'text-[#A6AC9C] hover:text-white hover:bg-white/5'
                 }`}
               >
                 💎 4K Obsidian Render
@@ -255,8 +255,8 @@ export const HeroSection: React.FC = () => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                       activeTab === tab.id
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                        ? 'bg-[#CCF048] text-[#131511] shadow-md shadow-black/25'
+                        : 'text-[#A6AC9C] hover:text-[#F2F3EE] hover:bg-white/[0.04]'
                     }`}
                   >
                     <span className="font-mono text-[11px] opacity-75">{tab.number}.</span>
@@ -268,48 +268,48 @@ export const HeroSection: React.FC = () => {
           </div>
 
           {/* Studio Stage Body */}
-          <div className="p-4 sm:p-6 lg:p-8 bg-gradient-to-b from-[#0B101E]/90 to-[#070A12]/95 min-h-[420px]">
+          <div className="p-4 sm:p-6 lg:p-8 bg-gradient-to-b from-[#1A1D17]/95 to-[#131511]/95 min-h-[420px]">
             {/* CINEMATIC 4K HIGH-RES VIEW */}
             {previewMode === 'cinematic' && (
               <div className="space-y-4">
-                <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black">
+                <div className="relative rounded-2xl overflow-hidden border border-[#2B3026] shadow-2xl bg-[#131511]">
                   <img
                     src="/images/landing_hero_preview.jpg"
                     alt="Omni Flow Dark Obsidian SaaS Workspace Studio 4K Preview"
                     className="w-full h-auto object-cover rounded-2xl"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#070A12]/80 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#131511]/85 via-transparent to-transparent pointer-events-none" />
                   
                   {/* Floating Glassmorphic HUD Badges */}
-                  <div className="absolute top-4 left-4 p-3 rounded-xl bg-slate-900/85 backdrop-blur-md border border-white/15 shadow-xl text-left hidden sm:block">
+                  <div className="absolute top-4 left-4 p-3 rounded-xl bg-[#1A1D17]/90 backdrop-blur-md border border-[#2B3026] shadow-xl text-left hidden sm:block">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                       <span className="text-[11px] font-mono font-bold text-white">PROJECT OMEGA: SPRINT 14</span>
                     </div>
-                    <div className="text-[10px] text-slate-300 mt-0.5">Velocity Target: 75% · Real-time 68% Burndown</div>
+                    <div className="text-[10px] text-[#D6DACF] mt-0.5">Velocity Target: 75% · Real-time 68% Burndown</div>
                   </div>
 
-                  <div className="absolute top-4 right-4 p-3 rounded-xl bg-slate-900/85 backdrop-blur-md border border-white/15 shadow-xl text-right hidden sm:block">
-                    <div className="text-[11px] font-mono font-bold text-indigo-400">1080p60 WebRTC Studio</div>
-                    <div className="text-[10px] text-slate-300 mt-0.5">Lossless 48kHz Opus · Hardware Echo Guard</div>
+                  <div className="absolute top-4 right-4 p-3 rounded-xl bg-[#1A1D17]/90 backdrop-blur-md border border-[#2B3026] shadow-xl text-right hidden sm:block">
+                    <div className="text-[11px] font-mono font-bold text-[#CCF048]">1080p60 WebRTC Studio</div>
+                    <div className="text-[10px] text-[#D6DACF] mt-0.5">Lossless 48kHz Opus · Hardware Echo Guard</div>
                   </div>
 
-                  <div className="absolute bottom-4 left-4 p-2.5 rounded-xl bg-slate-900/85 backdrop-blur-md border border-emerald-500/30 text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-2">
+                  <div className="absolute bottom-4 left-4 p-2.5 rounded-xl bg-[#1A1D17]/90 backdrop-blur-md border border-emerald-500/30 text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-2">
                     <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-400" />
                     <span>✓ Dual-Keyed Persistent RBAC Sync</span>
                   </div>
 
-                  <div className="absolute bottom-4 right-4 p-2.5 rounded-xl bg-slate-900/85 backdrop-blur-md border border-white/15 text-[10px] font-mono text-slate-300 font-bold hidden md:block">
+                  <div className="absolute bottom-4 right-4 p-2.5 rounded-xl bg-[#1A1D17]/90 backdrop-blur-md border border-[#2B3026] text-[10px] font-mono text-[#D6DACF] font-bold hidden md:block">
                     Segmented Mobile Tabs · Zero Overlap
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 px-1 pt-1">
+                <div className="flex flex-wrap items-center justify-between text-xs text-[#A6AC9C] px-1 pt-1">
                   <span>Cinematic 4K render captured from production canvas</span>
                   <button
                     type="button"
                     onClick={() => setPreviewMode('interactive')}
-                    className="text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer"
+                    className="text-[#CCF048] hover:text-[#D9F66A] font-bold cursor-pointer"
                   >
                     Switch to Interactive Simulator →
                   </button>
@@ -320,9 +320,9 @@ export const HeroSection: React.FC = () => {
             {/* TAB 01: Interactive Kanban & Sprint Velocity */}
             {previewMode === 'interactive' && activeTab === 'kanban' && (
               <div className="space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/[0.07]">
+                <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#2B3026]">
                   <div>
-                    <div className="text-xs text-indigo-400 font-medium">
+                    <div className="text-xs text-[#CCF048] font-medium">
                       Interactive Preview · Click any task card below to advance its workflow stage
                     </div>
                     <h3 className="text-lg font-bold text-white mt-0.5">
@@ -371,22 +371,22 @@ export const HeroSection: React.FC = () => {
                             key={task.id}
                             type="button"
                             onClick={() => cycleTaskStatus(task.id)}
-                            className="w-full text-left p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-white/[0.08] hover:border-indigo-500/40 transition-all group cursor-pointer space-y-2"
+                            className="w-full text-left p-3 rounded-xl bg-[#24291F]/90 hover:bg-[#2B3026] border border-[#3B4234] hover:border-[#CCF048]/50 transition-all group cursor-pointer space-y-2"
                           >
-                            <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono tabular-nums">
+                            <div className="flex items-center justify-between text-[11px] text-[#A6AC9C] font-mono tabular-nums">
                               <span>
                                 {task.key} · {task.priority}
                               </span>
-                              <span className="text-indigo-400 font-semibold">
+                              <span className="text-[#CCF048] font-semibold">
                                 {task.points} pts
                               </span>
                             </div>
-                            <p className="text-xs font-semibold text-slate-100 group-hover:text-white leading-snug">
+                            <p className="text-xs font-semibold text-[#F2F3EE] group-hover:text-white leading-snug">
                               {task.title}
                             </p>
-                            <div className="flex items-center justify-between pt-1 text-[10px] text-slate-400">
+                            <div className="flex items-center justify-between pt-1 text-[10px] text-[#A6AC9C]">
                               <span>Click to advance stage →</span>
-                              <span className="w-5 h-5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center font-bold">
+                              <span className="w-5 h-5 rounded-full bg-[#CCF048]/15 border border-[#CCF048]/40 text-[#CCF048] flex items-center justify-center font-bold">
                                 {task.assignee}
                               </span>
                             </div>
@@ -403,13 +403,13 @@ export const HeroSection: React.FC = () => {
             {previewMode === 'interactive' && activeTab === 'copilot' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <div className="lg:col-span-5 space-y-4">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[#CCF048]">
                     Server-Side Gemini 3.8 Flash &amp; Pro Synthesis
                   </div>
                   <h3 className="text-xl font-bold text-white">
                     Natural Language Goal → Multi-Sprint Execution Blueprint
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#D6DACF] leading-relaxed">
                     Select an initiative below to preview how the AI Co-Pilot Edge Function
                     synthesizes Fibonacci story points, release gates, and risk mitigations.
                   </p>
@@ -422,11 +422,11 @@ export const HeroSection: React.FC = () => {
                         onClick={() => setSelectedPromptIdx(idx)}
                         className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
                           selectedPromptIdx === idx
-                            ? 'bg-indigo-600/15 border-indigo-500/50 text-white'
-                            : 'bg-white/[0.02] border-white/[0.08] text-slate-300 hover:bg-white/[0.04]'
+                            ? 'bg-[#24291F] border-[#CCF048]/60 text-white'
+                            : 'bg-white/[0.02] border-[#2B3026] text-[#D6DACF] hover:bg-white/[0.04]'
                         }`}
                       >
-                        <div className="text-[11px] font-mono text-indigo-400 mb-1">
+                        <div className="text-[11px] font-mono text-[#CCF048] mb-1">
                           Prompt Template 0{idx + 1}
                         </div>
                         <div className="text-xs sm:text-sm font-semibold leading-snug">
@@ -437,22 +437,22 @@ export const HeroSection: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="lg:col-span-7 rounded-xl bg-white/[0.03] border border-white/10 p-5 space-y-4">
+                <div className="lg:col-span-7 rounded-xl bg-white/[0.03] border border-[#2B3026] p-5 space-y-4">
                   {/* High-Res Copilot Interface Visual */}
-                  <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                  <div className="relative rounded-xl overflow-hidden border border-[#2B3026] shadow-lg">
                     <img
                       src="/images/landing_copilot_studio.jpg"
                       alt="3D AI Project Management Copilot Timeline & Risk Matrix"
                       className="w-full h-44 object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent flex items-end p-3">
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#131511]/90 via-transparent to-transparent flex items-end p-3">
                       <span className="text-[11px] font-mono font-bold text-white">
                         Fibonacci Sprint Nodes &amp; Autonomous Risk Radar Telemetry
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/[0.08]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#2B3026]">
                     <div>
                       <span className="text-xs font-mono text-emerald-400">
                         ● Synthesized via /api/edge/ai-copilot-synthesis
@@ -461,7 +461,7 @@ export const HeroSection: React.FC = () => {
                         {sampleBlueprints[selectedPromptIdx].prompt}
                       </h4>
                     </div>
-                    <span className="text-xs font-mono tabular-nums text-slate-300">
+                    <span className="text-xs font-mono tabular-nums text-[#D6DACF]">
                       Confidence: {sampleBlueprints[selectedPromptIdx].confidence} · Risk:{' '}
                       {sampleBlueprints[selectedPromptIdx].riskScore}
                     </span>
@@ -471,28 +471,28 @@ export const HeroSection: React.FC = () => {
                     {sampleBlueprints[selectedPromptIdx].tasks.map((t, i) => (
                       <div
                         key={i}
-                        className="p-3.5 rounded-xl bg-slate-900/90 border border-white/[0.07] flex items-center justify-between gap-4"
+                        className="p-3.5 rounded-xl bg-[#24291F]/90 border border-[#2B3026] flex items-center justify-between gap-4"
                       >
                         <div>
                           <div className="text-xs sm:text-sm font-semibold text-white">
                             {t.title}
                           </div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
+                          <div className="text-[11px] text-[#A6AC9C] mt-0.5">
                             Priority: {t.priority} · Auto-assigned by workload balancer
                           </div>
                         </div>
-                        <span className="font-mono tabular-nums text-xs font-bold text-indigo-400 shrink-0">
+                        <span className="font-mono tabular-nums text-xs font-bold text-[#CCF048] shrink-0">
                           {t.pts} pts
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between text-xs text-slate-400">
+                  <div className="pt-2 flex items-center justify-between text-xs text-[#A6AC9C]">
                     <span>{sampleBlueprints[selectedPromptIdx].sprints}</span>
                     <a
                       href="#/app"
-                      className="text-indigo-400 hover:text-indigo-300 font-semibold"
+                      className="text-[#CCF048] hover:text-[#D9F66A] font-semibold"
                     >
                       Deploy Blueprint in Workspace →
                     </a>
@@ -505,13 +505,13 @@ export const HeroSection: React.FC = () => {
             {previewMode === 'interactive' && activeTab === 'video' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                 <div className="lg:col-span-7 space-y-3">
-                  <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+                  <div className="relative rounded-2xl overflow-hidden border border-[#2B3026] shadow-2xl">
                     <img
                       src="/images/landing_webrtc_studio.jpg"
                       alt="1080p60 WebRTC Video Studio and Collaborative Screen Sharing"
                       className="w-full h-auto object-cover rounded-2xl"
                     />
-                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/15 text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1.5">
+                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-[#1A1D17]/85 backdrop-blur-md border border-[#2B3026] text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                       <span>{hdMode} · 48kHz Opus</span>
                     </div>
@@ -558,9 +558,9 @@ export const HeroSection: React.FC = () => {
             {/* TAB 04: Triggers, Rules & Edge Automations */}
             {previewMode === 'interactive' && activeTab === 'automations' && (
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/[0.08]">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#2B3026]">
                   <div>
-                    <div className="text-xs text-indigo-400 font-medium">
+                    <div className="text-xs text-[#CCF048] font-medium">
                       Deterministic Server-Side Evaluation · Click any rule to toggle state
                     </div>
                     <h3 className="text-lg font-bold text-white mt-0.5">
@@ -605,15 +605,15 @@ export const HeroSection: React.FC = () => {
                         }
                         className={`p-4 rounded-xl border transition-all cursor-pointer space-y-3 ${
                           enabled
-                            ? 'bg-slate-900/90 border-indigo-500/40'
-                            : 'bg-slate-900/40 border-white/[0.06] opacity-60'
+                            ? 'bg-[#24291F]/90 border-[#97B832]/50'
+                            : 'bg-[#1D2118]/50 border-[#2B3026] opacity-60'
                         }`}
                       >
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-mono text-indigo-400">{rule.runs}</span>
+                          <span className="font-mono text-[#CCF048]">{rule.runs}</span>
                           <span
                             className={`font-mono text-[11px] font-bold ${
-                              enabled ? 'text-emerald-400' : 'text-slate-500'
+                              enabled ? 'text-emerald-400' : 'text-[#7C8273]'
                             }`}
                           >
                             {enabled ? '● ENABLED' : '○ PAUSED'}
@@ -621,8 +621,8 @@ export const HeroSection: React.FC = () => {
                         </div>
                         <div className="space-y-1.5 text-xs">
                           <div className="font-semibold text-white">{rule.trigger}</div>
-                          <div className="text-slate-400">{rule.condition}</div>
-                          <div className="text-indigo-300 font-medium">→ {rule.action}</div>
+                          <div className="text-[#A6AC9C]">{rule.condition}</div>
+                          <div className="text-[#CCF048] font-medium">→ {rule.action}</div>
                         </div>
                       </div>
                     );

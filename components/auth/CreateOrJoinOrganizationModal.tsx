@@ -525,7 +525,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
       <div className="p-6 space-y-5">
         {isProcessingInvite ? (
           <div className="text-center py-8 space-y-4">
-            <ICON_MAP.SpinnerIcon className="w-10 h-10 mx-auto text-accent animate-spin" />
+            <ICON_MAP.SpinnerIcon className="w-10 h-10 mx-auto text-[#4E6126] dark:text-[#CCF048] animate-spin" />
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
               {inviteStatusMsg || 'Accepting Organization Invitation...'}
             </h3>
@@ -539,7 +539,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
               className={`p-5 rounded-2xl border ${
                 pendingJoinRequest.status === 'declined'
                   ? 'bg-rose-500/10 border-rose-500/30'
-                  : 'bg-indigo-500/10 border-indigo-500/30'
+                  : 'bg-[var(--bg-sage)] border-[var(--border-strong)]'
               }`}
             >
               <div className="flex items-start gap-3.5">
@@ -550,7 +550,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-400">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
                       {pendingJoinRequest.status === 'declined'
                         ? 'Access Request Declined'
                         : 'Awaiting Project Manager Approval'}
@@ -598,7 +598,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                   <span className="block text-[10px] uppercase tracking-wider opacity-60">
                     Requested Access Role
                   </span>
-                  <span className="font-semibold text-indigo-400">
+                  <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">
                     {pendingJoinRequest.requested_role.replace(/_/g, ' ')}
                   </span>
                 </div>
@@ -644,10 +644,10 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-start gap-3">
+            <div className="p-3.5 rounded-2xl bg-[var(--bg-sage)] border border-[var(--border-strong)] flex items-start gap-3">
               <AIBotFace mood="guiding" size="md" className="flex-shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
-                <div className="font-bold text-indigo-600 dark:text-indigo-300">
+                <div className="font-bold text-[#4E6126] dark:text-[#CCF048]">
                   Zero-Trust Organization Access & Discovery
                 </div>
                 <p className={darkMode ? 'text-slate-300' : 'text-slate-600'}>
@@ -659,9 +659,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Mode Selector Tabs */}
               <div
-                className={`grid grid-cols-2 gap-1.5 p-1 rounded-xl border ${
-                  darkMode ? 'bg-slate-900/80 border-slate-700/70' : 'bg-slate-100 border-slate-200'
-                }`}
+                className="grid grid-cols-2 gap-1.5 p-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]"
               >
                 <button
                   type="button"
@@ -669,12 +667,10 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                     setSetupMode('join');
                     setFormError(null);
                   }}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                     setupMode === 'join'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : darkMode
-                      ? 'text-slate-400 hover:text-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-sm'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <span>🔍 Join Existing Organization</span>
@@ -686,12 +682,10 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                     setSelectedExistingOrg(null);
                     setFormError(null);
                   }}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                     setupMode === 'create'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : darkMode
-                      ? 'text-slate-400 hover:text-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-sm'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <span>✦ Create New Workspace</span>
@@ -722,7 +716,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                   />
                   <div className="absolute right-3 top-2.5 flex items-center gap-1.5">
                     {organizationCheck.loading && (
-                      <ICON_MAP.SpinnerIcon className="w-5 h-5 text-accent animate-spin" />
+                      <ICON_MAP.SpinnerIcon className="w-5 h-5 text-[#4E6126] dark:text-[#CCF048] animate-spin" />
                     )}
                     {!organizationCheck.loading &&
                       organizationCheck.exists === true &&
@@ -760,7 +754,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                           onClick={() => handleSelectOrganizationFromDropdown(org)}
                           className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                             isSelected
-                              ? 'bg-indigo-600/20 text-indigo-300'
+                              ? 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]'
                               : darkMode
                               ? 'hover:bg-slate-800/80 text-slate-200'
                               : 'hover:bg-slate-50 text-slate-800'
@@ -800,7 +794,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                         setIsDropdownOpen(false);
                         setFormError(null);
                       }}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer transition shadow-xs"
+                      className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] cursor-pointer transition shadow-xs whitespace-nowrap"
                     >
                       ✦ Create New Workspace Instead
                     </button>
@@ -824,11 +818,11 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                 {!organizationCheck.loading &&
                   organizationCheck.exists === false &&
                   organizationName.trim() && (
-                    <div className="mt-2 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-between text-xs text-sky-400">
+                    <div className="mt-2 p-2.5 rounded-xl bg-[var(--bg-sage)] border border-[#97B832]/40 flex items-center justify-between text-xs text-[#4E6126] dark:text-[#CCF048]">
                       <span>
                         ✦ New workspace: <strong>{organizationName.trim()}</strong>
                       </span>
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-500/20">
+                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--accent-lime)]/25 whitespace-nowrap">
                         You become Owner
                       </span>
                     </div>
@@ -849,7 +843,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                             onClick={() => setSelectedRole(item.role)}
                             className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                               active
-                                ? 'bg-indigo-600/15 border-indigo-500 ring-1 ring-indigo-500/40'
+                                ? 'bg-[var(--bg-sage)] border-[#97B832] ring-1 ring-[#97B832]/40'
                                 : darkMode
                                 ? 'bg-slate-900/50 border-slate-700/70 hover:border-slate-600'
                                 : 'bg-slate-50 border-slate-200 hover:border-slate-300'
@@ -859,7 +853,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                               <span
                                 className={`text-xs font-bold ${
                                   active
-                                    ? 'text-indigo-400'
+                                    ? 'text-[#4E6126] dark:text-[#CCF048]'
                                     : darkMode
                                     ? 'text-slate-200'
                                     : 'text-slate-800'
@@ -869,7 +863,7 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
                               </span>
                               <span
                                 className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                                  active ? 'border-indigo-400 bg-indigo-500 text-white' : 'border-slate-500'
+                                  active ? 'border-[#97B832] bg-[#CCF048] text-[#131511]' : 'border-slate-500'
                                 }`}
                               >
                                 {active && '✓'}

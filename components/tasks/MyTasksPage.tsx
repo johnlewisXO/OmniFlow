@@ -2,19 +2,23 @@ import React, { useMemo, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Task, TaskPriority, TaskStatus } from '../../types';
-import { isBefore, isToday, startOfDay, parseISO } from 'date-fns';
+import { isBefore, isToday, startOfDay, parseISO, format } from 'date-fns';
 import { generateTaskSummary } from '../../services/aiService';
 import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
 import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
 import { RadialProgressRing } from '../charts/EditorialCharts';
 import { Button } from '../shared/Button';
+import soundService from '../../services/soundService';
 
 export const MyTasksPage: React.FC = () => {
-  const { myTasks, projects, openViewTaskModal } = useAppStore();
+  const { myTasks, projects, openViewTaskModal, updateTask, addToast } = useAppStore();
   const [summary, setSummary] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<'all' | 'dueToday' | 'overdue' | 'upcoming' | 'completed'>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const ClipboardListIcon = ICON_MAP.ClipboardListIcon;
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
@@ -26,7 +30,7 @@ export const MyTasksPage: React.FC = () => {
     try {
       const result = await generateTaskSummary(myTasks);
       setSummary(result);
-    } catch (e) {
+    } catch {
       setSummary('Could not generate task summary right now. Please check your tasks directly below.');
     } finally {
       setIsGenerating(false);
@@ -36,6 +40,21 @@ export const MyTasksPage: React.FC = () => {
   const getProjectName = (projectId: string) => {
     return projects.find(p => p.id === projectId)?.name || 'General Workspace';
   };
+
+  const filteredBaseTasks = useMemo(() => {
+    return myTasks.filter(task => {
+      if (projectFilter !== 'all' && task.projectId !== projectFilter) return false;
+      if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = task.title.toLowerCase().includes(q);
+        const matchesDesc = task.description?.toLowerCase().includes(q);
+        const matchesProj = getProjectName(task.projectId).toLowerCase().includes(q);
+        if (!matchesTitle && !matchesDesc && !matchesProj) return false;
+      }
+      return true;
+    });
+  }, [myTasks, projectFilter, priorityFilter, searchQuery, projects]);
 
   const { overdue, dueToday, upcoming, completed } = useMemo(() => {
     const today = startOfDay(new Date());
@@ -47,7 +66,7 @@ export const MyTasksPage: React.FC = () => {
       completed: [] as Task[],
     };
 
-    myTasks.forEach(task => {
+    filteredBaseTasks.forEach(task => {
       if (task.status === TaskStatus.DONE) {
         categorized.completed.push(task);
         return;
@@ -70,7 +89,7 @@ export const MyTasksPage: React.FC = () => {
     });
 
     const sortTasks = (tasksToSort: Task[]) =>
-      tasksToSort.sort((a, b) => {
+      [...tasksToSort].sort((a, b) => {
         if (a.dueDate && b.dueDate) {
           return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
         }
@@ -87,29 +106,76 @@ export const MyTasksPage: React.FC = () => {
       upcoming: sortTasks(categorized.upcoming),
       completed: sortTasks(categorized.completed),
     };
+  }, [filteredBaseTasks]);
+
+  // Overall stats computed from all assigned tasks (for stable KPI header)
+  const overallStats = useMemo(() => {
+    const today = startOfDay(new Date());
+    let overdueCount = 0;
+    let dueTodayCount = 0;
+    let completedCount = 0;
+    let criticalCount = 0;
+
+    myTasks.forEach(t => {
+      if (t.status === TaskStatus.DONE) {
+        completedCount++;
+        return;
+      }
+      if (t.priority === TaskPriority.CRITICAL) criticalCount++;
+      if (t.dueDate) {
+        const d = startOfDay(parseISO(t.dueDate));
+        if (isBefore(d, today)) overdueCount++;
+        else if (isToday(d)) dueTodayCount++;
+      }
+    });
+
+    const total = myTasks.length;
+    const rate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+    return { total, overdueCount, dueTodayCount, completedCount, criticalCount, rate };
   }, [myTasks]);
 
-  const totalTasks = myTasks.length;
-  const completedCount = completed.length;
-  const completionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
-  const criticalCount = myTasks.filter(t => t.priority === TaskPriority.CRITICAL && t.status !== TaskStatus.DONE).length;
-
   const currentDisplayTasks = useMemo(() => {
-    let list: Task[] = [];
-    if (activeFilterTab === 'dueToday') list = dueToday;
-    else if (activeFilterTab === 'overdue') list = overdue;
-    else if (activeFilterTab === 'upcoming') list = upcoming;
-    else if (activeFilterTab === 'completed') list = completed;
-    else list = [...overdue, ...dueToday, ...upcoming, ...completed];
+    if (activeFilterTab === 'dueToday') return dueToday;
+    if (activeFilterTab === 'overdue') return overdue;
+    if (activeFilterTab === 'upcoming') return upcoming;
+    if (activeFilterTab === 'completed') return completed;
+    return [...overdue, ...dueToday, ...upcoming, ...completed];
+  }, [activeFilterTab, overdue, dueToday, upcoming, completed]);
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        t => t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q))
-      );
+  const agendaSections = useMemo(() => {
+    if (activeFilterTab === 'all') {
+      return [
+        { id: 'overdue', title: 'Overdue', tone: 'danger' as const, tasks: overdue },
+        { id: 'dueToday', title: 'Due Today', tone: 'warning' as const, tasks: dueToday },
+        { id: 'upcoming', title: 'Upcoming & Scheduled', tone: 'lime' as const, tasks: upcoming },
+        { id: 'completed', title: 'Completed', tone: 'success' as const, tasks: completed },
+      ].filter(sec => sec.tasks.length > 0);
     }
-    return list;
-  }, [activeFilterTab, overdue, dueToday, upcoming, completed, searchQuery]);
+
+    const titleMap = {
+      dueToday: { title: 'Due Today', tone: 'warning' as const },
+      overdue: { title: 'Overdue', tone: 'danger' as const },
+      upcoming: { title: 'Upcoming & Scheduled', tone: 'lime' as const },
+      completed: { title: 'Completed', tone: 'success' as const },
+    };
+
+    const meta = titleMap[activeFilterTab];
+    return currentDisplayTasks.length > 0
+      ? [{ id: activeFilterTab, title: meta.title, tone: meta.tone, tasks: currentDisplayTasks }]
+      : [];
+  }, [activeFilterTab, overdue, dueToday, upcoming, completed, currentDisplayTasks]);
+
+  const handleToggleDone = async (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
+    const nextStatus = task.status === TaskStatus.DONE ? TaskStatus.TODO : TaskStatus.DONE;
+    soundService.play(nextStatus === TaskStatus.DONE ? 'task_complete' : 'click_soft');
+    await updateTask(task.id, { status: nextStatus });
+    addToast(
+      nextStatus === TaskStatus.DONE ? 'Task Completed' : 'Task Reopened',
+      `"${task.title}" moved to ${nextStatus === TaskStatus.DONE ? 'Done' : 'To Do'}.`,
+      nextStatus === TaskStatus.DONE ? 'success' : 'info'
+    );
+  };
 
   const getPriorityTone = (priority: TaskPriority): 'danger' | 'warning' | 'neutral' => {
     if (priority === TaskPriority.CRITICAL) return 'danger';
@@ -124,13 +190,20 @@ export const MyTasksPage: React.FC = () => {
     return 'neutral';
   };
 
+  const formatDueDate = (dueDate?: string) => {
+    if (!dueDate) return 'No due date';
+    const parsed = parseISO(dueDate);
+    if (isToday(parsed)) return 'Today';
+    return format(parsed, 'MMM d');
+  };
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full text-[var(--text-primary)] space-y-5 animate-fadeIn">
       {/* 1. Editorial PageHeader */}
       <PageHeader
         eyebrow="Personal Focus"
         title="My Assigned Tasks"
-        subtitle="Stay focused on your highest priority deliverables, upcoming deadlines, and cross-project commitments."
+        subtitle="Prioritized focus agenda across your projects with instant completion controls."
         actions={
           <Button
             variant="lime"
@@ -154,30 +227,30 @@ export const MyTasksPage: React.FC = () => {
           {
             id: 'due_today',
             label: 'Due Today',
-            value: dueToday.length,
-            sublabel: dueToday.length > 0 ? 'Focus required' : 'Clear schedule',
-            tone: dueToday.length > 0 ? 'warning' : 'success',
+            value: overallStats.dueTodayCount,
+            sublabel: overallStats.dueTodayCount > 0 ? 'Focus required' : 'Clear schedule',
+            tone: overallStats.dueTodayCount > 0 ? 'warning' : 'success',
             onClick: () => setActiveFilterTab('dueToday'),
           },
           {
             id: 'overdue',
             label: 'Overdue',
-            value: overdue.length,
-            sublabel: overdue.length > 0 ? 'Needs reschedule' : 'All on track',
-            tone: overdue.length > 0 ? 'danger' : 'success',
+            value: overallStats.overdueCount,
+            sublabel: overallStats.overdueCount > 0 ? 'Needs reschedule' : 'All on track',
+            tone: overallStats.overdueCount > 0 ? 'danger' : 'success',
             onClick: () => setActiveFilterTab('overdue'),
           },
           {
             id: 'completion',
             label: 'Completion Rate',
-            value: `${completionRate}%`,
-            sublabel: `${completedCount}/${totalTasks} finished`,
+            value: `${overallStats.rate}%`,
+            sublabel: `${overallStats.completedCount}/${overallStats.total} finished`,
             visual: (
               <RadialProgressRing
-                value={completionRate}
+                value={overallStats.rate}
                 size={40}
                 strokeWidth={4}
-                tone={completionRate >= 70 ? 'lime' : 'charcoal'}
+                tone={overallStats.rate >= 70 ? 'lime' : 'charcoal'}
                 showLabel={false}
               />
             ),
@@ -185,24 +258,24 @@ export const MyTasksPage: React.FC = () => {
           },
           {
             id: 'critical',
-            label: 'Critical Attention',
-            value: criticalCount,
-            sublabel: `${upcoming.length} upcoming`,
-            tone: criticalCount > 0 ? 'danger' : 'lime',
+            label: 'Critical Open',
+            value: overallStats.criticalCount,
+            sublabel: `${overallStats.total - overallStats.completedCount} active items`,
+            tone: overallStats.criticalCount > 0 ? 'danger' : 'lime',
             onClick: () => setActiveFilterTab('all'),
           },
         ]}
       />
 
-      {/* AI Summary Banner if generated */}
+      {/* AI Briefing Card (clean hairline, zero thick borders) */}
       {summary && (
-        <HairlineCard className="border-l-4 border-l-[var(--accent-lime)] flex items-start gap-3.5">
-          <div className="w-8 h-8 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] flex items-center justify-center shrink-0 mt-0.5">
+        <HairlineCard className="bg-[var(--bg-sage)]/55 flex items-start gap-3.5">
+          <div className="w-8 h-8 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] flex items-center justify-center shrink-0 mt-0.5">
             <SparklesIcon className="w-4 h-4" />
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
-              AI Task Briefing & Prioritization
+              AI Daily Briefing & Prioritization
             </h4>
             <p className="text-xs text-[var(--text-primary)] whitespace-pre-line leading-relaxed">
               {summary}
@@ -219,77 +292,248 @@ export const MyTasksPage: React.FC = () => {
         </HairlineCard>
       )}
 
-      {/* 3. Filter Tabs & Editorial Search Bar */}
-      <HairlineCard padding="sm" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <SegmentedTabs
-          value={activeFilterTab}
-          onChange={setActiveFilterTab}
-          size="sm"
-          options={[
-            { id: 'all', label: 'All', count: totalTasks },
-            { id: 'dueToday', label: 'Due Today', count: dueToday.length },
-            { id: 'overdue', label: 'Overdue', count: overdue.length },
-            { id: 'upcoming', label: 'Upcoming', count: upcoming.length },
-            { id: 'completed', label: 'Done', count: completed.length },
-          ]}
-        />
-
-        <div className="relative w-full sm:w-64 flex items-center">
-          <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
-          <input
-            type="text"
-            placeholder="Search my tasks..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full search-input !pl-10 !pr-8 !py-1.5 text-xs rounded-full"
+      {/* 3. Streamlined Navigation & Filter Bar */}
+      <HairlineCard padding="sm" className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <SegmentedTabs
+            value={activeFilterTab}
+            onChange={setActiveFilterTab}
+            size="sm"
+            options={[
+              { id: 'all', label: 'All', count: filteredBaseTasks.length },
+              { id: 'dueToday', label: 'Today', count: dueToday.length },
+              { id: 'overdue', label: 'Overdue', count: overdue.length },
+              { id: 'upcoming', label: 'Upcoming', count: upcoming.length },
+              { id: 'completed', label: 'Done', count: completed.length },
+            ]}
           />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
-            >
-              <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
-            </button>
-          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={projectFilter}
+            onChange={e => setProjectFilter(e.target.value)}
+            aria-label="Filter by project"
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] max-w-[180px]"
+          >
+            <option value="all">All Projects</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={priorityFilter}
+            onChange={e => setPriorityFilter(e.target.value)}
+            aria-label="Filter by priority"
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
+          >
+            <option value="all">All Priorities</option>
+            <option value={TaskPriority.CRITICAL}>Critical</option>
+            <option value={TaskPriority.HIGH}>High</option>
+            <option value={TaskPriority.MEDIUM}>Medium</option>
+            <option value={TaskPriority.LOW}>Low</option>
+          </select>
+
+          <div className="relative w-full sm:w-52 flex items-center">
+            <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full search-input !pl-9 !pr-8 !py-1.5 text-xs rounded-full"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                aria-label="Clear search"
+              >
+                <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <SegmentedTabs
+            value={viewMode}
+            onChange={setViewMode}
+            size="sm"
+            options={[
+              { id: 'list', label: 'List', icon: <ICON_MAP.ListBulletIcon className="w-3.5 h-3.5" /> },
+              { id: 'grid', label: 'Cards', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
+            ]}
+          />
         </div>
       </HairlineCard>
 
-      {/* 4. Task Cards Grid (Matte Hairline, Zero-Pill Metadata) */}
+      {/* 4. Task Views: Focus Agenda List OR Editorial Cards Grid */}
       {currentDisplayTasks.length === 0 ? (
         <HairlineCard className="text-center py-14 border-dashed">
           <ClipboardListIcon className="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)] opacity-60" />
           <h3 className="text-sm font-bold text-[var(--text-primary)]">
-            {searchQuery ? 'No tasks matching your search' : 'No tasks in this category'}
+            {searchQuery || projectFilter !== 'all' || priorityFilter !== 'all'
+              ? 'No tasks match your filters'
+              : 'No tasks in this category'}
           </h3>
           <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm mx-auto">
             {activeFilterTab === 'overdue'
               ? 'Great job! You have zero overdue items.'
-              : 'Check other tabs or collaborate on project boards to pick up work.'}
+              : 'Adjust your filters or check project boards to pick up new deliverables.'}
           </p>
         </HairlineCard>
+      ) : viewMode === 'list' ? (
+        <div className="space-y-4">
+          {agendaSections.map(section => (
+            <HairlineCard key={section.id} padding="none" className="overflow-hidden">
+              <div className="px-4 py-2.5 bg-[var(--bg-surface-subtle)] border-b border-[var(--border-hairline)] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <StatusDot tone={section.tone} label={section.title} className="text-xs font-bold text-[var(--text-primary)]" />
+                </div>
+                <span className="font-mono tabular-nums text-[11px] font-semibold text-[var(--text-muted)]">
+                  {section.tasks.length} {section.tasks.length === 1 ? 'task' : 'tasks'}
+                </span>
+              </div>
+
+              <div className="divide-y divide-[var(--border-hairline)]">
+                {section.tasks.map(task => {
+                  const isDone = task.status === TaskStatus.DONE;
+                  const isTaskOverdue =
+                    task.dueDate &&
+                    isBefore(startOfDay(parseISO(task.dueDate)), startOfDay(new Date())) &&
+                    !isDone;
+                  const isTaskDueToday = task.dueDate && isToday(parseISO(task.dueDate)) && !isDone;
+
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => openViewTaskModal(task.id, true)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openViewTaskModal(task.id, true);
+                        }
+                      }}
+                      className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={e => handleToggleDone(e, task)}
+                          aria-label={isDone ? `Mark "${task.title}" incomplete` : `Mark "${task.title}" complete`}
+                          title={isDone ? 'Reopen task' : 'Complete task'}
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                            isDone
+                              ? 'bg-[var(--accent-lime)] border-[var(--accent-ink)]/20 text-[var(--accent-ink)]'
+                              : 'border-[var(--border-strong)] hover:border-[var(--text-primary)] bg-[var(--bg-surface)]'
+                          }`}
+                        >
+                          {isDone && <ICON_MAP.CheckIcon className="w-3 h-3 stroke-[2.5]" />}
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`text-[13px] font-semibold truncate group-hover:underline ${
+                                isDone ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'
+                              }`}
+                            >
+                              {task.title}
+                            </span>
+                            <TaskLivePresenceBadge taskId={task.id} compact={true} />
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] truncate">
+                            <span className="truncate">{getProjectName(task.projectId)}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="capitalize">{task.status.replace('_', ' ')}</span>
+                            {task.story_points ? (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span className="font-mono tabular-nums">{task.story_points} pts</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0">
+                        <StatusDot
+                          tone={getPriorityTone(task.priority)}
+                          label={task.priority}
+                          className="hidden sm:inline-flex text-[11px] font-medium capitalize w-20"
+                        />
+
+                        <span
+                          className={`text-[11px] font-mono tabular-nums w-20 text-right ${
+                            isTaskOverdue
+                              ? 'text-rose-600 dark:text-rose-400 font-bold'
+                              : isTaskDueToday
+                              ? 'text-amber-600 dark:text-amber-400 font-bold'
+                              : 'text-[var(--text-secondary)]'
+                          }`}
+                        >
+                          {formatDueDate(task.dueDate)}
+                        </span>
+
+                        <span className="text-[11px] font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors hidden md:inline">
+                          Open →
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </HairlineCard>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {currentDisplayTasks.map(task => {
+            const isDone = task.status === TaskStatus.DONE;
             const isTaskOverdue =
               task.dueDate &&
               isBefore(startOfDay(parseISO(task.dueDate)), startOfDay(new Date())) &&
-              task.status !== TaskStatus.DONE;
-            const isTaskDueToday =
-              task.dueDate && isToday(parseISO(task.dueDate)) && task.status !== TaskStatus.DONE;
+              !isDone;
+            const isTaskDueToday = task.dueDate && isToday(parseISO(task.dueDate)) && !isDone;
 
             return (
-              <button
+              <div
                 key={task.id}
-                type="button"
                 onClick={() => openViewTaskModal(task.id, true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openViewTaskModal(task.id, true);
+                  }
+                }}
                 className="editorial-surface p-4 text-left hover:border-[var(--border-strong)] transition-all duration-150 flex flex-col justify-between cursor-pointer group"
               >
                 <div className="w-full">
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[11px] font-medium text-[var(--text-muted)] truncate max-w-[160px]">
-                      {getProjectName(task.projectId)}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={e => handleToggleDone(e, task)}
+                        aria-label={isDone ? 'Reopen task' : 'Complete task'}
+                        className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                          isDone
+                            ? 'bg-[var(--accent-lime)] border-[var(--accent-ink)]/20 text-[var(--accent-ink)]'
+                            : 'border-[var(--border-strong)] hover:border-[var(--text-primary)] bg-[var(--bg-surface)]'
+                        }`}
+                      >
+                        {isDone && <ICON_MAP.CheckIcon className="w-2.5 h-2.5 stroke-[2.5]" />}
+                      </button>
+                      <span className="text-[11px] font-medium text-[var(--text-muted)] truncate max-w-[140px]">
+                        {getProjectName(task.projectId)}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <TaskLivePresenceBadge taskId={task.id} compact={true} />
                       <StatusDot
@@ -300,7 +544,11 @@ export const MyTasksPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <h3 className="text-sm font-bold text-[var(--text-primary)] line-clamp-2 leading-snug mb-1.5 group-hover:underline">
+                  <h3
+                    className={`text-sm font-bold line-clamp-2 leading-snug mb-1.5 group-hover:underline ${
+                      isDone ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'
+                    }`}
+                  >
                     {task.title}
                   </h3>
 
@@ -337,7 +585,7 @@ export const MyTasksPage: React.FC = () => {
                     className="text-[11px] font-medium capitalize"
                   />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -345,4 +593,3 @@ export const MyTasksPage: React.FC = () => {
     </div>
   );
 };
-
