@@ -6,14 +6,15 @@ import { Avatar } from '../shared/Avatar';
 import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
 import { collabService } from '../../services/collabService';
 import { Button } from '../shared/Button';
+import { Modal } from '../shared/Modal';
 import {
-  PageHeader,
   InlineKpiStrip,
   SegmentedTabs,
   HairlineCard,
+  LiquidBezelSection,
   StatusDot,
 } from '../shared/EditorialUI';
-import { RadialProgressRing, SlimProgressBar } from '../charts/EditorialCharts';
+import { LiquidMetricProgress, SlimProgressBar } from '../charts/EditorialCharts';
 
 export const SprintPlanningView: React.FC = () => {
   const {
@@ -205,15 +206,16 @@ export const SprintPlanningView: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5 pb-12">
-      <PageHeader
+      <LiquidBezelSection
         eyebrow="Agile Iteration & Backlog Center"
         title="Sprint Planning & Backlog"
-        subtitle={`Groom stories, track velocity, and assign backlog items across ${
+        subtitle={`Scope: ${
           selectedProjectFilter === 'all' ? 'All Workspace Projects' : getProjectName(selectedProjectFilter)
-        }.`}
-        actions={
-          <>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-xs">
+        }`}
+        icon={<ICON_MAP.RocketLaunchIcon className="w-4 h-4" />}
+        bezelRight={
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-xs">
               <span className="text-[var(--text-muted)] font-medium">Scope:</span>
               <select
                 value={selectedProjectFilter}
@@ -229,46 +231,47 @@ export const SprintPlanningView: React.FC = () => {
                 ))}
               </select>
             </div>
-            <Button variant="primary" size="sm" onClick={handleOpenCreateSprint}>
+            <Button variant="lime" size="sm" onClick={handleOpenCreateSprint}>
               <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
               New Sprint
             </Button>
-          </>
+          </div>
         }
-      />
-
-      <InlineKpiStrip
-        items={[
-          {
-            id: 'velocity',
-            label: 'Active Velocity',
-            value: `${backlogAnalytics.activeSprintStats?.completedPoints || 0}/${backlogAnalytics.activeSprintStats?.totalPoints || 0}p`,
-            sublabel: activeSprint ? activeSprint.name : 'No active cycle',
-            visual: <RadialProgressRing value={activeVelocityPct} size={36} strokeWidth={4} tone="lime" showLabel={false} />,
-          },
-          {
-            id: 'backlog-depth',
-            label: 'Unassigned Backlog',
-            value: backlogAnalytics.totalBacklogTasks,
-            sublabel: `${backlogAnalytics.totalBacklogPoints} story pts ready`,
-            tone: 'default',
-          },
-          {
-            id: 'grooming',
-            label: 'Estimation Coverage',
-            value: `${backlogAnalytics.groomingPercentage}%`,
-            sublabel: 'Fibonacci sized',
-            tone: 'success',
-          },
-          {
-            id: 'cadence',
-            label: 'Sprint Cadence',
-            value: `${defaultSprintDuration}d`,
-            sublabel: `${plannedSprints.length} planned · ${completedSprints.length} done`,
-            tone: 'lime',
-          },
-        ]}
-      />
+        bodyClassName="p-4 sm:p-5"
+      >
+        <InlineKpiStrip
+          items={[
+            {
+              id: 'velocity',
+              label: 'Active Velocity',
+              value: `${backlogAnalytics.activeSprintStats?.completedPoints || 0}/${backlogAnalytics.activeSprintStats?.totalPoints || 0}p`,
+              sublabel: activeSprint ? activeSprint.name : 'No active cycle',
+              visual: <LiquidMetricProgress value={activeVelocityPct} tone="lime" compact />,
+            },
+            {
+              id: 'backlog-depth',
+              label: 'Unassigned Backlog',
+              value: backlogAnalytics.totalBacklogTasks,
+              sublabel: `${backlogAnalytics.totalBacklogPoints} story pts ready`,
+              tone: 'default',
+            },
+            {
+              id: 'grooming',
+              label: 'Estimation Coverage',
+              value: `${backlogAnalytics.groomingPercentage}%`,
+              sublabel: 'Fibonacci sized',
+              tone: 'success',
+            },
+            {
+              id: 'cadence',
+              label: 'Sprint Cadence',
+              value: `${defaultSprintDuration}d`,
+              sublabel: `${plannedSprints.length} planned · ${completedSprints.length} done`,
+              tone: 'lime',
+            },
+          ]}
+        />
+      </LiquidBezelSection>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Sprints (7 cols) */}
@@ -651,7 +654,7 @@ export const SprintPlanningView: React.FC = () => {
                     type="checkbox"
                     checked={selectedTaskIds.length === backlogTasks.length && backlogTasks.length > 0}
                     onChange={selectAllBacklog}
-                    className="w-3.5 h-3.5 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
+                    className="w-3.5 h-3.5 rounded accent-[var(--accent-cta)] cursor-pointer"
                   />
                   <span>
                     Select All ({selectedTaskIds.length}/{backlogTasks.length})
@@ -705,7 +708,7 @@ export const SprintPlanningView: React.FC = () => {
                   return (
                     <div
                       key={task.id}
-                      className={`p-3.5 rounded-xl border transition-all space-y-2 ${
+                      className={`glass-interactive-card p-3.5 rounded-xl border space-y-2 ${
                         isSelected
                           ? 'bg-[var(--bg-sage)] border-[var(--text-primary)]'
                           : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:border-[var(--border-strong)]'
@@ -717,7 +720,7 @@ export const SprintPlanningView: React.FC = () => {
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleTaskSelection(task.id)}
-                            className="mt-0.5 w-3.5 h-3.5 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
+                            className="mt-0.5 w-3.5 h-3.5 rounded accent-[var(--accent-cta)] cursor-pointer"
                           />
                           <div className="min-w-0 flex-1">
                             <button
@@ -830,105 +833,91 @@ export const SprintPlanningView: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Sprint Modal */}
-      {isCreateSprintOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px] animate-fadeIn">
-          <div className="editorial-popover rounded-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
-              <div className="flex items-center gap-2">
-                <ICON_MAP.RocketLaunchIcon className="w-4 h-4 text-[var(--text-primary)]" />
-                <h3 className="text-base font-bold text-[var(--text-primary)]">Create New Sprint</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCreateSprintOpen(false)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
-              >
-                <ICON_MAP.XMarkIcon className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSprintSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
-                  Sprint Scope / Project
-                </label>
-                <select
-                  value={targetProjectId}
-                  onChange={e => setTargetProjectId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border text-xs cursor-pointer"
-                >
-                  <option value="all">Workspace Sprint (Supports Tasks From All Projects)</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
-                  Sprint Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Sprint 14 - Q3 Release"
-                  value={sprintName}
-                  onChange={e => setSprintName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
-                  Sprint Goal
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="What is the objective of this iteration?"
-                  value={sprintGoal}
-                  onChange={e => setSprintGoal(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">Start Date</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={e => handleStartDateChange(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
-                    End Date ({defaultSprintDuration}d default)
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={e => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
-                <Button variant="outline" size="sm" type="button" onClick={() => setIsCreateSprintOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="primary" size="sm" type="submit">
-                  Create Sprint
-                </Button>
-              </div>
-            </form>
+      <Modal
+        isOpen={isCreateSprintOpen}
+        onClose={() => setIsCreateSprintOpen(false)}
+        title="Create New Sprint"
+        size="md"
+      >
+        <form onSubmit={handleCreateSprintSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
+              Sprint Scope / Project
+            </label>
+            <select
+              value={targetProjectId}
+              onChange={e => setTargetProjectId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border text-xs cursor-pointer"
+            >
+              <option value="all">Workspace Sprint (Supports Tasks From All Projects)</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
+              Sprint Name *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Sprint 14 - Q3 Release"
+              value={sprintName}
+              onChange={e => setSprintName(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
+              Sprint Goal
+            </label>
+            <textarea
+              rows={2}
+              placeholder="What is the objective of this iteration?"
+              value={sprintGoal}
+              onChange={e => setSprintGoal(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => handleStartDateChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border text-xs"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-[var(--text-secondary)] mb-1.5">
+                End Date ({defaultSprintDuration}d default)
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
+            <Button variant="outline" size="sm" type="button" onClick={() => setIsCreateSprintOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" type="submit">
+              Create Sprint
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

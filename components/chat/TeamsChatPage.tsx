@@ -155,7 +155,7 @@ const VoiceNotePlayer: React.FC<{
     <div
       className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl min-w-[210px] sm:min-w-[245px] border ${
         isMe
-          ? 'bg-[#191B17] text-[#F2F3EE] border-[#2B3026] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[#97B832]'
+          ? 'bg-[#191B17] text-[#F2F3EE] border-[#2B3026] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[var(--border-strong)]'
           : 'bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] border-[var(--border-hairline)]'
       }`}
     >
@@ -179,7 +179,7 @@ const VoiceNotePlayer: React.FC<{
         title={isPlaying ? 'Pause voice note' : 'Play voice note'}
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer ${
           isMe
-            ? 'bg-[#CCF048] text-[#131511] hover:bg-[#D9F66A] dark:bg-[#131511] dark:text-[#CCF048]'
+            ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] hover:bg-[var(--accent-lime-hover)] dark:bg-[#131511] dark:text-[#CCF048]'
             : 'bg-[#191B17] text-[#CCF048] hover:bg-[#2A2E25] dark:bg-[#CCF048] dark:text-[#131511]'
         }`}
       >
@@ -425,6 +425,7 @@ export const TeamsChatPage: React.FC = () => {
   }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
 
   // Announce chat presence
   useEffect(() => {
@@ -578,9 +579,11 @@ export const TeamsChatPage: React.FC = () => {
     };
   }, [activeChannelId, activeDirectUserId, currentUser, users, channels, setUsers]);
 
-  // Scroll to bottom when messages update
+  // Scroll only the inner message stream to bottom when messages update (never scroll ancestor workspace shell)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scroller = messagesScrollRef.current;
+    if (!scroller) return;
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1314,7 +1317,7 @@ export const TeamsChatPage: React.FC = () => {
         <div
           className={`${
             mobilePaneView === 'list' ? 'flex w-full' : 'hidden'
-          } lg:flex lg:w-72 xl:w-80 flex-col flex-shrink-0 rounded-[22px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
+          } lg:flex lg:w-72 xl:w-80 h-full min-h-0 flex-col flex-shrink-0 rounded-[22px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
         >
           {/* Fluent Left Directory Header */}
           <div className="px-3.5 py-3 border-b border-[var(--border-hairline)] flex items-center justify-between gap-2">
@@ -1356,7 +1359,7 @@ export const TeamsChatPage: React.FC = () => {
                 type="button"
                 onClick={() => setActiveView('calendar_view')}
                 title="Calendar & RSVPs"
-                className="p-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] transition-all cursor-pointer"
+                className="p-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--accent-text)] transition-all cursor-pointer"
               >
                 <ICON_MAP.CalendarIcon className="w-4 h-4" />
               </button>
@@ -1402,7 +1405,7 @@ export const TeamsChatPage: React.FC = () => {
                     onClick={() => setFilterTab(tab.id as any)}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
                       active
-                        ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-2xs font-bold'
+                        ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-2xs font-bold'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
                     }`}
                   >
@@ -1457,7 +1460,7 @@ export const TeamsChatPage: React.FC = () => {
                       <div
                         className={`relative p-0.5 rounded-full ${
                           isSelected
-                            ? 'ring-2 ring-[#97B832] dark:ring-[#CCF048]'
+                            ? 'ring-2 ring-[var(--accent-lime)] dark:ring-[#CCF048]'
                             : isOnline
                             ? 'ring-1 ring-emerald-500/60'
                             : ''
@@ -1510,12 +1513,12 @@ export const TeamsChatPage: React.FC = () => {
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate">
-                            <span className={`text-sm font-bold ${isActive ? 'text-[#CCF048] dark:text-[#131511]' : 'text-[#4E6126] dark:text-[#CCF048]'}`}>#</span>
+                            <span className={`text-sm font-bold ${isActive ? 'text-[#CCF048] dark:text-[#131511]' : 'text-[var(--accent-text)]'}`}>#</span>
                             <span className="truncate">{ch.name}</span>
                           </div>
                           <span
@@ -1545,7 +1548,7 @@ export const TeamsChatPage: React.FC = () => {
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                           }`}
                         >
@@ -1596,7 +1599,7 @@ export const TeamsChatPage: React.FC = () => {
                     type="button"
                     onClick={() => setIsNewChannelModalOpen(true)}
                     title="Create New Channel"
-                    className="p-1 rounded-md text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                    className="p-1 rounded-md text-[var(--accent-text)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                   >
                     <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   </button>
@@ -1627,7 +1630,7 @@ export const TeamsChatPage: React.FC = () => {
                         }}
                         className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                           isActive
-                            ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                            ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                             : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                         }`}
                       >
@@ -1636,7 +1639,7 @@ export const TeamsChatPage: React.FC = () => {
                             className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
                               isActive
                                 ? 'bg-white/15 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]'
-                                : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]'
+                                : 'bg-[var(--bg-sage)] text-[var(--accent-text)]'
                             }`}
                           >
                             #
@@ -1694,7 +1697,7 @@ export const TeamsChatPage: React.FC = () => {
                     type="button"
                     onClick={() => setIsAddPersonModalOpen(true)}
                     title="Start New Direct Message"
-                    className="p-1 rounded-md text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                    className="p-1 rounded-md text-[var(--accent-text)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                   >
                     <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   </button>
@@ -1707,7 +1710,7 @@ export const TeamsChatPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsAddPersonModalOpen(true)}
-                        className="w-full py-1.5 px-2.5 rounded-lg bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="w-full py-1.5 px-2.5 rounded-lg bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                         Add Person
@@ -1763,7 +1766,7 @@ export const TeamsChatPage: React.FC = () => {
                           }}
                           className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
                           }`}
                         >
@@ -1781,7 +1784,7 @@ export const TeamsChatPage: React.FC = () => {
                                   isUserTyping
                                     ? isActive
                                       ? 'text-[#CCF048] dark:text-[#131511] font-semibold'
-                                      : 'text-[#4E6126] dark:text-[#CCF048] font-semibold'
+                                      : 'text-[var(--accent-text)] font-semibold'
                                     : isActive
                                     ? 'text-white/75 dark:text-[#131511]/75'
                                     : 'text-[var(--text-muted)]'
@@ -1811,7 +1814,7 @@ export const TeamsChatPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsAddPersonModalOpen(true)}
-                      className="w-full py-2 px-2.5 rounded-xl border border-dashed border-[var(--border-strong)] hover:border-[#97B832] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full py-2 px-2.5 rounded-xl border border-dashed border-[var(--border-strong)] hover:border-[var(--border-strong)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--accent-text)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
                       <span>+ Add Teammate</span>
@@ -1827,7 +1830,7 @@ export const TeamsChatPage: React.FC = () => {
         <div
           className={`${
             mobilePaneView === 'chat' ? 'flex' : 'hidden lg:flex'
-          } flex-1 flex-col min-w-0 rounded-[20px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
+          } flex-1 flex-col h-full min-h-0 min-w-0 rounded-[20px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
         >
           {/* Conversation Header */}
           <div className="px-3 sm:px-4 py-2.5 border-b border-[var(--border-hairline)] flex flex-wrap items-center justify-between gap-2 bg-[var(--bg-surface-subtle)]">
@@ -1898,7 +1901,7 @@ export const TeamsChatPage: React.FC = () => {
                         </div>
                         <p className="text-[11px] text-[var(--text-secondary)] truncate">
                           {isDirectUserTyping ? (
-                            <span className="text-[#4E6126] dark:text-[#CCF048] font-semibold animate-pulse">Typing...</span>
+                            <span className="text-[var(--accent-text)] font-semibold animate-pulse">Typing...</span>
                           ) : (
                             <span>{directStatusText}</span>
                           )}
@@ -1909,7 +1912,7 @@ export const TeamsChatPage: React.FC = () => {
                 })()
               ) : activeChannel ? (
                 <>
-                  <div className="w-9 h-9 rounded-xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-black text-base flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[var(--bg-sage)] text-[var(--accent-text)] font-black text-base flex items-center justify-center flex-shrink-0">
                     #
                   </div>
                   <div className="min-w-0">
@@ -1956,7 +1959,7 @@ export const TeamsChatPage: React.FC = () => {
                   onClick={() => setConversationSubTab(tab.id as any)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                     conversationSubTab === tab.id
-                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-2xs'
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-2xs'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
@@ -2055,7 +2058,7 @@ export const TeamsChatPage: React.FC = () => {
                   setIsScheduleModalOpen(true);
                 }}
                 title="Schedule Meeting"
-                className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] transition-colors cursor-pointer"
+                className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] transition-colors cursor-pointer"
               >
                 <ICON_MAP.CalendarIcon className="w-4 h-4" />
               </button>
@@ -2067,7 +2070,7 @@ export const TeamsChatPage: React.FC = () => {
                 title={isDetailsDrawerOpen ? 'Hide Conversation Details' : 'Show Conversation Details'}
                 className={`hidden md:inline-flex p-2 rounded-xl border transition-colors cursor-pointer ${
                   isDetailsDrawerOpen
-                    ? 'bg-[#191B17] text-[#CCF048] border-[#191B17] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[#CCF048]'
+                    ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent shadow-xs'
                     : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
                 }`}
               >
@@ -2199,7 +2202,7 @@ export const TeamsChatPage: React.FC = () => {
                               className="w-10 h-10 rounded-xl object-cover cursor-zoom-in shrink-0"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded-xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-[var(--bg-sage)] text-[var(--accent-text)] flex items-center justify-center shrink-0">
                               <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
                             </div>
                           )}
@@ -2213,7 +2216,7 @@ export const TeamsChatPage: React.FC = () => {
                         <a
                           href={att.url}
                           download={att.name}
-                          className="p-2 rounded-xl bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] shrink-0"
+                          className="p-2 rounded-xl bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] shrink-0"
                           title="Download"
                         >
                           <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4" />
@@ -2227,10 +2230,10 @@ export const TeamsChatPage: React.FC = () => {
           ) : (
             <>
               {/* Messages Stream */}
-              <div data-bubble-scroll="true" className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 scrollbar-thin">
+              <div ref={messagesScrollRef} data-bubble-scroll="true" className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 scrollbar-thin">
                 {messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-[var(--bg-sage)] text-[var(--accent-text)] flex items-center justify-center">
                       <ICON_MAP.ChatBubbleLeftIcon className="w-6 h-6" />
                     </div>
                     <h3 className="text-base font-bold text-[var(--text-primary)]">
@@ -2271,7 +2274,7 @@ export const TeamsChatPage: React.FC = () => {
                         key={msg.id}
                         className={`flex items-start gap-2.5 sm:gap-3 group transition-all ${isMe ? 'flex-row-reverse' : ''}`}
                       >
-                        <div className="w-8 h-8 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs ring-1 ring-[var(--border-hairline)]">
+                        <div className="w-8 h-8 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs ring-1 ring-[var(--border-hairline)]">
                           {msg.sender_avatar ? (
                             <img src={msg.sender_avatar} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -2341,7 +2344,7 @@ export const TeamsChatPage: React.FC = () => {
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="space-y-0.5">
-                                      <div className="text-[10px] font-semibold text-[#4E6126] dark:text-[#CCF048]">
+                                      <div className="text-[10px] font-semibold text-[var(--accent-text)]">
                                         Calendar Meeting · Room {meetingCode}
                                       </div>
                                       <h4 className="text-sm font-bold">{title}</h4>
@@ -2571,7 +2574,7 @@ export const TeamsChatPage: React.FC = () => {
                               <div
                                 className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-xs transition-transform duration-200 space-y-2 ${
                                   isMe
-                                    ? 'bg-[#191B17] text-[#F2F3EE] dark:bg-[#CCF048] dark:text-[#131511] rounded-tr-xs'
+                                    ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] rounded-tr-xs'
                                     : 'bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] rounded-tl-xs'
                                 }`}
                               >
@@ -2642,14 +2645,14 @@ export const TeamsChatPage: React.FC = () => {
                                     key={`${msg.id}-att-${idx}`}
                                     className={`p-3 rounded-2xl border shadow-xs max-w-[280px] sm:max-w-[340px] transition-all ${
                                       isMe
-                                        ? 'bg-[#191B17] border-[#2B3026] text-[#F2F3EE] dark:bg-[#CCF048] dark:border-[#97B832] dark:text-[#131511]'
+                                        ? 'bg-[var(--accent-cta)] border-transparent text-[var(--accent-cta-ink)]'
                                         : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-primary)]'
                                     }`}
                                   >
                                     <div className="flex items-center justify-between gap-3">
                                       <div className="flex items-center gap-2.5 min-w-0">
                                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                          isMe ? 'bg-white/15 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]'
+                                          isMe ? 'bg-white/15 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[var(--accent-text)]'
                                         }`}>
                                           <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
                                         </div>
@@ -2657,7 +2660,7 @@ export const TeamsChatPage: React.FC = () => {
                                           <div className="flex items-center gap-1.5 truncate">
                                             <span className="font-bold text-xs truncate">{att.name}</span>
                                             <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
-                                              isMe ? 'bg-white/20 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]'
+                                              isMe ? 'bg-white/20 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[var(--accent-text)]'
                                             }`}>
                                               {ext}
                                             </span>
@@ -2703,7 +2706,7 @@ export const TeamsChatPage: React.FC = () => {
                                     onClick={() => handleAddReaction(msg.id, emoji)}
                                     className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
                                       hasReacted
-                                        ? 'bg-[var(--bg-sage)] border-[#97B832] text-[#4E6126] dark:text-[#CCF048]'
+                                        ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--accent-text)]'
                                         : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
                                     }`}
                                   >
@@ -2755,7 +2758,7 @@ export const TeamsChatPage: React.FC = () => {
 
               {/* Typing Indicator Bar */}
               {currentTyping.length > 0 && (
-                <div className="px-4 py-1.5 bg-[var(--bg-surface-subtle)] border-t border-[var(--border-hairline)] flex items-center gap-2 text-xs text-[#4E6126] dark:text-[#CCF048] animate-pulse">
+                <div className="px-4 py-1.5 bg-[var(--bg-surface-subtle)] border-t border-[var(--border-hairline)] flex items-center gap-2 text-xs text-[var(--accent-text)] animate-pulse">
                   <span className="flex space-x-1">
                     <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -2783,7 +2786,7 @@ export const TeamsChatPage: React.FC = () => {
                 {replyingToMessage && (
                   <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-strong)] text-xs">
                     <div className="min-w-0">
-                      <span className="font-bold text-[#4E6126] dark:text-[#CCF048]">
+                      <span className="font-bold text-[var(--accent-text)]">
                         Replying to {replyingToMessage.sender_name}
                       </span>
                       <p className="text-[11px] text-[var(--text-secondary)] truncate">
@@ -2812,7 +2815,7 @@ export const TeamsChatPage: React.FC = () => {
                         {att.type === 'image' ? (
                           <img src={att.url} alt={att.name} className="w-8 h-8 rounded-lg object-cover" />
                         ) : (
-                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
+                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-[var(--accent-text)]" />
                         )}
                         <div className="max-w-[120px] truncate">
                           <div className="font-semibold truncate text-[11px]">{att.name}</div>
@@ -2954,7 +2957,7 @@ export const TeamsChatPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setConversationSubTab('canvas')}
-                        className="text-[10px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer flex items-center gap-1"
+                        className="text-[10px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer flex items-center gap-1"
                       >
                         <ICON_MAP.SparklesIcon className="w-3 h-3" />
                         <span>Open Co-Whiteboard Canvas</span>
@@ -3038,7 +3041,7 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.PhoneIcon className="w-3.5 h-3.5" />
                         <span>Call</span>
@@ -3061,7 +3064,7 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[var(--border-strong)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[#4E6126] dark:text-[#CCF048] text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[var(--border-strong)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] text-xs font-bold transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
                         <span>Video</span>
@@ -3072,13 +3075,13 @@ export const TeamsChatPage: React.FC = () => {
                   {/* Contact Information Card */}
                   <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
-                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
+                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-[var(--accent-text)]" />
                       <span>Contact Information</span>
                     </div>
                     <div className="space-y-2 text-xs">
                       <div className="flex items-start gap-2">
                         <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Username</span>
-                        <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">@{activeDirectUser.email.split('@')[0]}</span>
+                        <span className="font-semibold text-[var(--accent-text)]">@{activeDirectUser.email.split('@')[0]}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Email</span>
@@ -3094,7 +3097,7 @@ export const TeamsChatPage: React.FC = () => {
                   {/* Activity Section */}
                   <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
-                      <ICON_MAP.ClockIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
+                      <ICON_MAP.ClockIcon className="w-4 h-4 text-[var(--accent-text)]" />
                       <span>Activity</span>
                     </div>
                     <div className="space-y-2 text-xs">
@@ -3115,7 +3118,7 @@ export const TeamsChatPage: React.FC = () => {
                 <>
                   {/* Channel Hero */}
                   <div className="flex flex-col items-center text-center pt-2 pb-1 space-y-2">
-                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] flex items-center justify-center text-2xl font-black">
+                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-sage)] text-[var(--accent-text)] flex items-center justify-center text-2xl font-black">
                       #
                     </div>
                     <div>
@@ -3124,7 +3127,7 @@ export const TeamsChatPage: React.FC = () => {
                       </h3>
                       <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{activeChannel.description || 'Channel conversation'}</p>
                       <div className="mt-1 flex items-center justify-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)]">
                           {activeChannel.department}
                         </span>
                         <span className="text-[10px] text-[var(--text-muted)]">
@@ -3176,7 +3179,7 @@ export const TeamsChatPage: React.FC = () => {
               <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
                 <div className="flex items-center justify-between text-xs font-bold text-[var(--text-primary)]">
                   <div className="flex items-center gap-1.5">
-                    <ICON_MAP.FolderIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
+                    <ICON_MAP.FolderIcon className="w-4 h-4 text-[var(--accent-text)]" />
                     <span>Uploaded Files</span>
                   </div>
                   <span className="text-[10px] font-mono text-[var(--text-muted)]">
@@ -3195,7 +3198,7 @@ export const TeamsChatPage: React.FC = () => {
                         className="flex items-center justify-between p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-colors text-xs"
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048] shrink-0" />
+                          <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-[var(--accent-text)] shrink-0" />
                           <span className="truncate max-w-[150px] font-medium">{att.name}</span>
                         </div>
                         <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
@@ -3208,7 +3211,7 @@ export const TeamsChatPage: React.FC = () => {
               {/* Actions Section */}
               <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
-                  <ICON_MAP.CogIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
+                  <ICON_MAP.CogIcon className="w-4 h-4 text-[var(--accent-text)]" />
                   <span>Actions</span>
                 </div>
                 <div className="space-y-1">
@@ -3274,7 +3277,7 @@ export const TeamsChatPage: React.FC = () => {
               <a
                 href={lightboxImage.url}
                 download={lightboxImage.name}
-                className="px-3 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] font-semibold flex items-center gap-1"
+                className="px-3 py-1 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] font-semibold flex items-center gap-1"
               >
                 <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
                 <span>Download</span>
@@ -3303,7 +3306,7 @@ export const TeamsChatPage: React.FC = () => {
           >
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
-                <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5 text-[#4E6126] dark:text-[#CCF048]" />
+                <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5 text-[var(--accent-text)]" />
                 Create New Channel / Group
               </h3>
               <button
@@ -3374,7 +3377,7 @@ export const TeamsChatPage: React.FC = () => {
                         setSelectedNewChannelMemberIds(directMessageUsers.map(u => u.id));
                       }
                     }}
-                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
                   >
                     {selectedNewChannelMemberIds.length === directMessageUsers.length ? 'Clear All' : 'Select All'}
                   </button>
@@ -3448,7 +3451,7 @@ export const TeamsChatPage: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <ICON_MAP.UsersIcon className="w-5 h-5 text-[#4E6126] dark:text-[#CCF048]" />
+                  <ICON_MAP.UsersIcon className="w-5 h-5 text-[var(--accent-text)]" />
                   <span>Manage Members in #{activeChannel.name}</span>
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
@@ -3562,7 +3565,7 @@ export const TeamsChatPage: React.FC = () => {
           >
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]">
+                <span className="p-1.5 rounded-lg bg-[var(--bg-sage)] text-[var(--accent-text)]">
                   <ICON_MAP.UserPlusIcon className="w-5 h-5" />
                 </span>
                 <div>
@@ -3596,7 +3599,7 @@ export const TeamsChatPage: React.FC = () => {
                 {/* Section A: Users you haven't messaged yet */}
                 {unmessagedUsers.length > 0 && (
                   <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--accent-text)]">
                       Start New Conversation · Not Messaged Yet ({unmessagedUsers.length})
                     </label>
                     <div className="max-h-36 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
@@ -3805,7 +3808,7 @@ export const TeamsChatPage: React.FC = () => {
                     onClick={() => {
                       window.dispatchEvent(new CustomEvent('omni_open_email_center', { detail: { tab: 'outbox' } }));
                     }}
-                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
                   >
                     ✉️ View Sent Invite Email in Outbox →
                   </button>
@@ -3898,7 +3901,7 @@ export const TeamsChatPage: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <ICON_MAP.CalendarIcon className="w-5 h-5 text-[#4E6126] dark:text-[#CCF048]" />
+                  <ICON_MAP.CalendarIcon className="w-5 h-5 text-[var(--accent-text)]" />
                   <span>
                     {activeDirectUser
                       ? `Schedule 1:1 Meeting with ${safeName(activeDirectUser)}`
@@ -4067,7 +4070,7 @@ export const TeamsChatPage: React.FC = () => {
                     setIsScheduleModalOpen(false);
                     setActiveView('calendar_view');
                   }}
-                  className="text-xs font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
                 >
                   Open Full Calendar View →
                 </button>

@@ -115,12 +115,12 @@ export const AIInsightsEngineWidget: React.FC<AIInsightsEngineWidgetProps> = ({
       {/* Header Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-hairline)]">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-2xl bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)] flex-shrink-0 mt-0.5">
+          <div className="p-2 rounded-2xl bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)] flex-shrink-0 mt-0.5">
             <ICON_MAP.SparklesIcon className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-              <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">Smart Insights</span>
+              <span className="font-semibold text-[var(--accent-text)]">Smart Insights</span>
               <span aria-hidden="true">·</span>
               <span>Workspace Suggestions</span>
             </div>
@@ -154,7 +154,7 @@ export const AIInsightsEngineWidget: React.FC<AIInsightsEngineWidgetProps> = ({
 
           <div className="text-right">
             <div className="text-[11px] text-[var(--text-muted)]">Team Pace</div>
-            <div className="text-sm font-mono tabular-nums font-bold text-[#4E6126] dark:text-[#CCF048]">
+            <div className="text-sm font-mono tabular-nums font-bold text-[var(--accent-text)]">
               {report.predictedVelocityPointsPerSprint} tasks / cycle
             </div>
           </div>

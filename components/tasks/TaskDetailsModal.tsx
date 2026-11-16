@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
-import { Modal } from '../shared/Modal';
+import { Modal, AnimatedPopover } from '../shared/Modal';
 import { Button } from '../shared/Button';
 import { TaskPriority, TaskStatus, User, Task, TaskComment, TaskAttachment, TaskActivityLog, TaskCollaborator, TaskChecklistItem, UserPresence } from '../../types';
 import { ICON_MAP } from '../../constants';
@@ -164,7 +164,7 @@ export const TaskDetailsModal: React.FC = () => {
       useAppStore.getState().fetchAllTasksForAllProjects();
     } catch (err: any) {
       console.error('Failed generating AI subtasks:', err);
-      alert(err.message || 'Failed to generate AI subtasks.');
+      useAppStore.getState().addToast('AI Subtasks Error', err.message || 'Failed to generate AI subtasks.', 'error');
     } finally {
       setIsGeneratingAISubtasks(false);
     }
@@ -353,7 +353,7 @@ export const TaskDetailsModal: React.FC = () => {
           const newElements: (string | React.ReactNode)[] = [];
           parts.forEach((part, i) => {
             if (part.toLowerCase() === `@${name.toLowerCase()}`) {
-              newElements.push(<span key={`${user.id}-${index}-${i}`} className="text-[#4E6126] dark:text-[#CCF048] font-medium bg-[var(--bg-sage)] px-1 rounded">{part}</span>);
+              newElements.push(<span key={`${user.id}-${index}-${i}`} className="text-[var(--accent-text)] font-medium bg-[var(--bg-sage)] px-1 rounded">{part}</span>);
             } else if (part) {
               newElements.push(part);
             }
@@ -393,7 +393,15 @@ export const TaskDetailsModal: React.FC = () => {
   };
 
   const handleDeleteTask = async () => {
-    if (!taskToView || !window.confirm('Are you sure you want to delete this task?')) return;
+    if (!taskToView) return;
+    const confirmed = await useAppStore.getState().requestConfirm({
+      title: 'Delete Task',
+      message: 'This removes the task and closes this detail dialog. You can restore it immediately from the Undo toast.',
+      itemPreview: taskToView.title,
+      confirmLabel: 'Delete Task',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await useAppStore.getState().deleteTask(taskToView.id);
       closeViewTaskModal();
@@ -726,7 +734,7 @@ export const TaskDetailsModal: React.FC = () => {
 
     // Check file size (e.g., max 25MB)
     if (file.size > 25 * 1024 * 1024) {
-      alert("File size exceeds 25MB limit.");
+      useAppStore.getState().addToast('File Too Large', 'File size exceeds the 25MB attachment limit.', 'warning');
       event.target.value = '';
       return;
     }
@@ -775,7 +783,7 @@ export const TaskDetailsModal: React.FC = () => {
       }
     } catch (error) {
       console.error("Error uploading file:", error);
-      alert("Failed to upload file. Please try again.");
+      useAppStore.getState().addToast('Upload Failed', 'Failed to upload attachment. Please try again.', 'error');
     } finally {
       setIsUploading(false);
       // Reset input value so the same file can be uploaded again if needed
@@ -1004,9 +1012,9 @@ export const TaskDetailsModal: React.FC = () => {
     return (
       <div className="flex flex-col gap-4">
         {isEditMode && (
-          <div className="px-3.5 py-2.5 rounded-xl bg-[var(--bg-sage)] border border-[#97B832]/40 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-medium text-[#4E6126] dark:text-[#CCF048]">
-              <ICON_MAP.PencilIcon className="w-3.5 h-3.5 flex-shrink-0 text-[#4E6126] dark:text-[#CCF048]" />
+          <div className="px-3.5 py-2.5 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-strong)] flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-[var(--accent-text)]">
+              <ICON_MAP.PencilIcon className="w-3.5 h-3.5 flex-shrink-0 text-[var(--accent-text)]" />
               <span>Edit Ticket Active — All fields below can be updated</span>
             </div>
           </div>
@@ -1021,13 +1029,13 @@ export const TaskDetailsModal: React.FC = () => {
               setEditedStatus(nextStatus);
               handleStatusChange(nextStatus);
             }}
-            className={`flex-1 appearance-none px-3 py-2 rounded-xl text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#97B832] transition-all cursor-pointer ${
+            className={`flex-1 appearance-none px-3 py-2 rounded-xl text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[var(--accent-text)] transition-all cursor-pointer ${
               (isEditMode ? editedStatus : taskToView.status) === TaskStatus.DONE
                 ? 'bg-emerald-600 text-white border-emerald-700'
                 : (isEditMode ? editedStatus : taskToView.status) === TaskStatus.IN_PROGRESS
-                  ? 'bg-[#191B17] text-white border-[#2B3026] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[#97B832]'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent'
                   : 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-700 dark:text-white dark:border-slate-600'
-            } ${isEditMode ? 'ring-2 ring-[#97B832]/50' : ''}`}
+            } ${isEditMode ? 'ring-2 ring-[var(--accent-lime)]/50' : ''}`}
           >
             {Object.values(TaskStatus).map(s => (
               <option key={s} value={s}>{formatEnumForDisplay(s)}</option>
@@ -1043,56 +1051,58 @@ export const TaskDetailsModal: React.FC = () => {
             >
               Actions <ICON_MAP.ChevronDownIcon className="w-4 h-4 inline ml-1" />
             </button>
-            {isActionsOpen && (
-              <div className={`absolute right-0 mt-1 w-48 rounded-xl shadow-lg z-50 border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                <div className="py-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const myId = currentUser?.id || '';
-                      setEditedAssigneeId(myId);
-                      handleUpdateTask({ assignee_id: currentUser?.id });
-                      setIsActionsOpen(false);
-                    }}
-                    className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}
-                  >
-                    Assign to me
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsActionsOpen(false);
-                      closeViewTaskModal();
-                      useAppStore.getState().setActiveView('whiteboard_view');
-                    }}
-                    className={`block w-full text-left px-4 py-2 text-sm font-semibold ${darkMode ? 'text-[#CCF048] hover:bg-slate-700' : 'text-[#4E6126] hover:bg-slate-100'}`}
-                  >
-                    Open on Whiteboard ↗
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href);
-                      setIsActionsOpen(false);
-                    }}
-                    className={`block w-full text-left px-4 py-2 text-sm ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}
-                  >
-                    Copy link
-                  </button>
-                  <div className={`my-1 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`} />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDeleteTask();
-                      setIsActionsOpen(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    Delete
-                  </button>
-                </div>
+            <AnimatedPopover
+              isOpen={isActionsOpen}
+              direction="down"
+              className="editorial-popover absolute right-0 mt-1.5 w-48 py-1 z-50"
+            >
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const myId = currentUser?.id || '';
+                    setEditedAssigneeId(myId);
+                    handleUpdateTask({ assignee_id: currentUser?.id });
+                    setIsActionsOpen(false);
+                  }}
+                  className="block w-full text-left px-3.5 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                >
+                  Assign to me
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionsOpen(false);
+                    closeViewTaskModal();
+                    useAppStore.getState().setActiveView('whiteboard_view');
+                  }}
+                  className="block w-full text-left px-3.5 py-2 text-xs font-semibold text-[var(--accent-text)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                >
+                  Open on Whiteboard ↗
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    setIsActionsOpen(false);
+                  }}
+                  className="block w-full text-left px-3.5 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                >
+                  Copy link
+                </button>
+                <div className="my-1 border-t border-[var(--border-hairline)]" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDeleteTask();
+                    setIsActionsOpen(false);
+                  }}
+                  className="block w-full text-left px-3.5 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                >
+                  Delete
+                </button>
               </div>
-            )}
+            </AnimatedPopover>
           </div>
         </div>
 
@@ -1101,7 +1111,7 @@ export const TaskDetailsModal: React.FC = () => {
           {/* Pinned Fields */}
           <div className={`rounded-xl border transition-all ${
             isEditMode
-              ? 'border-[#97B832]/60 ring-1 ring-[#97B832]/25 bg-[var(--bg-sage)]/40'
+              ? 'border-[var(--border-strong)] ring-1 ring-[var(--accent-lime)]/25 bg-[var(--bg-sage)]/40'
               : darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'
           }`}>
             <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
@@ -1121,7 +1131,7 @@ export const TaskDetailsModal: React.FC = () => {
                     }}
                     className={`w-full appearance-none px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                       isEditMode
-                        ? 'border-[#97B832]/50 bg-white dark:bg-slate-800'
+                        ? 'border-[var(--border-strong)] bg-white dark:bg-slate-800'
                         : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
                     } ${darkMode ? 'text-white' : 'text-slate-900'}`}
                   >
@@ -1145,7 +1155,7 @@ export const TaskDetailsModal: React.FC = () => {
                     }}
                     className={`w-full appearance-none px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
                       isEditMode
-                        ? 'border-[#97B832]/50 bg-white dark:bg-slate-800'
+                        ? 'border-[var(--border-strong)] bg-white dark:bg-slate-800'
                         : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
                     } ${darkMode ? 'text-white' : 'text-slate-900'}`}
                   >
@@ -1176,7 +1186,7 @@ export const TaskDetailsModal: React.FC = () => {
                         }}
                         className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer tabular-nums ${
                           activePts === pts
-                            ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs ring-1 ring-[#97B832]'
+                            ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs ring-1 ring-[var(--accent-lime)]'
                             : darkMode
                               ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
@@ -1194,7 +1204,7 @@ export const TaskDetailsModal: React.FC = () => {
           {/* Details */}
           <div className={`rounded-xl border transition-all ${
             isEditMode
-              ? 'border-[#97B832]/60 ring-1 ring-[#97B832]/25 bg-[var(--bg-sage)]/40'
+              ? 'border-[var(--border-strong)] ring-1 ring-[var(--accent-lime)]/25 bg-[var(--bg-sage)]/40'
               : darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'
           }`}>
             <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
@@ -1214,7 +1224,7 @@ export const TaskDetailsModal: React.FC = () => {
                     }}
                     className={`w-full appearance-none px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
                       isEditMode
-                        ? 'border-[#97B832]/50 bg-white dark:bg-slate-800'
+                        ? 'border-[var(--border-strong)] bg-white dark:bg-slate-800'
                         : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
                     } ${darkMode ? 'text-white' : 'text-slate-900'}`}
                   >
@@ -1254,7 +1264,7 @@ export const TaskDetailsModal: React.FC = () => {
                     }}
                     className={`w-full px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
                       isEditMode
-                        ? 'border-[#97B832]/50 bg-white dark:bg-slate-800'
+                        ? 'border-[var(--border-strong)] bg-white dark:bg-slate-800'
                         : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 bg-transparent'
                     } ${darkMode ? 'text-white' : 'text-slate-900'}`}
                   />
@@ -1265,7 +1275,7 @@ export const TaskDetailsModal: React.FC = () => {
                 <span className="w-1/3 text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">Collaborators</span>
                 <div className="w-2/3 flex flex-wrap gap-1">
                   {users.find(u => u.id === taskToView.assignee_id) && (
-                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-[#97B832]" title={`Assignee: ${users.find(u => u.id === taskToView.assignee_id)?.full_name}`}>
+                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-[var(--border-strong)]" title={`Assignee: ${users.find(u => u.id === taskToView.assignee_id)?.full_name}`}>
                       {users.find(u => u.id === taskToView.assignee_id)?.avatar_url ? (
                         <img src={users.find(u => u.id === taskToView.assignee_id)?.avatar_url} alt="Assignee" className="w-full h-full object-cover" />
                       ) : (
@@ -1302,7 +1312,7 @@ export const TaskDetailsModal: React.FC = () => {
                   <select
                     value={selectedCollaboratorId}
                     onChange={(e) => setSelectedCollaboratorId(e.target.value)}
-                    className={`flex-1 p-1.5 rounded-md border text-xs focus:ring-2 focus:ring-[#97B832] focus:border-transparent ${
+                    className={`flex-1 p-1.5 rounded-md border text-xs focus:ring-2 focus:ring-[var(--accent-text)] focus:border-transparent ${
                       darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   >
@@ -1363,7 +1373,7 @@ export const TaskDetailsModal: React.FC = () => {
           {activeViewers.map(viewer => {
             const firstName = (viewer.userName || 'Teammate').split(' ')[0];
             const badgeClass = viewer.isEditing
-              ? 'bg-[var(--accent-lime)]/20 border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
+              ? 'bg-[var(--accent-lime)]/20 border-[var(--border-strong)] text-[var(--accent-text)]'
               : viewer.isTypingComment
                 ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300'
                 : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400';
@@ -1419,7 +1429,7 @@ export const TaskDetailsModal: React.FC = () => {
       }`}
       title={isDrawerMode ? 'Expand to centered full modal' : 'Dock to right-hand inspector drawer'}
     >
-      <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-[#4E6126] dark:text-[#CCF048]" />
+      <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-[var(--accent-text)]" />
       <span>{isDrawerMode ? 'Expand Modal' : 'Side Drawer'}</span>
     </button>
   );
@@ -1459,7 +1469,7 @@ export const TaskDetailsModal: React.FC = () => {
                   if (e.key === 'Enter' && !isEditMode) handleTitleSave();
                 }}
                 autoFocus={isEditingTitle}
-                className={`text-xl sm:text-2xl font-bold w-full px-3 py-1.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#97B832] ${
+                className={`text-xl sm:text-2xl font-bold w-full px-3 py-1.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[var(--accent-text)] ${
                   darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                 }`}
               />
@@ -1536,7 +1546,7 @@ export const TaskDetailsModal: React.FC = () => {
               }}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap ${
                 isEditMode
-                  ? 'bg-[#191B17] text-white border-[#2B3026] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[#97B832] shadow-sm'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent shadow-sm'
                   : darkMode
                     ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
                     : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-800'
@@ -1584,7 +1594,7 @@ export const TaskDetailsModal: React.FC = () => {
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap ${darkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'} transition-colors cursor-pointer`}
             >
-              <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 text-[#4E6126] dark:text-[#CCF048]" />
+              <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 text-[var(--accent-text)]" />
               <span>Comments ({comments.length})</span>
             </button>
 
@@ -1625,7 +1635,7 @@ export const TaskDetailsModal: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                    ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
@@ -1671,7 +1681,7 @@ export const TaskDetailsModal: React.FC = () => {
                       setEditedDescription(e.target.value);
                       markEditingField('description');
                     }}
-                    className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-[#97B832] focus:border-transparent min-h-[100px] ${
+                    className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-[var(--accent-text)] focus:border-transparent min-h-[100px] ${
                       darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                     placeholder="Add a more detailed description..."
@@ -1710,13 +1720,13 @@ export const TaskDetailsModal: React.FC = () => {
                   <button
                     onClick={handleGenerateAISubtasks}
                     disabled={isGeneratingAISubtasks}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border transition-all bg-[var(--bg-sage)] border-[#97B832]/40 text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-sage-hover)] cursor-pointer whitespace-nowrap ${isGeneratingAISubtasks ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border transition-all bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--accent-text)] hover:bg-[var(--bg-sage-hover)] cursor-pointer whitespace-nowrap ${isGeneratingAISubtasks ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Generate AI Subtask Breakdown with Gemini"
                   >
                     {isGeneratingAISubtasks ? (
                       <ICON_MAP.SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-[#4E6126] dark:text-[#CCF048]" />
+                      <ICON_MAP.SparklesIcon className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                     )}
                     {isGeneratingAISubtasks ? 'Thinking...' : 'AI Break Down'}
                   </button>
@@ -1737,7 +1747,7 @@ export const TaskDetailsModal: React.FC = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-[#191B17] dark:bg-[#CCF048]" 
+                        className="h-full bg-[var(--accent-cta)]" 
                         style={{ width: `${(subtasks.filter(s => s.status === TaskStatus.DONE).length / subtasks.length) * 100}%` }}
                       />
                     </div>
@@ -1750,14 +1760,14 @@ export const TaskDetailsModal: React.FC = () => {
                       className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => openViewTaskModal(subtask.id)}>
-                        <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
+                        <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-[var(--accent-text)]" />
                         <span className="text-sm text-slate-700 dark:text-slate-300">{subtask.title}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <select
                           value={subtask.assignee_id || ''}
                           onChange={(e) => updateTask(subtask.id, { assignee_id: e.target.value || undefined })}
-                          className={`appearance-none px-2 py-1 rounded-md text-xs border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-[#97B832] focus:ring-1 focus:ring-[#97B832] bg-transparent cursor-pointer ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}
+                          className={`appearance-none px-2 py-1 rounded-md text-xs border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-[var(--accent-text)] focus:ring-1 focus:ring-[var(--accent-text)] bg-transparent cursor-pointer ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}
                         >
                           <option value="">Unassigned</option>
                           {users.map(u => (
@@ -1766,7 +1776,7 @@ export const TaskDetailsModal: React.FC = () => {
                         </select>
                         <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${
                           subtask.status === TaskStatus.DONE ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          subtask.status === TaskStatus.IN_PROGRESS ? 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048]' :
+                          subtask.status === TaskStatus.IN_PROGRESS ? 'bg-[var(--bg-sage)] text-[var(--accent-text)]' :
                           'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                         }`}>
                           {formatEnumForDisplay(subtask.status)}
@@ -1868,7 +1878,7 @@ export const TaskDetailsModal: React.FC = () => {
                         }
                       }}
                       autoFocus
-                      className={`flex-1 px-3 py-1.5 rounded-lg border text-sm focus:ring-2 focus:ring-[#97B832] focus:border-transparent ${
+                      className={`flex-1 px-3 py-1.5 rounded-lg border text-sm focus:ring-2 focus:ring-[var(--accent-text)] focus:border-transparent ${
                         darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                       }`}
                     />
@@ -2045,7 +2055,7 @@ export const TaskDetailsModal: React.FC = () => {
                 <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                   <ICON_MAP.PaperClipIcon className="w-8 h-8 text-slate-400 mb-2" />
                   <p className="text-sm text-slate-500 mb-1">No attachments yet</p>
-                  <label className="cursor-pointer text-sm text-[#4E6126] dark:text-[#CCF048] font-semibold hover:underline">
+                  <label className="cursor-pointer text-sm text-[var(--accent-text)] font-semibold hover:underline">
                     <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept="image/*,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/zip,application/x-rar-compressed,video/mp4,video/quicktime,video/webm" />
                     Click to upload
                   </label>
@@ -2107,7 +2117,7 @@ export const TaskDetailsModal: React.FC = () => {
                       {currentUser?.avatar_url ? (
                         <img src={currentUser.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-[#4E6126] dark:text-[#CCF048] font-medium text-sm">{currentUser?.full_name?.charAt(0) || currentUser?.email?.charAt(0)}</span>
+                        <span className="text-[var(--accent-text)] font-medium text-sm">{currentUser?.full_name?.charAt(0) || currentUser?.email?.charAt(0)}</span>
                       )}
                     </div>
                     <div className="flex-1 relative">
@@ -2117,7 +2127,7 @@ export const TaskDetailsModal: React.FC = () => {
                         onChange={handleCommentChange}
                         onKeyDown={handleCommentKeyDown}
                         placeholder="Add a comment... (Type @ to mention)"
-                        className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-[#97B832] focus:border-transparent resize-none ${
+                        className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-[var(--accent-text)] focus:border-transparent resize-none ${
                           darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                         }`}
                         rows={3}
@@ -2138,7 +2148,7 @@ export const TaskDetailsModal: React.FC = () => {
                                 {user.avatar_url ? (
                                   <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
-                                  <span className="text-[#4E6126] dark:text-[#CCF048] font-medium text-xs">{user.full_name?.charAt(0) || user.email?.charAt(0)}</span>
+                                  <span className="text-[var(--accent-text)] font-medium text-xs">{user.full_name?.charAt(0) || user.email?.charAt(0)}</span>
                                 )}
                               </div>
                               <span className="truncate">{user.full_name || user.email}</span>
@@ -2168,8 +2178,8 @@ export const TaskDetailsModal: React.FC = () => {
                             className={`flex gap-3 group p-3.5 rounded-xl border transition-all ${
                               isLatest
                                 ? darkMode
-                                  ? 'bg-[#1D2118]/90 border-[#97B832]/40 shadow-xs'
-                                  : 'bg-[var(--bg-sage)]/60 border-[#97B832]/40 shadow-xs'
+                                  ? 'bg-[#1D2118]/90 border-[var(--border-strong)] shadow-xs'
+                                  : 'bg-[var(--bg-sage)]/60 border-[var(--border-strong)] shadow-xs'
                                 : darkMode
                                   ? 'bg-slate-800/30 border-slate-700/60'
                                   : 'bg-white border-slate-200/70'
@@ -2191,7 +2201,7 @@ export const TaskDetailsModal: React.FC = () => {
                                     {comment.user?.full_name || comment.user?.email || 'Unknown User'}
                                   </span>
                                   {isLatest && (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[#97B832]/40 whitespace-nowrap">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-strong)] whitespace-nowrap">
                                       Latest
                                     </span>
                                   )}
@@ -2226,7 +2236,7 @@ export const TaskDetailsModal: React.FC = () => {
                                   <textarea
                                     value={editCommentContent}
                                     onChange={(e) => setEditCommentContent(e.target.value)}
-                                    className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-[#97B832] focus:border-transparent resize-none ${
+                                    className={`w-full p-3 rounded-lg border text-sm focus:ring-2 focus:ring-[var(--accent-text)] focus:border-transparent resize-none ${
                                       darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                                     }`}
                                     rows={3}
@@ -2392,7 +2402,7 @@ export const TaskDetailsModal: React.FC = () => {
                     href={selectedAttachment.signedUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="px-4 py-2 bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] font-semibold rounded-full transition-colors"
+                    className="px-4 py-2 bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[var(--accent-lime-hover)] dark:text-[#131511] font-semibold rounded-full transition-colors"
                   >
                     Download File
                   </a>

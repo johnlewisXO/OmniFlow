@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { Task, TaskStatus } from '../../types';
 import { TaskCard } from './TaskCard';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
+import { GLASS_SPRING } from '../shared/LiquidGlass';
 
 interface KanbanColumnProps {
   status: TaskStatus;
@@ -105,10 +107,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   return (
     <div
-      className={`${responsiveWidthClass} rounded-2xl p-3 sm:p-3.5 border transition-colors flex flex-col ${
+      className={`${responsiveWidthClass} rounded-2xl p-3 sm:p-3.5 border transition-all duration-200 flex flex-col ${
         isDragOver
-          ? 'bg-[var(--bg-sage)] border-dashed border-[var(--text-primary)]'
-          : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)]'
+          ? 'glass-drop-zone border-dashed'
+          : 'editorial-surface-subtle border-[var(--border-hairline)]'
       }`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -155,7 +157,14 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
         {tasksInColumn.map((task, index) => (
           <React.Fragment key={task.id}>
-            {isDragOver && dropIndicatorIndex === index && <div className={dropIndicatorStyle} />}
+            {isDragOver && dropIndicatorIndex === index && (
+              <motion.div
+                initial={{ scaleX: 0.65, opacity: 0.35 }}
+                animate={{ scaleX: 1, opacity: 1 }}
+                transition={GLASS_SPRING.micro}
+                className={`${dropIndicatorStyle} origin-center`}
+              />
+            )}
             <TaskCard
               task={task}
               isSelected={selectedTaskIds.includes(task.id)}
@@ -166,13 +175,23 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         ))}
 
         {isDragOver && dropIndicatorIndex === tasksInColumn.length && tasksInColumn.length > 0 && (
-          <div className={dropIndicatorStyle} />
+          <motion.div
+            initial={{ scaleX: 0.65, opacity: 0.35 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={GLASS_SPRING.micro}
+            className={`${dropIndicatorStyle} origin-center`}
+          />
         )}
 
         {isDragOver && tasksInColumn.length === 0 && (
-          <div className="h-24 my-2 flex items-center justify-center border border-dashed border-[var(--border-strong)] rounded-xl">
-            <p className="text-xs text-[var(--text-secondary)]">Drop here</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={GLASS_SPRING.micro}
+            className="h-24 my-2 flex items-center justify-center border border-dashed border-[var(--border-strong)] rounded-xl bg-white/30 dark:bg-white/[0.03]"
+          >
+            <p className="text-xs font-medium text-[var(--text-secondary)]">Drop here</p>
+          </motion.div>
         )}
       </div>
     </div>

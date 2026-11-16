@@ -1,0 +1,59 @@
+{
+  "org-smoke-test": {
+    "organizationId": "org-smoke-test",
+    "environment": "sandbox",
+    "planId": "enterprise_ai",
+    "billingCycle": "annual",
+    "extraSeats": 0,
+    "subscriptionStatus": "active",
+    "paymentMethodType": "card",
+    "paymentBrand": "Visa Corporate (Sandbox)",
+    "paymentLast4": "4242",
+    "billingEmail": "billing@organization.io",
+    "taxId": "US-EIN-94-3829104",
+    "autoTopUpSeats": true,
+    "couponCode": "",
+    "discountPct": 0,
+    "ossProjectUrl": "",
+    "ossLicense": "",
+    "invoices": [
+      {
+        "id": "INV-SBX-2026-10",
+        "date": "2026-10-01T10:00:00.000Z",
+        "planName": "Enterprise AI-Native",
+        "billingCycle": "annual",
+        "amountCents": 179100,
+        "currency": "USD",
+        "status": "paid",
+        "paymentMethodLabel": "Visa •••• 4242",
+        "paymentMethodType": "card"
+      },
+      {
+        "id": "INV-SBX-2026-09",
+        "date": "2026-09-01T10:00:00.000Z",
+        "planName": "Enterprise AI-Native",
+        "billingCycle": "annual",
+        "amountCents": 179100,
+        "currency": "USD",
+        "status": "paid",
+        "paymentMethodLabel": "Visa •••• 4242",
+        "paymentMethodType": "card"
+      }
+    ],
+    "webhookLogs": [
+      {
+        "id": "evt_sbx_init_1794603905967",
+        "type": "customer.subscription.created",
+        "createdAt": "2026-11-12T21:05:05.967Z",
+        "signature": "t=1791936000,v1=sbx_hmac_9f8e7d6c5b4a",
+        "payload": {
+          "organizationId": "org-smoke-test",
+          "planId": "enterprise_ai",
+          "mode": "sandbox",
+          "status": "active"
+        }
+      }
+    ],
+    "updatedAt": "2026-11-13T21:05:05.967Z"
+  }
+}

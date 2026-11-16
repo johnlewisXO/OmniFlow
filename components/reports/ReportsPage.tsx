@@ -16,8 +16,9 @@ import {
 } from '../shared/EditorialUI';
 import {
   getEditorialChartTheme,
-  RadialProgressRing,
-  RadialHealthTickArc,
+  LiquidMetricProgress,
+  LiquidHealthDistribution,
+  LiquidSegmentedDistribution,
   HatchedActivityHeatmap,
   HeatmapDayCell,
 } from '../charts/EditorialCharts';
@@ -30,8 +31,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
   AreaChart,
   Area,
@@ -60,6 +59,7 @@ const DEFAULT_REPORT_WIDGETS: { id: ReportWidgetId; label: string; spanFull?: bo
 export const ReportsPage: React.FC = () => {
   const {
     darkMode,
+    accentColor,
     tasks,
     projects,
     users,
@@ -70,7 +70,7 @@ export const ReportsPage: React.FC = () => {
     addToast,
   } = useAppStore();
 
-  const chartTheme = useMemo(() => getEditorialChartTheme(darkMode), [darkMode]);
+  const chartTheme = useMemo(() => getEditorialChartTheme(darkMode), [darkMode, accentColor]);
 
   const [reportTab, setReportTab] = useState<'analytics' | 'team_milestones'>('analytics');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
@@ -141,18 +141,14 @@ export const ReportsPage: React.FC = () => {
     let filtered = tasks;
 
     if (selectedProjectId !== 'all') {
-      filtered = filtered.filter(
-        t => t.projectId === selectedProjectId || t.project_id === selectedProjectId
-      );
+      filtered = filtered.filter(t => t.projectId === selectedProjectId);
     }
 
     if (selectedAssigneeId !== 'all') {
       if (selectedAssigneeId === 'unassigned') {
-        filtered = filtered.filter(t => !t.assignee_id && !t.assigneeId);
+        filtered = filtered.filter(t => !t.assignee_id);
       } else {
-        filtered = filtered.filter(
-          t => t.assignee_id === selectedAssigneeId || t.assigneeId === selectedAssigneeId
-        );
+        filtered = filtered.filter(t => t.assignee_id === selectedAssigneeId);
       }
     }
 
@@ -354,7 +350,7 @@ export const ReportsPage: React.FC = () => {
     > = {};
 
     filteredTasks.forEach(task => {
-      const uid = task.assignee_id || task.assigneeId || 'unassigned';
+      const uid = task.assignee_id || 'unassigned';
       const uName =
         uid === 'unassigned'
           ? 'Unassigned'
@@ -510,8 +506,8 @@ export const ReportsPage: React.FC = () => {
     }
 
     const enrichedRows = filteredTasks.map(t => {
-      const proj = projects.find(p => p.id === (t.projectId || t.project_id))?.name || 'General';
-      const assignee = users.find(u => u.id === (t.assignee_id || t.assigneeId))?.full_name || 'Unassigned';
+      const proj = projects.find(p => p.id === t.projectId)?.name || 'General';
+      const assignee = users.find(u => u.id === t.assignee_id)?.full_name || 'Unassigned';
       const created = t.created_at ? format(new Date(t.created_at), 'yyyy-MM-dd') : '';
       const due = t.due_date || t.dueDate ? format(new Date((t.due_date || t.dueDate)!), 'yyyy-MM-dd') : '';
       return {
@@ -781,8 +777,8 @@ export const ReportsPage: React.FC = () => {
                       title: `Assignee: ${payload.name}`,
                       predicate: t =>
                         payload.id === 'unassigned'
-                          ? !t.assignee_id && !t.assigneeId
-                          : t.assignee_id === payload.id || t.assigneeId === payload.id,
+                          ? !t.assignee_id
+                          : t.assignee_id === payload.id,
                     });
                   }
                 }}
@@ -803,42 +799,24 @@ export const ReportsPage: React.FC = () => {
 
     if (widgetId === 'status_distribution') {
       return (
-        <HairlineCard key={widgetId} padding="lg" className="min-w-0">
+        <HairlineCard key={widgetId} padding="lg" className="min-w-0 flex flex-col justify-between">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-[var(--text-primary)]">Task Status Distribution</h3>
-            <p className="text-xs text-[var(--text-secondary)]">Click any slice to inspect matching tasks</p>
+            <p className="text-xs text-[var(--text-secondary)]">Click any segment to inspect matching tasks</p>
           </div>
-          <div className="h-60 sm:h-64 min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={52}
-                  outerRadius={82}
-                  paddingAngle={3}
-                  dataKey="value"
-                  onClick={(entry: any) => {
-                    if (entry?.statusKey) {
-                      soundService.play('click_soft');
-                      setDrillDownFilter({
-                        title: `Status: ${entry.name}`,
-                        predicate: t => t.status === entry.statusKey,
-                      });
-                    }
-                  }}
-                  className="cursor-pointer"
-                >
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={chartTheme.tooltipStyle} />
-                <Legend verticalAlign="bottom" height={30} wrapperStyle={{ fontSize: '11px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <LiquidSegmentedDistribution
+            segments={statusData}
+            totalLabel="Tasks"
+            onSegmentClick={entry => {
+              if (entry?.statusKey) {
+                soundService.play('click_soft');
+                setDrillDownFilter({
+                  title: `Status: ${entry.name}`,
+                  predicate: t => t.status === entry.statusKey,
+                });
+              }
+            }}
+          />
         </HairlineCard>
       );
     }
@@ -986,12 +964,10 @@ export const ReportsPage: React.FC = () => {
             value: `${metrics.completionPct}%`,
             sublabel: `${metrics.inProgress} in progress`,
             visual: (
-              <RadialProgressRing
+              <LiquidMetricProgress
                 value={metrics.completionPct}
-                size={36}
-                strokeWidth={4}
                 tone="lime"
-                showLabel={false}
+                compact
               />
             ),
           },
@@ -1024,7 +1000,7 @@ export const ReportsPage: React.FC = () => {
                   key={w.id}
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
                     isVis
-                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent'
                       : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
                   }`}
                 >
@@ -1130,7 +1106,7 @@ export const ReportsPage: React.FC = () => {
               />
             </div>
             <div className="lg:col-span-4">
-              <RadialHealthTickArc
+              <LiquidHealthDistribution
                 percentage={healthMetrics.percentage}
                 statusLabel={healthMetrics.statusLabel}
                 segments={healthMetrics.segments}
@@ -1177,7 +1153,7 @@ export const ReportsPage: React.FC = () => {
         ) : (
           <div className="divide-y divide-[var(--border-hairline)]">
             {drillDownTasks.map(t => {
-              const assignee = users.find(u => u.id === (t.assignee_id || t.assigneeId));
+              const assignee = users.find(u => u.id === t.assignee_id);
               return (
                 <button
                   key={t.id}

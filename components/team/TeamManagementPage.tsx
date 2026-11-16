@@ -6,7 +6,14 @@ import { collabService, formatAccurateLastSeen } from '../../services/collabServ
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import { Avatar } from '../shared/Avatar';
-import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
+import {
+  InlineKpiStrip,
+  SegmentedTabs,
+  HairlineCard,
+  LiquidBezelSection,
+  LiquidBezelCard,
+  StatusDot,
+} from '../shared/EditorialUI';
 
 const formatRoleForDisplay = (role?: UserRole | string): string => {
   const normalized = normalizeUserRole(role);
@@ -249,11 +256,12 @@ export const TeamManagementPage: React.FC = () => {
 
   const [joinRequestsTabFilter, setJoinRequestsTabFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('pending');
 
-  // Directory Search, Filter & Bulk States
+  // Directory Search, Filter, Layout & Bulk States
   const [directorySearch, setDirectorySearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [availabilityFilter, setAvailabilityFilter] = useState<string>('all');
+  const [directoryLayout, setDirectoryLayout] = useState<'cards' | 'table'>('cards');
 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [selectedRoleForUser, setSelectedRoleForUser] = useState<UserRole | null>(null);
@@ -855,30 +863,53 @@ export const TeamManagementPage: React.FC = () => {
     currentActorRole === UserRole.ADMIN ||
     currentActorRole === UserRole.PROJECT_MANAGER;
 
+  const pendingJoinRequests = joinRequests.filter(r => r.status === 'pending');
+
+  const activeHeaderMeta =
+    activeTab === 'audit_logs'
+      ? {
+          eyebrow: 'Security · Audit Trail',
+          title: 'Activity & Audit History',
+          subtitle: 'Verified actions, task transitions, and RBAC events.',
+          icon: <ICON_MAP.ClockIcon className="w-4 h-4" />,
+        }
+      : activeTab === 'rbac_matrix'
+        ? {
+            eyebrow: 'Governance · Permissions',
+            title: 'Permissions & Role Governance',
+            subtitle: 'Normalized role capabilities across workspace layers.',
+            icon: <ICON_MAP.ShieldCheckIcon className="w-4 h-4" />,
+          }
+        : activeTab === 'invitations'
+          ? {
+              eyebrow: 'Onboarding · Tokens',
+              title: 'Invitations & Seats',
+              subtitle: 'Single-use invite links with pre-configured RBAC roles.',
+              icon: <ICON_MAP.MailIcon className="w-4 h-4" />,
+            }
+          : activeTab === 'join_requests'
+            ? {
+                eyebrow: 'Access · Approvals',
+                title: 'Join Requests',
+                subtitle: 'Review and provision workspace access requests.',
+                icon: <ICON_MAP.UserPlusIcon className="w-4 h-4" />,
+              }
+            : {
+                eyebrow: 'Organization · Teams Hub',
+                title: 'Team Directory & Roles',
+                subtitle: 'Members, live presence, weekly capacity, and RBAC.',
+                icon: <UserGroupIcon className="w-4 h-4" />,
+              };
+
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-[1440px] mx-auto w-full text-[var(--text-primary)]">
-      {/* 1. Editorial Header + Inline KPI Strip */}
-      <PageHeader
-        eyebrow={
-          activeTab === 'audit_logs'
-            ? 'Security · Audit Trail'
-            : activeTab === 'rbac_matrix'
-              ? 'Governance · Permissions'
-              : 'Organization · Access & Capacity'
-        }
-        title={
-          activeTab === 'audit_logs'
-            ? 'Activity & Audit History'
-            : activeTab === 'rbac_matrix'
-              ? 'Permissions & Role Governance'
-              : 'Team Directory & Roles'
-        }
-        subtitle={
-          activeTab === 'audit_logs'
-            ? 'Inspect verified user actions, task transitions, and RBAC security logs across your workspace.'
-            : 'Manage workspace members, RBAC permissions, department allocations, and weekly capacities.'
-        }
-        actions={
+      {/* 1. Sculpted Teams Hub Command Bezel + Integrated KPI Strip */}
+      <LiquidBezelSection
+        eyebrow={activeHeaderMeta.eyebrow}
+        title={activeHeaderMeta.title}
+        subtitle={activeHeaderMeta.subtitle}
+        icon={activeHeaderMeta.icon}
+        bezelRight={
           <div className="flex flex-wrap items-center gap-2">
             {activeTab === 'audit_logs' ? (
               <Button variant="secondary" size="sm" onClick={loadAuditLogs}>
@@ -924,83 +955,150 @@ export const TeamManagementPage: React.FC = () => {
             )}
           </div>
         }
-      />
+        bodyClassName="p-4 sm:p-5 space-y-4"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <SegmentedTabs
+            value={activeTab}
+            onChange={setActiveTab}
+            options={[
+              {
+                id: 'directory',
+                label: 'Directory',
+                count: users.length,
+                icon: <UserGroupIcon className="w-3.5 h-3.5" />,
+              },
+              {
+                id: 'rbac_matrix',
+                label: 'Permissions',
+                icon: <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5" />,
+              },
+              {
+                id: 'invitations',
+                label: 'Invites',
+                count: invitations.length,
+                icon: <ICON_MAP.MailIcon className="w-3.5 h-3.5" />,
+              },
+              {
+                id: 'audit_logs',
+                label: 'Activity',
+                count: auditLogs.length,
+                icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />,
+              },
+              ...(canActorManageTeam
+                ? [
+                    {
+                      id: 'join_requests' as const,
+                      label: 'Requests',
+                      count: pendingJoinRequests.length,
+                      icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />,
+                    },
+                  ]
+                : []),
+            ]}
+          />
 
-      {activeTab === 'audit_logs' ? (
-        <InlineKpiStrip
-          items={[
-            {
-              id: 'events',
-              label: 'Total Audit Events',
-              value: auditLogs.length,
-              sublabel: 'Logged operations',
-              tone: 'default',
-            },
-            {
-              id: 'actors',
-              label: 'Active Actors',
-              value: distinctActorsCount,
-              sublabel: 'Initiating members',
-              tone: 'lime',
-            },
-            {
-              id: 'security',
-              label: 'RBAC & Security',
-              value: securityEventCount,
-              sublabel: 'Roles & access updates',
-              tone: 'warning',
-            },
-            {
-              id: 'tasks',
-              label: 'Task & Sprint Events',
-              value: taskEventCount,
-              sublabel: 'Delivery lifecycle',
-              tone: 'success',
-            },
-          ]}
-        />
-      ) : (
-        <InlineKpiStrip
-          items={[
-            {
-              id: 'members',
-              label: 'Total Members',
-              value: users.length,
-              sublabel: 'Active seats',
-              tone: 'default',
-            },
-            {
-              id: 'admins',
-              label: 'Owners & Admins',
-              value: adminCount,
-              sublabel: 'Full authority',
-              tone: 'lime',
-            },
-            {
-              id: 'pms',
-              label: 'Project Managers',
-              value: pmCount,
-              sublabel: 'Delivery leads',
-              tone: 'warning',
-            },
-            {
-              id: 'contributors',
-              label: 'Members & Viewers',
-              value: memberCount,
-              sublabel: 'Contributors & clients',
-              tone: 'success',
-            },
-          ]}
-        />
-      )}
+          <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+            <StatusDot
+              tone="lime"
+              label={`Your Role: ${formatRoleForDisplay(currentActorRole)}`}
+              className="font-semibold text-[var(--text-primary)]"
+            />
+          </div>
+        </div>
+
+        {activeTab === 'audit_logs' ? (
+          <InlineKpiStrip
+            items={[
+              {
+                id: 'events',
+                label: 'Total Audit Events',
+                value: auditLogs.length,
+                sublabel: 'Logged operations',
+                tone: 'default',
+              },
+              {
+                id: 'actors',
+                label: 'Active Actors',
+                value: distinctActorsCount,
+                sublabel: 'Initiating members',
+                tone: 'lime',
+              },
+              {
+                id: 'security',
+                label: 'RBAC & Security',
+                value: securityEventCount,
+                sublabel: 'Roles & access updates',
+                tone: 'warning',
+              },
+              {
+                id: 'tasks',
+                label: 'Task & Sprint Events',
+                value: taskEventCount,
+                sublabel: 'Delivery lifecycle',
+                tone: 'success',
+              },
+            ]}
+          />
+        ) : (
+          <InlineKpiStrip
+            items={[
+              {
+                id: 'members',
+                label: 'Total Members',
+                value: users.length,
+                sublabel: 'Active workspace seats',
+                tone: 'default',
+                onClick: () => {
+                  setActiveTab('directory');
+                  setRoleFilter('all');
+                },
+              },
+              {
+                id: 'admins',
+                label: 'Owners & Admins',
+                value: adminCount,
+                sublabel: 'Full governance authority',
+                tone: 'lime',
+                onClick: () => {
+                  setActiveTab('directory');
+                  setRoleFilter(UserRole.ADMIN);
+                },
+              },
+              {
+                id: 'pms',
+                label: 'Project Managers',
+                value: pmCount,
+                sublabel: 'Delivery & sprint leads',
+                tone: 'warning',
+                onClick: () => {
+                  setActiveTab('directory');
+                  setRoleFilter(UserRole.PROJECT_MANAGER);
+                },
+              },
+              {
+                id: 'contributors',
+                label: 'Members & Viewers',
+                value: memberCount,
+                sublabel: 'Contributors & clients',
+                tone: 'success',
+                onClick: () => {
+                  setActiveTab('directory');
+                  setRoleFilter(UserRole.MEMBER);
+                },
+              },
+            ]}
+          />
+        )}
+      </LiquidBezelSection>
 
       {/* Pending Organization Join Requests Approval Banner */}
-      {canActorManageTeam && joinRequests.filter(r => r.status === 'pending').length > 0 && (
-        <HairlineCard className="border-[var(--border-strong)] bg-[var(--bg-sage)]/45 space-y-4">
+      {canActorManageTeam && pendingJoinRequests.length > 0 && (
+        <HairlineCard className="border-[var(--border-strong)] space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <StatusDot
               tone="lime"
-              label={`Pending Organization Access Requests (${joinRequests.filter(r => r.status === 'pending').length})`}
+              label={`Pending Organization Access Requests (${pendingJoinRequests.length})`}
               className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]"
             />
             <span className="text-xs text-[var(--text-secondary)]">
@@ -1009,144 +1107,128 @@ export const TeamManagementPage: React.FC = () => {
           </div>
 
           <div className="space-y-2.5">
-            {joinRequests
-              .filter(r => r.status === 'pending')
-              .map(req => {
-                const selectedGrantRole =
-                  approvalRoles[req.id] || req.requested_role || UserRole.MEMBER;
-                const isProcessing = processingRequestId === req.id;
+            {pendingJoinRequests.map(req => {
+              const selectedGrantRole =
+                approvalRoles[req.id] || req.requested_role || UserRole.MEMBER;
+              const isProcessing = processingRequestId === req.id;
 
-                return (
-                  <div
-                    key={req.id}
-                    className="p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar
-                        user={{
-                          id: req.requester_id,
-                          supabase_auth_id: req.requester_id,
-                          full_name: req.requester_name,
-                          email: req.requester_email,
-                          avatar_url: req.requester_avatar,
-                        }}
-                        size="md"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm">{req.requester_name}</span>
-                          <span className="text-xs text-[var(--text-muted)]">({req.requester_email})</span>
-                          <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
-                            · Requested: {formatRoleForDisplay(req.requested_role)}
-                          </span>
-                        </div>
-                        {req.message && (
-                          <p className="text-xs text-[var(--text-secondary)] mt-1">{req.message}</p>
-                        )}
-                        <span className="text-[10px] text-[var(--text-muted)] mt-1 block">
-                          Requested {new Date(req.created_at).toLocaleString()}
+              return (
+                <div
+                  key={req.id}
+                  className="p-3.5 editorial-surface-subtle flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar
+                      user={{
+                        id: req.requester_id,
+                        supabase_auth_id: req.requester_id,
+                        full_name: req.requester_name,
+                        email: req.requester_email,
+                        avatar_url: req.requester_avatar,
+                      }}
+                      size="md"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm">{req.requester_name}</span>
+                        <span className="text-xs text-[var(--text-muted)]">({req.requester_email})</span>
+                        <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                          · Requested: {formatRoleForDisplay(req.requested_role)}
                         </span>
                       </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <div className="flex items-center gap-2">
-                        <label className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">
-                          Grant Role:
-                        </label>
-                        <select
-                          value={selectedGrantRole}
-                          onChange={e =>
-                            setApprovalRoles(prev => ({
-                              ...prev,
-                              [req.id]: e.target.value as UserRole,
-                            }))
-                          }
-                          disabled={isProcessing}
-                          className="text-xs font-semibold px-3 py-1.5"
-                        >
-                          <option value={UserRole.MEMBER}>Member (MEMBER)</option>
-                          <option value={UserRole.PROJECT_MANAGER}>
-                            Project Manager (PROJECT_MANAGER)
-                          </option>
-                        </select>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="lime"
-                        size="sm"
-                        disabled={isProcessing}
-                        onClick={() => handleApproveJoinRequest(req)}
-                      >
-                        {isProcessing ? 'Approving...' : 'Approve & Grant Access'}
-                      </Button>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isProcessing}
-                        onClick={() => handleDeclineJoinRequest(req)}
-                        className="text-rose-600 dark:text-rose-400"
-                      >
-                        Decline
-                      </Button>
+                      {req.message && (
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">{req.message}</p>
+                      )}
+                      <span className="text-[10px] text-[var(--text-muted)] mt-1 block">
+                        Requested {new Date(req.created_at).toLocaleString()}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">
+                        Grant Role:
+                      </label>
+                      <select
+                        value={selectedGrantRole}
+                        onChange={e =>
+                          setApprovalRoles(prev => ({
+                            ...prev,
+                            [req.id]: e.target.value as UserRole,
+                          }))
+                        }
+                        disabled={isProcessing}
+                        className="text-xs font-semibold px-3 py-1.5"
+                      >
+                        <option value={UserRole.MEMBER}>Member (MEMBER)</option>
+                        <option value={UserRole.PROJECT_MANAGER}>
+                          Project Manager (PROJECT_MANAGER)
+                        </option>
+                      </select>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="lime"
+                      size="sm"
+                      disabled={isProcessing}
+                      onClick={() => handleApproveJoinRequest(req)}
+                    >
+                      {isProcessing ? 'Approving...' : 'Approve & Grant Access'}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isProcessing}
+                      onClick={() => handleDeclineJoinRequest(req)}
+                      className="text-rose-600 dark:text-rose-400"
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </HairlineCard>
       )}
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <SegmentedTabs
-          value={activeTab}
-          onChange={setActiveTab}
-          options={[
-            {
-              id: 'directory',
-              label: 'Directory',
-              count: users.length,
-              icon: <UserGroupIcon className="w-3.5 h-3.5" />,
-            },
-            {
-              id: 'rbac_matrix',
-              label: 'Permissions',
-              icon: <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5" />,
-            },
-            {
-              id: 'invitations',
-              label: 'Invites',
-              count: invitations.length,
-              icon: <ICON_MAP.MailIcon className="w-3.5 h-3.5" />,
-            },
-            {
-              id: 'audit_logs',
-              label: 'Activity',
-              count: auditLogs.length,
-              icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" />,
-            },
-            ...(canActorManageTeam
-              ? [
-                  {
-                    id: 'join_requests' as const,
-                    label: 'Requests',
-                    count: joinRequests.filter(r => r.status === 'pending').length,
-                    icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />,
-                  },
-                ]
-              : []),
-          ]}
-        />
-      </div>
-
       {/* Tab Content: 1. Directory */}
       {activeTab === 'directory' && (
-        <div className="space-y-4">
-          <HairlineCard padding="sm" className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <LiquidBezelSection
+          eyebrow="Live Roster · Presence & Capacity"
+          title="Workspace Members"
+          subtitle={`${filteredDirectoryUsers.length} of ${users.length} active seats`}
+          icon={<ICON_MAP.UsersIcon className="w-4 h-4" />}
+          bezelRight={
+            <div className="flex items-center gap-2 flex-wrap">
+              <SegmentedTabs
+                size="sm"
+                value={directoryLayout}
+                onChange={setDirectoryLayout}
+                options={[
+                  { id: 'cards', label: 'Cards', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
+                  { id: 'table', label: 'Table', icon: <ICON_MAP.ViewColumnsIcon className="w-3.5 h-3.5" /> },
+                ]}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={fetchUsersForAssignmentList}
+                title="Refresh Directory"
+              >
+                <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          }
+          bodyClassName="p-4 sm:p-5 space-y-4"
+        >
+          {/* Clean Liquid Glass Filter Strip */}
+          <div className="editorial-surface-subtle p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md flex items-center">
               <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
               <input
@@ -1154,13 +1236,13 @@ export const TeamManagementPage: React.FC = () => {
                 placeholder="Search by name, email, or team..."
                 value={directorySearch}
                 onChange={e => setDirectorySearch(e.target.value)}
-                className="w-full search-input !pl-10 !pr-8 !py-2 text-xs"
+                className="w-full search-input !pl-10 !pr-8 !py-2 text-xs !rounded-full"
               />
               {directorySearch && (
                 <button
                   type="button"
                   onClick={() => setDirectorySearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] z-10 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] z-10 cursor-pointer"
                 >
                   ×
                 </button>
@@ -1200,17 +1282,23 @@ export const TeamManagementPage: React.FC = () => {
                 <option value="offline">Offline</option>
               </select>
 
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={fetchUsersForAssignmentList}
-                title="Refresh Directory"
-              >
-                <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5" />
-              </Button>
+              {(directorySearch || roleFilter !== 'all' || departmentFilter !== 'all' || availabilityFilter !== 'all') && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDirectorySearch('');
+                    setRoleFilter('all');
+                    setDepartmentFilter('all');
+                    setAvailabilityFilter('all');
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
             </div>
-          </HairlineCard>
+          </div>
 
           {updateUserRoleError && (
             <div className={`my-2 p-3 text-center rounded-[20px] text-xs font-semibold border ${darkMode ? 'bg-rose-950/40 text-rose-300 border-rose-800' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
@@ -1224,16 +1312,290 @@ export const TeamManagementPage: React.FC = () => {
           )}
 
           {isLoadingUsersForAssignment ? (
-            <div className="text-center py-10">
-              <SpinnerIcon className="w-10 h-10 mx-auto text-[#6F8254] dark:text-[var(--accent-lime)] animate-spin" />
+            <div className="text-center py-12">
+              <SpinnerIcon className="w-10 h-10 mx-auto text-[var(--accent-text)] animate-spin" />
               <p className="mt-3 text-sm text-[var(--text-muted)]">Loading team members...</p>
             </div>
           ) : filteredDirectoryUsers.length === 0 ? (
-            <HairlineCard padding="lg" className="text-center">
+            <div className="editorial-surface-subtle p-10 text-center">
               <UserGroupIcon className="w-10 h-10 mx-auto mb-2.5 text-[var(--text-muted)] opacity-60" />
               <h2 className="text-base font-bold">No Members Found</h2>
               <p className="text-xs text-[var(--text-secondary)] mt-1">Try clearing your filters or invite a new teammate.</p>
-            </HairlineCard>
+            </div>
+          ) : directoryLayout === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredDirectoryUsers.map(user => {
+                const normalizedUserRole = normalizeUserRole(user.role);
+                const isCurrentUserRow = user.id === currentUser?.id;
+                const userCanBeManaged = canManageRole(normalizedUserRole);
+                const assignableRolesForThisUser = getAssignableRolesForUser(normalizedUserRole);
+                const isThisUserBeingDeleted = isDeletingUser === user.id;
+
+                const uEmail = user.email?.toLowerCase();
+                const uName = user.full_name?.toLowerCase();
+                const userPresence = presences.find(
+                  (p: UserPresence) =>
+                    p.userId === user.id ||
+                    (uEmail && p.userEmail && p.userEmail.toLowerCase() === uEmail) ||
+                    (uName && p.userName && p.userName.toLowerCase() === uName)
+                );
+                const isUserOnline = isCurrentUserRow || !!userPresence;
+                const lsInfo = formatAccurateLastSeen(userPresence, user.id, user.email, isCurrentUserRow);
+                const availStatus = lsInfo.isAwayFromTab ? 'away' : (userPresence?.availabilityStatus || 'available');
+                const statusLabel = !isUserOnline
+                  ? 'Offline'
+                  : lsInfo.isAwayFromTab
+                    ? 'Away from tab'
+                    : availStatus === 'away'
+                      ? 'Away'
+                      : availStatus === 'busy'
+                        ? 'Busy / DND'
+                        : 'Available';
+                const statusTone: 'success' | 'warning' | 'danger' | 'neutral' = !isUserOnline
+                  ? 'neutral'
+                  : availStatus === 'away'
+                    ? 'warning'
+                    : availStatus === 'busy'
+                      ? 'danger'
+                      : 'success';
+
+                const memberActiveTasks = tasks.filter(t => t.assignee_id === user.id && t.status !== 'done');
+                const memberPoints = memberActiveTasks.reduce((sum, t) => sum + (t.story_points || 1), 0);
+                const weeklyCap = user.weekly_capacity_hours ?? 40;
+                const utilizationPct = Math.min(100, Math.round((memberPoints * 4 / Math.max(weeklyCap, 1)) * 100));
+
+                const stagedRole = stagedRoles[user.id] ?? normalizedUserRole;
+                const hasUnsavedRoleChange = stagedRole !== normalizedUserRole;
+                const isSavingThisUser = isUpdatingUserRole && editingUserId === user.id;
+
+                const roleCornerDot =
+                  normalizedUserRole === UserRole.OWNER
+                    ? 'bg-amber-400'
+                    : normalizedUserRole === UserRole.ADMIN
+                      ? 'bg-[var(--accent-lime)]'
+                      : normalizedUserRole === UserRole.PROJECT_MANAGER
+                        ? 'bg-sky-400'
+                        : normalizedUserRole === UserRole.CLIENT_VIEWER
+                          ? 'bg-slate-400'
+                          : 'bg-emerald-400';
+
+                return (
+                  <LiquidBezelCard
+                    key={user.id}
+                    className={isThisUserBeingDeleted ? 'opacity-50 pointer-events-none' : ''}
+                    cornerLabel={
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${roleCornerDot}`} />
+                        <span>{formatRoleForDisplay(normalizedUserRole)}</span>
+                      </span>
+                    }
+                    cornerAction={
+                      !isCurrentUserRow && userCanBeManaged && normalizedUserRole !== UserRole.OWNER ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveUserConfirm(user.id)}
+                          disabled={isThisUserBeingDeleted || isSavingThisUser}
+                          title={`Remove ${user.full_name || user.email} from organization`}
+                          className="ml-1 p-1 rounded-full text-white/60 hover:text-rose-300 hover:bg-white/10 transition-colors cursor-pointer"
+                        >
+                          {isThisUserBeingDeleted ? (
+                            <SpinnerIcon className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <TrashIcon className="w-3 h-3" />
+                          )}
+                        </button>
+                      ) : undefined
+                    }
+                  >
+                    <div className="flex items-start gap-3.5 pb-3.5 border-b border-[var(--border-hairline)]">
+                      <Avatar user={user} size="lg" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-bold text-sm text-[var(--text-primary)] truncate">
+                            {user.full_name || 'Team Member'}
+                          </h3>
+                          {isCurrentUserRow && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)]">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[var(--text-muted)] truncate">{user.email}</p>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <StatusDot tone={statusTone} label={statusLabel} className="text-[11px] font-semibold" />
+                          <span className="text-[10px] text-[var(--text-muted)] font-mono tabular-nums">
+                            · {lsInfo.lastSeenText}
+                          </span>
+                        </div>
+                        {userPresence?.currentTaskId && (
+                          <span className="text-[10px] text-[var(--accent-text)] font-semibold block mt-1">
+                            {userPresence.isEditing ? 'Editing task live' : 'Viewing workspace task'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Telemetry & Department Grid */}
+                    <div className="grid grid-cols-2 gap-2.5 my-3.5">
+                      <div className="editorial-surface-subtle p-2.5">
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                          Department
+                        </span>
+                        {canActorManageTeam ? (
+                          <select
+                            value={user.department || 'Engineering'}
+                            onChange={e => handleUpdateMemberDepartmentOrCapacity(user, { department: e.target.value })}
+                            className="w-full text-xs font-semibold px-2 py-1"
+                          >
+                            {DEPARTMENTS.map(d => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-xs font-semibold text-[var(--text-primary)] truncate block">
+                            {user.department || 'Engineering'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="editorial-surface-subtle p-2.5">
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                            Workload
+                          </span>
+                          {canActorManageTeam ? (
+                            <select
+                              value={weeklyCap}
+                              onChange={e => handleUpdateMemberDepartmentOrCapacity(user, { weekly_capacity_hours: Number(e.target.value) })}
+                              className="text-[10px] font-mono font-bold px-1.5 py-0.5 cursor-pointer"
+                            >
+                              {[20, 30, 35, 40, 45, 50].map(h => (
+                                <option key={h} value={h}>{h}h/wk</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-[10px] font-mono font-bold text-[var(--text-muted)]">{weeklyCap}h/wk</span>
+                          )}
+                        </div>
+                        <div className="text-xs font-bold font-mono tabular-nums text-[var(--text-primary)]">
+                          {memberActiveTasks.length} tasks <span className="text-[var(--text-muted)] font-normal">({memberPoints} pts)</span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 w-full rounded-full bg-[var(--bg-sage)] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[var(--accent-lime)] transition-all duration-300"
+                            style={{ width: `${Math.max(utilizationPct, memberActiveTasks.length > 0 ? 10 : 0)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Role Assignment & Persistence Footer */}
+                    <div className="mt-auto pt-3 border-t border-[var(--border-hairline)] space-y-2">
+                      {!isCurrentUserRow && userCanBeManaged ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <select
+                            value={stagedRole}
+                            onChange={e => {
+                              const nextRole = normalizeUserRole(e.target.value as UserRole);
+                              if (nextRole === normalizedUserRole) {
+                                setStagedRoles(prev => {
+                                  const next = { ...prev };
+                                  delete next[user.id];
+                                  return next;
+                                });
+                              } else {
+                                setStagedRoles(prev => ({ ...prev, [user.id]: nextRole }));
+                              }
+                            }}
+                            disabled={isSavingThisUser || isThisUserBeingDeleted}
+                            className={`flex-1 min-w-[140px] text-xs px-3 py-1.5 font-semibold cursor-pointer ${
+                              hasUnsavedRoleChange
+                                ? 'border-[var(--border-strong)] ring-2 ring-[var(--accent-lime)]/40 bg-[var(--bg-sage)]'
+                                : ''
+                            }`}
+                          >
+                            {assignableRolesForThisUser.map(role => (
+                              <option key={role} value={role}>
+                                {formatRoleForDisplay(role)}
+                              </option>
+                            ))}
+                          </select>
+
+                          {hasUnsavedRoleChange && (
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="lime"
+                                onClick={async () => {
+                                  setEditingUserId(user.id);
+                                  await handleRoleChange(user.id, stagedRole);
+                                }}
+                                disabled={isSavingThisUser || isThisUserBeingDeleted}
+                              >
+                                {isSavingThisUser ? (
+                                  <SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1" />
+                                ) : (
+                                  <ICON_MAP.CheckIcon className="w-3.5 h-3.5 mr-1" />
+                                )}
+                                <span>Save role</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setStagedRoles(prev => {
+                                    const next = { ...prev };
+                                    delete next[user.id];
+                                    return next;
+                                  });
+                                }}
+                                disabled={isSavingThisUser}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                          <span>
+                            {isCurrentUserRow
+                              ? 'Your Active Workspace Role'
+                              : normalizedUserRole === UserRole.OWNER
+                                ? 'Protected Organization Owner'
+                                : 'Read-Only Governance'}
+                          </span>
+                          <span className="font-mono text-[10px] uppercase tracking-wider">Locked</span>
+                        </div>
+                      )}
+
+                      {recentlySyncedStatus[user.id] && (
+                        <div className="pt-1">
+                          {recentlySyncedStatus[user.id].dbSynced ? (
+                            <span
+                              title="Role synchronized and persistent in backend database"
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                            >
+                              <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5" />
+                              <span>✓ DB Verified &amp; Synced</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setShowRlsModal(true)}
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 cursor-pointer"
+                            >
+                              <ICON_MAP.ExclamationIcon className="w-3.5 h-3.5" />
+                              <span>Saved (RLS Restricted) · Fix SQL ↗</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </LiquidBezelCard>
+                );
+              })}
+            </div>
           ) : (
             <div className="editorial-surface overflow-x-auto">
               <table className="min-w-full divide-y divide-[var(--border-hairline)]">
@@ -1276,85 +1638,58 @@ export const TeamManagementPage: React.FC = () => {
                           : availStatus === 'busy'
                             ? 'Busy / DND'
                             : 'Available';
-                    const statusDotColor = !isUserOnline
-                      ? 'bg-slate-400'
+                    const statusTone: 'success' | 'warning' | 'danger' | 'neutral' = !isUserOnline
+                      ? 'neutral'
                       : availStatus === 'away'
-                        ? 'bg-amber-400'
+                        ? 'warning'
                         : availStatus === 'busy'
-                          ? 'bg-rose-500'
-                          : 'bg-emerald-500';
+                          ? 'danger'
+                          : 'success';
 
-                    // Calculate active tasks & points assigned to this member
                     const memberActiveTasks = tasks.filter(t => t.assignee_id === user.id && t.status !== 'done');
                     const memberPoints = memberActiveTasks.reduce((sum, t) => sum + (t.story_points || 1), 0);
                     const weeklyCap = user.weekly_capacity_hours ?? 40;
 
-                    const activeSelectRole =
-                      editingUserId === user.id && selectedRoleForUser
-                        ? selectedRoleForUser
-                        : normalizedUserRole;
-
                     return (
                       <tr
                         key={user.id}
-                        className={`transition-colors ${darkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'} ${isThisUserBeingDeleted ? 'opacity-50' : ''}`}
+                        className={`transition-colors hover:bg-[var(--bg-surface-subtle)] ${isThisUserBeingDeleted ? 'opacity-50' : ''}`}
                       >
-                        {/* Member Identity */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-3">
-                            <div className="relative flex-shrink-0">
-                              <Avatar user={user} size="md" />
-                              <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${statusDotColor}`} />
-                            </div>
+                            <Avatar user={user} size="md" />
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-xs sm:text-sm truncate">{user.full_name || 'Team Member'}</span>
                                 {isCurrentUserRow && (
-                                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-[var(--accent-lime)]/25 text-[#4E6126] dark:text-[#CCF048]">You</span>
+                                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-[var(--accent-lime)] text-[var(--accent-ink)]">You</span>
                                 )}
                               </div>
-                              <div className="text-[11px] text-slate-400 truncate">{user.email}</div>
+                              <div className="text-[11px] text-[var(--text-muted)] truncate">{user.email}</div>
                               {userPresence?.currentTaskId && (
-                                <span className="text-[10px] text-emerald-500 font-semibold block">
-                                  {userPresence.isEditing ? '⚡ Editing task live' : '👁️ Viewing task'}
+                                <span className="text-[10px] text-[var(--accent-text)] font-semibold block">
+                                  {userPresence.isEditing ? 'Editing task live' : 'Viewing task'}
                                 </span>
                               )}
                             </div>
                           </div>
                         </td>
 
-                        {/* Live Status */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
-                          <div className="flex flex-col items-start gap-1">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
-                                !isUserOnline
-                                  ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                                  : availStatus === 'away'
-                                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                                    : availStatus === 'busy'
-                                      ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
-                                      : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                              }`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor}`} />
-                              {statusLabel}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium">
+                          <div className="flex flex-col items-start gap-0.5">
+                            <StatusDot tone={statusTone} label={statusLabel} className="text-xs font-semibold" />
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono tabular-nums">
                               {lsInfo.lastSeenText}
                             </span>
                           </div>
                         </td>
 
-                        {/* Department Selector */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           {canActorManageTeam ? (
                             <select
                               value={user.department || 'Engineering'}
                               onChange={e => handleUpdateMemberDepartmentOrCapacity(user, { department: e.target.value })}
-                              className={`text-xs rounded-lg border px-2 py-1 font-medium ${
-                                darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
-                              }`}
+                              className="text-xs px-2.5 py-1 font-medium"
                             >
                               {DEPARTMENTS.map(d => (
                                 <option key={d} value={d}>{d}</option>
@@ -1365,70 +1700,49 @@ export const TeamManagementPage: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Workload & Capacity */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <div className="text-xs font-bold">
-                                {memberActiveTasks.length} tasks <span className="text-slate-400 font-normal">({memberPoints} pts)</span>
-                              </div>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <span className="text-[10px] text-slate-400">Capacity:</span>
-                                {canActorManageTeam ? (
-                                  <select
-                                    value={weeklyCap}
-                                    onChange={e => handleUpdateMemberDepartmentOrCapacity(user, { weekly_capacity_hours: Number(e.target.value) })}
-                                    className="text-[10px] font-semibold bg-transparent border-b border-dashed border-slate-900 focus:outline-hidden cursor-pointer"
-                                  >
-                                    {[20, 30, 35, 40, 45, 50].map(h => (
-                                      <option key={h} value={h} className="bg-slate-900 text-white">{h}h/wk</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span className="text-[10px] font-semibold text-slate-400">{weeklyCap}h/wk</span>
-                                )}
-                              </div>
+                          <div>
+                            <div className="text-xs font-bold font-mono tabular-nums">
+                              {memberActiveTasks.length} tasks <span className="text-[var(--text-muted)] font-normal">({memberPoints} pts)</span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-[var(--text-muted)]">Cap:</span>
+                              {canActorManageTeam ? (
+                                <select
+                                  value={weeklyCap}
+                                  onChange={e => handleUpdateMemberDepartmentOrCapacity(user, { weekly_capacity_hours: Number(e.target.value) })}
+                                  className="text-[10px] font-semibold px-1.5 py-0.5 cursor-pointer"
+                                >
+                                  {[20, 30, 35, 40, 45, 50].map(h => (
+                                    <option key={h} value={h}>{h}h/wk</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="text-[10px] font-semibold text-[var(--text-muted)]">{weeklyCap}h/wk</span>
+                              )}
                             </div>
                           </div>
                         </td>
 
-                        {/* Normalized Current Role Badge & Synced to DB Indicator */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border ${
-                                normalizedUserRole === UserRole.OWNER
-                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                                  : normalizedUserRole === UserRole.ADMIN
-                                    ? 'bg-[#191B17] text-white dark:bg-[#CCF048]/15 dark:text-[#CCF048] border-[#191B17]/30 dark:border-[#CCF048]/30'
-                                    : normalizedUserRole === UserRole.PROJECT_MANAGER
-                                      ? 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border-[#97B832]/35'
-                                      : normalizedUserRole === UserRole.CLIENT_VIEWER
-                                        ? 'bg-[var(--bg-surface-subtle)] text-[var(--text-muted)] border-[var(--border-hairline)]'
-                                        : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                              }`}
-                            >
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)]">
                               {formatRoleForDisplay(normalizedUserRole)}
                             </span>
-                            {/* "✓ DB Verified & Synced" only appears temporarily then closes off automatically */}
                             {recentlySyncedStatus[user.id] && (
-                              <div className="transition-all duration-300 animate-fadeIn">
+                              <div>
                                 {recentlySyncedStatus[user.id].dbSynced ? (
-                                  <span
-                                    title="Role synchronized and persistent in backend database"
-                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs"
-                                  >
-                                    <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                                    <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5" />
                                     <span>✓ DB Verified &amp; Synced</span>
                                   </span>
                                 ) : (
                                   <button
                                     type="button"
                                     onClick={() => setShowRlsModal(true)}
-                                    title="Saved in application state, but Supabase RLS blocked direct DB write. Click to view SQL fix."
-                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/30 shadow-xs transition-colors cursor-pointer"
+                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 cursor-pointer"
                                   >
-                                    <ICON_MAP.ExclamationIcon className="w-3.5 h-3.5 text-amber-400" />
+                                    <ICON_MAP.ExclamationIcon className="w-3.5 h-3.5" />
                                     <span>Saved (RLS Restricted) · Fix SQL ↗</span>
                                   </button>
                                 )}
@@ -1437,7 +1751,6 @@ export const TeamManagementPage: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Role Assignment Dropdown & Explicit Save role Requirement */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           {!isCurrentUserRow && userCanBeManaged ? (
                             (() => {
@@ -1462,10 +1775,10 @@ export const TeamManagementPage: React.FC = () => {
                                       }
                                     }}
                                     disabled={isSavingThisUser || isThisUserBeingDeleted}
-                                    className={`text-xs rounded-xl border px-3 py-1.5 font-semibold focus:ring-2 focus:ring-[#97B832] outline-none cursor-pointer transition-all ${
+                                    className={`text-xs px-3 py-1.5 font-semibold cursor-pointer ${
                                       hasUnsavedRoleChange
-                                        ? 'border-[#97B832] ring-2 ring-[#97B832]/40 bg-[var(--bg-sage)]'
-                                        : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-primary)]'
+                                        ? 'border-[var(--border-strong)] ring-2 ring-[var(--accent-lime)]/40 bg-[var(--bg-sage)]'
+                                        : ''
                                     }`}
                                   >
                                     {assignableRolesForThisUser.map(role => (
@@ -1475,29 +1788,27 @@ export const TeamManagementPage: React.FC = () => {
                                     ))}
                                   </select>
 
-                                  {/* Explicit Save role & Cancel buttons right next to dropdown */}
                                   {hasUnsavedRoleChange && (
-                                    <div className="flex items-center gap-1.5 animate-fadeIn">
+                                    <div className="flex items-center gap-1.5">
                                       <Button
                                         size="sm"
-                                        variant="primary"
+                                        variant="lime"
                                         onClick={async () => {
                                           setEditingUserId(user.id);
                                           await handleRoleChange(user.id, stagedRole);
                                         }}
                                         disabled={isSavingThisUser || isThisUserBeingDeleted}
-                                        className="!px-2.5 !py-1 text-xs font-bold inline-flex items-center gap-1 shadow-xs cursor-pointer"
-                                        title="Save role change"
                                       >
                                         {isSavingThisUser ? (
-                                          <SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
+                                          <SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1" />
                                         ) : (
-                                          <ICON_MAP.CheckIcon className="w-3.5 h-3.5" />
+                                          <ICON_MAP.CheckIcon className="w-3.5 h-3.5 mr-1" />
                                         )}
                                         <span>Save role</span>
                                       </Button>
-                                      <button
-                                        type="button"
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
                                         onClick={() => {
                                           setStagedRoles(prev => {
                                             const next = { ...prev };
@@ -1506,22 +1817,16 @@ export const TeamManagementPage: React.FC = () => {
                                           });
                                         }}
                                         disabled={isSavingThisUser}
-                                        className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors cursor-pointer"
-                                        title="Cancel unsaved change"
                                       >
                                         Cancel
-                                      </button>
+                                      </Button>
                                     </div>
-                                  )}
-
-                                  {isSavingThisUser && !hasUnsavedRoleChange && (
-                                    <SpinnerIcon className="w-3.5 h-3.5 animate-spin text-[#6F8254] dark:text-[var(--accent-lime)]" />
                                   )}
                                 </div>
                               );
                             })()
                           ) : (
-                            <span className="text-xs italic text-slate-400">
+                            <span className="text-xs italic text-[var(--text-muted)]">
                               {isCurrentUserRow
                                 ? 'Your Active Role'
                                 : normalizedUserRole === UserRole.OWNER
@@ -1531,30 +1836,17 @@ export const TeamManagementPage: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Action Buttons */}
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right space-x-2">
-                          {!isCurrentUserRow && userCanBeManaged && (
-                            (() => {
-                              const stagedRole = stagedRoles[user.id] ?? normalizedUserRole;
-                              const hasUnsavedRoleChange = stagedRole !== normalizedUserRole;
-                              const isSavingThisUser = isUpdatingUserRole && editingUserId === user.id;
-
-                              return (
-                                <>
-                                  {normalizedUserRole !== UserRole.OWNER && (
-                                    <Button
-                                      size="sm"
-                                      variant="danger"
-                                      onClick={() => handleRemoveUserConfirm(user.id)}
-                                      disabled={isThisUserBeingDeleted || isSavingThisUser}
-                                      title={`Remove ${user.full_name || user.email} from organization`}
-                                    >
-                                      {isThisUserBeingDeleted ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <TrashIcon className="w-3.5 h-3.5" />}
-                                    </Button>
-                                  )}
-                                </>
-                              );
-                            })()
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                          {!isCurrentUserRow && userCanBeManaged && normalizedUserRole !== UserRole.OWNER && (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleRemoveUserConfirm(user.id)}
+                              disabled={isThisUserBeingDeleted || (isUpdatingUserRole && editingUserId === user.id)}
+                              title={`Remove ${user.full_name || user.email} from organization`}
+                            >
+                              {isThisUserBeingDeleted ? <SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> : <TrashIcon className="w-3.5 h-3.5" />}
+                            </Button>
                           )}
                         </td>
                       </tr>
@@ -1564,97 +1856,86 @@ export const TeamManagementPage: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
+        </LiquidBezelSection>
       )}
 
       {/* Tab Content: 2. RBAC Permission Matrix */}
       {activeTab === 'rbac_matrix' && (
-        <div className="space-y-4">
-          <HairlineCard>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-4 border-b border-[var(--border-hairline)]">
-              <div>
-                <h2 className="text-base font-bold flex items-center gap-2">
-                  <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-[#6F8254] dark:text-[var(--accent-lime)]" />
-                  <span>Normalized Role-Based Access Control (RBAC) Governance</span>
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Project Managers and Administrators can update any member’s role except users holding the Organization Owner role.
-                </p>
-              </div>
-              <StatusDot
-                tone="lime"
-                label={`Your Role: ${formatRoleForDisplay(currentActorRole)}`}
-                className="font-semibold text-[var(--text-primary)]"
-              />
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[var(--border-hairline)] text-xs">
-                <thead className="bg-[var(--bg-surface-subtle)]">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-400">Platform Capability</th>
-                    {Object.values(UserRole).map(role => (
-                      <th key={role} className="px-4 py-3 text-center font-bold uppercase tracking-wider text-slate-400">
-                        {formatRoleForDisplay(role)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/70">
-                  {RBAC_PERMISSION_MATRIX.map((row, idx) => (
-                    <tr key={idx} className={darkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'}>
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-xs">{row.capability}</div>
-                        <div className="text-[10px] text-slate-400">{row.category}</div>
-                      </td>
-                      {Object.values(UserRole).map(role => {
-                        const val = row.roles[role];
-                        return (
-                          <td key={role} className="px-4 py-3 text-center">
-                            {val === true ? (
-                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
-                                ✓
-                              </span>
-                            ) : val === false ? (
-                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-500/10 text-slate-500">
-                                —
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
-                                {val}
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
+        <LiquidBezelSection
+          eyebrow="Governance Matrix"
+          title="Normalized Role-Based Access Control"
+          subtitle="Permissions across workspace governance, delivery, and AI."
+          icon={<ICON_MAP.ShieldCheckIcon className="w-4 h-4" />}
+          bezelRight={
+            <StatusDot
+              tone="lime"
+              label={`Your Role: ${formatRoleForDisplay(currentActorRole)}`}
+              className="font-semibold text-[var(--text-primary)]"
+            />
+          }
+          bodyClassName="p-0"
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-[var(--border-hairline)] text-xs">
+              <thead className="bg-[var(--bg-surface-subtle)]">
+                <tr>
+                  <th className="px-5 py-3.5 text-left font-bold uppercase tracking-wider text-[var(--text-muted)]">Platform Capability</th>
+                  {Object.values(UserRole).map(role => (
+                    <th key={role} className="px-4 py-3.5 text-center font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                      {formatRoleForDisplay(role)}
+                    </th>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </HairlineCard>
-        </div>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-hairline)]">
+                {RBAC_PERMISSION_MATRIX.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-[var(--bg-surface-subtle)] transition-colors">
+                    <td className="px-5 py-3.5">
+                      <div className="font-bold text-xs text-[var(--text-primary)]">{row.capability}</div>
+                      <div className="text-[10px] text-[var(--text-muted)]">{row.category}</div>
+                    </td>
+                    {Object.values(UserRole).map(role => {
+                      const val = row.roles[role];
+                      return (
+                        <td key={role} className="px-4 py-3.5 text-center">
+                          {val === true ? (
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold">
+                              ✓
+                            </span>
+                          ) : val === false ? (
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--bg-sage)] text-[var(--text-muted)]">
+                              —
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)]">
+                              {val}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </LiquidBezelSection>
       )}
 
       {/* Tab Content: 3. Active Invitations */}
       {activeTab === 'invitations' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <ICON_MAP.MailIcon className="w-5 h-5 text-[#6F8254] dark:text-[var(--accent-lime)]" />
-                Active Organization Invitations ({invitations.length})
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Generate and monitor single-use invitation tokens with pre-configured roles.
-              </p>
-            </div>
+        <LiquidBezelSection
+          eyebrow="Single-Use Onboarding Tokens"
+          title={`Active Invitations (${invitations.length})`}
+          subtitle="Monitor active invitation links and pre-assigned roles."
+          icon={<ICON_MAP.MailIcon className="w-4 h-4" />}
+          bezelRight={
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={loadInvitations}>
                 Refresh Invites
               </Button>
               <Button
-                variant="primary"
+                variant="lime"
                 size="sm"
                 onClick={() => {
                   setShowInviteModal(true);
@@ -1664,59 +1945,54 @@ export const TeamManagementPage: React.FC = () => {
                 + Create Invite
               </Button>
             </div>
-          </div>
-
+          }
+          bodyClassName="p-0"
+        >
           {isLoadingInvites ? (
-            <div className="text-center py-6">
-              <SpinnerIcon className="w-6 h-6 animate-spin mx-auto text-[#6F8254] dark:text-[var(--accent-lime)]" />
+            <div className="text-center py-10">
+              <SpinnerIcon className="w-6 h-6 animate-spin mx-auto text-[var(--accent-text)]" />
             </div>
           ) : invitations.length === 0 ? (
-            <HairlineCard className="p-8 text-center">
+            <div className="p-10 text-center">
               <ICON_MAP.MailIcon className="w-10 h-10 mx-auto mb-2 text-[var(--text-muted)] opacity-60" />
               <p className="font-semibold text-sm text-[var(--text-primary)]">No active invitation links.</p>
-              <p className="text-xs text-[var(--text-secondary)] mt-1">Click "Create Invite" to generate a secure join link for a new team member.</p>
-            </HairlineCard>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">Click &ldquo;Create Invite&rdquo; to generate a secure join link for a new team member.</p>
+            </div>
           ) : (
-            <div className="editorial-surface overflow-x-auto">
+            <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[var(--border-hairline)]">
                 <thead className="bg-[var(--bg-surface-subtle)]">
                   <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recipient Email</th>
+                    <th scope="col" className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recipient Email</th>
                     <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Pre-assigned Role</th>
                     <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Status</th>
                     <th scope="col" className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Expires</th>
-                    <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Actions</th>
+                    <th scope="col" className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                <tbody className="divide-y divide-[var(--border-hairline)] text-sm">
                   {invitations.map(inv => {
                     const fullLink = `${window.location.origin}${window.location.pathname}#join-token=${inv.token}`;
                     const isRevoked = inv.status === 'revoked';
                     const isExpired = inv.expires_at ? new Date(inv.expires_at) < new Date() : false;
 
                     return (
-                      <tr key={inv.id} className={isRevoked || isExpired ? 'opacity-50' : ''}>
-                        <td className="px-4 py-3 font-medium">
-                          {inv.email || <span className="italic opacity-60">Any person with link</span>}
+                      <tr key={inv.id} className={`hover:bg-[var(--bg-surface-subtle)] transition-colors ${isRevoked || isExpired ? 'opacity-50' : ''}`}>
+                        <td className="px-5 py-3.5 font-medium">
+                          {inv.email || <span className="italic text-[var(--text-muted)]">Any person with link</span>}
                         </td>
-                        <td className="px-4 py-3">{formatRoleForDisplay(inv.role)}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-0.5 text-xs rounded-full font-semibold border ${
-                              isRevoked
-                                ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400'
-                                : isExpired
-                                  ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400'
-                                  : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400'
-                            }`}
-                          >
-                            {isRevoked ? 'Revoked' : isExpired ? 'Expired' : 'Active'}
-                          </span>
+                        <td className="px-4 py-3.5">{formatRoleForDisplay(inv.role)}</td>
+                        <td className="px-4 py-3.5">
+                          <StatusDot
+                            tone={isRevoked ? 'danger' : isExpired ? 'warning' : 'success'}
+                            label={isRevoked ? 'Revoked' : isExpired ? 'Expired' : 'Active'}
+                            className="font-semibold text-xs"
+                          />
                         </td>
-                        <td className="px-4 py-3 text-xs opacity-70">
+                        <td className="px-4 py-3.5 text-xs font-mono tabular-nums text-[var(--text-muted)]">
                           {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : 'Never'}
                         </td>
-                        <td className="px-4 py-3 text-right space-x-2">
+                        <td className="px-5 py-3.5 text-right space-x-2">
                           {!isRevoked && !isExpired && (
                             <>
                               <Button size="sm" variant="outline" onClick={() => handleCopyLink(fullLink, inv.id)}>
@@ -1735,40 +2011,22 @@ export const TeamManagementPage: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
+        </LiquidBezelSection>
       )}
 
       {/* Tab Content: 4. User & Audit Logs */}
       {activeTab === 'audit_logs' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md flex items-center">
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
-              <input
-                type="text"
-                placeholder="Search audit trail by actor, action, or target..."
-                value={auditSearchQuery}
-                onChange={e => setAuditSearchQuery(e.target.value)}
-                className="w-full !pl-10 !pr-8 !py-2 text-xs rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-hidden focus:ring-2 focus:ring-[#97B832]"
-              />
-              {auditSearchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setAuditSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 cursor-pointer"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
+        <LiquidBezelSection
+          eyebrow="Security Ledger"
+          title="Workspace Audit Trail"
+          subtitle={`${filteredAuditLogs.length} recorded governance & workflow events`}
+          icon={<ICON_MAP.ClockIcon className="w-4 h-4" />}
+          bezelRight={
+            <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={auditFilterType}
                 onChange={e => setAuditFilterType(e.target.value)}
-                className={`text-xs rounded-xl border px-3 py-2 font-medium focus:outline-hidden ${
-                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-700'
-                }`}
+                className="text-xs px-3 py-1.5 font-medium"
               >
                 <option value="all">All Entity Types</option>
                 <option value="user">User & Roles</option>
@@ -1777,24 +2035,41 @@ export const TeamManagementPage: React.FC = () => {
                 <option value="invitation">Invitations</option>
                 <option value="organization">Organization</option>
               </select>
-
-              <button
-                onClick={loadAuditLogs}
-                className="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5" />
+              <Button variant="secondary" size="sm" onClick={loadAuditLogs}>
+                <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5 mr-1" />
                 <span>Refresh</span>
-              </button>
+              </Button>
             </div>
+          }
+          bodyClassName="p-4 sm:p-5 space-y-4"
+        >
+          <div className="relative max-w-md flex items-center">
+            <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
+            <input
+              type="text"
+              placeholder="Search audit trail by actor, action, or target..."
+              value={auditSearchQuery}
+              onChange={e => setAuditSearchQuery(e.target.value)}
+              className="w-full search-input !pl-10 !pr-8 !py-2 text-xs !rounded-full"
+            />
+            {auditSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setAuditSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] z-10 cursor-pointer"
+              >
+                ×
+              </button>
+            )}
           </div>
 
           {isLoadingAuditLogs ? (
             <div className="text-center py-12">
-              <SpinnerIcon className="w-8 h-8 animate-spin mx-auto text-[#6F8254] dark:text-[var(--accent-lime)]" />
+              <SpinnerIcon className="w-8 h-8 animate-spin mx-auto text-[var(--accent-text)]" />
               <p className="text-xs text-[var(--text-muted)] mt-2">Loading audit trail records...</p>
             </div>
           ) : filteredAuditLogs.length === 0 ? (
-            <HairlineCard className="p-8 text-center">
+            <div className="editorial-surface-subtle p-10 text-center">
               <ICON_MAP.ClockIcon className="w-10 h-10 mx-auto mb-2 opacity-60 text-[var(--text-muted)]" />
               <p className="font-bold text-sm text-[var(--text-primary)]">No Audit Logs Found</p>
               <p className="text-xs text-[var(--text-secondary)] mt-1">
@@ -1802,7 +2077,7 @@ export const TeamManagementPage: React.FC = () => {
                   ? 'No activity matches your active search filters.'
                   : 'Actions performed in the workspace will automatically be recorded here.'}
               </p>
-            </HairlineCard>
+            </div>
           ) : (
             <div className="editorial-surface overflow-hidden">
               <div className="overflow-x-auto">
@@ -1816,7 +2091,7 @@ export const TeamManagementPage: React.FC = () => {
                       <th scope="col" className="px-4 py-3 text-left font-semibold uppercase tracking-wider text-[var(--text-muted)]">Details</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  <tbody className="divide-y divide-[var(--border-hairline)]">
                     {filteredAuditLogs.map(log => {
                       const isExpanded = expandedLogId === log.id;
                       const isSecurityAction = log.action?.includes('role') || log.action?.includes('user_') || log.action?.includes('invite') || log.action?.includes('member');
@@ -1824,13 +2099,13 @@ export const TeamManagementPage: React.FC = () => {
 
                       return (
                         <React.Fragment key={log.id}>
-                          <tr className={`hover:bg-slate-500/5 transition-colors ${isExpanded ? (darkMode ? 'bg-slate-800' : 'bg-slate-50') : ''}`}>
-                            <td className="px-4 py-3 whitespace-nowrap text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                          <tr className={`hover:bg-[var(--bg-surface-subtle)] transition-colors ${isExpanded ? 'bg-[var(--bg-surface-subtle)]' : ''}`}>
+                            <td className="px-4 py-3 whitespace-nowrap text-[var(--text-muted)] font-mono tabular-nums text-[11px]">
                               {new Date(log.created_at).toLocaleString()}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-[#4E6126] dark:text-[#CCF048] font-bold flex items-center justify-center text-[10px]">
+                                <div className="w-6 h-6 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)] text-[var(--accent-text)] font-bold flex items-center justify-center text-[10px]">
                                   {(log.actor_name || log.actor_email || 'U').charAt(0).toUpperCase()}
                                 </div>
                                 <span className="font-semibold text-[var(--text-primary)]">
@@ -1840,12 +2115,12 @@ export const TeamManagementPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <span
-                                className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide border ${
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
                                   isSecurityAction
                                     ? 'bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300'
                                     : isTaskAction
                                       ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300'
-                                      : 'bg-[var(--bg-sage)] text-[#4E6126] border-[var(--border-hairline)] dark:text-[#CCF048]'
+                                      : 'bg-[var(--bg-sage)] text-[var(--accent-text)] border-[var(--border-hairline)]'
                                 }`}
                               >
                                 {log.action.replace(/_/g, ' ')}
@@ -1863,7 +2138,7 @@ export const TeamManagementPage: React.FC = () => {
                               {log.details ? (
                                 <button
                                   onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                                  className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline flex items-center gap-1 cursor-pointer"
+                                  className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline flex items-center gap-1 cursor-pointer"
                                 >
                                   <span>{isExpanded ? 'Hide Payload' : 'View Payload'}</span>
                                   <ICON_MAP.ChevronDownIcon className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -1879,7 +2154,7 @@ export const TeamManagementPage: React.FC = () => {
                               <td colSpan={5} className="px-6 py-3">
                                 <div className="space-y-1">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Event Context Payload:</span>
-                                  <pre className="text-[11px] font-mono p-3 rounded-xl bg-[#131511] text-[#CCF048] overflow-x-auto border border-[#2B3026] max-h-48">
+                                  <pre className="text-[11px] font-mono p-3 rounded-xl bg-[var(--bg-bezel)] text-[var(--accent-lime)] overflow-x-auto border border-[var(--bg-bezel-inner)] max-h-48">
                                     {typeof log.details === 'object' ? JSON.stringify(log.details, null, 2) : log.details}
                                   </pre>
                                 </div>
@@ -1894,23 +2169,17 @@ export const TeamManagementPage: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
+        </LiquidBezelSection>
       )}
 
       {/* Tab Content: 5. Organization Join Requests & Access Approvals */}
       {activeTab === 'join_requests' && (
-        <div className="space-y-4">
-          <HairlineCard className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold flex items-center gap-2 text-[var(--text-primary)]">
-                <ICON_MAP.ShieldCheckIcon className="w-4 h-4 text-[#6F8254] dark:text-[var(--accent-lime)]" />
-                <span>Organization Join Requests & Access Governance</span>
-              </h2>
-              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                New user signup requests to join this organization. Project Managers, Admins, and Owners can approve or decline access.
-              </p>
-            </div>
-
+        <LiquidBezelSection
+          eyebrow="Access Governance"
+          title="Organization Join Requests"
+          subtitle="Approve or decline member signup requests."
+          icon={<ICON_MAP.ShieldCheckIcon className="w-4 h-4" />}
+          bezelRight={
             <SegmentedTabs
               value={joinRequestsTabFilter}
               onChange={setJoinRequestsTabFilter}
@@ -1921,16 +2190,17 @@ export const TeamManagementPage: React.FC = () => {
                 count: f === 'all' ? joinRequests.length : joinRequests.filter(r => r.status === f).length,
               }))}
             />
-          </HairlineCard>
-
+          }
+          bodyClassName="p-4 sm:p-5"
+        >
           {joinRequests.filter(r => joinRequestsTabFilter === 'all' || r.status === joinRequestsTabFilter).length === 0 ? (
-            <HairlineCard className="p-12 text-center border-dashed">
+            <div className="editorial-surface-subtle p-12 text-center">
               <ICON_MAP.ShieldCheckIcon className="w-10 h-10 mx-auto text-[var(--text-muted)] opacity-60 mb-2" />
               <p className="text-sm font-bold text-[var(--text-primary)]">No {joinRequestsTabFilter !== 'all' ? joinRequestsTabFilter : ''} join requests found</p>
               <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm mx-auto">
                 When new users sign up and request access to this organization, their applications will appear here for manager review.
               </p>
-            </HairlineCard>
+            </div>
           ) : (
             <div className="space-y-3">
               {joinRequests
@@ -1945,10 +2215,8 @@ export const TeamManagementPage: React.FC = () => {
                   return (
                     <div
                       key={req.id}
-                      className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
-                        isPending
-                          ? 'bg-[var(--bg-surface)] border-[var(--border-strong)]'
-                          : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] opacity-85'
+                      className={`p-4 sm:p-5 editorial-surface-subtle flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                        isPending ? 'border-[var(--border-strong)]' : 'opacity-85'
                       }`}
                     >
                       <div className="flex items-start gap-3.5 min-w-0">
@@ -1970,48 +2238,47 @@ export const TeamManagementPage: React.FC = () => {
                             <span className="text-xs text-[var(--text-muted)] font-mono">
                               ({req.requester_email})
                             </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)]">
                               Requested: {formatRoleForDisplay(req.requested_role)}
                             </span>
                             {isApproved && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                <ICON_MAP.CheckCircleIcon className="w-3 h-3 text-emerald-400" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                                <ICON_MAP.CheckCircleIcon className="w-3 h-3" />
                                 <span>Approved ({formatRoleForDisplay(req.approved_role || selectedGrantRole)})</span>
                               </span>
                             )}
                             {isDeclined && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                                ✕ Declined
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                                Declined
                               </span>
                             )}
                             {recentlySyncedStatus[req.requester_id]?.dbSynced && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
-                                <ICON_MAP.CheckCircleIcon className="w-3 h-3 text-emerald-400" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                                <ICON_MAP.CheckCircleIcon className="w-3 h-3" />
                                 <span>Synced to DB</span>
                               </span>
                             )}
                           </div>
 
                           {req.message && (
-                            <p className="text-xs text-slate-500 dark:text-slate-300 mt-1.5 italic bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg">
+                            <p className="text-xs text-[var(--text-secondary)] mt-1.5 italic">
                               &ldquo;{req.message}&rdquo;
                             </p>
                           )}
 
-                          <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-2">
+                          <div className="flex items-center gap-3 text-[11px] text-[var(--text-muted)] mt-2">
                             <span>Requested: {new Date(req.created_at).toLocaleString()}</span>
                             {req.reviewed_by && (
-                              <span>• Reviewed by {req.reviewer_name || req.reviewed_by}</span>
+                              <span>· Reviewed by {req.reviewer_name || req.reviewed_by}</span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Action buttons */}
                       {isPending && canActorManageTeam && (
                         <div className="flex flex-wrap items-center gap-2.5 self-end lg:self-center flex-shrink-0">
                           <div className="flex items-center gap-2">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            <label className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
                               Grant:
                             </label>
                             <select
@@ -2023,11 +2290,7 @@ export const TeamManagementPage: React.FC = () => {
                                 }))
                               }
                               disabled={isProcessing}
-                              className={`text-xs font-bold rounded-xl border px-3 py-1.5 ${
-                                darkMode
-                                  ? 'bg-neutral-800 border-white/10 text-white'
-                                  : 'bg-white border-slate-300 text-slate-900'
-                              }`}
+                              className="text-xs font-bold px-3 py-1.5"
                             >
                               <option value={UserRole.MEMBER}>Member</option>
                               <option value={UserRole.PROJECT_MANAGER}>Project Manager</option>
@@ -2039,32 +2302,31 @@ export const TeamManagementPage: React.FC = () => {
 
                           <Button
                             type="button"
-                            variant="primary"
+                            variant="lime"
                             size="sm"
                             disabled={isProcessing}
                             onClick={() => handleApproveJoinRequest(req)}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                           >
                             {isProcessing ? (
                               <>
                                 <SpinnerIcon className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                                <span>Approving & Syncing...</span>
+                                <span>Approving &amp; Syncing...</span>
                               </>
                             ) : (
                               <>
-                                <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 mr-1 text-white" />
-                                <span>Approve & Sync to DB</span>
+                                <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 mr-1" />
+                                <span>Approve &amp; Sync to DB</span>
                               </>
                             )}
                           </Button>
 
                           <Button
                             type="button"
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
                             disabled={isProcessing}
                             onClick={() => handleDeclineJoinRequest(req)}
-                            className="text-xs font-semibold px-3 py-1.5 text-rose-400 hover:text-rose-300"
+                            className="text-rose-600 dark:text-rose-400"
                           >
                             Decline
                           </Button>
@@ -2075,7 +2337,7 @@ export const TeamManagementPage: React.FC = () => {
                 })}
             </div>
           )}
-        </div>
+        </LiquidBezelSection>
       )}
 
       {/* Provision / Add Member Modal */}
@@ -2298,13 +2560,14 @@ export const TeamManagementPage: React.FC = () => {
                   <p className="text-xs text-slate-400">Enable database table persistence for user role changes</p>
                 </div>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowRlsModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer text-lg leading-none"
+                aria-label="Close Supabase RLS modal"
               >
-                ✕
-              </button>
+                <ICON_MAP.XMarkIcon className="w-4 h-4" />
+              </Button>
             </div>
 
             <div className="space-y-4 my-4 max-h-[60vh] overflow-y-auto pr-1">
@@ -2361,7 +2624,7 @@ export const TeamManagementPage: React.FC = () => {
                 <div className="font-bold text-[var(--text-primary)]">Quick 30-Second Setup:</div>
                 <ol className="list-decimal list-inside space-y-1 text-[var(--text-secondary)]">
                   <li>Click <strong>Copy SQL Script</strong> above.</li>
-                  <li>Open your <a href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new" target="_blank" rel="noreferrer" className="text-[#4E6126] dark:text-[#CCF048] underline font-semibold hover:opacity-80">Supabase SQL Editor ↗</a>.</li>
+                  <li>Open your <a href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new" target="_blank" rel="noreferrer" className="text-[var(--accent-text)] underline font-semibold hover:opacity-80">Supabase SQL Editor ↗</a>.</li>
                   <li>Click <strong>New query</strong>, paste the script, and click <strong>Run</strong>.</li>
                   <li>Back in Team Management, change the role and click <strong>Save role</strong> — it will immediately update in the Supabase table!</li>
                 </ol>
@@ -2373,7 +2636,7 @@ export const TeamManagementPage: React.FC = () => {
                 href="https://supabase.com/dashboard/project/sqzjlxayhghoxjloaddo/sql/new"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs font-semibold text-[#4E6126] dark:text-[#CCF048] hover:opacity-80 inline-flex items-center gap-1"
+                className="text-xs font-semibold text-[var(--accent-text)] hover:opacity-80 inline-flex items-center gap-1"
               >
                 <span>Open Supabase SQL Editor</span>
                 <span>↗</span>

@@ -219,7 +219,7 @@ export const PersonalScratchpadDrawer: React.FC = () => {
             onClick={() => setActiveTab('scratchpad')}
             className={`flex-1 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
               activeTab === 'scratchpad'
-                ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                 : 'bg-[var(--bg-sage)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -229,7 +229,7 @@ export const PersonalScratchpadDrawer: React.FC = () => {
             onClick={() => setActiveTab('filters')}
             className={`flex-1 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
               activeTab === 'filters'
-                ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                 : 'bg-[var(--bg-sage)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -247,7 +247,7 @@ export const PersonalScratchpadDrawer: React.FC = () => {
                   onClick={() => setSelectedNoteId(n.id)}
                   className={`px-2.5 py-1 rounded-full text-xs font-semibold truncate max-w-[150px] border transition cursor-pointer ${
                     activeNote?.id === n.id
-                      ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048]'
+                      ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--accent-text)]'
                       : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
@@ -298,7 +298,7 @@ export const PersonalScratchpadDrawer: React.FC = () => {
                     </span>
                     <button
                       onClick={() => handleConvertNoteToTask()}
-                      className="text-[11px] font-bold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                      className="text-[11px] font-bold text-[var(--accent-text)] hover:underline cursor-pointer"
                     >
                       + Convert Top Line to Task
                     </button>
@@ -316,7 +316,7 @@ export const PersonalScratchpadDrawer: React.FC = () => {
                           <span className="truncate text-[var(--text-primary)]">{line}</span>
                           <button
                             onClick={() => handleConvertNoteToTask(line)}
-                            className="px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] text-[10px] font-bold shrink-0 hover:bg-[var(--accent-lime)] hover:text-[var(--accent-ink)] transition-colors cursor-pointer"
+                            className="px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] text-[10px] font-bold shrink-0 hover:bg-[var(--accent-lime)] hover:text-[var(--accent-ink)] transition-colors cursor-pointer"
                           >
                             + Task
                           </button>
@@ -382,7 +382,7 @@ export const PersonalScratchpadDrawer: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <span className="text-xs text-[#4E6126] dark:text-[#CCF048] font-bold">Launch →</span>
+                  <span className="text-xs text-[var(--accent-text)] font-bold">Launch →</span>
                 </button>
               ))}
             </div>

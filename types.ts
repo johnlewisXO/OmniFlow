@@ -38,7 +38,8 @@ export const normalizeUserRole = (rawRole?: string | UserRole | null): UserRole 
   return UserRole.MEMBER;
 };
 
-export type WorkspaceAccentId = 'violet' | 'cyan' | 'emerald' | 'coral' | 'amber' | 'cobalt';
+export type WorkspaceAccentId = 'lime' | 'cobalt' | 'terracotta' | 'emerald' | 'plum' | 'amber';
+export type AmbientIntensity = 'subtle' | 'balanced' | 'vivid';
 
 export interface WorkspaceAccentPreset {
   id: WorkspaceAccentId;
@@ -46,6 +47,8 @@ export interface WorkspaceAccentPreset {
   tagline: string;
   lightHex: string;
   darkHex: string;
+  bezelHex: string;
+  canvasHex: string;
   gradientStart: string;
   gradientEnd: string;
   primaryHslLight: string;
@@ -57,88 +60,100 @@ export interface WorkspaceAccentPreset {
 
 export const WORKSPACE_ACCENT_PRESETS: WorkspaceAccentPreset[] = [
   {
-    id: 'violet',
-    name: 'Electric Violet',
-    tagline: 'Signature studio purple',
-    lightHex: '#6957FF',
-    darkHex: '#857CFF',
-    gradientStart: '#7C6BFF',
-    gradientEnd: '#5B4AEE',
-    primaryHslLight: '245 100% 67%',
-    primaryHslDark: '244 100% 74%',
-    primaryRgbLight: '105, 87, 255',
-    primaryRgbDark: '133, 124, 255',
-    swatchClass: 'from-violet-500 to-indigo-600',
-  },
-  {
-    id: 'cyan',
-    name: 'Ocean Cyan',
-    tagline: 'Crisp aqua & sky glow',
-    lightHex: '#0284C7',
-    darkHex: '#38BDF8',
-    gradientStart: '#06B6D4',
-    gradientEnd: '#0284C7',
-    primaryHslLight: '199 96% 40%',
-    primaryHslDark: '199 95% 60%',
-    primaryRgbLight: '2, 132, 199',
-    primaryRgbDark: '56, 189, 248',
-    swatchClass: 'from-cyan-400 to-sky-600',
-  },
-  {
-    id: 'emerald',
-    name: 'Emerald Mint',
-    tagline: 'Vibrant forest & mint',
-    lightHex: '#059669',
-    darkHex: '#34D399',
-    gradientStart: '#10B981',
-    gradientEnd: '#059669',
-    primaryHslLight: '160 84% 35%',
-    primaryHslDark: '158 64% 52%',
-    primaryRgbLight: '5, 150, 105',
-    primaryRgbDark: '52, 211, 153',
-    swatchClass: 'from-emerald-400 to-teal-600',
-  },
-  {
-    id: 'coral',
-    name: 'Sunset Coral',
-    tagline: 'Warm rose & crimson energy',
-    lightHex: '#E11D48',
-    darkHex: '#FB7185',
-    gradientStart: '#F43F5E',
-    gradientEnd: '#E11D48',
-    primaryHslLight: '347 77% 50%',
-    primaryHslDark: '351 95% 71%',
-    primaryRgbLight: '225, 29, 72',
-    primaryRgbDark: '251, 113, 133',
-    swatchClass: 'from-rose-400 to-pink-600',
-  },
-  {
-    id: 'amber',
-    name: 'Amber Gold',
-    tagline: 'Solar gold & warm honey',
-    lightHex: '#D97706',
-    darkHex: '#FBBF24',
-    gradientStart: '#F59E0B',
-    gradientEnd: '#D97706',
-    primaryHslLight: '32 95% 44%',
-    primaryHslDark: '43 96% 56%',
-    primaryRgbLight: '217, 119, 6',
-    primaryRgbDark: '251, 191, 36',
-    swatchClass: 'from-amber-400 to-orange-600',
+    id: 'lime',
+    name: 'Aurora',
+    tagline: 'Sage mist, botanical light & volt lime',
+    lightHex: '#4E6B24',
+    darkHex: '#CCF048',
+    bezelHex: '#383B33',
+    canvasHex: '#F4F4EF',
+    gradientStart: '#C8EB5B',
+    gradientEnd: '#587431',
+    primaryHslLight: '82 50% 28%',
+    primaryHslDark: '73 85% 61%',
+    primaryRgbLight: '78, 107, 36',
+    primaryRgbDark: '204, 240, 72',
+    swatchClass: 'from-[#C8EB5B] to-[#383B33]',
   },
   {
     id: 'cobalt',
-    name: 'Cobalt Blue',
-    tagline: 'Executive sapphire blue',
+    name: 'Ocean',
+    tagline: 'Glacier mist, marine slate & crisp azure',
     lightHex: '#2563EB',
     darkHex: '#60A5FA',
-    gradientStart: '#3B82F6',
-    gradientEnd: '#1D4ED8',
+    bezelHex: '#1E293B',
+    canvasHex: '#F2F5FA',
+    gradientStart: '#7DD3FC',
+    gradientEnd: '#2563EB',
     primaryHslLight: '221 83% 53%',
     primaryHslDark: '213 94% 68%',
     primaryRgbLight: '37, 99, 235',
     primaryRgbDark: '96, 165, 250',
-    swatchClass: 'from-blue-500 to-indigo-700',
+    swatchClass: 'from-sky-400 to-slate-800',
+  },
+  {
+    id: 'terracotta',
+    name: 'Ember',
+    tagline: 'Sandstone haze, desert dusk & burnt amber',
+    lightHex: '#B45309',
+    darkHex: '#FB923C',
+    bezelHex: '#3B2820',
+    canvasHex: '#F7F3EE',
+    gradientStart: '#FDBA74',
+    gradientEnd: '#B45309',
+    primaryHslLight: '24 85% 37%',
+    primaryHslDark: '28 96% 68%',
+    primaryRgbLight: '180, 83, 9',
+    primaryRgbDark: '251, 146, 60',
+    swatchClass: 'from-orange-400 to-stone-800',
+  },
+  {
+    id: 'emerald',
+    name: 'Forest',
+    tagline: 'Mineral pine canopy, dew mist & jade',
+    lightHex: '#047857',
+    darkHex: '#34D399',
+    bezelHex: '#1C3128',
+    canvasHex: '#F1F6F3',
+    gradientStart: '#6EE7B7',
+    gradientEnd: '#047857',
+    primaryHslLight: '160 93% 24%',
+    primaryHslDark: '158 64% 58%',
+    primaryRgbLight: '4, 120, 87',
+    primaryRgbDark: '52, 211, 153',
+    swatchClass: 'from-emerald-400 to-emerald-950',
+  },
+  {
+    id: 'plum',
+    name: 'Violet',
+    tagline: 'Twilight iris, deep indigo haze & amethyst',
+    lightHex: '#6D28D9',
+    darkHex: '#A78BFA',
+    bezelHex: '#2C243D',
+    canvasHex: '#F4F3F8',
+    gradientStart: '#C4B5FD',
+    gradientEnd: '#6D28D9',
+    primaryHslLight: '263 70% 50%',
+    primaryHslDark: '255 92% 76%',
+    primaryRgbLight: '109, 40, 217',
+    primaryRgbDark: '167, 139, 250',
+    swatchClass: 'from-violet-300 to-indigo-950',
+  },
+  {
+    id: 'amber',
+    name: 'Mono',
+    tagline: 'Architectural stone, graphite & pure glass',
+    lightHex: '#3A3B38',
+    darkHex: '#D8DAD3',
+    bezelHex: '#272725',
+    canvasHex: '#F5F5F3',
+    gradientStart: '#E2E3DE',
+    gradientEnd: '#4A4B47',
+    primaryHslLight: '60 3% 22%',
+    primaryHslDark: '72 6% 84%',
+    primaryRgbLight: '58, 59, 56',
+    primaryRgbDark: '216, 218, 211',
+    swatchClass: 'from-stone-300 to-stone-800',
   },
 ];
 
@@ -160,6 +175,8 @@ export interface UserProfilePreferences {
   defaultLandingView?: ActiveView;
   compactDensity?: boolean;
   accentColor?: WorkspaceAccentId;
+  ambientIntensity?: AmbientIntensity;
+  autoCyclePalette?: boolean;
   themeMode?: 'light' | 'dark';
   emailDigestFrequency?: 'instant' | 'daily' | 'weekly' | 'off';
   notifyOnTaskAssigned?: boolean;
@@ -243,6 +260,8 @@ export interface Organization {
   name: string;
   slug?: string;
   domain?: string;
+  logo_url?: string;
+  logoUrl?: string;
   corporate_domain?: string;
   corporateDomain?: string;
   defaultSprintDurationDays?: number;
@@ -371,6 +390,7 @@ export interface Task {
   parent_task_id?: string;
   tags?: string[];
   story_points?: number;
+  loggedHours?: number;
   sprintId?: string | null;
   blockedBy?: string[];
   blocks?: string[];
@@ -842,7 +862,7 @@ export interface Notification {
   reference_id?: string;
   reference_parent_id?: string;
   is_read?: boolean;
-  entity_type?: 'task' | 'project' | 'user' | 'system' | 'chat';
+  entity_type?: 'task' | 'project' | 'user' | 'system' | 'chat' | 'calendar';
   entity_id?: string;
   title?: string;
   message?: string;
@@ -851,11 +871,29 @@ export interface Notification {
   created_at?: string;
 }
 
+export type AvailabilityStatus = 'available' | 'away' | 'busy';
+
+export interface ConfirmDialogOptions {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: 'danger' | 'warning' | 'primary';
+  itemPreview?: string;
+}
+
 export interface AppStore {
   darkMode: boolean;
   toggleDarkMode: () => void;
   accentColor: WorkspaceAccentId;
   setAccentColor: (accent: WorkspaceAccentId) => void;
+  ambientIntensity: AmbientIntensity;
+  setAmbientIntensity: (intensity: AmbientIntensity) => void;
+  autoCyclePalette: boolean;
+  setAutoCyclePalette: (enabled: boolean) => void;
+  cycleNextAccentPalette: () => void;
+  myAvailabilityStatus: AvailabilityStatus;
+  setMyAvailabilityStatus: (status: AvailabilityStatus, options?: { silent?: boolean }) => void;
 
   users: User[];
   projects: Project[];
@@ -881,7 +919,7 @@ export interface AppStore {
   setSidebarPinned: (pinned: boolean) => void;
   toggleSidebarPinned: () => void;
 
-  signUp: (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => Promise<{ profile?: User; requiresEmailConfirmation?: boolean; smtpFallbackUsed?: boolean; smtpErrorMessage?: string } | void>;
+  signUp: (email: string, password: string, fullName: string, organizationName?: string, role?: UserRole) => Promise<{ profile?: User; requiresEmailConfirmation?: boolean; smtpFallbackUsed?: boolean; smtpErrorMessage?: string }>;
   joinOrCreateOrganization: (organizationName: string, role?: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -986,6 +1024,7 @@ export interface AppStore {
   updateOrganizationSettings: (updates: {
     orgDisplayName: string;
     corporateDomain?: string;
+    logoUrl?: string;
     defaultSprintDurationDays?: number;
     defaultTaskStatus?: TaskStatus;
     autoAssignCreator?: boolean;
@@ -999,7 +1038,7 @@ export interface AppStore {
     title: string,
     message: string,
     toastType?: 'success' | 'error' | 'warning' | 'info',
-    navTarget?: { entity_type?: 'task' | 'project' | 'user' | 'system' | 'chat'; entity_id?: string; reference_id?: string; metadata?: Record<string, any> }
+    navTarget?: { entity_type?: 'task' | 'project' | 'user' | 'system' | 'chat' | 'calendar'; entity_id?: string; reference_id?: string; metadata?: Record<string, any> }
   ) => void;
   addNotification: (notification: Partial<Notification> & Omit<Notification, 'id' | 'created_at' | 'read'>) => void;
   markNotificationAsRead: (id: string) => void;
@@ -1065,6 +1104,11 @@ export interface AppStore {
   openOrganizationModal: (mode?: 'join' | 'create') => void;
   closeOrganizationModal: () => void;
   switchOrganization: (orgId: string, orgName?: string) => Promise<void>;
+
+  // In-app Liquid Glass Confirmation Modal
+  confirmDialog: (ConfirmDialogOptions & { id: string }) | null;
+  requestConfirm: (options: ConfirmDialogOptions) => Promise<boolean>;
+  resolveConfirm: (confirmed: boolean) => void;
 }
 
 export interface ClipCommentPin {

@@ -16,7 +16,7 @@ export const ProjectStatusWidget: React.FC = () => {
   return (
     <div className="p-4 md:p-6 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] shadow-xs">
       <div className="flex items-center mb-4">
-        <FolderIcon className="w-5 h-5 mr-2.5 text-[#4E6126] dark:text-[#CCF048]" />
+        <FolderIcon className="w-5 h-5 mr-2.5 text-[var(--accent-text)]" />
         <h2 className="text-base font-bold text-[var(--text-primary)] tracking-tight">Active Projects Overview</h2>
       </div>
       
@@ -47,12 +47,12 @@ export const ProjectStatusWidget: React.FC = () => {
             >
               <div className="flex justify-between items-center mb-1">
                 <span className="font-semibold text-sm text-[var(--text-primary)]">{project.name}</span>
-                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-strong)] whitespace-nowrap">{project.status}</span>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-strong)] whitespace-nowrap">{project.status}</span>
               </div>
               {project.progress !== undefined && (
                 <div className="w-full bg-[var(--bg-sage)] rounded-full h-2 mt-2 overflow-hidden">
                   <div 
-                    className="bg-[#191B17] dark:bg-[#CCF048] h-2 rounded-full transition-all duration-500 ease-out" 
+                    className="bg-[var(--accent-cta)] h-2 rounded-full transition-all duration-500 ease-out" 
                     style={{ width: `${project.progress}%` }}
                     title={`${project.progress}% complete`}
                   ></div>

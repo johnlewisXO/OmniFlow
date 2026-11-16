@@ -167,7 +167,7 @@ export const AmbientHuddleBar: React.FC = () => {
               onClick={handleToggleScreenShare}
               className={`py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${
                 isSharingScreen
-                  ? 'bg-[#CCF048] text-[#131511]'
+                  ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)]'
                   : 'bg-[#24291F] hover:bg-[#2E3427] text-[#F2F3EE]'
               }`}
             >

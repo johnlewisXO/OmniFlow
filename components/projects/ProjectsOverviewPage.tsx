@@ -3,13 +3,15 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Button } from '../shared/Button';
 import {
-  PageHeader,
   InlineKpiStrip,
   SegmentedTabs,
   HairlineCard,
+  LiquidBezelSection,
+  LiquidBezelCard,
   StatusDot,
+  AnimatedViewStage,
 } from '../shared/EditorialUI';
-import { RadialProgressRing, SlimProgressBar } from '../charts/EditorialCharts';
+import { LiquidMetricProgress, SlimProgressBar } from '../charts/EditorialCharts';
 import { TaskStatus } from '../../types';
 
 export const ProjectsOverviewPage: React.FC = () => {
@@ -72,67 +74,67 @@ export const ProjectsOverviewPage: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
-      <PageHeader
+      <LiquidBezelSection
         eyebrow={`${currentOrganization?.name || 'Workspace'} · Portfolio`}
         title="Projects"
-        subtitle="Track active delivery streams, completion velocity, and task ownership across your workspace."
-        actions={
-          <>
+        subtitle="Active delivery streams, velocity, and ownership."
+        icon={<FolderIcon className="w-4 h-4" />}
+        bezelRight={
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setActiveView('ai_copilot_view')}>
               <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
               AI Planner
             </Button>
-            <Button variant="primary" size="sm" onClick={openCreateProjectModal}>
+            <Button variant="lime" size="sm" onClick={openCreateProjectModal}>
               <PlusIcon className="w-3.5 h-3.5" />
               New Project
             </Button>
-          </>
+          </div>
         }
-      />
-
-      <InlineKpiStrip
-        items={[
-          {
-            id: 'total',
-            label: 'Total Projects',
-            value: projectMetrics.total,
-            sublabel: `${projectMetrics.completed} completed`,
-            tone: 'default',
-            onClick: () => setStatusFilter('all'),
-          },
-          {
-            id: 'active',
-            label: 'Active Streams',
-            value: projectMetrics.active,
-            sublabel: 'Currently executing',
-            tone: 'success',
-            onClick: () => setStatusFilter('active'),
-          },
-          {
-            id: 'avg-progress',
-            label: 'Portfolio Progress',
-            value: `${projectMetrics.avgProgress}%`,
-            sublabel: 'Average completion',
-            visual: (
-              <RadialProgressRing
-                value={projectMetrics.avgProgress}
-                size={36}
-                strokeWidth={4}
-                tone="lime"
-                showLabel={false}
-              />
-            ),
-          },
-          {
-            id: 'paused',
-            label: 'On Hold',
-            value: projectMetrics.onHold,
-            sublabel: projectMetrics.onHold === 0 ? 'All streams active' : 'Needs review',
-            tone: projectMetrics.onHold > 0 ? 'warning' : 'default',
-            onClick: () => setStatusFilter('on hold'),
-          },
-        ]}
-      />
+        bodyClassName="p-4 sm:p-5"
+      >
+        <InlineKpiStrip
+          items={[
+            {
+              id: 'total',
+              label: 'Total Projects',
+              value: projectMetrics.total,
+              sublabel: `${projectMetrics.completed} completed`,
+              tone: 'default',
+              onClick: () => setStatusFilter('all'),
+            },
+            {
+              id: 'active',
+              label: 'Active Streams',
+              value: projectMetrics.active,
+              sublabel: 'Currently executing',
+              tone: 'success',
+              onClick: () => setStatusFilter('active'),
+            },
+            {
+              id: 'avg-progress',
+              label: 'Portfolio Progress',
+              value: `${projectMetrics.avgProgress}%`,
+              sublabel: 'Average completion',
+              visual: (
+                <LiquidMetricProgress
+                  value={projectMetrics.avgProgress}
+                  tone="lime"
+                  compact
+                />
+              ),
+            },
+            {
+              id: 'paused',
+              label: 'On Hold',
+              value: projectMetrics.onHold,
+              sublabel: projectMetrics.onHold === 0 ? 'All streams active' : 'Needs review',
+              tone: projectMetrics.onHold > 0 ? 'warning' : 'default',
+              onClick: () => setStatusFilter('on hold'),
+            },
+          ]}
+        />
+      </LiquidBezelSection>
 
       {/* Unified Filter + View Mode Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -209,148 +211,172 @@ export const ProjectsOverviewPage: React.FC = () => {
         </HairlineCard>
       )}
 
-      {/* Table View (Planex style) */}
-      {!isLoadingProjects && !projectsError && filteredProjects.length > 0 && viewMode === 'table' && (
-        <HairlineCard padding="none" className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-muted)] bg-[var(--bg-surface-subtle)]">
-                  <th className="py-3 px-5">Project Name</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 w-56">Progress</th>
-                  <th className="py-3 px-4">Tasks</th>
-                  <th className="py-3 px-5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-hairline)]">
-                {filteredProjects.map(project => {
-                  const projectTasks = tasks.filter(t => t.projectId === project.id);
-                  const completedCount = projectTasks.filter(t => t.status === TaskStatus.DONE).length;
-                  const progress =
-                    projectTasks.length > 0
-                      ? Math.round((completedCount / projectTasks.length) * 100)
-                      : project.progress || 0;
-                  const statusTone =
-                    project.status === 'completed'
-                      ? 'success'
-                      : project.status === 'on hold'
-                      ? 'warning'
-                      : 'lime';
+      {/* Table / Cards View with Smooth View Mode Transition */}
+      {!isLoadingProjects && !projectsError && filteredProjects.length > 0 && (
+        <AnimatedViewStage viewKey={viewMode}>
+          {viewMode === 'table' ? (
+            <HairlineCard padding="none" className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-muted)] bg-[var(--bg-surface-subtle)]">
+                      <th className="py-3 px-5">Project Name</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 w-56">Progress</th>
+                      <th className="py-3 px-4">Tasks</th>
+                      <th className="py-3 px-5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-hairline)]">
+                    {filteredProjects.map(project => {
+                      const projectTasks = tasks.filter(t => t.projectId === project.id);
+                      const completedCount = projectTasks.filter(t => t.status === TaskStatus.DONE).length;
+                      const progress =
+                        projectTasks.length > 0
+                          ? Math.round((completedCount / projectTasks.length) * 100)
+                          : project.progress || 0;
+                      const statusTone =
+                        project.status === 'completed'
+                          ? 'success'
+                          : project.status === 'on hold'
+                          ? 'warning'
+                          : 'lime';
 
-                  return (
-                    <tr
-                      key={project.id}
+                      return (
+                        <tr
+                          key={project.id}
+                          onClick={() => openProjectBoard(project.id)}
+                          className="hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer group"
+                        >
+                          <td className="py-3.5 px-5">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="w-8 h-8 rounded-xl bg-[var(--bg-sage)] flex items-center justify-center shrink-0">
+                                <FolderIcon className="w-4 h-4 text-[var(--text-primary)]" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-[var(--text-primary)] truncate group-hover:underline">
+                                  {project.name}
+                                </p>
+                                {project.description && (
+                                  <p className="text-[11px] text-[var(--text-muted)] truncate max-w-md">
+                                    {project.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 capitalize">
+                            <StatusDot tone={statusTone} label={project.status || 'active'} />
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <SlimProgressBar
+                              value={progress}
+                              tone={progress >= 90 ? 'sage' : 'charcoal'}
+                              showPercent
+                            />
+                          </td>
+                          <td className="py-3.5 px-4 font-mono tabular-nums text-[var(--text-secondary)]">
+                            {completedCount} / {projectTasks.length}
+                          </td>
+                          <td className="py-3.5 px-5 text-right">
+                            <span className="text-xs font-semibold text-[var(--text-primary)] group-hover:underline">
+                              Open →
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </HairlineCard>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProjects.map(project => {
+                const projectTasks = tasks.filter(t => t.projectId === project.id);
+                const completedCount = projectTasks.filter(t => t.status === TaskStatus.DONE).length;
+                const progress =
+                  projectTasks.length > 0
+                    ? Math.round((completedCount / projectTasks.length) * 100)
+                    : project.progress || 0;
+                const statusTone =
+                  project.status === 'completed'
+                    ? 'success'
+                    : project.status === 'on hold'
+                    ? 'warning'
+                    : 'lime';
+
+                return (
+                  <LiquidBezelCard
+                    key={project.id}
+                    interactive
+                    className="hover:border-[var(--border-strong)] transition-all group"
+                    cornerLabel={
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            statusTone === 'success'
+                              ? 'bg-emerald-400'
+                              : statusTone === 'warning'
+                                ? 'bg-amber-400'
+                                : 'bg-[var(--accent-lime)]'
+                          }`}
+                        />
+                        <span>{project.status || 'active'}</span>
+                      </span>
+                    }
+                  >
+                    <button
+                      type="button"
                       onClick={() => openProjectBoard(project.id)}
-                      className="hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer group"
+                      className="text-left flex flex-col justify-between gap-4 w-full flex-1 cursor-pointer"
                     >
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="w-8 h-8 rounded-xl bg-[var(--bg-sage)] flex items-center justify-center shrink-0">
-                            <FolderIcon className="w-4 h-4 text-[var(--text-primary)]" />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[var(--text-primary)] truncate group-hover:underline">
-                              {project.name}
-                            </p>
-                            {project.description && (
-                              <p className="text-[11px] text-[var(--text-muted)] truncate max-w-md">
-                                {project.description}
-                              </p>
-                            )}
+                      <div className="space-y-2.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-8 h-8 rounded-xl bg-[var(--bg-sage)] flex items-center justify-center shrink-0">
+                              <FolderIcon className="w-4 h-4 text-[var(--text-primary)]" />
+                            </span>
+                            <div className="min-w-0">
+                              <h3 className="text-sm font-bold text-[var(--text-primary)] truncate group-hover:underline">
+                                {project.name}
+                              </h3>
+                              <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
+                                {projectTasks.length} tasks
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-24 shrink-0 pt-1">
+                            <LiquidMetricProgress
+                              value={progress}
+                              tone={progress >= 90 ? 'success' : 'lime'}
+                            />
                           </div>
                         </div>
-                      </td>
-                      <td className="py-3.5 px-4 capitalize">
-                        <StatusDot tone={statusTone} label={project.status || 'active'} />
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <SlimProgressBar
-                          value={progress}
-                          tone={progress >= 90 ? 'sage' : 'charcoal'}
-                          showPercent
-                        />
-                      </td>
-                      <td className="py-3.5 px-4 font-mono tabular-nums text-[var(--text-secondary)]">
-                        {completedCount} / {projectTasks.length}
-                      </td>
-                      <td className="py-3.5 px-5 text-right">
-                        <span className="text-xs font-semibold text-[var(--text-primary)] group-hover:underline">
-                          Open →
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </HairlineCard>
-      )}
 
-      {/* Cards View */}
-      {!isLoadingProjects && !projectsError && filteredProjects.length > 0 && viewMode === 'cards' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProjects.map(project => {
-            const projectTasks = tasks.filter(t => t.projectId === project.id);
-            const completedCount = projectTasks.filter(t => t.status === TaskStatus.DONE).length;
-            const progress =
-              projectTasks.length > 0
-                ? Math.round((completedCount / projectTasks.length) * 100)
-                : project.progress || 0;
-            const statusTone =
-              project.status === 'completed'
-                ? 'success'
-                : project.status === 'on hold'
-                ? 'warning'
-                : 'lime';
-
-            return (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => openProjectBoard(project.id)}
-                className="editorial-surface p-5 text-left flex flex-col justify-between gap-4 hover:border-[var(--border-strong)] transition-all cursor-pointer group"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-8 h-8 rounded-xl bg-[var(--bg-sage)] flex items-center justify-center shrink-0">
-                        <FolderIcon className="w-4 h-4 text-[var(--text-primary)]" />
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-bold text-[var(--text-primary)] truncate group-hover:underline">
-                          {project.name}
-                        </h3>
-                        <StatusDot tone={statusTone} label={project.status || 'active'} className="capitalize mt-0.5" />
+                        {project.description && (
+                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
+                            {project.description}
+                          </p>
+                        )}
                       </div>
-                    </div>
-                    <RadialProgressRing
-                      value={progress}
-                      size={40}
-                      strokeWidth={4}
-                      tone={progress >= 90 ? 'success' : 'charcoal'}
-                    />
-                  </div>
 
-                  {project.description && (
-                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
-                      {project.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-[var(--border-hairline)] space-y-2">
-                  <SlimProgressBar value={progress} tone={progress >= 90 ? 'sage' : 'charcoal'} showPercent />
-                  <div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
-                    <span>{projectTasks.length} tasks</span>
-                    <span>{completedCount} completed</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                      <div className="pt-3 border-t border-[var(--border-hairline)] space-y-2">
+                        <SlimProgressBar value={progress} tone={progress >= 90 ? 'sage' : 'charcoal'} showPercent />
+                        <div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
+                          <span>{completedCount} completed</span>
+                          <span className="font-sans font-semibold text-[var(--text-primary)] group-hover:underline">
+                            Open →
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  </LiquidBezelCard>
+                );
+              })}
+            </div>
+          )}
+        </AnimatedViewStage>
       )}
     </div>
   );

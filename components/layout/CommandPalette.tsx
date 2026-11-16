@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useId } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Task, TaskStatus, TaskPriority } from '../../types';
 import geminiService, { AICommandResponse } from '../../services/geminiService';
 import { AIBotFace } from '../ai/AIBotFace';
-import { useAnimatedMount } from '../shared/Modal';
+import { GLASS_SPRING } from '../shared/LiquidGlass';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ type SearchCategory = 'all' | 'ai' | 'tasks' | 'projects' | 'sprints' | 'knowled
 
 interface CommandItem {
   id: string;
-  category: SearchCategory | 'navigation';
+  category: SearchCategory | 'navigation' | 'actions';
   title: string;
   subtitle?: string;
   meta?: string;
@@ -52,6 +53,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
   const [aiResponse, setAiResponse] = useState<AICommandResponse | null>(null);
   const [isExecutingAIAction, setIsExecutingAIAction] = useState(false);
 
+  const paletteTabId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -487,10 +489,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
       });
 
     // 6. Knowledge & Docs Search
-    const knowledgeItems: CommandItem[] = [
+    const knowledgeItems: CommandItem[] = ([
       {
         id: 'kb-meeting-extractor',
-        category: 'knowledge',
+        category: 'knowledge' as const,
         title: 'AI Standup & Meeting Notes Extractor',
         subtitle: 'Convert meeting transcripts into structured decisions and tasks',
         meta: 'Knowledge',
@@ -512,7 +514,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
           onClose();
         },
       },
-    ].filter(k => !q || k.title.toLowerCase().includes(q) || (k.subtitle && k.subtitle.toLowerCase().includes(q)));
+    ] satisfies CommandItem[]).filter(k => !q || k.title.toLowerCase().includes(q) || (k.subtitle && k.subtitle.toLowerCase().includes(q)));
 
     const combined = [
       ...aiItems.filter(a => !q || a.title.toLowerCase().includes(q) || (a.subtitle && a.subtitle.toLowerCase().includes(q))),
@@ -565,229 +567,272 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, items, selectedIndex, onClose, query]);
 
-  const { shouldRender, isClosing } = useAnimatedMount(isOpen, 190);
-
-  if (!shouldRender) return null;
-
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 transition-opacity duration-200 bg-black/50 backdrop-blur-sm ${
-        isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
-      }`}
-      onClick={onClose}
-    >
-      <div
-        data-command-palette="true"
-        className={`w-full max-w-2xl command-palette-surface rounded-[20px] shadow-2xl border border-[var(--border-hairline)] overflow-hidden transition-all bg-[var(--bg-surface)] text-[var(--text-primary)] ${
-          isClosing ? 'animate-modal-disappear' : 'animate-modal-appear'
-        }`}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Top Command Input Bar */}
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            if (query.trim().split(/\s+/).length >= 2 || selectedCategory === 'ai') {
-              handleRunAICommand();
-            } else if (items[selectedIndex]) {
-              items[selectedIndex].action();
-            }
-          }}
-          className="flex items-center px-4 py-3.5 border-b border-[var(--border-hairline)] bg-[var(--bg-surface)]"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={GLASS_SPRING.scrim}
+          className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 bg-black/45 backdrop-blur-sm"
+          onClick={onClose}
         >
-          <AIBotFace mood={isAIThinking ? 'thinking' : aiResponse ? 'speaking' : 'idle'} size="sm" className="mr-3 flex-shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder='Ask AI ("Create a sprint for next month", "Show overdue tasks") or search...'
-            value={query}
-            onChange={e => {
-              setQuery(e.target.value);
-              setSelectedIndex(0);
-            }}
-            className="flex-1 bg-transparent border-none outline-none text-sm sm:text-base font-medium placeholder:font-normal placeholder:text-[var(--text-muted)] text-[var(--text-primary)] focus:ring-0 focus:shadow-none"
-          />
-          {query.trim() && (
-            <button
-              type="button"
-              onClick={() => handleRunAICommand()}
-              disabled={isAIThinking}
-              className="mr-2 px-3 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {isAIThinking ? 'Thinking...' : 'Run AI ↵'}
-            </button>
-          )}
-          <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded border bg-[var(--bg-sage)] border-[var(--border-hairline)] text-[var(--text-secondary)]">
-            ESC
-          </kbd>
-        </form>
-
-        {/* Segmented Search Scope Filter Tabs */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] overflow-x-auto scrollbar-none">
-          {(
-            [
-              { id: 'all', label: 'All' },
-              { id: 'ai', label: 'AI Co-Pilot' },
-              { id: 'tasks', label: `Tasks (${allTasks.length})` },
-              { id: 'projects', label: `Projects (${projects.length})` },
-              { id: 'sprints', label: `Sprints (${sprints.length})` },
-              { id: 'knowledge', label: 'Knowledge & Docs' },
-            ] as const
-          ).map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setSelectedCategory(tab.id);
-                setSelectedIndex(0);
+          <motion.div
+            data-command-palette="true"
+            initial={{ opacity: 0, scale: 0.96, y: -12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: -8 }}
+            transition={GLASS_SPRING.spatial}
+            className="w-full max-w-2xl command-palette-surface rounded-[22px] overflow-hidden text-[var(--text-primary)]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Top Command Input Bar */}
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (query.trim().split(/\s+/).length >= 2 || selectedCategory === 'ai') {
+                  handleRunAICommand();
+                } else if (items[selectedIndex]) {
+                  items[selectedIndex].action();
+                }
               }}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                selectedCategory === tab.id
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
-              }`}
+              className="flex items-center px-4 py-3.5 border-b border-[var(--border-hairline)] bg-white/30 dark:bg-white/[0.02]"
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              <AIBotFace mood={isAIThinking ? 'thinking' : aiResponse ? 'speaking' : 'idle'} size="sm" className="mr-3 flex-shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder='Ask AI ("Create a sprint for next month", "Show overdue tasks") or search...'
+                value={query}
+                onChange={e => {
+                  setQuery(e.target.value);
+                  setSelectedIndex(0);
+                }}
+                className="flex-1 bg-transparent border-none outline-none text-sm sm:text-base font-medium placeholder:font-normal placeholder:text-[var(--text-muted)] text-[var(--text-primary)] focus:ring-0 focus:shadow-none"
+              />
+              {query.trim() && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.95 }}
+                  transition={GLASS_SPRING.micro}
+                  onClick={() => handleRunAICommand()}
+                  disabled={isAIThinking}
+                  className="mr-2 px-3 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {isAIThinking ? 'Thinking...' : 'Run AI ↵'}
+                </motion.button>
+              )}
+              <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded border bg-white/60 dark:bg-white/10 border-[var(--border-hairline)] text-[var(--text-secondary)]">
+                ESC
+              </kbd>
+            </form>
 
-        {/* AI Co-Pilot Natural Language Execution Panel */}
-        {(isAIThinking || aiResponse) && (
-          <div className="p-4 border-b border-[var(--border-hairline)] bg-[var(--bg-sage)] space-y-3">
-            {isAIThinking ? (
-              <div className="flex items-center gap-3 text-xs text-[#4E6126] dark:text-[#CCF048] py-2">
-                <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
-                <span>AI Co-Pilot is analyzing workspace context ({workspaceContext.activeProjectName})...</span>
-              </div>
-            ) : (
-              aiResponse && (
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048]">
-                        AI Command Centre · {workspaceContext.activeProjectName}
-                      </div>
-                      <h4 className="text-sm font-bold text-[var(--text-primary)] mt-0.5">
-                        {aiResponse.headline}
-                      </h4>
-                    </div>
-                    {aiResponse.suggestedActionLabel && (
-                      <button
-                        type="button"
-                        onClick={handleExecuteAIAction}
-                        disabled={isExecutingAIAction}
-                        className="px-3.5 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        {isExecutingAIAction ? 'Executing...' : aiResponse.suggestedActionLabel}
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-[var(--text-secondary)] whitespace-pre-line leading-relaxed">
-                    {aiResponse.answerMarkdown}
-                  </div>
-
-                  {aiResponse.followUpPrompts?.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] text-[var(--text-muted)]">Next:</span>
-                      {aiResponse.followUpPrompts.map((fp, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => handleRunAICommand(fp)}
-                          className="text-[11px] px-2.5 py-0.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                        >
-                          {fp}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            )}
-          </div>
-        )}
-
-        {/* Results List */}
-        <div ref={listRef} className="max-h-[340px] sm:max-h-[380px] overflow-y-auto p-2 scrollbar-thin bg-[var(--bg-surface)]">
-          {items.length === 0 ? (
-            <div className="py-10 text-center space-y-2">
-              <ICON_MAP.SparklesIcon className="w-7 h-7 mx-auto text-[#4E6126] dark:text-[#CCF048] opacity-80" />
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Execute "{query}" with AI Co-Pilot
-              </p>
-              <button
-                type="button"
-                onClick={() => handleRunAICommand()}
-                className="px-4 py-2 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Ask AI Co-Pilot Now
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {items.map((item, idx) => {
-                const isSelected = idx === selectedIndex;
-                const IconComponent = item.icon;
+            {/* Segmented Search Scope Filter Tabs with Morphing Active Capsule */}
+            <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--border-hairline)] bg-black/[0.02] dark:bg-white/[0.02] overflow-x-auto scrollbar-none">
+              {(
+                [
+                  { id: 'all', label: 'All' },
+                  { id: 'ai', label: 'AI Co-Pilot' },
+                  { id: 'tasks', label: `Tasks (${allTasks.length})` },
+                  { id: 'projects', label: `Projects (${projects.length})` },
+                  { id: 'sprints', label: `Sprints (${sprints.length})` },
+                  { id: 'knowledge', label: 'Knowledge & Docs' },
+                ] as const
+              ).map(tab => {
+                const isTabSelected = selectedCategory === tab.id;
                 return (
-                  <button
-                    key={item.id}
-                    data-index={idx}
-                    onClick={item.action}
-                    onMouseEnter={() => setSelectedIndex(idx)}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'bg-[var(--bg-sage)] text-[var(--text-primary)]'
-                        : 'hover:bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)]'
+                  <motion.button
+                    key={tab.id}
+                    type="button"
+                    whileTap={{ scale: 0.96 }}
+                    transition={GLASS_SPRING.micro}
+                    onClick={() => {
+                      setSelectedCategory(tab.id);
+                      setSelectedIndex(0);
+                    }}
+                    className={`relative px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                      isTabSelected
+                        ? 'text-[var(--accent-cta-ink)]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]/60'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0 pr-2">
-                      <div
-                        className={`p-2 rounded-lg flex-shrink-0 ${
-                          isSelected
-                            ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511]'
-                            : 'bg-[var(--bg-sage)] text-[var(--text-secondary)]'
-                        }`}
-                      >
-                        <IconComponent className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-xs sm:text-sm text-[var(--text-primary)] truncate">{item.title}</div>
-                        {item.subtitle && (
-                          <div className="text-[11px] truncate text-[var(--text-muted)]">
-                            {item.subtitle}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {item.meta && (
-                      <span className="text-[11px] font-mono text-[var(--text-muted)] flex-shrink-0 whitespace-nowrap">
-                        {item.meta}
-                      </span>
+                    {isTabSelected && (
+                      <motion.span
+                        layoutId={`palette-tab-${paletteTabId}`}
+                        transition={GLASS_SPRING.morph}
+                        className="absolute inset-0 rounded-full bg-[var(--accent-cta)] shadow-xs"
+                        aria-hidden="true"
+                      />
                     )}
-                  </button>
+                    <span className="relative z-10">{tab.label}</span>
+                  </motion.button>
                 );
               })}
             </div>
-          )}
-        </div>
 
-        {/* Footer Context & Shortcuts Bar */}
-        <div className="px-4 py-2.5 border-t border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
-          <div className="flex items-center gap-3">
-            <span>
-              Context: <strong className="text-[var(--text-primary)]">{workspaceContext.activeProjectName}</strong>
-            </span>
-            <span aria-hidden="true">·</span>
-            <span className="font-mono tabular-nums">{workspaceContext.completionRate}% velocity</span>
-          </div>
-          <div className="hidden sm:flex items-center gap-2">
-            <span>Press ↵ to run AI or select</span>
-          </div>
-        </div>
-      </div>
-    </div>
+            {/* AI Co-Pilot Natural Language Execution Panel */}
+            <AnimatePresence initial={false}>
+              {(isAIThinking || aiResponse) && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={GLASS_SPRING.collapse}
+                  className="overflow-hidden border-b border-[var(--border-hairline)] bg-[var(--bg-sage)]/75"
+                >
+                  <div className="p-4 space-y-3">
+                    {isAIThinking ? (
+                      <div className="flex items-center gap-3 text-xs text-[var(--accent-text)] py-2">
+                        <ICON_MAP.SpinnerIcon className="w-4 h-4 animate-spin" />
+                        <span>AI Co-Pilot is analyzing workspace context ({workspaceContext.activeProjectName})...</span>
+                      </div>
+                    ) : (
+                      aiResponse && (
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-[11px] font-semibold text-[var(--accent-text)]">
+                                AI Command Centre · {workspaceContext.activeProjectName}
+                              </div>
+                              <h4 className="text-sm font-bold text-[var(--text-primary)] mt-0.5">
+                                {aiResponse.headline}
+                              </h4>
+                            </div>
+                            {aiResponse.suggestedActionLabel && (
+                              <motion.button
+                                type="button"
+                                whileTap={{ scale: 0.96 }}
+                                transition={GLASS_SPRING.micro}
+                                onClick={handleExecuteAIAction}
+                                disabled={isExecutingAIAction}
+                                className="px-3.5 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                {isExecutingAIAction ? 'Executing...' : aiResponse.suggestedActionLabel}
+                              </motion.button>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-[var(--text-secondary)] whitespace-pre-line leading-relaxed">
+                            {aiResponse.answerMarkdown}
+                          </div>
+
+                          {aiResponse.followUpPrompts?.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                              <span className="text-[11px] text-[var(--text-muted)]">Next:</span>
+                              {aiResponse.followUpPrompts.map((fp, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => handleRunAICommand(fp)}
+                                  className="text-[11px] px-2.5 py-0.5 rounded-full border border-[var(--border-hairline)] bg-white/75 dark:bg-white/10 text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                                >
+                                  {fp}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Results List */}
+            <div ref={listRef} className="max-h-[340px] sm:max-h-[380px] overflow-y-auto p-2 scrollbar-thin bg-transparent">
+              {items.length === 0 ? (
+                <div className="py-10 text-center space-y-2">
+                  <ICON_MAP.SparklesIcon className="w-7 h-7 mx-auto text-[var(--accent-text)] opacity-80" />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    Execute "{query}" with AI Co-Pilot
+                  </p>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.96 }}
+                    transition={GLASS_SPRING.micro}
+                    onClick={() => handleRunAICommand()}
+                    className="px-4 py-2 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Ask AI Co-Pilot Now
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {items.map((item, idx) => {
+                    const isSelected = idx === selectedIndex;
+                    const IconComponent = item.icon;
+                    return (
+                      <motion.button
+                        key={item.id}
+                        data-index={idx}
+                        whileTap={{ scale: 0.99 }}
+                        transition={GLASS_SPRING.micro}
+                        onClick={item.action}
+                        onMouseEnter={() => setSelectedIndex(idx)}
+                        className={`relative w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'text-[var(--text-primary)]'
+                            : 'text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {isSelected && (
+                          <motion.span
+                            layoutId="palette-selected-row"
+                            transition={GLASS_SPRING.micro}
+                            className="absolute inset-0 rounded-xl bg-[var(--bg-sage)]/85 border border-[var(--border-hairline)]"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <div className="relative z-10 flex items-center gap-3 min-w-0 pr-2">
+                          <div
+                            className={`p-2 rounded-lg flex-shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511]'
+                                : 'bg-[var(--bg-sage)]/80 text-[var(--text-secondary)]'
+                            }`}
+                          >
+                            <IconComponent className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-xs sm:text-sm text-[var(--text-primary)] truncate">{item.title}</div>
+                            {item.subtitle && (
+                              <div className="text-[11px] truncate text-[var(--text-muted)]">
+                                {item.subtitle}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {item.meta && (
+                          <span className="relative z-10 text-[11px] font-mono text-[var(--text-muted)] flex-shrink-0 whitespace-nowrap">
+                            {item.meta}
+                          </span>
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Context & Shortcuts Bar */}
+            <div className="px-4 py-2.5 border-t border-[var(--border-hairline)] bg-black/[0.02] dark:bg-white/[0.02] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+              <div className="flex items-center gap-3">
+                <span>
+                  Context: <strong className="text-[var(--text-primary)]">{workspaceContext.activeProjectName}</strong>
+                </span>
+                <span aria-hidden="true">·</span>
+                <span className="font-mono tabular-nums">{workspaceContext.completionRate}% velocity</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-2">
+                <span>Press ↵ to run AI or select</span>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

@@ -104,9 +104,9 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
     addToast('Email Verified', `${currentUser.email} is now verified for workspace security and alerts!`, 'success');
   };
 
-  const handleSendTestUpdateEmail = () => {
+  const handleSendTestUpdateEmail = async () => {
     if (!currentUser) return;
-    const item = emailNotificationService.sendImportantUpdateEmail({
+    const item = await emailNotificationService.sendImportantUpdateEmail({
       recipient: currentUser,
       category: 'TASK_ASSIGNED',
       subject: 'Important Update: High-Priority Sprint Deliverable Assigned',
@@ -220,7 +220,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
               onClick={() => setActiveTab('verify')}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'verify'
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -241,7 +241,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
               onClick={() => setActiveTab('outbox')}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'outbox'
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -253,7 +253,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
               onClick={() => setActiveTab('setup_guide')}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'setup_guide'
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -296,7 +296,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       {isVerified ? 'Email Identity Verified' : 'Email Verification Recommended'}
                     </h4>
                     {authProvider === 'google' && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[var(--accent-text)] whitespace-nowrap">
                         Google SSO Verified
                       </span>
                     )}
@@ -337,7 +337,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                     Enter 6-Digit Verification Code
                   </h5>
                   {generatedOtp && (
-                    <span className="px-2.5 py-1 rounded-full bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] font-mono text-xs font-bold tabular-nums whitespace-nowrap">
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[var(--accent-text)] font-mono text-xs font-bold tabular-nums whitespace-nowrap">
                       Latest Code: {generatedOtp}
                     </span>
                   )}
@@ -439,7 +439,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] whitespace-nowrap">
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[var(--accent-text)] whitespace-nowrap">
                           {item.category.replace(/_/g, ' ')}
                         </span>
                         <span className="text-[10px] text-slate-400">
@@ -534,7 +534,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       navigator.clipboard?.writeText(window.location.origin);
                       addToast('Copied Site URL', 'Paste this into Supabase → Authentication → URL Configuration → Site URL', 'success');
                     }}
-                    className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
+                    className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
                   >
                     Copy
                   </button>
@@ -549,7 +549,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                       navigator.clipboard?.writeText(`${window.location.origin}/**`);
                       addToast('Copied Redirect Wildcard', 'Add this to Supabase → Authentication → URL Configuration → Redirect URLs', 'success');
                     }}
-                    className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
+                    className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
                   >
                     Copy
                   </button>
@@ -579,7 +579,7 @@ export const EmailOutboxAndVerifyModal: React.FC<EmailOutboxAndVerifyModalProps>
                     navigator.clipboard?.writeText('https://sqzjlxayhghoxjloaddo.supabase.co/auth/v1/callback');
                     addToast('Copied Callback URI', 'Paste into Google Cloud Console → Authorized redirect URIs', 'success');
                   }}
-                  className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
+                  className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-[10px] font-sans font-semibold cursor-pointer flex-shrink-0 whitespace-nowrap"
                 >
                   Copy
                 </button>

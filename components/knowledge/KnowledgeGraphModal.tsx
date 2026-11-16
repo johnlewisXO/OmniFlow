@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
+import { ICON_MAP } from '../../constants';
+import { IconButton } from '../shared/Button';
 import { ActiveView } from '../../types';
 
 interface GraphNode {
@@ -167,7 +169,7 @@ export const KnowledgeGraphModal: React.FC = () => {
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-[var(--border-hairline)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-[#191B17] text-[#CCF048] flex items-center justify-center text-xs font-bold">
+            <span className="w-7 h-7 rounded-lg bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] flex items-center justify-center text-xs font-bold shadow-xs">
               KG
             </span>
             <div>
@@ -184,22 +186,26 @@ export const KnowledgeGraphModal: React.FC = () => {
             {['all', 'task', 'doc', 'whiteboard', 'okr', 'clip'].map(k => (
               <button
                 key={k}
+                type="button"
                 onClick={() => setFilterKind(k)}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase transition cursor-pointer ${
                   filterKind === k
-                    ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]'
+                    ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
                     : 'bg-[var(--bg-sage)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {k}
               </button>
             ))}
-            <button
+            <IconButton
+              variant="ghost"
+              size="xs"
               onClick={() => setIsOpen(false)}
-              className="ml-2 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+              aria-label="Close knowledge graph"
+              className="ml-2"
             >
-              ✕
-            </button>
+              <ICON_MAP.XMarkIcon className="w-4 h-4" />
+            </IconButton>
           </div>
         </div>
 
@@ -303,7 +309,7 @@ export const KnowledgeGraphModal: React.FC = () => {
                         className="w-full p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-left hover:border-[var(--border-strong)] transition cursor-pointer"
                       >
                         <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                          <span className="font-mono font-bold text-[#4E6126] dark:text-[#CCF048]">{direction}</span>
+                          <span className="font-mono font-bold text-[var(--accent-text)]">{direction}</span>
                           <span className="uppercase">{edge.relation}</span>
                         </div>
                         <div className="text-xs font-bold text-[var(--text-primary)] mt-0.5 truncate">

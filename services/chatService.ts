@@ -731,6 +731,13 @@ class ChatService {
     );
   }
 
+  getMessages(channelId: string, directUserId?: string, viewerUserId?: string): ChatMessage[] {
+    if (directUserId && viewerUserId) {
+      return this.getDirectMessages(viewerUserId, directUserId);
+    }
+    return this.getChannelMessages(channelId);
+  }
+
   // Send a message (to channel or E2EE 1:1 direct)
   async sendMessage(params: {
     sender: User;

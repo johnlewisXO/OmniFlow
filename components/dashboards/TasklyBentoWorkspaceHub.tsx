@@ -14,8 +14,8 @@ import {
 import {
   HatchedActivityHeatmap,
   HeatmapDayCell,
-  RadialHealthTickArc,
-  RadialProgressRing,
+  LiquidHealthDistribution,
+  LiquidMetricProgress,
   SlimProgressBar,
 } from '../charts/EditorialCharts';
 import soundService from '../../services/soundService';
@@ -107,7 +107,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
       .slice(0, 6);
   }, [allTasks, focusScope, currentUser]);
 
-  // Project health breakdown for RadialHealthTickArc
+  // Project health breakdown for LiquidHealthDistribution
   const healthSummary = useMemo(() => {
     if (projects.length === 0) {
       return {
@@ -210,7 +210,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
             label: 'Overall Completion',
             value: `${metrics.progressPct}%`,
             sublabel: `${metrics.done} of ${metrics.total} tasks`,
-            visual: <RadialProgressRing value={metrics.progressPct} size={44} strokeWidth={4.5} tone="charcoal" />,
+            visual: <LiquidMetricProgress value={metrics.progressPct} tone="charcoal" compact />,
           },
           {
             id: 'open',
@@ -281,7 +281,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                 <button
                   type="button"
                   onClick={() => (projects.length > 0 ? openModal() : openCreateProjectModal())}
-                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] text-xs font-semibold cursor-pointer"
+                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-xs font-semibold cursor-pointer"
                 >
                   <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   <span>{projects.length > 0 ? 'Add Task' : 'Create Project'}</span>
@@ -355,9 +355,9 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
           />
         </div>
 
-        {/* Right Secondary Column (5 cols): Health Tick Arc + Active Projects */}
+        {/* Right Secondary Column (5 cols): Liquid Health Distribution + Active Projects */}
         <div className="xl:col-span-5 space-y-5 min-w-0">
-          <RadialHealthTickArc
+          <LiquidHealthDistribution
             percentage={healthSummary.pct}
             title="Project Health"
             statusLabel={healthSummary.statusLabel}
@@ -443,7 +443,7 @@ export const TasklyBentoWorkspaceHub: React.FC<TasklyBentoWorkspaceHubProps> = (
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{t.title}</p>
                   <p className="text-[11px] text-[var(--text-muted)]">
-                    {getProjectName(t.projectId || t.project_id)} · {t.status.replace(/_/g, ' ')}
+                    {getProjectName(t.projectId)} · {t.status.replace(/_/g, ' ')}
                   </p>
                 </div>
                 <span className="font-mono text-[11px] text-[var(--text-secondary)] shrink-0">

@@ -1,9 +1,10 @@
 
 
 import { useState, useEffect } from 'react';
-import { AppStore, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig, WorkspaceAccentId, ActiveTaskTimer, UndoActionEntry } from '../types';
+import { AppStore, AvailabilityStatus, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig, WorkspaceAccentId, AmbientIntensity, WORKSPACE_ACCENT_PRESETS, ActiveTaskTimer, UndoActionEntry, ConfirmDialogOptions } from '../types';
 import { ICON_MAP } from '../constants';
 import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions, saveUserProfileExtension } from '../services/supabaseService';
+import { applyLiquidGlassThemeTokens, normalizeAmbientIntensity } from '../utils/liquidGlassTheme';
 import collabService from '../services/collabService';
 import emailNotificationService from '../services/emailNotificationService';
 import soundService from '../services/soundService';
@@ -27,6 +28,9 @@ const emitVisualStateUpdate = (label: string, entityType?: string, entityId?: st
 interface StoreState {
   darkMode: boolean;
   accentColor: WorkspaceAccentId;
+  ambientIntensity: AmbientIntensity;
+  autoCyclePalette: boolean;
+  myAvailabilityStatus: AvailabilityStatus;
   users: User[];
   projects: Project[];
   tasks: Task[];
@@ -103,10 +107,49 @@ interface StoreState {
   // Live Active-Task Focus Timer & Undo Stack
   activeTimer: ActiveTaskTimer | null;
   lastUndoAction: UndoActionEntry | null;
+
+  // In-app Liquid Glass Confirmation Modal
+  confirmDialog: (ConfirmDialogOptions & { id: string }) | null;
 }
 
+let _pendingConfirmResolver: ((confirmed: boolean) => void) | null = null;
+
+const normalizeAccentId = (raw?: string | null): WorkspaceAccentId => {
+  if (!raw) return 'lime';
+  const lower = String(raw).toLowerCase().trim();
+  if (lower === 'aurora') return 'lime';
+  if (lower === 'ocean' || lower === 'cyan') return 'cobalt';
+  if (lower === 'ember' || lower === 'coral') return 'terracotta';
+  if (lower === 'forest') return 'emerald';
+  if (lower === 'violet') return 'plum';
+  if (lower === 'mono') return 'amber';
+  if (['lime', 'cobalt', 'terracotta', 'emerald', 'plum', 'amber'].includes(lower)) {
+    return lower as WorkspaceAccentId;
+  }
+  return 'lime';
+};
+
+const PALETTE_CYCLE_INTERVAL_MS = 24 * 60 * 60 * 1000; // Daily (24 hours)
+const LAST_PALETTE_CYCLE_KEY = 'omniflow_last_palette_cycle_at';
+let _crossfadeCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+const triggerPaletteCrossfade = () => {
+  if (typeof window === 'undefined') return;
+  const root = document.documentElement;
+  root.classList.add('palette-crossfade');
+  if (_crossfadeCleanupTimer) {
+    clearTimeout(_crossfadeCleanupTimer);
+  }
+  _crossfadeCleanupTimer = setTimeout(() => {
+    root.classList.remove('palette-crossfade');
+    _crossfadeCleanupTimer = null;
+  }, 650);
+};
+
 const _darkMode = typeof window !== 'undefined' ? (localStorage.getItem('omniflow_theme_mode') || localStorage.getItem('theme')) === 'dark' : false;
-const _accentColor = (typeof window !== 'undefined' ? (localStorage.getItem('omniflow_accent_color') as WorkspaceAccentId) : null) || 'violet';
+const _accentColor: WorkspaceAccentId = typeof window !== 'undefined' ? normalizeAccentId(localStorage.getItem('omniflow_accent_color')) : 'lime';
+const _ambientIntensity: AmbientIntensity = typeof window !== 'undefined' ? normalizeAmbientIntensity(localStorage.getItem('omniflow_ambient_intensity')) : 'balanced';
+const _autoCyclePalette: boolean = typeof window !== 'undefined' ? localStorage.getItem('omniflow_auto_cycle_palette') === 'true' : false;
 const _notifications = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('notifications') || '[]') : [];
 const _activeView = typeof window !== 'undefined' ? (localStorage.getItem('activeView') as ActiveView || 'overview') : 'overview';
 const _activeProjectId = typeof window !== 'undefined' ? localStorage.getItem('activeProjectId') : null;
@@ -125,6 +168,9 @@ const _storedActiveTimer: ActiveTaskTimer | null = (() => {
 const initialStoreStateValues: StoreState = {
   darkMode: _darkMode,
   accentColor: _accentColor,
+  ambientIntensity: _ambientIntensity,
+  autoCyclePalette: _autoCyclePalette,
+  myAvailabilityStatus: 'available',
   users: [],
   currentUser: null,
   currentOrganization: null,
@@ -194,6 +240,7 @@ const initialStoreStateValues: StoreState = {
   webhooks: _storedWebhooks,
   activeTimer: _storedActiveTimer,
   lastUndoAction: null,
+  confirmDialog: null,
 };
 
 const parseErrorMessage = (error: any, defaultMessage: string = "An unexpected error occurred."): string => {
@@ -518,6 +565,12 @@ const appActionsCreator = (
       try {
         const org = await supabaseService.getOrganizationById(currentUser.organization_id);
         if (org) {
+          const resolvedLogo =
+            org.logoUrl !== undefined
+              ? org.logoUrl
+              : org.logo_url !== undefined
+              ? org.logo_url
+              : org.settings?.logoUrl;
           const normalizedOrg: Organization = {
             ...org,
             name: org.name || (org as any).orgDisplayName || 'Omni Flow Enterprise Workspace',
@@ -528,6 +581,8 @@ const appActionsCreator = (
             autoAssignCreator: org.autoAssignCreator ?? true,
             requireAcceptanceChecklist: org.requireAcceptanceChecklist ?? true,
             enablePublicInviteLinks: org.enablePublicInviteLinks ?? true,
+            logoUrl: resolvedLogo,
+            logo_url: resolvedLogo,
           };
           updateState(s => ({ ...s, currentOrganization: normalizedOrg }));
         }
@@ -968,7 +1023,7 @@ const appActionsCreator = (
             processTaskAutomationRules(previousTask || null, mergedUpdatedTask, {
               users: get().users,
               currentUser: get().currentUser,
-              updateTask: selfActions.updateTask,
+              updateTask: get().updateTask,
               addToast: selfActions.addToast,
               addNotification: selfActions.addNotification,
             }).catch(err => console.warn('Automation rule evaluation error:', err));
@@ -984,6 +1039,7 @@ const appActionsCreator = (
 
   Object.assign(selfActions, {
     toggleDarkMode: () => {
+      triggerPaletteCrossfade();
       updateState(s => {
         const nextDark = !s.darkMode;
         if (typeof window !== 'undefined') {
@@ -1002,21 +1058,85 @@ const appActionsCreator = (
       });
     },
     setAccentColor: (accent: WorkspaceAccentId) => {
+      const normalized = normalizeAccentId(accent);
+      triggerPaletteCrossfade();
       updateState(s => {
         if (typeof window !== 'undefined') {
-          localStorage.setItem('omniflow_accent_color', accent);
-          document.documentElement.dataset.accent = accent;
+          localStorage.setItem('omniflow_accent_color', normalized);
+          document.documentElement.dataset.accent = normalized;
         }
         if (s.currentUser?.id) {
           const ext = getUserProfileExtensions(s.currentUser.id);
-          const nextPrefs = { ...(ext.preferences || s.currentUser.preferences || {}), accentColor: accent };
+          const nextPrefs = { ...(ext.preferences || s.currentUser.preferences || {}), accentColor: normalized };
           saveUserProfileExtension(s.currentUser.id, { preferences: nextPrefs });
           try {
-            supabaseService.client.auth.updateUser({ data: { accent_color: accent } }).catch(() => {});
+            supabaseService.client.auth.updateUser({ data: { accent_color: normalized } }).catch(() => {});
           } catch {}
         }
-        return { ...s, accentColor: accent };
+        return { ...s, accentColor: normalized };
       });
+    },
+    setAmbientIntensity: (intensity: AmbientIntensity) => {
+      const normalized = normalizeAmbientIntensity(intensity);
+      triggerPaletteCrossfade();
+      updateState(s => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('omniflow_ambient_intensity', normalized);
+        }
+        if (s.currentUser?.id) {
+          const ext = getUserProfileExtensions(s.currentUser.id);
+          const nextPrefs = { ...(ext.preferences || s.currentUser.preferences || {}), ambientIntensity: normalized };
+          saveUserProfileExtension(s.currentUser.id, { preferences: nextPrefs });
+        }
+        return { ...s, ambientIntensity: normalized };
+      });
+    },
+    setAutoCyclePalette: (enabled: boolean) => {
+      updateState(s => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('omniflow_auto_cycle_palette', String(enabled));
+          if (enabled && !localStorage.getItem(LAST_PALETTE_CYCLE_KEY)) {
+            localStorage.setItem(LAST_PALETTE_CYCLE_KEY, String(Date.now()));
+          }
+        }
+        if (s.currentUser?.id) {
+          const ext = getUserProfileExtensions(s.currentUser.id);
+          const nextPrefs = { ...(ext.preferences || s.currentUser.preferences || {}), autoCyclePalette: enabled };
+          saveUserProfileExtension(s.currentUser.id, { preferences: nextPrefs });
+        }
+        return { ...s, autoCyclePalette: enabled };
+      });
+    },
+    cycleNextAccentPalette: () => {
+      const current = get().accentColor;
+      const idx = WORKSPACE_ACCENT_PRESETS.findIndex(p => p.id === current);
+      const nextPreset = WORKSPACE_ACCENT_PRESETS[(idx + 1) % WORKSPACE_ACCENT_PRESETS.length];
+      if (nextPreset) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(LAST_PALETTE_CYCLE_KEY, String(Date.now()));
+        }
+        get().setAccentColor(nextPreset.id);
+      }
+    },
+    setMyAvailabilityStatus: (status: AvailabilityStatus, options?: { silent?: boolean }) => {
+      const user = get().currentUser;
+      if (typeof window !== 'undefined' && user?.id) {
+        try {
+          const raw = localStorage.getItem('omni_team_statuses');
+          const map = raw ? JSON.parse(raw) : {};
+          map[user.id] = status;
+          if (user.email) {
+            map[user.email.toLowerCase()] = status;
+          }
+          localStorage.setItem('omni_team_statuses', JSON.stringify(map));
+        } catch {}
+      }
+      updateState(s => ({ ...s, myAvailabilityStatus: status }));
+      collabService.broadcastUserStatusChanged(status);
+      if (!options?.silent) {
+        const label = status === 'available' ? 'Available' : status === 'away' ? 'Away' : 'Busy / DND';
+        get().addToast('Status Updated', `Your live status is now "${label}".`, 'info');
+      }
     },
     setIsMobileSidebarOpen: (isOpen: boolean) => updateState(s => ({ ...s, isMobileSidebarOpen: isOpen })),
     toggleMobileSidebar: () => updateState(s => ({ ...s, isMobileSidebarOpen: !s.isMobileSidebarOpen })),
@@ -1212,18 +1332,26 @@ const appActionsCreator = (
         updateState(s => ({ ...s, currentOrganization: null }));
       }
 
-      // Restore user's saved themeMode and accentColor if available
+      // Restore user's saved themeMode, accentColor, and autoCyclePalette if available
       let restoredAccent = get().accentColor;
       let restoredDark = get().darkMode;
+      let restoredAutoCycle = get().autoCyclePalette;
       if (user?.id) {
         const ext = getUserProfileExtensions(user.id);
-        const savedAccent = (ext.preferences?.accentColor || user.preferences?.accentColor) as WorkspaceAccentId | undefined;
+        const savedAccent = ext.preferences?.accentColor || user.preferences?.accentColor;
         const savedTheme = (ext.preferences?.themeMode || user.preferences?.themeMode) as 'light' | 'dark' | undefined;
+        const savedAutoCycle = ext.preferences?.autoCyclePalette ?? user.preferences?.autoCyclePalette;
         if (savedAccent) {
-          restoredAccent = savedAccent;
+          restoredAccent = normalizeAccentId(savedAccent);
           if (typeof window !== 'undefined') {
-            localStorage.setItem('omniflow_accent_color', savedAccent);
-            document.documentElement.dataset.accent = savedAccent;
+            localStorage.setItem('omniflow_accent_color', restoredAccent);
+            document.documentElement.dataset.accent = restoredAccent;
+          }
+        }
+        if (typeof savedAutoCycle === 'boolean') {
+          restoredAutoCycle = savedAutoCycle;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('omniflow_auto_cycle_palette', String(restoredAutoCycle));
           }
         }
         if (savedTheme) {
@@ -1236,11 +1364,25 @@ const appActionsCreator = (
         }
       }
 
+      let restoredStatus: AvailabilityStatus = 'available';
+      if (user?.id && typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('omni_team_statuses');
+          const map = raw ? JSON.parse(raw) : {};
+          const storedSt = map[user.id] || (user.email ? map[user.email.toLowerCase()] : undefined);
+          if (storedSt === 'available' || storedSt === 'away' || storedSt === 'busy') {
+            restoredStatus = storedSt;
+          }
+        } catch {}
+      }
+
       updateState(s => ({
         ...s,
         currentUser: user,
         accentColor: restoredAccent,
+        autoCyclePalette: restoredAutoCycle,
         darkMode: restoredDark,
+        myAvailabilityStatus: restoredStatus,
         authLoading: false,
         activeProject: nextActiveProject,
         activeView: nextActiveView,
@@ -1327,7 +1469,7 @@ const appActionsCreator = (
             processTaskAutomationRules(null, createdTask, {
               users: get().users,
               currentUser: get().currentUser,
-              updateTask: selfActions.updateTask,
+              updateTask: get().updateTask,
               addToast: selfActions.addToast,
               addNotification: selfActions.addNotification,
               isTaskCreated: true,
@@ -1429,7 +1571,7 @@ const appActionsCreator = (
                 processTaskAutomationRules(originalTask, updatedTask, {
                   users: get().users,
                   currentUser: get().currentUser,
-                  updateTask: selfActions.updateTask,
+                  updateTask: get().updateTask,
                   addToast: selfActions.addToast,
                   addNotification: selfActions.addNotification,
                 }).catch(err => console.warn('Automation evaluation on updateTask error:', err));
@@ -1442,14 +1584,66 @@ const appActionsCreator = (
         }
     },
     deleteTask: async (taskId: string) => {
-      const { activeProject, tasks: currentTasks, currentUser } = get();
-      if (!activeProject) {
+      const { activeProject, tasks: currentTasks, myTasks: currentMyTasks, currentUser } = get();
+      const taskToDelete = currentTasks.find(t => t.id === taskId) || currentMyTasks.find(t => t.id === taskId);
+      const targetProjectId = activeProject?.id || taskToDelete?.projectId;
+      if (!targetProjectId) {
         updateState(s => ({ ...s, tasksError: "Cannot delete task: No active project." }));
         return;
       }
       const tasksAfterDelete = currentTasks.filter(t => t.id !== taskId);
-      const taskToDelete = currentTasks.find(t => t.id === taskId);
-      updateState(s => ({ ...s, tasks: tasksAfterDelete, isLoadingTasks: true, tasksError: null }));
+      const myTasksAfterDelete = currentMyTasks.filter(t => t.id !== taskId);
+
+      let deleteUndo: UndoActionEntry | null = get().lastUndoAction;
+      if (taskToDelete) {
+        const snapshot = { ...taskToDelete };
+        deleteUndo = {
+          id: `undo-del-${Date.now()}`,
+          label: `Restore "${snapshot.title}"`,
+          createdAt: Date.now(),
+          revert: async () => {
+            const restored = await supabaseService.createTask({
+              title: snapshot.title,
+              description: snapshot.description,
+              priority: snapshot.priority,
+              status: snapshot.status,
+              assignee_id: snapshot.assignee_id,
+              dueDate: snapshot.dueDate || snapshot.due_date,
+              due_date: snapshot.due_date || snapshot.dueDate,
+              startDate: snapshot.startDate,
+              projectId: snapshot.projectId || targetProjectId,
+              organization_id: snapshot.organization_id,
+              creator_id: snapshot.creator_id || currentUser?.id,
+              parent_task_id: snapshot.parent_task_id,
+              tags: snapshot.tags,
+              story_points: snapshot.story_points,
+              sprintId: snapshot.sprintId,
+              checklist: snapshot.checklist,
+            });
+            if (restored) {
+              updateState(s => ({
+                ...s,
+                tasks: s.tasks.some(t => t.id === restored.id) ? s.tasks : [...s.tasks, restored],
+                highlightedTaskId: restored.id,
+              }));
+              await selfActions.fetchTasksForProject(targetProjectId);
+              get().addToast('Task Restored', `Restored "${snapshot.title}".`, 'success', {
+                entity_type: 'task',
+                entity_id: restored.id,
+              });
+            }
+          },
+        };
+      }
+
+      updateState(s => ({
+        ...s,
+        tasks: tasksAfterDelete,
+        myTasks: myTasksAfterDelete,
+        lastUndoAction: deleteUndo,
+        isLoadingTasks: true,
+        tasksError: null,
+      }));
       if (taskToDelete) {
         collabService.broadcastTaskDeleted(taskId, taskToDelete.title, {
           id: currentUser?.id || 'system',
@@ -1458,14 +1652,18 @@ const appActionsCreator = (
       }
       try {
         await supabaseService.deleteTask(taskId);
-        await selfActions.fetchTasksForProject(activeProject.id); 
+        await selfActions.fetchTasksForProject(targetProjectId);
         if (taskToDelete) {
           selfActions.emitEvent('TASK_DELETED', { task: taskToDelete });
+          get().addToast('Task Deleted', `Removed "${taskToDelete.title}"`, 'error', {
+            entity_type: 'task',
+            metadata: { canUndo: true },
+          });
         }
         updateState(s => ({ ...s, isLoadingTasks: false }));
       } catch (error: any) {
         const message = parseErrorMessage(error, `Failed to delete task ${taskId}. Reverting.`);
-        updateState(s => ({ ...s, tasks: currentTasks, isLoadingTasks: false, tasksError: message }));
+        updateState(s => ({ ...s, tasks: currentTasks, myTasks: currentMyTasks, isLoadingTasks: false, tasksError: message }));
       }
     },
     getTasksByProjectIdAndStatus: (projectId: string, status: TaskStatus): Task[] => {
@@ -1598,7 +1796,7 @@ const appActionsCreator = (
             processTaskAutomationRules(prevTaskSnapshot, draggedTask!, {
               users: get().users,
               currentUser: get().currentUser,
-              updateTask: selfActions.updateTask,
+              updateTask: get().updateTask,
               addToast: selfActions.addToast,
               addNotification: selfActions.addNotification,
             }).catch(err => console.warn('Automation evaluation on moveTask error:', err));
@@ -1641,9 +1839,10 @@ const appActionsCreator = (
     closeModal: () => updateState(s => ({ ...s, isModalOpen: false, suggestedTaskTitles: [], error: null, parentTaskIdForNewTask: null })),
 
     openViewTaskModal: async (taskIdOrTask: string | Task, navigateToProject?: boolean) => {
-        const resolvedId = typeof taskIdOrTask === 'object' && taskIdOrTask !== null ? taskIdOrTask.id : taskIdOrTask;
+        const isTaskObj = typeof taskIdOrTask === 'object' && taskIdOrTask !== null;
+        const resolvedId: string = isTaskObj ? taskIdOrTask.id : String(taskIdOrTask);
         // 1. Search in active project tasks
-        let task = typeof taskIdOrTask === 'object' && taskIdOrTask !== null
+        let task = isTaskObj
           ? taskIdOrTask
           : get().tasks.find(t => t.id === resolvedId);
         // 2. Search in user's assigned tasks
@@ -2010,6 +2209,7 @@ const appActionsCreator = (
       autoAssignCreator?: boolean;
       requireAcceptanceChecklist?: boolean;
       enablePublicInviteLinks?: boolean;
+      logoUrl?: string;
     }) => {
       const { currentUser, currentOrganization } = get();
       const orgId = currentOrganization?.id || currentUser?.organization_id || 'org-enterprise-workspace';
@@ -2022,6 +2222,11 @@ const appActionsCreator = (
         } catch {}
       }
 
+      const resolvedLogoUrl =
+        updates.logoUrl !== undefined
+          ? updates.logoUrl
+          : currentOrganization?.logoUrl ?? currentOrganization?.logo_url;
+
       updateState(s => ({ ...s, isUpdatingOrgSettings: true }));
       try {
         const updatedOrg = await supabaseService.updateOrganization(orgId, {
@@ -2033,6 +2238,9 @@ const appActionsCreator = (
           autoAssignCreator: updates.autoAssignCreator,
           requireAcceptanceChecklist: updates.requireAcceptanceChecklist,
           enablePublicInviteLinks: updates.enablePublicInviteLinks,
+          ...(updates.logoUrl !== undefined
+            ? { logoUrl: updates.logoUrl, logo_url: updates.logoUrl }
+            : {}),
         });
 
         const mergedOrganization: Organization = {
@@ -2048,6 +2256,8 @@ const appActionsCreator = (
           autoAssignCreator: updates.autoAssignCreator,
           requireAcceptanceChecklist: updates.requireAcceptanceChecklist,
           enablePublicInviteLinks: updates.enablePublicInviteLinks,
+          logoUrl: resolvedLogoUrl,
+          logo_url: resolvedLogoUrl,
         };
 
         // Update local state and currentOrganization across app
@@ -2421,7 +2631,7 @@ const appActionsCreator = (
       soundService.play('click_soft');
       // If task is in TODO, automatically move to IN_PROGRESS
       if (task.status === TaskStatus.TODO) {
-        selfActions.updateTask(task.id, { status: TaskStatus.IN_PROGRESS }).catch(() => {});
+        get().updateTask(task.id, { status: TaskStatus.IN_PROGRESS }).catch(() => {});
       }
       get().addToast('⏱️ Focus Timer Started', `Tracking focus time on "${task.title}".`, 'info', {
         entity_type: 'task',
@@ -2572,12 +2782,51 @@ const appActionsCreator = (
     bulkDeleteTasks: async (taskIds: string[]) => {
       if (!taskIds.length) return;
       const originalTasks = [...get().tasks];
+      const deletedSnapshots = originalTasks.filter(t => taskIds.includes(t.id)).map(t => ({ ...t }));
       const activeProjectId = get().activeProject?.id;
+      const curUserId = get().currentUser?.id;
+
+      const bulkDeleteUndo: UndoActionEntry | null = deletedSnapshots.length
+        ? {
+            id: `undo-bulk-del-${Date.now()}`,
+            label: `Restore ${deletedSnapshots.length} deleted tasks`,
+            createdAt: Date.now(),
+            revert: async () => {
+              await Promise.all(
+                deletedSnapshots.map(snap =>
+                  supabaseService.createTask({
+                    title: snap.title,
+                    description: snap.description,
+                    priority: snap.priority,
+                    status: snap.status,
+                    assignee_id: snap.assignee_id,
+                    dueDate: snap.dueDate || snap.due_date,
+                    due_date: snap.due_date || snap.dueDate,
+                    startDate: snap.startDate,
+                    projectId: snap.projectId || activeProjectId || '',
+                    organization_id: snap.organization_id,
+                    creator_id: snap.creator_id || curUserId,
+                    parent_task_id: snap.parent_task_id,
+                    tags: snap.tags,
+                    story_points: snap.story_points,
+                    sprintId: snap.sprintId,
+                    checklist: snap.checklist,
+                  })
+                )
+              );
+              if (activeProjectId) {
+                await selfActions.fetchTasksForProject(activeProjectId);
+              }
+              get().addToast('Tasks Restored', `Restored ${deletedSnapshots.length} deleted tasks.`, 'success');
+            },
+          }
+        : get().lastUndoAction;
 
       updateState(s => ({
         ...s,
         tasks: s.tasks.filter(t => !taskIds.includes(t.id)),
         myTasks: s.myTasks.filter(t => !taskIds.includes(t.id)),
+        lastUndoAction: bulkDeleteUndo,
       }));
       soundService.play('warning');
 
@@ -2586,11 +2835,38 @@ const appActionsCreator = (
         if (activeProjectId) {
           await selfActions.fetchTasksForProject(activeProjectId);
         }
-        get().addToast(`Deleted ${taskIds.length} Tasks`, `Removed ${taskIds.length} selected tasks from the project.`, 'info');
+        get().addToast(`Deleted ${taskIds.length} Tasks`, `Removed ${taskIds.length} selected tasks from the project.`, 'error', {
+          entity_type: 'task',
+          metadata: { canUndo: true },
+        });
       } catch (err) {
         console.error('Bulk delete error:', err);
         updateState(s => ({ ...s, tasks: originalTasks }));
       }
+    },
+
+    requestConfirm: (options: ConfirmDialogOptions): Promise<boolean> => {
+      if (_pendingConfirmResolver) {
+        _pendingConfirmResolver(false);
+        _pendingConfirmResolver = null;
+      }
+      return new Promise<boolean>((resolve) => {
+        _pendingConfirmResolver = resolve;
+        updateState(s => ({
+          ...s,
+          confirmDialog: {
+            ...options,
+            id: `confirm-${Date.now()}`,
+          },
+        }));
+      });
+    },
+
+    resolveConfirm: (confirmed: boolean) => {
+      const resolver = _pendingConfirmResolver;
+      _pendingConfirmResolver = null;
+      updateState(s => ({ ...s, confirmDialog: null }));
+      if (resolver) resolver(confirmed);
     },
   });
 
@@ -2611,9 +2887,37 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
   let state = initialStateValues;
   const listeners = new Set<() => void>();
 
+  let paletteCycleTimer: ReturnType<typeof setInterval> | null = null;
+  const checkDailyPaletteCycle = () => {
+    if (typeof window === 'undefined') return;
+    const rawLast = localStorage.getItem(LAST_PALETTE_CYCLE_KEY);
+    const lastTs = rawLast ? Number(rawLast) : 0;
+    if (!lastTs || Number.isNaN(lastTs)) {
+      localStorage.setItem(LAST_PALETTE_CYCLE_KEY, String(Date.now()));
+      return;
+    }
+    if (Date.now() - lastTs >= PALETTE_CYCLE_INTERVAL_MS) {
+      actions.cycleNextAccentPalette();
+    }
+  };
+  const syncPaletteCycleTimer = (enabled: boolean) => {
+    if (typeof window === 'undefined') return;
+    if (paletteCycleTimer) {
+      clearInterval(paletteCycleTimer);
+      paletteCycleTimer = null;
+    }
+    if (enabled) {
+      checkDailyPaletteCycle();
+      // Check hourly so sleep/wake or multi-day sessions cycle accurately without 24h drift
+      paletteCycleTimer = setInterval(checkDailyPaletteCycle, 60 * 60 * 1000);
+    }
+  };
+
   const setState = (updater: (s: TState) => TState) => {
     const oldDarkMode = state.darkMode;
     const oldAccent = state.accentColor;
+    const oldIntensity = state.ambientIntensity;
+    const oldAutoCycle = state.autoCyclePalette;
     state = updater(state);
 
     if (typeof window !== 'undefined') {
@@ -2625,6 +2929,16 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
       if (state.accentColor && state.accentColor !== oldAccent) {
         document.documentElement.dataset.accent = state.accentColor;
         localStorage.setItem('omniflow_accent_color', state.accentColor);
+      }
+      if (
+        state.darkMode !== oldDarkMode ||
+        state.accentColor !== oldAccent ||
+        state.ambientIntensity !== oldIntensity
+      ) {
+        applyLiquidGlassThemeTokens(state.accentColor, state.darkMode, state.ambientIntensity);
+      }
+      if (state.autoCyclePalette !== oldAutoCycle) {
+        syncPaletteCycleTimer(Boolean(state.autoCyclePalette));
       }
     }
     listeners.forEach(listener => listener());
@@ -2640,6 +2954,14 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
     }
     if (initialStateValues.accentColor) {
       document.documentElement.dataset.accent = initialStateValues.accentColor;
+    }
+    applyLiquidGlassThemeTokens(
+      initialStateValues.accentColor,
+      initialStateValues.darkMode,
+      initialStateValues.ambientIntensity
+    );
+    if (initialStateValues.autoCyclePalette) {
+      syncPaletteCycleTimer(true);
     }
   }
 
@@ -2808,7 +3130,20 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
       const payload = e.detail;
       if (!payload || !payload.userId) return;
       const curUser = getPureState().currentUser;
-      if (curUser && payload.userId === curUser.id) return;
+      if (curUser && payload.userId === curUser.id) {
+        if (
+          payload.availabilityStatus === 'available' ||
+          payload.availabilityStatus === 'away' ||
+          payload.availabilityStatus === 'busy'
+        ) {
+          setState(s =>
+            s.myAvailabilityStatus === payload.availabilityStatus
+              ? s
+              : { ...s, myAvailabilityStatus: payload.availabilityStatus }
+          );
+        }
+        return;
+      }
       const statusLabel =
         payload.availabilityStatus === 'available'
           ? 'Available 🟢'

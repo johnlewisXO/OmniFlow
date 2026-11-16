@@ -5,8 +5,8 @@ import { Task, TaskPriority, TaskStatus } from '../../types';
 import { isBefore, isToday, startOfDay, parseISO, format } from 'date-fns';
 import { generateTaskSummary } from '../../services/aiService';
 import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
-import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
-import { RadialProgressRing } from '../charts/EditorialCharts';
+import { InlineKpiStrip, SegmentedTabs, HairlineCard, LiquidBezelSection, StatusDot } from '../shared/EditorialUI';
+import { LiquidMetricProgress } from '../charts/EditorialCharts';
 import { Button } from '../shared/Button';
 import soundService from '../../services/soundService';
 
@@ -199,12 +199,13 @@ export const MyTasksPage: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full text-[var(--text-primary)] space-y-5 animate-fadeIn">
-      {/* 1. Editorial PageHeader */}
-      <PageHeader
+      {/* 1. Sculpted Bezel Command Section + Inline KPI Strip */}
+      <LiquidBezelSection
         eyebrow="Personal Focus"
         title="My Assigned Tasks"
-        subtitle="Prioritized focus agenda across your projects with instant completion controls."
-        actions={
+        subtitle="Prioritized focus agenda with instant completion controls."
+        icon={<ClipboardListIcon className="w-4 h-4" />}
+        bezelRight={
           <Button
             variant="lime"
             size="sm"
@@ -219,53 +220,51 @@ export const MyTasksPage: React.FC = () => {
             <span>{isGenerating ? 'Analyzing Workload...' : 'AI Daily Briefing'}</span>
           </Button>
         }
-      />
-
-      {/* 2. Inline KPI Strip */}
-      <InlineKpiStrip
-        items={[
-          {
-            id: 'due_today',
-            label: 'Due Today',
-            value: overallStats.dueTodayCount,
-            sublabel: overallStats.dueTodayCount > 0 ? 'Focus required' : 'Clear schedule',
-            tone: overallStats.dueTodayCount > 0 ? 'warning' : 'success',
-            onClick: () => setActiveFilterTab('dueToday'),
-          },
-          {
-            id: 'overdue',
-            label: 'Overdue',
-            value: overallStats.overdueCount,
-            sublabel: overallStats.overdueCount > 0 ? 'Needs reschedule' : 'All on track',
-            tone: overallStats.overdueCount > 0 ? 'danger' : 'success',
-            onClick: () => setActiveFilterTab('overdue'),
-          },
-          {
-            id: 'completion',
-            label: 'Completion Rate',
-            value: `${overallStats.rate}%`,
-            sublabel: `${overallStats.completedCount}/${overallStats.total} finished`,
-            visual: (
-              <RadialProgressRing
-                value={overallStats.rate}
-                size={40}
-                strokeWidth={4}
-                tone={overallStats.rate >= 70 ? 'lime' : 'charcoal'}
-                showLabel={false}
-              />
-            ),
-            onClick: () => setActiveFilterTab('completed'),
-          },
-          {
-            id: 'critical',
-            label: 'Critical Open',
-            value: overallStats.criticalCount,
-            sublabel: `${overallStats.total - overallStats.completedCount} active items`,
-            tone: overallStats.criticalCount > 0 ? 'danger' : 'lime',
-            onClick: () => setActiveFilterTab('all'),
-          },
-        ]}
-      />
+        bodyClassName="p-4 sm:p-5"
+      >
+        <InlineKpiStrip
+          items={[
+            {
+              id: 'due_today',
+              label: 'Due Today',
+              value: overallStats.dueTodayCount,
+              sublabel: overallStats.dueTodayCount > 0 ? 'Focus required' : 'Clear schedule',
+              tone: overallStats.dueTodayCount > 0 ? 'warning' : 'success',
+              onClick: () => setActiveFilterTab('dueToday'),
+            },
+            {
+              id: 'overdue',
+              label: 'Overdue',
+              value: overallStats.overdueCount,
+              sublabel: overallStats.overdueCount > 0 ? 'Needs reschedule' : 'All on track',
+              tone: overallStats.overdueCount > 0 ? 'danger' : 'success',
+              onClick: () => setActiveFilterTab('overdue'),
+            },
+            {
+              id: 'completion',
+              label: 'Completion Rate',
+              value: `${overallStats.rate}%`,
+              sublabel: `${overallStats.completedCount}/${overallStats.total} finished`,
+              visual: (
+                <LiquidMetricProgress
+                  value={overallStats.rate}
+                  tone={overallStats.rate >= 70 ? 'lime' : 'charcoal'}
+                  compact
+                />
+              ),
+              onClick: () => setActiveFilterTab('completed'),
+            },
+            {
+              id: 'critical',
+              label: 'Critical Open',
+              value: overallStats.criticalCount,
+              sublabel: `${overallStats.total - overallStats.completedCount} active items`,
+              tone: overallStats.criticalCount > 0 ? 'danger' : 'lime',
+              onClick: () => setActiveFilterTab('all'),
+            },
+          ]}
+        />
+      </LiquidBezelSection>
 
       {/* AI Briefing Card (clean hairline, zero thick borders) */}
       {summary && (

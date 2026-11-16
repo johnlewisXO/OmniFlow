@@ -4,7 +4,7 @@ import { ICON_MAP } from '../../constants';
 import { TaskStatus, TaskPriority, AutomationRule, AutomationLog, AutomationTriggerType, AutomationActionType } from '../../types';
 import { Button } from '../shared/Button';
 import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard } from '../shared/EditorialUI';
-import { RadialProgressRing } from '../charts/EditorialCharts';
+import { LiquidMetricProgress } from '../charts/EditorialCharts';
 import { 
   getStoredRules, 
   saveStoredRules, 
@@ -411,12 +411,10 @@ export const TaskAutomationsDashboard: React.FC = () => {
             value: `${stats.successRate}%`,
             sublabel: 'Execution reliability',
             visual: (
-              <RadialProgressRing
+              <LiquidMetricProgress
                 value={stats.successRate}
-                size={40}
-                strokeWidth={4}
                 tone="lime"
-                showLabel={false}
+                compact
               />
             ),
             onClick: () => setActiveTab('logs'),
@@ -517,7 +515,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                         type="checkbox"
                         checked={rule.enabled}
                         onChange={() => handleToggleRule(rule.id)}
-                        className="mt-1 w-4 h-4 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
+                        className="mt-1 w-4 h-4 rounded accent-[var(--accent-cta)] cursor-pointer"
                       />
 
                       <div className="min-w-0 flex-1">
@@ -964,7 +962,7 @@ export const TaskAutomationsDashboard: React.FC = () => {
                               setSelectedWebhookEvents(selectedWebhookEvents.filter(x => x !== evt.id));
                             }
                           }}
-                          className="rounded accent-[#191B17] dark:accent-[#CCF048]"
+                          className="rounded accent-[var(--accent-cta)]"
                         />
                         <span className="font-mono text-[11px]">{evt.id}</span>
                       </label>

@@ -264,7 +264,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
         'Async screen & camera update recorded directly from the Taskly Clips Studio.',
       durationSeconds: finalDuration,
       authorId: currentUser?.id || 'me',
-      authorName: currentUser?.name || 'Workspace Member',
+      authorName: currentUser?.full_name || currentUser?.email?.split('@')[0] || 'Workspace Member',
       authorAvatar: currentUser?.avatar_url,
       projectId: activeProject?.id,
       linkedTaskId: linkedTaskId || undefined,
@@ -304,7 +304,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
       id: `pin-${Date.now()}`,
       timestampSeconds: Math.floor(playbackSeconds),
       authorId: currentUser?.id || 'me',
-      authorName: currentUser?.name || 'You',
+      authorName: currentUser?.full_name || currentUser?.email?.split('@')[0] || 'You',
       authorAvatar: currentUser?.avatar_url,
       text: newCommentText.trim(),
       reaction: newCommentReaction,
@@ -348,18 +348,16 @@ export const AsyncClipsStudioPage: React.FC = () => {
   const handleShareClipToChat = async () => {
     if (!selectedClip || !currentUser) return;
     try {
-      const channels = await chatService.getChannels(currentUser.organization_id);
+      const channels = chatService.getChannels();
       const targetChannel = channels[0];
       if (targetChannel) {
-        await chatService.sendMessage(
-          targetChannel.id,
-          currentUser.id,
-          `🎬 **Shared Async Video Clip:** [${selectedClip.title}] (${formatTimecode(
+        await chatService.sendMessage({
+          sender: currentUser,
+          channelId: targetChannel.id,
+          content: `🎬 **Shared Async Video Clip:** [${selectedClip.title}] (${formatTimecode(
             selectedClip.durationSeconds
           )}) — "${selectedClip.description}"`,
-          currentUser.name,
-          currentUser.avatar_url
-        );
+        });
       }
       addToast('Shared to Team Chat', `Posted "${selectedClip.title}" to #${targetChannel?.name || 'general'}`, 'success');
     } catch {
@@ -372,7 +370,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
       {/* Compact Header */}
       <div className="h-12 px-4 border-b border-[var(--border-hairline)] bg-[var(--bg-surface)] flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] flex items-center justify-center shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] flex items-center justify-center shadow-xs">
             <span className="text-sm font-bold">▶</span>
           </div>
           <div>
@@ -380,7 +378,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
               <h1 className="text-sm font-bold tracking-tight text-[var(--text-primary)]">
                 Async Screen & Camera Clips Studio
               </h1>
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)] whitespace-nowrap">
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)] whitespace-nowrap">
                 Async Video Updates
               </span>
             </div>
@@ -573,7 +571,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                         }}
                         style={{ left: `${leftPct}%` }}
                         title={`@${formatTimecode(pin.timestampSeconds)} ${pin.authorName}: ${pin.text}`}
-                        className="absolute -top-1.5 -translate-x-1/2 w-5 h-5 rounded-full bg-[#CCF048] text-[#131511] text-[10px] font-bold flex items-center justify-center shadow-md hover:scale-125 transition cursor-pointer"
+                        className="absolute -top-1.5 -translate-x-1/2 w-5 h-5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] text-[10px] font-bold flex items-center justify-center shadow-md hover:scale-125 transition cursor-pointer"
                       >
                         {pin.reaction || '💬'}
                       </button>
@@ -627,7 +625,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
               onSubmit={handleAddTimestampComment}
               className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] flex items-center gap-2"
             >
-              <span className="px-2 py-1 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-mono text-xs font-bold tabular-nums shrink-0">
+              <span className="px-2 py-1 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] font-mono text-xs font-bold tabular-nums shrink-0">
                 @{formatTimecode(playbackSeconds)}
               </span>
               <select
@@ -666,7 +664,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   Clip Action Items
                 </h3>
-                <span className="text-[10px] text-[#4E6126] dark:text-[#CCF048] font-semibold">1-Click to Board</span>
+                <span className="text-[10px] text-[var(--accent-text)] font-semibold">1-Click to Board</span>
               </div>
               <div className="space-y-2">
                 {selectedClip.actionItems.map((item, idx) => (
@@ -677,7 +675,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                     <span className="text-xs text-[var(--text-primary)]">{item}</span>
                     <button
                       onClick={() => handleConvertActionItemToTask(item)}
-                      className="px-2.5 py-1 rounded-full bg-[var(--bg-sage)] hover:bg-[var(--accent-lime)] text-[#4E6126] dark:text-[#CCF048] hover:text-[#131511] text-[10px] font-bold shrink-0 transition cursor-pointer"
+                      className="px-2.5 py-1 rounded-full bg-[var(--bg-sage)] hover:bg-[var(--accent-lime)] text-[var(--accent-text)] hover:text-[#131511] text-[10px] font-bold shrink-0 transition cursor-pointer"
                     >
                       + Task
                     </button>
@@ -719,7 +717,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
                       <span className="font-bold text-[var(--text-primary)]">
                         {pin.authorName}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-mono text-[10px] font-bold tabular-nums">
+                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] font-mono text-[10px] font-bold tabular-nums">
                         {pin.reaction} @{formatTimecode(pin.timestampSeconds)}
                       </span>
                     </div>
@@ -765,10 +763,10 @@ export const AsyncClipsStudioPage: React.FC = () => {
                     key={m.id}
                     type="button"
                     onClick={() => setRecordingMode(m.id as any)}
-                    className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition ${
+                    className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition cursor-pointer ${
                       recordingMode === m.id
                         ? 'bg-rose-500/10 border-rose-500 text-rose-600 dark:text-rose-400'
-                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                        : 'bg-[var(--surface-nested-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                     }`}
                   >
                     <span className="text-base">{m.icon}</span>
@@ -783,19 +781,19 @@ export const AsyncClipsStudioPage: React.FC = () => {
                   value={newClipTitle}
                   onChange={e => setNewClipTitle(e.target.value)}
                   placeholder="Clip title (e.g., Sprint 14 Bug Reproduction or Design Review)..."
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[var(--surface-nested-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 />
                 <textarea
                   value={newClipDesc}
                   onChange={e => setNewClipDesc(e.target.value)}
                   rows={2}
                   placeholder="Optional summary or key takeaways..."
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[var(--surface-nested-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 />
                 <select
                   value={linkedTaskId}
                   onChange={e => setLinkedTaskId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[var(--surface-nested-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
                 >
                   <option value="">Attach to Task (Optional)...</option>
                   {tasks.slice(0, 25).map(t => (

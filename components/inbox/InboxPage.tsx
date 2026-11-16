@@ -4,8 +4,8 @@ import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
-import { RadialProgressRing } from '../charts/EditorialCharts';
-import { Button } from '../shared/Button';
+import { LiquidMetricProgress } from '../charts/EditorialCharts';
+import { Button, IconButton } from '../shared/Button';
 
 export const InboxPage: React.FC = () => {
   const {
@@ -59,7 +59,7 @@ export const InboxPage: React.FC = () => {
         t => t.id === targetId || (msgStr && t.title && msgStr.toLowerCase().includes(t.title.toLowerCase()))
       );
       const matchedProject =
-        projects.find(p => p.id === targetId || p.id === matchedTask?.project_id) ||
+        projects.find(p => p.id === targetId || p.id === matchedTask?.projectId) ||
         projects.find(p => msgStr && p.name && msgStr.toLowerCase().includes(p.name.toLowerCase()));
 
       const matchedActor =
@@ -235,17 +235,17 @@ export const InboxPage: React.FC = () => {
             )}
             {unreadCount > 0 && (
               <Button
-                variant="lime"
+                variant="primary"
                 size="sm"
                 onClick={markAllNotificationsAsRead}
                 title="Mark all unread notifications as read"
               >
-                <CheckIcon className="w-3.5 h-3.5 mr-1.5" />
+                <CheckIcon className="w-3.5 h-3.5" />
                 <span>Mark All Read</span>
               </Button>
             )}
             {notifications.length > 0 && (
-              <Button
+              <IconButton
                 variant="ghost"
                 size="sm"
                 onClick={clearNotifications}
@@ -253,7 +253,7 @@ export const InboxPage: React.FC = () => {
                 aria-label="Clear all notifications"
               >
                 <TrashIcon className="w-4 h-4 text-[var(--text-muted)] hover:text-rose-500" />
-              </Button>
+              </IconButton>
             )}
           </div>
         }
@@ -292,12 +292,10 @@ export const InboxPage: React.FC = () => {
             value: `${readPercentage}%`,
             sublabel: `${notifications.length} total events`,
             visual: (
-              <RadialProgressRing
+              <LiquidMetricProgress
                 value={readPercentage}
-                size={40}
-                strokeWidth={4}
                 tone="lime"
-                showLabel={false}
+                compact
               />
             ),
             onClick: () => setActiveTab('all'),
@@ -342,14 +340,16 @@ export const InboxPage: React.FC = () => {
               className="w-full search-input !pl-10 !pr-8 !py-1.5 text-xs rounded-full"
             />
             {searchQuery && (
-              <button
-                type="button"
+              <IconButton
+                variant="ghost"
+                size="xs"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2"
                 title="Clear search"
+                aria-label="Clear search"
               >
                 <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
-              </button>
+              </IconButton>
             )}
           </div>
         </div>
@@ -383,8 +383,16 @@ export const InboxPage: React.FC = () => {
             return (
               <div
                 key={n.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleOpenNotificationTarget(n)}
-                className={`group relative overflow-hidden p-4 rounded-2xl border transition-all duration-150 flex items-start gap-3.5 cursor-pointer ${
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleOpenNotificationTarget(n);
+                  }
+                }}
+                className={`group relative overflow-hidden p-4 rounded-2xl border transition-all duration-150 flex items-start gap-3.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
                   isUnread
                     ? 'bg-[var(--bg-surface)] border-[var(--border-strong)] hover:bg-[var(--bg-surface-subtle)]'
                     : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:bg-[var(--bg-surface)] hover:border-[var(--border-strong)]'
@@ -464,10 +472,17 @@ export const InboxPage: React.FC = () => {
                   className="flex items-center gap-1.5 shrink-0 self-center"
                   onClick={e => e.stopPropagation()}
                 >
-                  <button
-                    type="button"
+                  <IconButton
+                    variant="glass"
+                    size="sm"
                     onClick={() => handleOpenNotificationTarget(n)}
-                    className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                    aria-label={
+                      n.isChat
+                        ? 'Open Conversation and Reply'
+                        : n.isMention
+                        ? 'View Mention and Reply'
+                        : 'Inspect Target'
+                    }
                     title={
                       n.isChat
                         ? 'Open Conversation & Reply'
@@ -481,17 +496,18 @@ export const InboxPage: React.FC = () => {
                     ) : (
                       <ICON_MAP.ArrowRightIcon className="w-4 h-4" />
                     )}
-                  </button>
+                  </IconButton>
 
                   {isUnread && (
-                    <button
-                      type="button"
+                    <IconButton
+                      variant="lime"
+                      size="sm"
                       onClick={() => markNotificationAsRead(n.id)}
-                      className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--accent-lime)] text-[var(--text-secondary)] hover:text-[var(--accent-ink)] transition-colors cursor-pointer"
+                      aria-label="Mark notification as read"
                       title="Mark as read"
                     >
                       <CheckIcon className="w-4 h-4" />
-                    </button>
+                    </IconButton>
                   )}
                 </div>
               </div>

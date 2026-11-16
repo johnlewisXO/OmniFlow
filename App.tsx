@@ -1,6 +1,8 @@
 
 
-import React, { useEffect, useCallback, useState, useRef } from 'react';
+import React, { useEffect, useCallback, useState, useRef, Suspense, lazy } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { LiquidGlassShell, AnimatedViewStage, GLASS_SPRING } from './components/shared/LiquidGlass';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { MobileBottomNav } from './components/layout/MobileBottomNav';
@@ -8,13 +10,13 @@ import { EditTaskModal } from './components/tasks/EditTaskModal';
 import { TaskDetailsModal } from './components/tasks/TaskDetailsModal';
 import { CreateProjectModal } from './components/projects/CreateProjectModal';
 import { CreateOrJoinOrganizationModal } from './components/auth/CreateOrJoinOrganizationModal';
-// Fix: Corrected typo in useAppStore import path.
+import { ConfirmDialogModal } from './components/shared/ConfirmDialogModal';
 import { useAppStore } from './hooks/useAppStore';
 import supabaseService, { supabase, normalizeAppUser } from './services/supabaseService';
 import { AuthPage } from './components/auth/AuthPage';
 import { User as AppUserType, Project, UserRole, ActiveView } from './types';
 
-// Import Role Specific Dashboards
+// Role Specific Dashboards
 import { AdminDashboard } from './components/dashboards/AdminDashboard';
 import { ProjectManagerDashboard } from './components/dashboards/ProjectManagerDashboard';
 import { MemberDashboard } from './components/dashboards/MemberDashboard';
@@ -24,36 +26,60 @@ import { ClientViewerDashboard } from './components/dashboards/ClientViewerDashb
 import { KanbanBoard } from './components/tasks/KanbanBoard';
 import { ICON_MAP } from './constants';
 
-// Import Landing Page
+// Landing Page
 import LandingPage from './components/landing/LandingPage';
 
-// Import New Placeholder Page Components
+// Core Workspace Views
 import { ProjectsOverviewPage } from './components/projects/ProjectsOverviewPage';
 import { MyTasksPage } from './components/tasks/MyTasksPage';
 import { InboxPage } from './components/inbox/InboxPage';
-import { ReportsPage } from './components/reports/ReportsPage';
 import { TeamManagementPage } from './components/team/TeamManagementPage'; 
 import { TaskAutomationsDashboard } from './components/automations/TaskAutomationsDashboard'; 
 import { SprintPlanningView } from './components/sprints/SprintPlanningView';
 import { TeamsChatPage } from './components/chat/TeamsChatPage';
 import { CommandPalette } from './components/layout/CommandPalette'; 
 import { KeyboardShortcutsModal } from './components/layout/KeyboardShortcutsModal'; 
-import { AIProjectManagerStudio } from './components/ai/AIProjectManagerStudio';
 import { FloatingAICopilotButton } from './components/ai/FloatingAICopilotButton';
 import logMonitorService from './services/logMonitorService';
 import { SystemLogMonitorModal } from './components/shared/SystemLogMonitorModal';
 import { EmailOutboxAndVerifyModal } from './components/shared/EmailOutboxAndVerifyModal';
 import emailNotificationService from './services/emailNotificationService';
 import { CalendarMeetingsPage } from './components/calendar/CalendarMeetingsPage';
-import { VideoCallStudioModal } from './components/chat/VideoCallStudioModal';
 import { ProjectDocsWikiPage } from './components/docs/ProjectDocsWikiPage';
 import { OKRsGoalsPage } from './components/okrs/OKRsGoalsPage';
 import { TriageIntakePage } from './components/triage/TriageIntakePage';
 import { WorkloadCapacityPage } from './components/workload/WorkloadCapacityPage';
-import { WhiteboardStudioPage } from './components/whiteboard/WhiteboardStudioPage';
-import { AsyncClipsStudioPage } from './components/clips/AsyncClipsStudioPage';
 import { GanttRoadmapPage } from './components/roadmap/GanttRoadmapPage';
 import { ClientPortalChangelogPage } from './components/portal/ClientPortalChangelogPage';
+import { Button } from './components/shared/Button';
+
+// Code-Split Heavy Studios (Route-Level Lazy Chunks)
+const ReportsPage = lazy(() =>
+  import('./components/reports/ReportsPage').then(m => ({ default: m.ReportsPage }))
+);
+const AIProjectManagerStudio = lazy(() =>
+  import('./components/ai/AIProjectManagerStudio').then(m => ({ default: m.AIProjectManagerStudio }))
+);
+const VideoCallStudioModal = lazy(() =>
+  import('./components/chat/VideoCallStudioModal').then(m => ({ default: m.VideoCallStudioModal }))
+);
+const WhiteboardStudioPage = lazy(() =>
+  import('./components/whiteboard/WhiteboardStudioPage').then(m => ({ default: m.WhiteboardStudioPage }))
+);
+const AsyncClipsStudioPage = lazy(() =>
+  import('./components/clips/AsyncClipsStudioPage').then(m => ({ default: m.AsyncClipsStudioPage }))
+);
+
+const GlobalViewFallback: React.FC = () => (
+  <div className="p-4 sm:p-6 max-w-6xl mx-auto w-full space-y-5 animate-pulse">
+    <div className="h-16 rounded-2xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)]" />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="h-44 rounded-2xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)]" />
+      <div className="h-44 rounded-2xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)]" />
+      <div className="h-44 rounded-2xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)] hidden lg:block" />
+    </div>
+  </div>
+);
 
 // Initialize global exception and console log monitoring immediately
 if (typeof logMonitorService?.init === 'function') {
@@ -121,7 +147,7 @@ const ToastContainer: React.FC = () => {
     // Resolve related task / project / actor for rich context
     const matchedTask = tasks.find(t => t.id === targetId || (msgStr && t.title && msgStr.includes(t.title)));
     const matchedProject =
-      projects.find(p => p.id === targetId || p.id === matchedTask?.project_id) ||
+      projects.find(p => p.id === targetId || p.id === matchedTask?.projectId) ||
       projects.find(p => msgStr && p.name && msgStr.includes(p.name));
 
     const matchedActor =
@@ -167,7 +193,7 @@ const ToastContainer: React.FC = () => {
         label: 'Reply',
         categoryLabel: 'Chat',
         categoryIcon: <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
+        categoryColorClass: 'bg-[var(--bg-sage)] text-[var(--accent-text)] dark:bg-[var(--bg-sage)] border-[var(--border-strong)]',
         projectBadge: projectBadge || '#direct-msg',
         actorName,
         actorRole,
@@ -223,7 +249,7 @@ const ToastContainer: React.FC = () => {
         label: 'Inspect',
         categoryLabel: 'Task',
         categoryIcon: <ICON_MAP.CheckBadgeIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
+        categoryColorClass: 'bg-[var(--bg-sage)] text-[var(--accent-text)] dark:bg-[var(--bg-sage)] border-[var(--border-strong)]',
         priorityBadge,
         diffPill,
         projectBadge,
@@ -316,7 +342,7 @@ const ToastContainer: React.FC = () => {
         label: 'Outbox',
         categoryLabel: 'Email',
         categoryIcon: <ICON_MAP.InboxIcon className="w-3.5 h-3.5" />,
-        categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
+        categoryColorClass: 'bg-[var(--bg-sage)] text-[var(--accent-text)] dark:bg-[var(--bg-sage)] border-[var(--border-strong)]',
         actorName,
       };
     }
@@ -326,7 +352,7 @@ const ToastContainer: React.FC = () => {
       label: null,
       categoryLabel: 'System',
       categoryIcon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />,
-      categoryColorClass: 'bg-[var(--bg-sage)] text-[#4E6126] dark:bg-[#24291F] dark:text-[#CCF048] border-[var(--border-strong)]',
+      categoryColorClass: 'bg-[var(--bg-sage)] text-[var(--accent-text)] dark:bg-[var(--bg-sage)] border-[var(--border-strong)]',
       projectBadge,
       actorName,
       actorRole,
@@ -393,8 +419,8 @@ const ToastContainer: React.FC = () => {
       }
 
       if (targetTask) {
-        if (targetTask.project_id) {
-          const proj = projects.find(p => p.id === targetTask!.project_id);
+        if (targetTask.projectId) {
+          const proj = projects.find(p => p.id === targetTask!.projectId);
           if (proj) setActiveProject(proj);
         }
         setActiveView('kanban');
@@ -445,173 +471,182 @@ const ToastContainer: React.FC = () => {
     }
   };
 
-  if (visibleToasts.length === 0) return null;
-
   const toastsToShow = notifications.filter(n => visibleToasts.includes(n.id));
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-[380px] w-full pointer-events-none">
-      {toastsToShow.map(n => {
-        const type = n.toastType || (n.type === 'TASK_DELETED' || n.type === 'USER_REMOVED_FROM_ORG' ? 'error' : 'success');
-        const meta = getToastActionConfig(n);
-        const { isInteractive, label: actionLabel, categoryLabel, categoryIcon, priorityBadge, diffPill, projectBadge, actorName, actorRole } = meta;
+    <div
+      aria-live="polite"
+      aria-atomic="false"
+      className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-[380px] w-full pointer-events-none"
+    >
+      <AnimatePresence mode="popLayout">
+        {toastsToShow.map(n => {
+          const type = n.toastType || (n.type === 'TASK_DELETED' || n.type === 'USER_REMOVED_FROM_ORG' ? 'error' : 'success');
+          const meta = getToastActionConfig(n);
+          const { isInteractive, label: actionLabel, categoryLabel, categoryIcon, priorityBadge, diffPill, projectBadge, actorName, actorRole } = meta;
 
-        let iconEl = <ICON_MAP.CheckIcon className="w-4 h-4 text-emerald-400 flex-shrink-0" />;
-        let borderClass = 'border-emerald-500/35 dark:border-emerald-500/40';
-        let stripClass = 'bg-emerald-500';
-        let bgAccent = 'bg-emerald-500/15';
+          let iconEl = <ICON_MAP.CheckIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />;
+          let borderClass = 'border-emerald-500/25';
+          let dotClass = 'bg-emerald-500';
+          let bgAccent = 'bg-emerald-500/15';
 
-        if (type === 'error') {
-          iconEl = <ICON_MAP.ExclamationIcon className="w-4 h-4 text-rose-400 flex-shrink-0" />;
-          borderClass = 'border-rose-500/35 dark:border-rose-500/40';
-          stripClass = 'bg-rose-500';
-          bgAccent = 'bg-rose-500/15';
-        } else if (type === 'warning') {
-          iconEl = <ICON_MAP.ExclamationIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />;
-          borderClass = 'border-amber-500/35 dark:border-amber-500/40';
-          stripClass = 'bg-amber-500';
-          bgAccent = 'bg-amber-500/15';
-        } else if (type === 'info') {
-          iconEl = <ICON_MAP.SparklesIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048] flex-shrink-0" />;
-          borderClass = 'border-[var(--border-strong)]';
-          stripClass = 'bg-[#97B832] dark:bg-[#CCF048]';
-          bgAccent = 'bg-[var(--bg-sage)]';
-        }
+          if (type === 'error') {
+            iconEl = <ICON_MAP.ExclamationIcon className="w-4 h-4 text-rose-500 dark:text-rose-400 flex-shrink-0" />;
+            borderClass = 'border-rose-500/30';
+            dotClass = 'bg-rose-500';
+            bgAccent = 'bg-rose-500/15';
+          } else if (type === 'warning') {
+            iconEl = <ICON_MAP.ExclamationIcon className="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0" />;
+            borderClass = 'border-amber-500/30';
+            dotClass = 'bg-amber-500';
+            bgAccent = 'bg-amber-500/15';
+          } else if (type === 'info') {
+            iconEl = <ICON_MAP.SparklesIcon className="w-4 h-4 text-[var(--accent-text)] flex-shrink-0" />;
+            borderClass = 'border-[var(--border-strong)]';
+            dotClass = 'bg-[var(--accent-lime)]';
+            bgAccent = 'bg-[var(--bg-sage)]';
+          }
 
-        const timeLabel = new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const canUndo =
-          lastUndoAction &&
-          ((n.type || '').includes('TASK') ||
-            (n.title || '').toLowerCase().includes('task') ||
-            (n.title || '').toLowerCase().includes('moved') ||
-            (n.title || '').toLowerCase().includes('updated') ||
-            (n.title || '').toLowerCase().includes('deleted') ||
-            (n.title || '').toLowerCase().includes('batch'));
+          const timeLabel = new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const canUndo =
+            lastUndoAction &&
+            ((n.type || '').includes('TASK') ||
+              (n.title || '').toLowerCase().includes('task') ||
+              (n.title || '').toLowerCase().includes('moved') ||
+              (n.title || '').toLowerCase().includes('updated') ||
+              (n.title || '').toLowerCase().includes('deleted') ||
+              (n.title || '').toLowerCase().includes('batch'));
 
-        return (
-          <div
-            key={n.id}
-            onClick={() => isInteractive && handleToastClick(n)}
-            role={isInteractive ? 'button' : undefined}
-            tabIndex={isInteractive ? 0 : undefined}
-            className={`pointer-events-auto relative overflow-hidden p-3.5 rounded-2xl shadow-2xl border backdrop-blur-xl flex items-start gap-3 transition-all duration-300 transform translate-y-0 animate-in slide-in-from-bottom-4 ${borderClass} ${
-              isInteractive ? 'cursor-pointer hover:scale-[1.015] active:scale-[0.99]' : ''
-            } ${
-              darkMode ? 'bg-[#161913]/95 text-[#F2F3EE]' : 'bg-white/95 text-[#191B17]'
-            }`}
-          >
-            {/* Priority / Status Accent Strip */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1 ${stripClass}`} />
-
-            {/* Category / Status Icon */}
-            <div className={`p-2 rounded-xl ${bgAccent} flex items-center justify-center shrink-0 mt-0.5`}>
-              {iconEl}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              {/* Top Meta Row: Category Pill + Project/Channel + Timestamp */}
-              <div className="flex items-center justify-between gap-1.5 mb-1">
-                <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${meta.categoryColorClass}`}>
-                    {categoryIcon}
-                    <span>{categoryLabel}</span>
-                  </span>
-                  {projectBadge && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-500/10 text-slate-500 dark:text-slate-300 truncate max-w-[120px]">
-                      {projectBadge}
-                    </span>
-                  )}
-                  {priorityBadge && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-500 dark:text-rose-400">
-                      {priorityBadge}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[10px] font-mono tabular-nums text-slate-400 shrink-0">
-                  {timeLabel}
-                </span>
-              </div>
-
-              {/* Title & Message */}
-              <h4 className="font-bold text-xs text-slate-900 dark:text-white leading-snug truncate">
-                {n.title || (n.type ? n.type.replace(/_/g, ' ') : 'Workspace Update')}
-              </h4>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 line-clamp-2 break-words">
-                {n.message || n.content}
-              </p>
-
-              {/* Bottom Enriched Row: Actor + Status Diff + Icon-First Quick Actions */}
-              <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-slate-200/60 dark:border-white/10">
-                <div className="flex items-center gap-1.5 min-w-0 truncate">
-                  {actorName && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)] truncate">
-                      <span className="w-4 h-4 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-bold text-[9px] inline-flex items-center justify-center shrink-0">
-                        {actorName.charAt(0).toUpperCase()}
-                      </span>
-                      <span className="truncate max-w-[90px]">{actorName}</span>
-                      {actorRole && (
-                        <span className="text-[9px] opacity-75 hidden sm:inline">· {actorRole}</span>
-                      )}
-                    </span>
-                  )}
-                  {diffPill && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-strong)] truncate max-w-[115px]">
-                      {diffPill}
-                    </span>
-                  )}
-                </div>
-
-                {/* Icon-First Action Pills */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {canUndo && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        triggerUndo();
-                        markNotificationAsRead(n.id);
-                        setVisibleToasts(prev => prev.filter(id => id !== n.id));
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer whitespace-nowrap"
-                      title={`Undo: ${lastUndoAction?.label}`}
-                    >
-                      <span>↶</span>
-                      <span>Undo</span>
-                    </button>
-                  )}
-                  {isInteractive && actionLabel && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToastClick(n);
-                      }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] hover:opacity-90 transition-all cursor-pointer whitespace-nowrap"
-                      title={actionLabel}
-                    >
-                      <span>{actionLabel}</span>
-                      <ICON_MAP.ArrowRightIcon className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                markNotificationAsRead(n.id);
-                setVisibleToasts(prev => prev.filter(id => id !== n.id));
-              }}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-500/10 shrink-0"
-              title="Dismiss & Mark Read"
-              aria-label="Dismiss notification"
+          return (
+            <motion.div
+              key={n.id}
+              layout
+              initial={{ opacity: 0, y: 18, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 24, scale: 0.94 }}
+              transition={GLASS_SPRING.snappy}
+              onClick={() => isInteractive && handleToastClick(n)}
+              role={isInteractive ? 'button' : undefined}
+              tabIndex={isInteractive ? 0 : undefined}
+              className={`pointer-events-auto relative overflow-hidden p-3.5 rounded-2xl liquid-glass-overlay flex items-start gap-3 ${borderClass} ${
+                isInteractive ? 'cursor-pointer glass-interactive-card' : ''
+              }`}
             >
-              <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        );
-      })}
+              {/* Category / Status Icon */}
+              <div className={`relative p-2 rounded-xl ${bgAccent} flex items-center justify-center shrink-0 mt-0.5`}>
+                {iconEl}
+                <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${dotClass}`} aria-hidden="true" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {/* Top Meta Row: Category Pill + Project/Channel + Timestamp */}
+                <div className="flex items-center justify-between gap-1.5 mb-1">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${meta.categoryColorClass}`}>
+                      {categoryIcon}
+                      <span>{categoryLabel}</span>
+                    </span>
+                    {projectBadge && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
+                        {projectBadge}
+                      </span>
+                    )}
+                    {priorityBadge && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                        {priorityBadge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)] shrink-0">
+                    {timeLabel}
+                  </span>
+                </div>
+
+                {/* Title & Message */}
+                <h4 className="font-bold text-xs text-[var(--text-primary)] leading-snug truncate">
+                  {n.title || (n.type ? n.type.replace(/_/g, ' ') : 'Workspace Update')}
+                </h4>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed mt-0.5 line-clamp-2 break-words">
+                  {n.message || n.content}
+                </p>
+
+                {/* Bottom Enriched Row: Actor + Status Diff + Icon-First Quick Actions */}
+                <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-[var(--border-hairline)]">
+                  <div className="flex items-center gap-1.5 min-w-0 truncate">
+                    {actorName && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)] truncate">
+                        <span className="w-4 h-4 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] font-bold text-[9px] inline-flex items-center justify-center shrink-0">
+                          {actorName.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="truncate max-w-[90px]">{actorName}</span>
+                        {actorRole && (
+                          <span className="text-[9px] opacity-75 hidden sm:inline">· {actorRole}</span>
+                        )}
+                      </span>
+                    )}
+                    {diffPill && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-strong)] truncate max-w-[115px]">
+                        {diffPill}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Icon-First Action Pills */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {canUndo && (
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: 0.94 }}
+                        transition={GLASS_SPRING.micro}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerUndo();
+                          markNotificationAsRead(n.id);
+                          setVisibleToasts(prev => prev.filter(id => id !== n.id));
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-colors cursor-pointer whitespace-nowrap"
+                        title={`Undo: ${lastUndoAction?.label}`}
+                      >
+                        <span>↶</span>
+                        <span>Undo</span>
+                      </motion.button>
+                    )}
+                    {isInteractive && actionLabel && (
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: 0.94 }}
+                        transition={GLASS_SPRING.micro}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToastClick(n);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] hover:opacity-90 transition-opacity cursor-pointer whitespace-nowrap"
+                        title={actionLabel}
+                      >
+                        <span>{actionLabel}</span>
+                        <ICON_MAP.ArrowRightIcon className="w-3 h-3" />
+                      </motion.button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  markNotificationAsRead(n.id);
+                  setVisibleToasts(prev => prev.filter(id => id !== n.id));
+                }}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 rounded-lg hover:bg-[var(--bg-sage)] shrink-0 cursor-pointer"
+                title="Dismiss & Mark Read"
+                aria-label="Dismiss notification"
+              >
+                <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 };
@@ -727,6 +762,21 @@ const MainAppLayout: React.FC = () => {
       if (bounceTimeout) clearTimeout(bounceTimeout);
     };
   }, []);
+
+  const isFixedViewportView = activeView === 'team_chat_view' || activeView === 'whiteboard_view';
+
+  useEffect(() => {
+    const mainScroll = document.querySelector('[data-main-scroll-view="true"]') as HTMLElement | null;
+    if (mainScroll) mainScroll.scrollTop = 0;
+    const shell = document.querySelector('.nova-workspace-shell') as HTMLElement | null;
+    if (shell) {
+      shell.scrollTop = 0;
+      shell.scrollLeft = 0;
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+  }, [activeView]);
 
   useEffect(() => {
     if (currentUser && activeView === 'team_management' && currentUser.organization_id && users.length === 0 && !isLoadingUsersForAssignment) {
@@ -872,7 +922,20 @@ const MainAppLayout: React.FC = () => {
         if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.OWNER) {
           return <AdminDashboard />;
         }
-        return <MemberDashboard />;
+        return (
+          <div className="p-4 sm:p-6 max-w-xl mx-auto w-full my-auto">
+            <div className="editorial-surface p-6 sm:p-8 text-center space-y-3">
+              <ICON_MAP.ShieldCheckIcon className="w-10 h-10 mx-auto text-[var(--text-muted)]" />
+              <h2 className="text-base font-bold text-[var(--text-primary)]">Restricted Workspace Area</h2>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Organization administration and billing settings require Owner or Admin permissions.
+              </p>
+              <Button variant="primary" size="sm" onClick={() => setActiveView('overview')}>
+                Return to Overview
+              </Button>
+            </div>
+          </div>
+        );
       case 'profile_settings':
         return <ProfileSettingsPage />;
       default:
@@ -884,13 +947,19 @@ const MainAppLayout: React.FC = () => {
 
   return (
     <div className="relative z-10 h-full w-full flex flex-col min-w-0 min-h-0">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[120] focus:px-4 focus:py-2 focus:rounded-full focus:bg-[var(--accent-cta)] focus:text-[var(--accent-cta-ink)] focus:text-xs focus:font-semibold focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       <Header />
       <div className="flex-1 flex min-h-0 min-w-0 lg:px-3 lg:pb-3 lg:pt-2 lg:gap-3">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden lg:rounded-[20px] frosted-shell-panel transition-[width,margin,padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
           {/* In-App Manager / Admin / Owner Join Request Approval Alert Banner */}
           {canManageRequests && pendingJoinRequests.length > 0 && !isBannerDismissed && (
-            <div className="mx-4 sm:mx-6 mt-3 px-4 py-2 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] flex items-center justify-between gap-3 shrink-0">
+            <div className="mx-4 sm:mx-6 mt-3 px-4 py-2 rounded-xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)] flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="w-2 h-2 rounded-full bg-amber-600 shrink-0" />
                 <p className="text-xs font-medium text-[var(--text-primary)] truncate">
@@ -905,7 +974,7 @@ const MainAppLayout: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActiveView('team_management')}
-                  className="px-3 py-1 rounded-full text-xs font-semibold bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] transition-opacity hover:opacity-90 cursor-pointer"
+                  className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] transition-opacity hover:opacity-90 cursor-pointer"
                 >
                   Review
                 </button>
@@ -920,9 +989,15 @@ const MainAppLayout: React.FC = () => {
               </div>
             </div>
           )}
-          <div
+          <main
+            id="main-content"
+            tabIndex={-1}
             data-main-scroll-view="true"
-            className={`flex-1 flex flex-col p-0 pb-16 lg:pb-0 overflow-y-auto scrollbar-thin min-h-0 min-w-0 transition-transform duration-300 ${
+            className={`flex-1 flex flex-col p-0 min-h-0 min-w-0 outline-none transition-transform duration-300 ${
+              isFixedViewportView
+                ? 'overflow-hidden pb-16 lg:pb-0'
+                : 'pb-16 lg:pb-0 overflow-y-auto scrollbar-thin'
+            } ${
               scrollBounceState === 'top'
                 ? 'animate-bubbleStretchTop'
                 : scrollBounceState === 'bottom'
@@ -940,8 +1015,15 @@ const MainAppLayout: React.FC = () => {
                   <strong>Error:</strong> {error}
               </div>
             )}
-            {renderContentByView()}
-          </div>
+            <AnimatedViewStage
+              viewKey={activeView}
+              className={isFixedViewportView ? 'flex-1 flex flex-col min-h-0 h-full' : 'min-h-full'}
+            >
+              <Suspense fallback={<GlobalViewFallback />}>
+                {renderContentByView()}
+              </Suspense>
+            </AnimatedViewStage>
+          </main>
         </div>
       </div>
       <MobileBottomNav />
@@ -971,44 +1053,46 @@ const MainAppLayout: React.FC = () => {
         onClose={() => setIsEmailCenterOpen(false)}
         initialTab={emailCenterInitialTab}
       />
-      <VideoCallStudioModal />
+      <Suspense fallback={null}>
+        <VideoCallStudioModal />
+      </Suspense>
+      <ConfirmDialogModal />
     </div>
   );
 };
 
 const GlobalSpinner: React.FC = () => {
-  const isDarkMode = document.documentElement.classList.contains('dark');
   return (
-    <div className={`h-screen w-screen flex gap-3 md:gap-4 p-3 md:p-4 ${isDarkMode ? 'bg-[#131511]' : 'bg-[#F4F4EF]'}`}>
+    <div className="h-screen w-screen flex gap-3 md:gap-4 p-3 md:p-4 bg-[var(--bg-canvas)]">
       {/* Sidebar Skeleton */}
-      <div className={`w-64 flex-shrink-0 rounded-2xl border shadow-sm animate-pulse ${isDarkMode ? 'bg-[#1A1D17] border-[#2B3026]' : 'bg-white border-[#E3E5DD]'}`}>
+      <div className="w-64 flex-shrink-0 rounded-2xl border shadow-sm animate-pulse bg-[var(--bg-surface)] border-[var(--border-hairline)]">
         <div className="p-6 space-y-6">
-          <div className={`h-8 w-3/4 rounded-lg ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
+          <div className="h-8 w-3/4 rounded-lg bg-[var(--bg-sage)]"></div>
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className={`h-6 w-full rounded-lg ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
+              <div key={i} className="h-6 w-full rounded-lg bg-[var(--bg-sage)]"></div>
             ))}
           </div>
         </div>
       </div>
-      
+
       {/* Main Content Skeleton */}
       <div className="flex-1 flex flex-col gap-3 md:gap-4 min-w-0">
         {/* Header Skeleton */}
-        <div className={`h-16 rounded-2xl border shadow-sm animate-pulse flex items-center justify-between px-6 ${isDarkMode ? 'bg-[#1A1D17] border-[#2B3026]' : 'bg-white border-[#E3E5DD]'}`}>
-          <div className={`h-6 w-48 rounded-lg ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
+        <div className="h-16 rounded-2xl border shadow-sm animate-pulse flex items-center justify-between px-6 bg-[var(--bg-surface)] border-[var(--border-hairline)]">
+          <div className="h-6 w-48 rounded-lg bg-[var(--bg-sage)]"></div>
           <div className="flex gap-4">
-            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
-            <div className={`h-8 w-8 rounded-full ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
+            <div className="h-8 w-8 rounded-full bg-[var(--bg-sage)]"></div>
+            <div className="h-8 w-8 rounded-full bg-[var(--bg-sage)]"></div>
           </div>
         </div>
-        
+
         {/* Content Area Skeleton */}
-        <div className={`flex-1 rounded-2xl border shadow-sm animate-pulse p-6 ${isDarkMode ? 'bg-[#1A1D17] border-[#2B3026]' : 'bg-white border-[#E3E5DD]'}`}>
-          <div className={`h-8 w-64 rounded-lg mb-8 ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
+        <div className="flex-1 rounded-2xl border shadow-sm animate-pulse p-6 bg-[var(--bg-surface)] border-[var(--border-hairline)]">
+          <div className="h-8 w-64 rounded-lg mb-8 bg-[var(--bg-sage)]"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className={`h-48 rounded-2xl ${isDarkMode ? 'bg-[#24291F]' : 'bg-[#E9EDE2]'}`}></div>
+              <div key={i} className="h-48 rounded-2xl bg-[var(--bg-sage)]"></div>
             ))}
           </div>
         </div>
@@ -1182,7 +1266,11 @@ function App() {
           if (invite && invite.status === 'pending') {
             const isExpired = invite.expires_at ? new Date(invite.expires_at) < new Date() : false;
             if (isExpired) {
-              alert('This organization invitation link has expired.');
+              useAppStore.getState().addToast(
+                'Invitation Expired',
+                'This organization invitation link has expired.',
+                'warning'
+              );
               localStorage.removeItem('pending_invite_token');
               return;
             }
@@ -1528,7 +1616,7 @@ function App() {
               newNotif.title || 'New Organization Join Request',
               newNotif.message || 'A user has requested to join your organization.',
               'info',
-              { entity_type: 'team_management' }
+              { entity_type: 'user' }
             );
           } else if (newNotif?.type === 'ORGANIZATION_JOIN_APPROVED') {
             window.dispatchEvent(new CustomEvent('omni_org_join_request_updated'));
@@ -1656,11 +1744,24 @@ function App() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden lg:p-3 xl:p-3.5 nova-bezel-frame select-none animate-fadeIn">
-      {/* Nova Platform Framed Workspace Shell with Ambient Sage & Lime Mesh */}
-      <div className="relative z-10 w-full h-full nova-workspace-shell lg:rounded-[26px] flex flex-col overflow-hidden">
+      {/* Nova Platform Framed Workspace Shell with Pointer-Responsive Spatial Liquid Glass Environment */}
+      <LiquidGlassShell className="relative z-10 w-full h-full nova-workspace-shell lg:rounded-[26px] flex flex-col overflow-hidden">
         <div className="sage-lime-ambient-mesh absolute inset-0 pointer-events-none z-0" aria-hidden="true" />
+        {/* Subconscious Restrained Liquid Edge Light Fields (28–38s cycle, GPU transform only) */}
+        <div
+          className="ambient-field-primary absolute -top-[28%] -left-[18%] w-[64vw] h-[62vh] rounded-full pointer-events-none z-0"
+          aria-hidden="true"
+        />
+        <div
+          className="ambient-field-secondary absolute -top-[26%] -right-[16%] w-[54vw] h-[50vh] rounded-full pointer-events-none z-0 opacity-85"
+          aria-hidden="true"
+        />
+        <div
+          className="ambient-field-secondary absolute -bottom-[30%] -right-[18%] w-[62vw] h-[58vh] rounded-full pointer-events-none z-0"
+          aria-hidden="true"
+        />
         <MainAppLayout />
-      </div>
+      </LiquidGlassShell>
     </div>
   );
 }

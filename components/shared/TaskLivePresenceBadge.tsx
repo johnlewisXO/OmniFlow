@@ -78,12 +78,12 @@ export const TaskLivePresenceBadge: React.FC<TaskLivePresenceBadgeProps> = ({
   const firstName = ((primaryEditor || primaryTyper || primaryViewer)?.userName || 'Teammate').split(' ')[0];
 
   const pillTone = primaryEditor
-    ? 'bg-[var(--accent-lime)]/20 border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
+    ? 'bg-[var(--accent-lime)]/20 border-[var(--border-strong)] text-[var(--accent-text)]'
     : primaryTyper
       ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300'
       : viewers.length > 0
         ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
-        : 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048]';
+        : 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--accent-text)]';
 
   const tooltip = viewers.length > 0
     ? viewers
@@ -173,7 +173,7 @@ export const useTaskPresenceHighlight = (taskId: string) => {
     });
 
     const ringClass = hasEditor
-      ? 'ring-1 ring-[#97B832]/60 border-[#97B832]/50'
+      ? 'ring-1 ring-[var(--accent-lime)]/60 border-[var(--border-strong)]'
       : hasTyper
         ? 'ring-1 ring-amber-500/40 border-amber-500/40'
         : hasViewer

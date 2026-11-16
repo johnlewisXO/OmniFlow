@@ -3,30 +3,22 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { AdminDashboard } from './AdminDashboard';
 import { Button } from '../shared/Button';
+import { OrganizationLogoUploader } from '../shared/OrganizationLogoUploader';
 import { AuditLog, TaskStatus, UserRole, normalizeUserRole } from '../../types';
 import supabaseService from '../../services/supabaseService';
 import { SystemLogMonitorPanel } from '../shared/SystemLogMonitorModal';
 import { PendingJoinRequestsBanner } from '../team/PendingJoinRequestsBanner';
 import {
-  PageHeader,
   InlineKpiStrip,
   SegmentedTabs,
   HairlineCard,
+  LiquidBezelSection,
   StatusDot,
 } from '../shared/EditorialUI';
 import { SlimProgressBar } from '../charts/EditorialCharts';
+import { BillingSandboxModal, SandboxBillingRecord, SandboxInvoiceRecord } from '../billing/BillingSandboxModal';
 
 type OwnerTab = 'executive' | 'governance' | 'billing' | 'security_api' | 'audit_security' | 'telemetry';
-
-interface BillingState {
-  planId: 'starter' | 'growth_pro' | 'enterprise_ai';
-  billingCycle: 'monthly' | 'annual';
-  paymentBrand: string;
-  paymentLast4: string;
-  billingEmail: string;
-  taxId: string;
-  autoTopUpSeats: boolean;
-}
 
 interface SecurityPolicyState {
   enforceMfa: boolean;
@@ -75,24 +67,54 @@ export const OwnerDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<OwnerTab>('executive');
 
-  // 1. Billing & Subscription State
-  const [billing, setBilling] = useState<BillingState>(() => {
+  const orgId = currentOrganization?.id || currentUser?.organization_id || 'org-default';
+
+  const makeDefaultBilling = (): SandboxBillingRecord => ({
+    organizationId: orgId,
+    environment: 'sandbox',
+    planId: 'enterprise_ai',
+    billingCycle: 'annual',
+    extraSeats: 0,
+    subscriptionStatus: 'active',
+    paymentMethodType: 'card',
+    paymentBrand: 'Visa Corporate (Sandbox)',
+    paymentLast4: '4242',
+    billingEmail: currentUser?.email || 'billing@organization.io',
+    taxId: 'US-EIN-94-3829104',
+    autoTopUpSeats: true,
+    couponCode: '',
+    discountPct: 0,
+    invoices: [
+      {
+        id: 'INV-SBX-2026-10',
+        date: '2026-10-01T10:00:00.000Z',
+        planName: 'Enterprise AI-Native',
+        billingCycle: 'annual',
+        amountCents: 179100,
+        currency: 'USD',
+        status: 'paid',
+        paymentMethodLabel: 'Visa •••• 4242',
+        paymentMethodType: 'card',
+      },
+    ],
+    webhookLogs: [],
+  });
+
+  // 1. Billing & Subscription Sandbox State
+  const [billing, setBilling] = useState<SandboxBillingRecord>(() => {
     try {
       const raw = localStorage.getItem(BILLING_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.invoices)) return parsed;
+      }
     } catch {}
-    return {
-      planId: 'enterprise_ai',
-      billingCycle: 'annual',
-      paymentBrand: 'Visa Corporate',
-      paymentLast4: '4242',
-      billingEmail: currentUser?.email || 'billing@organization.io',
-      taxId: 'US-EIN-94-3829104',
-      autoTopUpSeats: true,
-    };
+    return makeDefaultBilling();
   });
-  const [isUpdatingCard, setIsUpdatingCard] = useState(false);
-  const [newCardNumber, setNewCardNumber] = useState('');
+  const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
+  const [sandboxModalPlanId, setSandboxModalPlanId] = useState<'starter' | 'growth_pro' | 'enterprise_ai' | undefined>(undefined);
+  const [showWebhookInspector, setShowWebhookInspector] = useState(false);
+  const [isTriggeringWebhook, setIsTriggeringWebhook] = useState(false);
 
   // 2. Advanced Security & API Keys State
   const [securityPolicy, setSecurityPolicy] = useState<SecurityPolicyState>(() => {
@@ -194,11 +216,68 @@ export const OwnerDashboard: React.FC = () => {
     }
   };
 
-  const saveBillingState = (next: BillingState) => {
+  const saveBillingState = (next: SandboxBillingRecord) => {
     setBilling(next);
     try {
       localStorage.setItem(BILLING_STORAGE_KEY, JSON.stringify(next));
     } catch {}
+  };
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/billing/${encodeURIComponent(orgId)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (active && data?.ok && data.billing) {
+          saveBillingState(data.billing);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [orgId]);
+
+  const handleTriggerSandboxWebhook = async (eventType: string) => {
+    setIsTriggeringWebhook(true);
+    try {
+      const res = await fetch(`/api/billing/${encodeURIComponent(orgId)}/webhook-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventType }),
+      });
+      const data = await res.json();
+      if (data?.billing) saveBillingState(data.billing);
+      addToast('Sandbox Webhook Dispatched', `Emitted "${eventType}" signed test event.`, 'info');
+      setShowWebhookInspector(true);
+    } catch {
+      addToast('Webhook Error', 'Could not emit sandbox webhook event.', 'error');
+    } finally {
+      setIsTriggeringWebhook(false);
+    }
+  };
+
+  const handleResetSandboxBilling = async () => {
+    try {
+      const res = await fetch(`/api/billing/${encodeURIComponent(orgId)}/reset`, { method: 'POST' });
+      const data = await res.json();
+      if (data?.billing) saveBillingState(data.billing);
+      addToast('Sandbox Reset', 'Restored clean default sandbox subscription & ledger.', 'info');
+    } catch {
+      saveBillingState(makeDefaultBilling());
+    }
+  };
+
+  const handleDownloadSandboxReceipt = (inv: SandboxInvoiceRecord) => {
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${inv.id} Receipt</title><style>body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:24px;color:#191B17}header{display:flex;justify-content:space-between;border-bottom:1px solid #e3e5dd;padding-bottom:16px}table{width:100%;margin-top:24px;border-collapse:collapse}td,th{padding:10px 0;border-bottom:1px solid #eee;text-align:left}.num{text-align:right;font-family:monospace}</style></head><body><header><div><h2 style="margin:0">${currentOrganization?.name || 'Omni Flow Workspace'}</h2><small>SANDBOX INVOICE RECEIPT</small></div><div style="text-align:right"><strong>${inv.id}</strong><br/><small>${new Date(inv.date).toLocaleDateString()}</small></div></header><table><tr><th>Plan / Description</th><th class="num">Amount</th></tr><tr><td>${inv.planName} (${inv.billingCycle})${inv.extraSeats ? ` + ${inv.extraSeats} seats` : ''}</td><td class="num">$${(inv.amountCents / 100).toFixed(2)} ${inv.currency}</td></tr><tr><td>Payment Method: ${inv.paymentMethodLabel} (${inv.paymentMethodType.toUpperCase()})</td><td class="num">Status: ${inv.status.toUpperCase()}</td></tr></table></body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${inv.id}-sandbox-receipt.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast('Receipt Downloaded', `Saved ${inv.id}-sandbox-receipt.html`, 'info');
   };
 
   const saveSecurityPolicy = (next: SecurityPolicyState) => {
@@ -416,22 +495,24 @@ export const OwnerDashboard: React.FC = () => {
   };
 
   const planDetails = {
-    starter: { name: 'Starter Team', priceMonthly: 29, maxSeats: 10, aiTokens: '100k / mo' },
-    growth_pro: { name: 'Growth Business Pro', priceMonthly: 79, maxSeats: 50, aiTokens: '1M / mo' },
+    starter: { name: 'Starter Core', priceMonthly: 0, maxSeats: 15, aiTokens: '50k / mo' },
+    growth_pro: { name: 'Growth Pro', priceMonthly: 79, maxSeats: 50, aiTokens: '500k / mo' },
     enterprise_ai: { name: 'Enterprise AI-Native', priceMonthly: 199, maxSeats: 250, aiTokens: 'Unlimited AI Co-Pilot' },
   };
 
-  const activePlan = planDetails[billing.planId];
+  const activePlan = planDetails[billing.planId] || planDetails.enterprise_ai;
+  const totalProvisionedMaxSeats = activePlan.maxSeats + (billing.extraSeats || 0);
   const seatCount = Math.max(1, users.length);
-  const seatUtilizationPct = Math.min(100, Math.round((seatCount / activePlan.maxSeats) * 100));
+  const seatUtilizationPct = Math.min(100, Math.round((seatCount / totalProvisionedMaxSeats) * 100));
 
   return (
     <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
-      <PageHeader
+      <LiquidBezelSection
         eyebrow={`${currentOrganization?.name || 'Workspace'} · Owner Privilege`}
         title="Owner’s Control Center"
-        subtitle="Workspace governance, subscription seats, SSO & API security, and immutable cryptographic audit logs."
-        actions={
+        subtitle="Governance, seats, SSO security, and cryptographic audit logs."
+        icon={<ICON_MAP.ShieldCheckIcon className="w-4 h-4" />}
+        bezelRight={
           <SegmentedTabs
             size="sm"
             value={activeTab}
@@ -446,13 +527,9 @@ export const OwnerDashboard: React.FC = () => {
             ]}
           />
         }
-      />
-
-      <PendingJoinRequestsBanner />
-
-      {/* TAB 1: EXECUTIVE OVERVIEW */}
-      {activeTab === 'executive' && (
-        <div className="space-y-5">
+        bodyClassName={activeTab === 'executive' ? 'p-4 sm:p-5 space-y-4' : 'p-0 border-t-0'}
+      >
+        {activeTab === 'executive' && (
           <InlineKpiStrip
             items={[
               {
@@ -489,7 +566,14 @@ export const OwnerDashboard: React.FC = () => {
               },
             ]}
           />
+        )}
+      </LiquidBezelSection>
 
+      <PendingJoinRequestsBanner />
+
+      {/* TAB 1: EXECUTIVE OVERVIEW */}
+      {activeTab === 'executive' && (
+        <div className="space-y-5">
           <AdminDashboard embeddedInOwner={true} />
         </div>
       )}
@@ -596,7 +680,7 @@ export const OwnerDashboard: React.FC = () => {
                         {isExpanded && (
                           <tr className="bg-[var(--bg-surface-subtle)]">
                             <td colSpan={6} className="px-5 py-3">
-                              <pre className="text-[11px] font-mono p-3.5 rounded-xl bg-[#191B17] text-[#CCF048] overflow-x-auto">
+                              <pre className="text-[11px] font-mono p-3.5 rounded-xl bg-[#131511] text-[var(--accent-lime)] overflow-x-auto">
                                 {JSON.stringify(
                                   {
                                     auditId: log.id,
@@ -622,9 +706,50 @@ export const OwnerDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: SUBSCRIPTION, BILLING & SEAT GOVERNANCE */}
+      {/* TAB 3: SUBSCRIPTION, SANDBOX BILLING & MULTI-RAIL PAYMENT TESTING */}
       {activeTab === 'billing' && (
         <div className="space-y-5 animate-fadeIn">
+          {/* Sandbox Control Strip */}
+          <HairlineCard padding="md" className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[var(--accent-lime)] text-[var(--accent-ink)] shrink-0">
+                SANDBOX ACTIVE
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+                  Zero-Cost Multi-Rail Payment &amp; Subscription Simulator
+                </p>
+                <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                  Test Visa/3DS2/Declines, ACH Micro-Deposits, Express Wallets, Net-30 POs, and $0 Open-Source Grants.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="lime"
+                size="sm"
+                onClick={() => {
+                  setSandboxModalPlanId(billing.planId);
+                  setIsSandboxModalOpen(true);
+                }}
+              >
+                Launch Multi-Rail Checkout
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isTriggeringWebhook}
+                onClick={() => handleTriggerSandboxWebhook('invoice.paid')}
+              >
+                Simulate Webhook
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleResetSandboxBilling}>
+                Reset Sandbox
+              </Button>
+            </div>
+          </HairlineCard>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {(['starter', 'growth_pro', 'enterprise_ai'] as const).map(planKey => {
               const p = planDetails[planKey];
@@ -639,7 +764,12 @@ export const OwnerDashboard: React.FC = () => {
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-bold text-[var(--text-primary)]">{p.name}</span>
-                      {isCurrent && <StatusDot tone="lime" label="Active Plan" />}
+                      {isCurrent && (
+                        <StatusDot
+                          tone={billing.subscriptionStatus === 'past_due' ? 'danger' : 'lime'}
+                          label={billing.subscriptionStatus === 'past_due' ? 'Past Due' : 'Active Plan'}
+                        />
+                      )}
                     </div>
                     <div className="text-2xl font-bold font-mono tabular-nums text-[var(--text-primary)]">
                       ${p.priceMonthly}
@@ -648,21 +778,20 @@ export const OwnerDashboard: React.FC = () => {
                     <div className="text-xs text-[var(--text-secondary)] space-y-1 pt-2 border-t border-[var(--border-hairline)]">
                       <div>· Up to {p.maxSeats} organization seats</div>
                       <div>· AI Allowance: {p.aiTokens}</div>
-                      <div>· E2EE Direct Messaging & Realtime Sync</div>
+                      <div>· E2EE Direct Messaging &amp; Realtime Sync</div>
                     </div>
                   </div>
 
                   <Button
                     variant={isCurrent ? 'outline' : 'primary'}
                     size="sm"
-                    disabled={isCurrent}
                     onClick={() => {
-                      saveBillingState({ ...billing, planId: planKey });
-                      addToast('Subscription Updated', `Switched organization plan to ${p.name}.`, 'success');
+                      setSandboxModalPlanId(planKey);
+                      setIsSandboxModalOpen(true);
                     }}
                     className="w-full mt-5"
                   >
-                    {isCurrent ? 'Current Active Plan' : `Switch to ${p.name}`}
+                    {isCurrent ? 'Configure / Test Payment Rail' : `Test Checkout (${p.name})`}
                   </Button>
                 </div>
               );
@@ -675,7 +804,7 @@ export const OwnerDashboard: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-bold text-[var(--text-primary)]">Licensed Seat Utilization</h3>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    {seatCount} of {activePlan.maxSeats} seats currently provisioned ({seatUtilizationPct}%)
+                    {seatCount} of {totalProvisionedMaxSeats} seats currently provisioned ({seatUtilizationPct}%)
                   </p>
                 </div>
                 <Button variant="primary" size="sm" onClick={() => setActiveView('team_management')}>
@@ -685,79 +814,130 @@ export const OwnerDashboard: React.FC = () => {
               <SlimProgressBar value={Math.max(4, seatUtilizationPct)} tone="charcoal" showPercent />
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono tabular-nums pt-1">
                 <span>Projects: {projects.length}</span>
-                <span>Sprints: {sprints.length}</span>
+                <span>Cycle: {billing.billingCycle.toUpperCase()}</span>
                 <span>Tasks: {tasks.length}</span>
+              </div>
+
+              {/* Sandbox Webhook Event Inspector */}
+              <div className="pt-3 border-t border-[var(--border-hairline)] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[var(--text-primary)]">
+                    Sandbox Webhook Events ({billing.webhookLogs?.length || 0})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowWebhookInspector(v => !v)}
+                    className="text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
+                  >
+                    {showWebhookInspector ? 'Hide Payloads' : 'Inspect Events'}
+                  </button>
+                </div>
+
+                {showWebhookInspector && (
+                  <div className="space-y-2 max-h-56 overflow-y-auto scrollbar-thin pr-1">
+                    {(billing.webhookLogs || []).length === 0 ? (
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        No webhook events dispatched yet. Run a sandbox checkout or click Simulate Webhook.
+                      </p>
+                    ) : (
+                      (billing.webhookLogs || []).map(evt => (
+                        <div
+                          key={evt.id}
+                          className="p-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[11px] font-mono space-y-1"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-[var(--accent-text)]">{evt.type}</span>
+                            <span className="text-[10px] text-[var(--text-muted)]">
+                              {new Date(evt.createdAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-[var(--text-secondary)] truncate">{evt.signature}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </HairlineCard>
 
             <HairlineCard padding="lg" className="space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Payment Method & Billing Contact</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    {billing.paymentBrand} ending in •••• {billing.paymentLast4} · {billing.billingEmail}
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                    Active Payment Rail &amp; Billing Contact
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] truncate">
+                    {billing.paymentBrand}
+                    {billing.paymentLast4 && billing.paymentLast4 !== 'PASSKEY' && billing.paymentLast4 !== 'OSS-100'
+                      ? ` •••• ${billing.paymentLast4}`
+                      : ''}{' '}
+                    · {billing.billingEmail}
                   </p>
+                  {billing.couponCode && (
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--bg-sage)] text-[var(--accent-text)]">
+                      Applied Coupon: {billing.couponCode} ({billing.discountPct}% off)
+                    </span>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsUpdatingCard(v => !v)}
-                  className="text-xs font-semibold text-[var(--text-primary)] hover:underline cursor-pointer"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSandboxModalPlanId(billing.planId);
+                    setIsSandboxModalOpen(true);
+                  }}
                 >
-                  {isUpdatingCard ? 'Cancel' : 'Update Card'}
-                </button>
+                  Change / Test Rail
+                </Button>
               </div>
 
-              {isUpdatingCard && (
-                <form
-                  onSubmit={e => {
-                    e.preventDefault();
-                    const digits = newCardNumber.replace(/\D/g, '');
-                    const last4 = digits.slice(-4) || '8819';
-                    saveBillingState({ ...billing, paymentLast4: last4 });
-                    setIsUpdatingCard(false);
-                    setNewCardNumber('');
-                    addToast('Payment Method Updated', `Saved card ending in •••• ${last4}.`, 'success');
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <input
-                    type="text"
-                    required
-                    placeholder="New card number (last 4 digits)"
-                    value={newCardNumber}
-                    onChange={e => setNewCardNumber(e.target.value)}
-                    className="flex-1 p-2 rounded-xl border text-xs"
-                  />
-                  <Button variant="primary" size="sm" type="submit">
-                    Save Card
-                  </Button>
-                </form>
-              )}
-
               <div className="pt-3 border-t border-[var(--border-hairline)] space-y-2 text-xs">
-                <div className="font-semibold text-[var(--text-muted)]">Recent Paid Invoices</div>
-                {[
-                  { id: 'INV-2026-10', date: 'Oct 01, 2026', amount: `$${activePlan.priceMonthly}.00` },
-                  { id: 'INV-2026-09', date: 'Sep 01, 2026', amount: `$${activePlan.priceMonthly}.00` },
-                ].map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between py-1">
-                    <span className="font-mono text-[var(--text-secondary)]">
-                      {inv.id} · {inv.date}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-[var(--text-primary)]">{inv.amount}</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          addToast('Invoice Downloaded', `Downloaded receipt ${inv.id} (${inv.amount}).`, 'info')
-                        }
-                        className="text-xs font-semibold text-[var(--text-primary)] hover:underline cursor-pointer"
-                      >
-                        Receipt ↓
-                      </button>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[var(--text-muted)]">Sandbox Ledger &amp; Invoices</span>
+                  <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                    {(billing.invoices || []).length} records
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-56 overflow-y-auto scrollbar-thin pr-1">
+                  {(billing.invoices || []).map(inv => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)]"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-mono text-[11px] font-semibold text-[var(--text-primary)] truncate">
+                          {inv.id} · {inv.planName}
+                        </div>
+                        <div className="text-[10px] text-[var(--text-muted)] truncate">
+                          {new Date(inv.date).toLocaleDateString()} · {inv.paymentMethodLabel}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono uppercase font-bold ${
+                            inv.status === 'paid'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                              : inv.status === 'open_net30'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                              : 'bg-rose-500/15 text-rose-700 dark:text-rose-400'
+                          }`}
+                        >
+                          {inv.status}
+                        </span>
+                        <span className="font-mono font-bold tabular-nums text-[var(--text-primary)]">
+                          ${(inv.amountCents / 100).toFixed(2)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadSandboxReceipt(inv)}
+                          className="text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
+                        >
+                          Receipt ↓
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </HairlineCard>
           </div>
@@ -785,7 +965,7 @@ export const OwnerDashboard: React.FC = () => {
                     saveSecurityPolicy({ ...securityPolicy, enforceMfa: e.target.checked });
                     addToast('Security Policy Updated', 'MFA enforcement policy updated.', 'success');
                   }}
-                  className="accent-[#191B17] dark:accent-[#CCF048]"
+                  className="accent-[var(--accent-cta)]"
                 />
               </label>
 
@@ -802,7 +982,7 @@ export const OwnerDashboard: React.FC = () => {
                   onChange={e =>
                     saveSecurityPolicy({ ...securityPolicy, e2eeStrictVerification: e.target.checked })
                   }
-                  className="accent-[#191B17] dark:accent-[#CCF048]"
+                  className="accent-[var(--accent-cta)]"
                 />
               </label>
 
@@ -914,6 +1094,8 @@ export const OwnerDashboard: React.FC = () => {
                 </span>
               </div>
 
+              <OrganizationLogoUploader />
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 <div>
                   <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
@@ -964,7 +1146,7 @@ export const OwnerDashboard: React.FC = () => {
                     type="checkbox"
                     checked={autoAssignCreator}
                     onChange={e => setAutoAssignCreator(e.target.checked)}
-                    className="mt-0.5 accent-[#191B17] dark:accent-[#CCF048]"
+                    className="mt-0.5 accent-[var(--accent-cta)]"
                   />
                   <div>
                     <div className="font-semibold text-[var(--text-primary)]">Auto-Assign Unassigned</div>
@@ -977,7 +1159,7 @@ export const OwnerDashboard: React.FC = () => {
                     type="checkbox"
                     checked={requireAcceptanceChecklist}
                     onChange={e => setRequireAcceptanceChecklist(e.target.checked)}
-                    className="mt-0.5 accent-[#191B17] dark:accent-[#CCF048]"
+                    className="mt-0.5 accent-[var(--accent-cta)]"
                   />
                   <div>
                     <div className="font-semibold text-[var(--text-primary)]">Enforce QA Checklists</div>
@@ -990,7 +1172,7 @@ export const OwnerDashboard: React.FC = () => {
                     type="checkbox"
                     checked={enablePublicInviteLinks}
                     onChange={e => setEnablePublicInviteLinks(e.target.checked)}
-                    className="mt-0.5 accent-[#191B17] dark:accent-[#CCF048]"
+                    className="mt-0.5 accent-[var(--accent-cta)]"
                   />
                   <div>
                     <div className="font-semibold text-[var(--text-primary)]">Tokenized Invite Links</div>
@@ -1067,6 +1249,17 @@ export const OwnerDashboard: React.FC = () => {
           </HairlineCard>
         </div>
       )}
+
+      <BillingSandboxModal
+        isOpen={isSandboxModalOpen}
+        onClose={() => setIsSandboxModalOpen(false)}
+        organizationId={orgId}
+        organizationName={currentOrganization?.name || orgDisplayName || 'Omni Flow Workspace'}
+        initialPlanId={sandboxModalPlanId}
+        currentBilling={billing}
+        onBillingUpdated={saveBillingState}
+        onToast={addToast}
+      />
     </div>
   );
 };

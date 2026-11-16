@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../../hooks/useAppStore';
-import { Project, ActiveView, UserRole, normalizeUserRole, TaskStatus } from '../../types';
+import { Project, ActiveView, AvailabilityStatus, UserRole, normalizeUserRole, TaskStatus } from '../../types';
 import { ICON_MAP, SIDENAV_ITEMS, APP_TITLE } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { AnimatedPopover } from '../shared/Modal';
-import { ProfileMiniMenu, StatusDynamicIcon, AvailabilityStatus } from './ProfileMiniMenu';
-import { collabService } from '../../services/collabService';
+import { GLASS_SPRING, FluidCollapse } from '../shared/LiquidGlass';
+import { DefaultGlassBrandMark } from '../shared/OrganizationLogoUploader';
+import { ProfileMiniMenu, StatusDynamicIcon } from './ProfileMiniMenu';
 import soundService from '../../services/soundService';
 
 type RailGroupId = 'home' | 'comms' | 'work' | 'people' | 'strategy' | 'admin';
@@ -27,6 +29,14 @@ export const Sidebar: React.FC = () => {
     currentOrganization,
     darkMode,
     toggleDarkMode,
+    accentColor,
+    setAccentColor,
+    ambientIntensity,
+    setAmbientIntensity,
+    autoCyclePalette,
+    setAutoCyclePalette,
+    myAvailabilityStatus,
+    setMyAvailabilityStatus,
     openCreateProjectModal,
     activeView,
     setActiveView,
@@ -41,7 +51,6 @@ export const Sidebar: React.FC = () => {
     notifications,
     tasks,
     myTasks,
-    addToast,
   } = useAppStore();
 
   const [isHoverExpanded, setIsHoverExpanded] = useState(false);
@@ -50,39 +59,22 @@ export const Sidebar: React.FC = () => {
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const railRef = useRef<HTMLDivElement>(null);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const profileTriggerRef = useRef<HTMLDivElement>(null);
+  const profilePopoverRef = useRef<HTMLDivElement>(null);
   const hoverEnterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const normalizedRole = normalizeUserRole(currentUser?.role);
   const unreadCount = notifications.filter(n => !n.read).length;
   const isAdminOrOwner = normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN;
-
-  const [myStatus, setMyStatus] = useState<AvailabilityStatus>(() => {
-    if (typeof window !== 'undefined' && currentUser?.id) {
-      try {
-        const raw = localStorage.getItem('omni_team_statuses');
-        const map = raw ? JSON.parse(raw) : {};
-        if (map[currentUser.id]) return map[currentUser.id];
-      } catch {}
-    }
-    return 'available';
-  });
-
-  useEffect(() => {
-    const handleStatusSync = (e: CustomEvent) => {
-      const payload = e.detail;
-      if (payload && currentUser && payload.userId === currentUser.id) {
-        setMyStatus(payload.availabilityStatus);
-      }
-    };
-    window.addEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
-    return () => window.removeEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
-  }, [currentUser?.id]);
+  const orgLogoUrl = currentOrganization?.logoUrl || currentOrganization?.logo_url || '';
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideTrigger = profileTriggerRef.current?.contains(target);
+      const insidePopover = profilePopoverRef.current?.contains(target);
+      if (!insideTrigger && !insidePopover) {
         setProfileMenuOpen(false);
       }
     };
@@ -108,10 +100,7 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   const handleStatusChange = (newStatus: AvailabilityStatus) => {
-    setMyStatus(newStatus);
-    collabService.broadcastUserStatusChanged(newStatus);
-    const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
-    addToast('Status Broadcast Live', `Your status is now "${label}".`, 'info');
+    setMyAvailabilityStatus(newStatus);
   };
 
   const navBadges = useMemo(() => {
@@ -283,10 +272,18 @@ export const Sidebar: React.FC = () => {
                 type="button"
                 onClick={() => navigateTo('overview')}
                 className="flex items-center gap-2.5 cursor-pointer group min-w-0"
-                title={`${APP_TITLE} · ${currentOrganization?.name || 'Workspace'}`}
+                title={currentOrganization?.name || APP_TITLE}
               >
-                <span className="w-9 h-9 rounded-xl bg-[#191B17] dark:bg-[#CCF048] text-[#D4F542] dark:text-[#131511] flex items-center justify-center font-display font-extrabold text-sm shadow-xs shrink-0">
-                  OF
+                <span className="w-9 h-9 rounded-xl bg-[var(--surface-glass-2)] border border-[var(--glass-border-strong)] shadow-[inset_0_1px_0_var(--glass-highlight)] text-[var(--accent-text)] flex items-center justify-center overflow-hidden shrink-0">
+                  {orgLogoUrl ? (
+                    <img
+                      src={orgLogoUrl}
+                      alt="Organization logo"
+                      className="w-full h-full object-contain p-1"
+                    />
+                  ) : (
+                    <DefaultGlassBrandMark className="w-5 h-5" />
+                  )}
                 </span>
                 {isExpanded && (
                   <div className="text-left min-w-0">
@@ -312,8 +309,8 @@ export const Sidebar: React.FC = () => {
                   aria-label={isSidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}
                   className={`px-2 py-1 rounded-full text-[10px] font-semibold border transition-colors cursor-pointer shrink-0 ${
                     isSidebarPinned
-                      ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--accent-ink)]/15'
-                      : 'bg-white/60 dark:bg-white/5 text-[var(--text-secondary)] border-[var(--border-hairline)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
+                      ? 'bg-[var(--accent-subtle)] text-[var(--accent-text)] border-[var(--accent-border)]'
+                      : 'bg-[var(--surface-nested-subtle)] text-[var(--text-secondary)] border-[var(--border-hairline)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass-2)]'
                   }`}
                 >
                   {isSidebarPinned ? 'Pinned' : 'Pin'}
@@ -367,26 +364,36 @@ export const Sidebar: React.FC = () => {
 
               if (!isExpanded) {
                 return (
-                  <button
+                  <motion.button
                     key={group.id}
                     type="button"
+                    whileTap={{ scale: 0.92 }}
+                    transition={GLASS_SPRING.micro}
                     onClick={() => navigateTo(group.defaultView)}
                     title={group.label}
                     aria-label={group.label}
-                    className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer ${
+                    className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-150 cursor-pointer ${
                       isActiveGroup
-                        ? 'bg-[#191B17] text-[#D4F542] dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
+                        ? 'text-[var(--accent-text)]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-nested-subtle)]'
                     }`}
                   >
-                    <Icon className="w-[18px] h-[18px]" />
+                    {isActiveGroup && (
+                      <motion.span
+                        layoutId="sidebar-collapsed-active-pill"
+                        transition={GLASS_SPRING.morph}
+                        className="absolute inset-0 rounded-xl bg-[var(--accent-subtle)] border border-[var(--accent-border)] shadow-[inset_0_1px_0_var(--glass-highlight)]"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <Icon className="relative z-10 w-[18px] h-[18px]" />
                     {hasUnreadComms && (
-                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-[#181C15]" />
+                      <span className="z-20 absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[var(--surface-base)]" />
                     )}
                     {!hasUnreadComms && myOpenCount > 0 && (
-                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--accent-lime)] ring-1 ring-[var(--accent-ink)]/30" />
+                      <span className="z-20 absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--accent)] ring-1 ring-[var(--surface-base)]" />
                     )}
-                  </button>
+                  </motion.button>
                 );
               }
 
@@ -395,23 +402,25 @@ export const Sidebar: React.FC = () => {
                   key={group.id}
                   className="w-full"
                 >
-                  <button
+                  <motion.button
                     type="button"
+                    whileTap={{ scale: 0.985 }}
+                    transition={GLASS_SPRING.micro}
                     onClick={() => {
                       soundService.play('click_soft');
                       setExpandedGroup(prev => (prev === group.id ? null : group.id));
                     }}
                     aria-expanded={isGroupOpen}
-                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs transition-all duration-150 cursor-pointer ${
+                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs transition-colors duration-150 cursor-pointer border ${
                       isActiveGroup
-                        ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] font-semibold shadow-2xs'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] font-medium'
+                        ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-[var(--text-primary)] font-semibold shadow-[inset_0_1px_0_var(--glass-highlight)]'
+                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-nested-subtle)] font-medium'
                     }`}
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
                       <Icon
                         className={`w-4 h-4 shrink-0 ${
-                          isActiveGroup ? 'text-[#D4F542] dark:text-[#131511]' : ''
+                          isActiveGroup ? 'text-[var(--accent-text)]' : 'text-[var(--text-secondary)]'
                         }`}
                       />
                       <span className="truncate">{group.label}</span>
@@ -424,14 +433,14 @@ export const Sidebar: React.FC = () => {
                         </span>
                       )}
                       <ICON_MAP.ChevronDownIcon
-                        className={`w-3.5 h-3.5 transition-transform duration-150 ${
-                          isGroupOpen ? 'rotate-180 opacity-80' : 'opacity-50'
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          isGroupOpen ? 'rotate-180 opacity-85' : 'opacity-50'
                         }`}
                       />
                     </span>
-                  </button>
+                  </motion.button>
 
-                  {isGroupOpen && (
+                  <FluidCollapse isOpen={isGroupOpen}>
                     <div className="mt-1 ml-3 pl-2.5 border-l border-[var(--border-hairline)] space-y-0.5">
                       {groupItems.map(item => {
                         const ItemIcon = ICON_MAP[item.icon] || ICON_MAP.SparklesIcon;
@@ -515,10 +524,10 @@ export const Sidebar: React.FC = () => {
                                 key={p.id}
                                 type="button"
                                 onClick={() => openProjectBoard(p)}
-                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg text-[11px] cursor-pointer transition-colors ${
+                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg text-[11px] cursor-pointer transition-colors border ${
                                   isSelected
-                                    ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] font-semibold'
-                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/45 dark:hover:bg-white/5'
+                                    ? 'bg-[var(--accent-subtle)] text-[var(--text-primary)] border-[var(--accent-border)] font-semibold'
+                                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-nested-subtle)]'
                                 }`}
                               >
                                 <span className="truncate">{p.name}</span>
@@ -529,7 +538,7 @@ export const Sidebar: React.FC = () => {
                         </div>
                       )}
                     </div>
-                  )}
+                  </FluidCollapse>
                 </div>
               );
             })}
@@ -567,7 +576,7 @@ export const Sidebar: React.FC = () => {
               {isExpanded && <kbd className="font-mono text-[10px] text-[var(--text-muted)]">?</kbd>}
             </button>
 
-            <div className="relative w-full flex justify-center pt-0.5" ref={profileMenuRef}>
+            <div className="relative w-full flex justify-center pt-0.5" ref={profileTriggerRef}>
               {currentUser && (
                 <button
                   type="button"
@@ -580,7 +589,7 @@ export const Sidebar: React.FC = () => {
                   <div className="relative inline-flex shrink-0">
                     <Avatar user={currentUser} size="md" disableHoverCard />
                     <span className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center leading-none pointer-events-none">
-                      <StatusDynamicIcon status={myStatus} className="w-3 h-3 block" />
+                      <StatusDynamicIcon status={myAvailabilityStatus} className="w-3 h-3 block" />
                     </span>
                   </div>
                   {isExpanded && (
@@ -595,59 +604,91 @@ export const Sidebar: React.FC = () => {
                   )}
                 </button>
               )}
-
-              <AnimatedPopover
-                isOpen={Boolean(isProfileMenuOpen && currentUser)}
-                direction="up"
-                className="editorial-popover absolute bottom-0 left-full ml-3 w-64 py-1.5 z-50"
-              >
-                {currentUser && (
-                  <ProfileMiniMenu
-                    currentUser={currentUser}
-                    currentOrganizationName={currentOrganization?.name}
-                    normalizedRole={normalizedRole}
-                    myStatus={myStatus}
-                    onStatusChange={handleStatusChange}
-                    darkMode={darkMode}
-                    onToggleDarkMode={toggleDarkMode}
-                    onNavigateProfile={() => navigateTo('profile_settings')}
-                    onManageOrganization={() => {
-                      openOrganizationModal('join');
-                      if (!isSidebarPinned) setIsHoverExpanded(false);
-                    }}
-                    canViewSystemLogs={
-                      normalizedRole === UserRole.OWNER || normalizedRole === UserRole.PROJECT_MANAGER
-                    }
-                    onOpenSystemLogs={() => {
-                      window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'));
-                      if (!isSidebarPinned) setIsHoverExpanded(false);
-                    }}
-                    onOpenShortcuts={() => {
-                      openShortcutsModal();
-                      if (!isSidebarPinned) setIsHoverExpanded(false);
-                    }}
-                    onSignOut={signOut}
-                    onClose={() => setProfileMenuOpen(false)}
-                  />
-                )}
-              </AnimatedPopover>
             </div>
           </div>
         </aside>
+
+        {/* Rendered outside the backdrop-filtered <aside> so Chromium composites strong blur over dashboard content */}
+        <div ref={profilePopoverRef}>
+          <AnimatedPopover
+            isOpen={Boolean(isProfileMenuOpen && currentUser)}
+            direction="up"
+            className="editorial-popover absolute bottom-0 left-full ml-3 w-[276px] py-1.5 z-50"
+          >
+            {currentUser && (
+              <ProfileMiniMenu
+                currentUser={currentUser}
+                currentOrganizationName={currentOrganization?.name}
+                normalizedRole={normalizedRole}
+                myStatus={myAvailabilityStatus}
+                onStatusChange={handleStatusChange}
+                darkMode={darkMode}
+                onToggleDarkMode={toggleDarkMode}
+                accentColor={accentColor}
+                onSelectAccent={accent => {
+                  setAccentColor(accent);
+                }}
+                ambientIntensity={ambientIntensity}
+                onSelectIntensity={setAmbientIntensity}
+                autoCyclePalette={autoCyclePalette}
+                onToggleAutoCyclePalette={() => setAutoCyclePalette(!autoCyclePalette)}
+                onNavigateProfile={() => navigateTo('profile_settings')}
+                onManageOrganization={() => {
+                  openOrganizationModal('join');
+                  if (!isSidebarPinned) setIsHoverExpanded(false);
+                }}
+                canViewSystemLogs={
+                  normalizedRole === UserRole.OWNER || normalizedRole === UserRole.PROJECT_MANAGER
+                }
+                onOpenSystemLogs={() => {
+                  window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'));
+                  if (!isSidebarPinned) setIsHoverExpanded(false);
+                }}
+                onOpenShortcuts={() => {
+                  openShortcutsModal();
+                  if (!isSidebarPinned) setIsHoverExpanded(false);
+                }}
+                onSignOut={signOut}
+                onClose={() => setProfileMenuOpen(false)}
+              />
+            )}
+          </AnimatedPopover>
+        </div>
       </div>
 
       {/* Mobile & Tablet Full Navigation Drawer (< lg) */}
-      {isMobileSidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-[2px]"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          />
-          <aside className="relative w-76 max-w-[84vw] h-full frosted-rail-panel border-r border-[var(--border-hairline)] p-4 flex flex-col gap-3 z-10 shadow-2xl">
+      <AnimatePresence>
+        {isMobileSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={GLASS_SPRING.scrim}
+            className="fixed inset-0 z-50 lg:hidden flex"
+          >
+            <div
+              className="fixed inset-0 bg-black/45 backdrop-blur-sm"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={GLASS_SPRING.spatial}
+              className="relative w-76 max-w-[84vw] h-full liquid-glass-overlay p-4 flex flex-col gap-3 z-10 shadow-2xl"
+            >
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="w-8 h-8 rounded-xl bg-[#191B17] dark:bg-[#CCF048] text-[#D4F542] dark:text-[#131511] flex items-center justify-center font-display font-extrabold text-xs">
-                  OF
+                <span className="w-8 h-8 rounded-xl bg-[var(--surface-glass-2)] border border-[var(--glass-border-strong)] shadow-[inset_0_1px_0_var(--glass-highlight)] text-[var(--accent-text)] flex items-center justify-center overflow-hidden shrink-0">
+                  {orgLogoUrl ? (
+                    <img
+                      src={orgLogoUrl}
+                      alt="Organization logo"
+                      className="w-full h-full object-contain p-0.5"
+                    />
+                  ) : (
+                    <DefaultGlassBrandMark className="w-4 h-4" />
+                  )}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-[var(--text-primary)] truncate">{APP_TITLE}</p>
@@ -698,18 +739,18 @@ export const Sidebar: React.FC = () => {
                           key={item.id}
                           type="button"
                           onClick={() => navigateTo(item.id)}
-                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs cursor-pointer ${
+                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs cursor-pointer border ${
                             active
-                              ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] font-semibold'
-                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
+                              ? 'bg-[var(--accent-subtle)] text-[var(--text-primary)] border-[var(--accent-border)] font-semibold'
+                              : 'border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-nested-subtle)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           <span className="flex items-center gap-2.5 truncate">
-                            <Icon className="w-4 h-4 shrink-0" />
+                            <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[var(--accent-text)]' : 'text-[var(--text-secondary)]'}`} />
                             <span className="truncate">{item.label}</span>
                           </span>
                           {navBadges[item.id] ? (
-                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)]">
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent-text)] border border-[var(--accent-border)]">
                               {navBadges[item.id]}
                             </span>
                           ) : null}
@@ -762,9 +803,10 @@ export const Sidebar: React.FC = () => {
                 Sign Out
               </button>
             </div>
-          </aside>
-        </div>
-      )}
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

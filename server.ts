@@ -552,6 +552,7 @@ async function startServer() {
   const userRolesFile = path.join(dataDir, 'user_roles.json');
   const joinRequestsFile = path.join(dataDir, 'join_requests.json');
   const organizationsFile = path.join(dataDir, 'organizations.json');
+  const billingSandboxFile = path.join(dataDir, 'billing_sandbox.json');
 
   const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sqzjlxayhghoxjloaddo.supabase.co';
   const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NDQ4MDksImV4cCI6MjA2NjAyMDgwOX0.80rrMJ7AC-XrcUNozIlMa1kh8SFnKagakG_4XOwVbTY';
@@ -559,6 +560,7 @@ async function startServer() {
   const usersRoleStore = new Map<string, { userId?: string; email?: string; role: string; organizationId?: string; updatedBy?: string; updatedAt: string }>();
   const joinRequestsStore = new Map<string, any>();
   const organizationsStore = new Map<string, any>();
+  const billingSandboxStore = new Map<string, any>();
 
   // Hydrate from disk
   try {
@@ -592,6 +594,17 @@ async function startServer() {
     }
   } catch (e) {
     console.warn('[server.ts] Could not hydrate organizations.json:', e);
+  }
+
+  try {
+    if (fs.existsSync(billingSandboxFile)) {
+      const parsedBilling = JSON.parse(fs.readFileSync(billingSandboxFile, 'utf-8'));
+      for (const [orgId, bdata] of Object.entries(parsedBilling as Record<string, any>)) {
+        billingSandboxStore.set(orgId, bdata);
+      }
+    }
+  } catch (e) {
+    console.warn('[server.ts] Could not hydrate billing_sandbox.json:', e);
   }
 
   // Ensure canonical verified organizations are always seeded
@@ -1121,6 +1134,8 @@ async function startServer() {
       autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : true,
       requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : true,
       enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : true,
+      logoUrl: body.logoUrl || body.logo_url || '',
+      logo_url: body.logo_url || body.logoUrl || '',
       settings: {
         corporateDomain: body.corporateDomain || `${slug}.live`,
         defaultSprintDurationDays: Number(body.defaultSprintDurationDays) || 14,
@@ -1128,6 +1143,7 @@ async function startServer() {
         autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : true,
         requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : true,
         enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : true,
+        logoUrl: body.logoUrl || body.logo_url || '',
       },
       updated_at: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1202,6 +1218,10 @@ async function startServer() {
     const { id } = req.params;
     const body = req.body || {};
     const existing = organizationsStore.get(id) || {};
+    const hasExplicitLogo = 'logoUrl' in body || 'logo_url' in body;
+    const nextLogo = hasExplicitLogo
+      ? String(body.logoUrl ?? body.logo_url ?? '')
+      : (existing.logoUrl ?? existing.logo_url ?? '');
     const updated = {
       ...existing,
       id,
@@ -1216,6 +1236,8 @@ async function startServer() {
       autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : existing.autoAssignCreator ?? true,
       requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : existing.requireAcceptanceChecklist ?? true,
       enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : existing.enablePublicInviteLinks ?? true,
+      logoUrl: nextLogo,
+      logo_url: nextLogo,
       settings: {
         ...(existing.settings || {}),
         ...(body.settings || {}),
@@ -1225,6 +1247,7 @@ async function startServer() {
         autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : existing.autoAssignCreator ?? true,
         requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : existing.requireAcceptanceChecklist ?? true,
         enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : existing.enablePublicInviteLinks ?? true,
+        logoUrl: nextLogo,
       },
       updated_at: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1263,6 +1286,10 @@ async function startServer() {
     const { id } = req.params;
     const body = req.body || {};
     const existing = organizationsStore.get(id) || {};
+    const hasExplicitLogo = 'logoUrl' in body || 'logo_url' in body;
+    const nextLogo = hasExplicitLogo
+      ? String(body.logoUrl ?? body.logo_url ?? '')
+      : (existing.logoUrl ?? existing.logo_url ?? '');
     const updated = {
       ...existing,
       id,
@@ -1277,9 +1304,12 @@ async function startServer() {
       autoAssignCreator: body.autoAssignCreator !== undefined ? body.autoAssignCreator : existing.autoAssignCreator,
       requireAcceptanceChecklist: body.requireAcceptanceChecklist !== undefined ? body.requireAcceptanceChecklist : existing.requireAcceptanceChecklist,
       enablePublicInviteLinks: body.enablePublicInviteLinks !== undefined ? body.enablePublicInviteLinks : existing.enablePublicInviteLinks,
+      logoUrl: nextLogo,
+      logo_url: nextLogo,
       settings: {
         ...(existing.settings || {}),
         ...(body.settings || {}),
+        logoUrl: nextLogo,
       },
       updated_at: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1428,6 +1458,335 @@ async function startServer() {
       ttlSeconds: 3600,
       durationMs,
       summary: `Provisioned 1080p/48kHz Opus ICE/TURN session for ${roomId} (${durationMs}ms)`,
+    });
+  });
+
+  // 10. Multi-Method Sandbox Billing & Payment Gateway (/api/billing/*)
+  const persistBillingSandbox = () => {
+    try {
+      const obj: Record<string, any> = {};
+      for (const [k, v] of billingSandboxStore.entries()) {
+        obj[k] = v;
+      }
+      fs.writeFileSync(billingSandboxFile, JSON.stringify(obj, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[server.ts] Could not write billing_sandbox.json:', e);
+    }
+  };
+
+  const SANDBOX_PLANS: Record<string, { id: string; name: string; priceMonthly: number; maxSeats: number; aiTokens: string }> = {
+    starter: { id: 'starter', name: 'Starter Core', priceMonthly: 0, maxSeats: 15, aiTokens: '50k / mo' },
+    growth_pro: { id: 'growth_pro', name: 'Growth Pro', priceMonthly: 79, maxSeats: 50, aiTokens: '500k / mo' },
+    enterprise_ai: { id: 'enterprise_ai', name: 'Enterprise AI-Native', priceMonthly: 199, maxSeats: 250, aiTokens: 'Unlimited' },
+  };
+
+  const createDefaultBillingRecord = (orgId: string) => ({
+    organizationId: orgId,
+    environment: 'sandbox',
+    planId: 'enterprise_ai',
+    billingCycle: 'annual',
+    extraSeats: 0,
+    subscriptionStatus: 'active',
+    paymentMethodType: 'card',
+    paymentBrand: 'Visa Corporate (Sandbox)',
+    paymentLast4: '4242',
+    billingEmail: 'billing@organization.io',
+    taxId: 'US-EIN-94-3829104',
+    autoTopUpSeats: true,
+    couponCode: '',
+    discountPct: 0,
+    ossProjectUrl: '',
+    ossLicense: '',
+    invoices: [
+      {
+        id: 'INV-SBX-2026-10',
+        date: '2026-10-01T10:00:00.000Z',
+        planName: 'Enterprise AI-Native',
+        billingCycle: 'annual',
+        amountCents: 179100,
+        currency: 'USD',
+        status: 'paid',
+        paymentMethodLabel: 'Visa •••• 4242',
+        paymentMethodType: 'card',
+      },
+      {
+        id: 'INV-SBX-2026-09',
+        date: '2026-09-01T10:00:00.000Z',
+        planName: 'Enterprise AI-Native',
+        billingCycle: 'annual',
+        amountCents: 179100,
+        currency: 'USD',
+        status: 'paid',
+        paymentMethodLabel: 'Visa •••• 4242',
+        paymentMethodType: 'card',
+      },
+    ],
+    webhookLogs: [
+      {
+        id: `evt_sbx_init_${Date.now()}`,
+        type: 'customer.subscription.created',
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        signature: 't=1791936000,v1=sbx_hmac_9f8e7d6c5b4a',
+        payload: { organizationId: orgId, planId: 'enterprise_ai', mode: 'sandbox', status: 'active' },
+      },
+    ],
+    updatedAt: new Date().toISOString(),
+  });
+
+  const getOrCreateBillingRecord = (orgId: string) => {
+    const key = orgId || 'org-default';
+    let rec = billingSandboxStore.get(key);
+    if (!rec) {
+      rec = createDefaultBillingRecord(key);
+      billingSandboxStore.set(key, rec);
+      persistBillingSandbox();
+    }
+    return rec;
+  };
+
+  app.get('/api/billing/:orgId', (req, res) => {
+    const rec = getOrCreateBillingRecord(req.params.orgId);
+    return res.json({ ok: true, billing: rec });
+  });
+
+  app.post('/api/billing/:orgId/reset', (req, res) => {
+    const key = req.params.orgId || 'org-default';
+    const fresh = createDefaultBillingRecord(key);
+    billingSandboxStore.set(key, fresh);
+    persistBillingSandbox();
+    return res.json({ ok: true, billing: fresh });
+  });
+
+  app.post('/api/billing/:orgId/webhook-test', (req, res) => {
+    const key = req.params.orgId || 'org-default';
+    const rec = getOrCreateBillingRecord(key);
+    const { eventType = 'invoice.paid' } = req.body || {};
+    const eventEntry = {
+      id: `evt_sbx_${Date.now().toString(36)}`,
+      type: eventType,
+      createdAt: new Date().toISOString(),
+      signature: `t=${Math.floor(Date.now() / 1000)},v1=sbx_${Math.random().toString(16).slice(2, 14)}`,
+      payload: {
+        organizationId: key,
+        planId: rec.planId,
+        billingCycle: rec.billingCycle,
+        paymentMethodType: rec.paymentMethodType,
+        subscriptionStatus: rec.subscriptionStatus,
+        sandbox: true,
+      },
+    };
+    rec.webhookLogs = [eventEntry, ...(rec.webhookLogs || [])].slice(0, 20);
+    rec.updatedAt = new Date().toISOString();
+    billingSandboxStore.set(key, rec);
+    persistBillingSandbox();
+    return res.json({ ok: true, event: eventEntry, billing: rec });
+  });
+
+  app.post('/api/billing/:orgId/checkout', (req, res) => {
+    const key = req.params.orgId || 'org-default';
+    const rec = getOrCreateBillingRecord(key);
+    const {
+      planId = rec.planId,
+      billingCycle = rec.billingCycle,
+      extraSeats = 0,
+      paymentMethodType = 'card',
+      cardNumber = '4242424242424242',
+      simulateOutcome = 'auto',
+      threeDsApproved = false,
+      achRouting = '110000000',
+      achAccount = '000123456789',
+      achMicroCode = '',
+      achMicroVerified = false,
+      walletProvider = 'apple_pay',
+      poNumber = '',
+      companyLegalName = '',
+      billingEmail = rec.billingEmail,
+      taxId = rec.taxId,
+      couponCode = '',
+      ossProjectUrl = '',
+      ossLicense = 'MIT',
+    } = req.body || {};
+
+    const plan = SANDBOX_PLANS[planId] || SANDBOX_PLANS.enterprise_ai;
+    const cleanExtraSeats = Math.max(0, Number(extraSeats) || 0);
+    const monthlyBase = plan.priceMonthly + Math.ceil(cleanExtraSeats / 10) * 12;
+    const cycleMultiplier = billingCycle === 'annual' ? 12 * 0.75 : 1;
+    const rawSubtotalCents = Math.round(monthlyBase * cycleMultiplier * 100);
+
+    const upperCoupon = String(couponCode || '').trim().toUpperCase();
+    let discountPct = 0;
+    if (paymentMethodType === 'oss_grant' || upperCoupon === 'OSS-GRANT-100' || upperCoupon === 'DEV-SANDBOX') {
+      discountPct = 100;
+    } else if (upperCoupon === 'DEV50') {
+      discountPct = 50;
+    } else if (upperCoupon === 'OPEN25') {
+      discountPct = 25;
+    }
+
+    const totalCents = Math.max(0, Math.round(rawSubtotalCents * (1 - discountPct / 100)));
+    const digits = String(cardNumber || '').replace(/\D/g, '');
+    const last4 = digits.slice(-4) || '4242';
+
+    const pushWebhook = (type: string, extraPayload: Record<string, any> = {}) => {
+      const evt = {
+        id: `evt_sbx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        type,
+        createdAt: new Date().toISOString(),
+        signature: `t=${Math.floor(Date.now() / 1000)},v1=sbx_${Math.random().toString(16).slice(2, 14)}`,
+        payload: {
+          organizationId: key,
+          planId: plan.id,
+          amountCents: totalCents,
+          paymentMethodType,
+          sandbox: true,
+          ...extraPayload,
+        },
+      };
+      rec.webhookLogs = [evt, ...(rec.webhookLogs || [])].slice(0, 20);
+    };
+
+    // Card outcome simulation (declines & 3DS2 challenge)
+    if (paymentMethodType === 'card' && totalCents > 0) {
+      const isDecline = simulateOutcome === 'decline' || (simulateOutcome === 'auto' && last4 === '0002');
+      if (isDecline) {
+        const failedInv = {
+          id: `INV-SBX-${Date.now().toString().slice(-6)}`,
+          date: new Date().toISOString(),
+          planName: plan.name,
+          billingCycle,
+          amountCents: totalCents,
+          currency: 'USD',
+          status: 'failed',
+          paymentMethodLabel: `Card •••• ${last4}`,
+          paymentMethodType: 'card',
+          failureReason: 'insufficient_funds',
+        };
+        rec.invoices = [failedInv, ...(rec.invoices || [])].slice(0, 20);
+        rec.subscriptionStatus = 'past_due';
+        pushWebhook('charge.failed', { code: 'insufficient_funds', cardLast4: last4 });
+        billingSandboxStore.set(key, rec);
+        persistBillingSandbox();
+        return res.json({
+          ok: false,
+          code: 'insufficient_funds',
+          message: `Sandbox card ending in ${last4} was declined (simulated insufficient funds). Try 4242 or apply OSS-GRANT-100.`,
+          billing: rec,
+        });
+      }
+
+      const needs3ds =
+        !threeDsApproved &&
+        (simulateOutcome === '3ds_required' || (simulateOutcome === 'auto' && last4 === '3155'));
+      if (needs3ds) {
+        pushWebhook('payment_intent.requires_action', { challenge: '3ds2_fingerprint', cardLast4: last4 });
+        billingSandboxStore.set(key, rec);
+        persistBillingSandbox();
+        return res.json({
+          ok: false,
+          requiresAction: true,
+          challengeType: '3ds2',
+          challengeId: `3ds_sbx_${Date.now().toString(36)}`,
+          message: '3D Secure 2.0 Strong Customer Authentication required to complete payment.',
+          billing: rec,
+        });
+      }
+    }
+
+    // ACH / SEPA micro-deposit challenge simulation
+    if (paymentMethodType === 'ach' && totalCents > 0) {
+      const codeMatch = String(achMicroCode || '').trim() === '00-00' || String(achMicroCode || '').trim() === '0000';
+      if (!achMicroVerified && !codeMatch) {
+        pushWebhook('payment_intent.requires_action', { challenge: 'ach_micro_deposit', routing: achRouting });
+        billingSandboxStore.set(key, rec);
+        persistBillingSandbox();
+        return res.json({
+          ok: false,
+          requiresAction: true,
+          challengeType: 'ach_micro_deposit',
+          challengeId: `ach_sbx_${Date.now().toString(36)}`,
+          message: 'Enter sandbox micro-deposit code 00-00 to verify bank mandate.',
+          billing: rec,
+        });
+      }
+    }
+
+    // Compute clean label & mask for each payment rail
+    let paymentBrand = 'Visa Corporate (Sandbox)';
+    let paymentMask = last4;
+    if (paymentMethodType === 'card') {
+      paymentBrand = digits.startsWith('5') ? 'Mastercard (Sandbox)' : digits.startsWith('3') ? 'Amex (Sandbox)' : 'Visa (Sandbox)';
+      paymentMask = last4;
+    } else if (paymentMethodType === 'ach') {
+      paymentBrand = `ACH / SEPA Direct Debit (${String(achRouting).slice(-4) || '0000'})`;
+      paymentMask = String(achAccount).slice(-4) || '6789';
+    } else if (paymentMethodType === 'wallet') {
+      const wMap: Record<string, string> = {
+        apple_pay: 'Apple Pay Express (Passkey)',
+        google_pay: 'Google Pay Express (Token)',
+        open_link: 'OpenLink One-Click Wallet',
+      };
+      paymentBrand = wMap[walletProvider] || 'Digital Wallet Express';
+      paymentMask = 'PASSKEY';
+    } else if (paymentMethodType === 'invoice_po') {
+      paymentBrand = `Net-30 PO (${poNumber || 'PO-2026-101'})`;
+      paymentMask = (poNumber || '101').slice(-4);
+    } else if (paymentMethodType === 'oss_grant') {
+      paymentBrand = `Open Source Grant (${ossLicense || 'MIT'})`;
+      paymentMask = 'OSS-100';
+    }
+
+    const invoiceStatus = paymentMethodType === 'invoice_po' && totalCents > 0 ? 'open_net30' : 'paid';
+    const newInvoice = {
+      id: `INV-SBX-${Date.now().toString().slice(-6)}`,
+      date: new Date().toISOString(),
+      planName: plan.name,
+      billingCycle,
+      extraSeats: cleanExtraSeats,
+      amountCents: totalCents,
+      discountPct,
+      couponCode: upperCoupon || (paymentMethodType === 'oss_grant' ? 'OSS-GRANT-100' : ''),
+      currency: 'USD',
+      status: invoiceStatus,
+      paymentMethodLabel: `${paymentBrand}${paymentMask && paymentMask !== 'PASSKEY' && paymentMask !== 'OSS-100' ? ` •••• ${paymentMask}` : ''}`,
+      paymentMethodType,
+      poNumber: paymentMethodType === 'invoice_po' ? (poNumber || 'PO-2026-101') : undefined,
+      companyLegalName: companyLegalName || undefined,
+      ossProjectUrl: paymentMethodType === 'oss_grant' ? ossProjectUrl : undefined,
+    };
+
+    rec.planId = plan.id;
+    rec.billingCycle = billingCycle;
+    rec.extraSeats = cleanExtraSeats;
+    rec.subscriptionStatus = 'active';
+    rec.paymentMethodType = paymentMethodType;
+    rec.paymentBrand = paymentBrand;
+    rec.paymentLast4 = paymentMask;
+    rec.billingEmail = billingEmail || rec.billingEmail;
+    rec.taxId = taxId || rec.taxId;
+    rec.couponCode = newInvoice.couponCode;
+    rec.discountPct = discountPct;
+    rec.ossProjectUrl = ossProjectUrl || rec.ossProjectUrl;
+    rec.ossLicense = ossLicense || rec.ossLicense;
+    rec.invoices = [newInvoice, ...(rec.invoices || [])].slice(0, 20);
+    rec.updatedAt = new Date().toISOString();
+
+    pushWebhook(invoiceStatus === 'paid' ? 'invoice.paid' : 'invoice.finalized_net30', {
+      invoiceId: newInvoice.id,
+      couponCode: newInvoice.couponCode,
+    });
+    pushWebhook('customer.subscription.updated', {
+      planId: plan.id,
+      maxSeats: plan.maxSeats + cleanExtraSeats,
+      billingCycle,
+    });
+
+    billingSandboxStore.set(key, rec);
+    persistBillingSandbox();
+
+    return res.json({
+      ok: true,
+      invoice: newInvoice,
+      billing: rec,
     });
   });
 

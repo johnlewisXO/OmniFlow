@@ -10,7 +10,7 @@ import {
   HairlineCard,
   StatusDot,
 } from '../shared/EditorialUI';
-import { RadialProgressRing, SlimProgressBar } from '../charts/EditorialCharts';
+import { LiquidMetricProgress, SlimProgressBar } from '../charts/EditorialCharts';
 
 const OKRS_STORAGE_KEY = 'omni_flow_okrs_goals_v1';
 
@@ -243,12 +243,10 @@ export const OKRsGoalsPage: React.FC = () => {
             value: `${overallOkrProgress}%`,
             sublabel: 'Weighted KR average',
             visual: (
-              <RadialProgressRing
+              <LiquidMetricProgress
                 value={overallOkrProgress}
-                size={36}
-                strokeWidth={4}
                 tone="lime"
-                showLabel={false}
+                compact
               />
             ),
           },
@@ -378,12 +376,12 @@ export const OKRsGoalsPage: React.FC = () => {
                   <p className="text-xs text-[var(--text-secondary)]">{obj.description}</p>
                 </div>
 
-                <RadialProgressRing
-                  value={objProgress}
-                  size={56}
-                  strokeWidth={5}
-                  tone={objProgress >= 70 ? 'success' : 'charcoal'}
-                />
+                <div className="w-28 sm:w-32 shrink-0 pt-1">
+                  <LiquidMetricProgress
+                    value={objProgress}
+                    tone={objProgress >= 70 ? 'success' : 'lime'}
+                  />
+                </div>
               </div>
 
               <div className="divide-y divide-[var(--border-hairline)] border border-[var(--border-hairline)] rounded-xl overflow-hidden">

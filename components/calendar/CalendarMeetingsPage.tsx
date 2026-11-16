@@ -1125,7 +1125,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSimulateTeammateRsvps(selectedEvent)}
-                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
                   >
                     Simulate Teammate RSVPs
                   </button>
@@ -1198,7 +1198,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                         'success'
                       );
                     }}
-                    className="w-full py-2 px-3 rounded-xl border border-dashed border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] text-xs font-semibold hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                    className="w-full py-2 px-3 rounded-xl border border-dashed border-[var(--border-strong)] text-[var(--accent-text)] text-xs font-semibold hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
                   >
                     + Invite All Remaining Organization Members
                   </button>
@@ -1426,7 +1426,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                         setFormSelectedUserIds(orgTeammates.map(u => u.id));
                       }
                     }}
-                    className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
                   >
                     {formSelectedUserIds.length === orgTeammates.length
                       ? 'Clear Selection'
@@ -1452,7 +1452,7 @@ export const CalendarMeetingsPage: React.FC = () => {
                               )
                             }
                           />
-                          <Avatar user={u} size="sm" showHoverCard={false} />
+                          <Avatar user={u} size="sm" disableHoverCard />
                           <span className="font-semibold">{u.full_name || u.email}</span>
                         </div>
                         <span className="text-[10px] text-[var(--text-muted)]">

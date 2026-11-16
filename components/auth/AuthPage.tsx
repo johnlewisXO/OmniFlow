@@ -664,7 +664,7 @@ export const AuthPage: React.FC = () => {
               }}
               className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 authMode === 'login'
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -679,7 +679,7 @@ export const AuthPage: React.FC = () => {
               }}
               className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 authMode === 'signup'
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                   : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -726,7 +726,7 @@ export const AuthPage: React.FC = () => {
               }`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--accent-text)]">
                       <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />
                       Email Verification Active
                     </span>
@@ -738,7 +738,7 @@ export const AuthPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[var(--accent-lime)]/20 text-[#4E6126] dark:text-[#CCF048] border border-[#97B832]/40 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[var(--accent-lime)]/20 text-[var(--accent-text)] border border-[var(--border-strong)] whitespace-nowrap">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#4E6126] dark:bg-[#CCF048]"></span>
                       Awaiting Confirmation
                     </span>
@@ -808,10 +808,10 @@ export const AuthPage: React.FC = () => {
               {productionResetInfo && (
                 <div className="space-y-2 pb-2.5 border-b border-[var(--border-hairline)]">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#4E6126] dark:text-[#CCF048]">
+                    <span className="font-bold text-[var(--accent-text)]">
                       Production Recovery Link & Code
                     </span>
-                    <span className="font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] tabular-nums">
+                    <span className="font-mono font-bold px-2.5 py-0.5 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] tabular-nums">
                       {productionResetInfo.recoveryCode}
                     </span>
                   </div>
@@ -855,7 +855,7 @@ export const AuthPage: React.FC = () => {
                         handleConvertLocalhostRecoveryLink(val);
                       }
                     }}
-                    className="px-3 py-1.5 rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] font-semibold text-[11px] whitespace-nowrap cursor-pointer"
+                    className="px-3 py-1.5 rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[var(--accent-lime-hover)] dark:text-[#131511] font-semibold text-[11px] whitespace-nowrap cursor-pointer"
                   >
                     Verify / Convert →
                   </button>
@@ -897,7 +897,7 @@ export const AuthPage: React.FC = () => {
                           setFormError(null);
                           setResetSuccessMessage(null);
                         }}
-                        className="text-xs text-[#4E6126] dark:text-[#CCF048] font-semibold hover:underline cursor-pointer"
+                        className="text-xs text-[var(--accent-text)] font-semibold hover:underline cursor-pointer"
                       >
                         Forgot Password?
                       </button>
@@ -1003,7 +1003,7 @@ export const AuthPage: React.FC = () => {
                     setResetSuccessMessage(null);
                     setSmtpRetryStatus(null);
                   }}
-                  className="font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                  className="font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
                   type="button"
                 >
                   Back to Sign In
@@ -1018,7 +1018,7 @@ export const AuthPage: React.FC = () => {
                     setFormError(null);
                     setResetSuccessMessage(null);
                   }}
-                  className="font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                  className="font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
                   disabled={authLoading}
                   type="button"
                 >
@@ -1139,7 +1139,7 @@ export const AuthPage: React.FC = () => {
                 type="button"
                 disabled={isGoogleAuthenticating}
                 onClick={handleNativeSupabaseGoogleOAuth}
-                className="w-full py-3.5 px-4 rounded-full bg-[#191B17] hover:bg-[#2A2E25] dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] text-white dark:text-[#131511] active:scale-[0.99] font-bold text-sm flex items-center justify-center gap-3 transition-all cursor-pointer shadow-sm"
+                className="w-full py-3.5 px-4 rounded-full bg-[#191B17] hover:bg-[#2A2E25] dark:bg-[#CCF048] dark:hover:bg-[var(--accent-lime-hover)] text-white dark:text-[#131511] active:scale-[0.99] font-bold text-sm flex items-center justify-center gap-3 transition-all cursor-pointer shadow-sm"
               >
                 {isGoogleAuthenticating ? (
                   <>

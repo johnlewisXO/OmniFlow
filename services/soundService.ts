@@ -159,6 +159,18 @@ class SoundService {
     }
   }
 
+  public playNotification(): void {
+    this.play('notification');
+  }
+
+  public playTaskComplete(): void {
+    this.play('task_complete');
+  }
+
+  public playSuccess(): void {
+    this.play('state_updated');
+  }
+
   private playTone(
     ctx: AudioContext,
     startFreq: number,

@@ -118,14 +118,14 @@ export const PendingJoinRequestsBanner: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5">
         <div className="flex items-center gap-2.5">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-          <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
+          <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[var(--accent-text)]">
             Pending Organization Join Requests ({joinRequests.length})
           </h2>
         </div>
         <button
           type="button"
           onClick={() => setActiveView('team_management')}
-          className="text-xs font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer self-start sm:self-auto"
+          className="text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer self-start sm:self-auto"
         >
           Open Team Directory & Access Control →
         </button>
@@ -156,7 +156,7 @@ export const PendingJoinRequestsBanner: React.FC = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-sm text-[var(--text-primary)]">{req.requester_name}</span>
                     <span className="text-xs text-[var(--text-muted)]">({req.requester_email})</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border border-[var(--border-hairline)]">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)]">
                       Requested: {formatRoleForDisplay(req.requested_role)}
                     </span>
                   </div>

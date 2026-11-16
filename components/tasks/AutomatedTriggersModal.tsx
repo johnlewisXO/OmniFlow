@@ -364,7 +364,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                         type="checkbox"
                         checked={rule.enabled}
                         onChange={() => handleToggleRule(rule.id)}
-                        className="mt-1 rounded accent-[#191B17] dark:accent-[#CCF048] cursor-pointer"
+                        className="mt-1 rounded accent-[var(--accent-cta)] cursor-pointer"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -378,7 +378,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                           >
                             {rule.enabled ? 'Active' : 'Paused'}
                           </span>
-                          <span className="text-[10px] font-semibold font-mono tabular-nums px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] whitespace-nowrap">
+                          <span className="text-[10px] font-semibold font-mono tabular-nums px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] whitespace-nowrap">
                             Ran {rule.executionCount || 0}x
                           </span>
                         </div>
@@ -386,7 +386,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                           <p className="text-xs text-[var(--text-secondary)] mt-0.5">{rule.description}</p>
                         )}
                         <p className="text-[11px] text-[var(--text-secondary)] mt-1">
-                          When <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">{rule.triggerEvent.replace(/_/g, ' ')}</span> ={' '}
+                          When <span className="font-semibold text-[var(--accent-text)]">{rule.triggerEvent.replace(/_/g, ' ')}</span> ={' '}
                           <span className="font-semibold text-[var(--text-primary)]">{rule.triggerConditionValue}</span> →{' '}
                           <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                             {rule.actionType === 'assign_user'
@@ -409,7 +409,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                         onClick={() => handleTestRunRule(rule)}
                         title="Execute this rule immediately on a task"
                       >
-                        <ICON_MAP.BoltIcon className="w-3.5 h-3.5 text-[#4E6126] dark:text-[#CCF048]" />
+                        <ICON_MAP.BoltIcon className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                         Test Run
                       </Button>
                       <button
@@ -441,7 +441,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="text-sm font-bold text-[var(--text-primary)]">{preset.name}</h4>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] uppercase whitespace-nowrap">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] uppercase whitespace-nowrap">
                         {preset.triggerEvent.replace(/_/g, ' ')}
                       </span>
                     </div>
@@ -480,7 +480,7 @@ export const AutomatedTriggersModal: React.FC<AutomatedTriggersModalProps> = ({
                       </span>
                       <span className="font-bold text-[var(--text-primary)]">{log.ruleName}</span>
                       <span className="text-[var(--text-muted)]">•</span>
-                      <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">{log.taskTitle}</span>
+                      <span className="font-semibold text-[var(--accent-text)]">{log.taskTitle}</span>
                     </div>
                     <p className="text-[11px] text-[var(--text-secondary)] mt-1">
                       {log.triggerEvent} → <span className="text-[var(--text-primary)] font-medium">{log.actionTaken}</span>

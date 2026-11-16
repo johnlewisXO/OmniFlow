@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { ActiveView } from '../../types';
+import { GLASS_SPRING } from '../shared/LiquidGlass';
 
 export const MobileBottomNav: React.FC = () => {
   const {
@@ -65,129 +67,159 @@ export const MobileBottomNav: React.FC = () => {
 
   return (
     <>
-      {isMoreSheetOpen && (
-        <div
-          className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/50 backdrop-blur-[2px]"
-          onClick={() => setIsMoreSheetOpen(false)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="w-full rounded-t-[24px] border-t border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-4 pb-24 max-h-[82vh] overflow-y-auto shadow-2xl"
+      <AnimatePresence>
+        {isMoreSheetOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={GLASS_SPRING.scrim}
+            className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/45 backdrop-blur-sm"
+            onClick={() => setIsMoreSheetOpen(false)}
           >
-            <div className="w-10 h-1 rounded-full bg-[var(--border-strong)] mx-auto mb-4" />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={GLASS_SPRING.spatial}
+              onClick={e => e.stopPropagation()}
+              className="w-full rounded-t-[26px] liquid-glass-overlay p-4 pb-24 max-h-[82vh] overflow-y-auto shadow-2xl"
+            >
+              <div className="w-10 h-1 rounded-full bg-[var(--border-strong)] mx-auto mb-4" />
 
-            <div className="flex items-center justify-between px-1 mb-3">
-              <div>
-                <h3 className="text-sm font-bold">Workspace Modules</h3>
-                <p className="text-[11px] text-[var(--text-muted)]">Navigate or create</p>
+              <div className="flex items-center justify-between px-1 mb-3">
+                <div>
+                  <h3 className="text-sm font-bold">Workspace Modules</h3>
+                  <p className="text-[11px] text-[var(--text-muted)]">Navigate or create</p>
+                </div>
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.9 }}
+                  transition={GLASS_SPRING.micro}
+                  onClick={() => setIsMoreSheetOpen(false)}
+                  className="p-1.5 rounded-full glass-bubble-control text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                  aria-label="Close menu sheet"
+                >
+                  <ICON_MAP.XMarkIcon className="w-5 h-5" />
+                </motion.button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsMoreSheetOpen(false)}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                aria-label="Close menu sheet"
-              >
-                <ICON_MAP.XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMoreSheetOpen(false);
-                  openModal();
-                }}
-                className="min-h-[42px] px-3 py-2 rounded-full bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] text-xs font-semibold flex items-center justify-center gap-1.5"
-              >
-                <ICON_MAP.PlusIcon className="w-4 h-4" />
-                <span>New Task</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMoreSheetOpen(false);
-                  openCreateProjectModal();
-                }}
-                className="min-h-[42px] px-3 py-2 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-xs font-semibold flex items-center justify-center gap-1.5"
-              >
-                <ICON_MAP.FolderIcon className="w-4 h-4" />
-                <span>New Project</span>
-              </button>
-            </div>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.96 }}
+                  transition={GLASS_SPRING.micro}
+                  onClick={() => {
+                    setIsMoreSheetOpen(false);
+                    openModal();
+                  }}
+                  className="min-h-[44px] px-3 py-2 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ICON_MAP.PlusIcon className="w-4 h-4" />
+                  <span>New Task</span>
+                </motion.button>
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.96 }}
+                  transition={GLASS_SPRING.micro}
+                  onClick={() => {
+                    setIsMoreSheetOpen(false);
+                    openCreateProjectModal();
+                  }}
+                  className="min-h-[44px] px-3 py-2 rounded-full glass-bubble-control text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ICON_MAP.FolderIcon className="w-4 h-4" />
+                  <span>New Project</span>
+                </motion.button>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {moreModules.map(mod => {
-                const Icon = mod.icon;
-                const active = activeView === mod.id;
-                return (
-                  <button
-                    key={mod.id}
-                    type="button"
-                    onClick={() => handleSelectView(mod.id)}
-                    className={`p-3 rounded-2xl border text-left flex items-center justify-between gap-3 transition-colors ${
-                      active
-                        ? 'bg-[var(--bg-sage)] border-[var(--border-strong)]'
-                        : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:bg-[var(--bg-sage)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="w-8 h-8 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] flex items-center justify-center shrink-0">
-                        <Icon className="w-4 h-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold truncate">{mod.label}</div>
-                        <div className="text-[11px] text-[var(--text-muted)] truncate">{mod.subtitle}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {moreModules.map(mod => {
+                  const Icon = mod.icon;
+                  const active = activeView === mod.id;
+                  return (
+                    <motion.button
+                      key={mod.id}
+                      type="button"
+                      whileTap={{ scale: 0.975 }}
+                      transition={GLASS_SPRING.micro}
+                      onClick={() => handleSelectView(mod.id)}
+                      className={`p-3 rounded-2xl border text-left flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-[var(--bg-sage)] border-[var(--border-strong)]'
+                          : 'bg-white/45 dark:bg-white/[0.04] border-[var(--border-hairline)] hover:bg-[var(--bg-sage)]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-8 h-8 rounded-xl bg-white/75 dark:bg-white/10 border border-[var(--border-hairline)] flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold truncate">{mod.label}</div>
+                          <div className="text-[11px] text-[var(--text-muted)] truncate">{mod.subtitle}</div>
+                        </div>
                       </div>
-                    </div>
-                    {mod.badge && mod.badge > 0 ? (
-                      <span className="px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] font-mono text-[10px] font-bold">
-                        {mod.badge}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+                      {mod.badge && mod.badge > 0 ? (
+                        <span className="px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] font-mono text-[10px] font-bold">
+                          {mod.badge}
+                        </span>
+                      ) : null}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <nav
         aria-label="Mobile Primary Navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 lg:hidden h-15 px-2 border-t border-[var(--border-hairline)] bg-[var(--bg-surface)] flex items-center justify-around"
+        className="fixed bottom-0 left-0 right-0 z-40 lg:hidden h-16 px-2 border-t border-[var(--border-hairline)] frosted-shell-panel flex items-center justify-around"
       >
         {primaryTabs.map(tab => {
           const Icon = tab.icon;
           const isActive = tab.matchViews.includes(activeView);
           return (
-            <button
+            <motion.button
               key={tab.id}
               type="button"
+              whileTap={{ scale: 0.91 }}
+              transition={GLASS_SPRING.micro}
               onClick={() => handleSelectView(tab.id)}
-              className={`min-w-[56px] min-h-[42px] px-2 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              className={`relative min-w-[56px] min-h-[44px] px-2.5 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer ${
                 isActive
                   ? 'text-[var(--text-primary)] font-semibold'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
             >
-              <Icon className="w-5 h-5" />
+              {isActive && (
+                <motion.span
+                  layoutId="mobile-bottom-active-pill"
+                  transition={GLASS_SPRING.morph}
+                  className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-[var(--accent-subtle)] border border-[var(--accent-border)] -z-10"
+                  aria-hidden="true"
+                />
+              )}
+              <Icon className={`w-5 h-5 ${isActive ? 'text-[var(--accent-text)]' : ''}`} />
               <span className="text-[10px] whitespace-nowrap">{tab.label}</span>
-            </button>
+            </motion.button>
           );
         })}
 
-        <button
+        <motion.button
           type="button"
+          whileTap={{ scale: 0.91 }}
+          transition={GLASS_SPRING.micro}
           onClick={() => setIsMoreSheetOpen(prev => !prev)}
-          className="relative min-w-[56px] min-h-[42px] px-2 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+          className="relative min-w-[56px] min-h-[44px] px-2.5 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
         >
           <ICON_MAP.Squares2X2Icon className="w-5 h-5" />
           <span className="text-[10px] whitespace-nowrap">More</span>
           {unreadCount > 0 && (
             <span className="absolute top-1 right-2.5 w-2 h-2 rounded-full bg-rose-600" />
           )}
-        </button>
+        </motion.button>
       </nav>
     </>
   );

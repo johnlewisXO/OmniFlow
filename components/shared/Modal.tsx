@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../../hooks/useAppStore';
+import { GLASS_SPRING, GlassPopoverContainer } from './LiquidGlass';
+import { IconButton } from './Button';
 
 interface ModalProps {
   isOpen: boolean;
@@ -35,23 +38,15 @@ export function useAnimatedMount(isOpen: boolean, durationMs: number = 180) {
 
 export const AnimatedPopover: React.FC<{
   isOpen: boolean;
-  direction?: 'down' | 'up';
+  direction?: 'down' | 'up' | 'right';
   className?: string;
   children: React.ReactNode;
 }> = ({ isOpen, direction = 'down', className = '', children }) => {
-  const { shouldRender, isClosing } = useAnimatedMount(isOpen, 165);
-  if (!shouldRender) return null;
-
-  const animClass =
-    direction === 'up'
-      ? isClosing
-        ? 'animate-popup-up-out'
-        : 'animate-popup-up-in'
-      : isClosing
-      ? 'animate-popup-out'
-      : 'animate-popup-in';
-
-  return <div className={`${animClass} ${className}`}>{children}</div>;
+  return (
+    <GlassPopoverContainer isOpen={isOpen} direction={direction} className={className}>
+      {children}
+    </GlassPopoverContainer>
+  );
 };
 
 export const Modal: React.FC<ModalProps> = ({
@@ -65,19 +60,52 @@ export const Modal: React.FC<ModalProps> = ({
   headerActions,
 }) => {
   const { darkMode } = useAppStore();
-  const { shouldRender, isClosing } = useAnimatedMount(isOpen, 200);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    const focusTimer = setTimeout(() => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusable = panel.querySelector<HTMLElement>(
+        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      focusable?.focus();
+    }, 30);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         onClose();
+        return;
+      }
+      if (event.key === 'Tab' && panelRef.current) {
+        const focusables = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
   }, [onClose, isOpen]);
-
-  if (!shouldRender) return null;
 
   const sizeClasses = {
     sm: 'max-w-sm',
@@ -91,132 +119,89 @@ export const Modal: React.FC<ModalProps> = ({
     full: 'max-w-[96vw] h-[92vh] flex flex-col',
   };
 
-  const modalContentBg = 'hsl(var(--panel-background))';
-  const modalTextColor = darkMode ? 'text-slate-100' : 'text-slate-800';
-  const modalBorderColor = 'hsl(var(--panel-border))';
+  const modalTextColor = darkMode ? 'text-[#F2F3EE]' : 'text-[#191B17]';
   const isDrawer = variant === 'drawer';
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex ${
-        isDrawer ? 'items-stretch justify-end p-0 sm:p-2.5' : 'items-center justify-center p-2 sm:p-4 overflow-y-auto'
-      } ${
-        backdropBlur ? 'bg-black/55 backdrop-blur-md' : 'bg-[#131511]/25 backdrop-blur-none'
-      } transition-opacity duration-200 ${
-        isClosing ? 'opacity-0' : 'opacity-100 animate-fadeIn'
-      }`}
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`shadow-2xl w-full ${
-          isDrawer
-            ? 'max-w-full sm:max-w-[540px] lg:max-w-[620px] h-full rounded-none sm:rounded-[20px] p-5 sm:p-6 flex flex-col'
-            : `${sizeClasses[size]} p-4 sm:p-6 my-auto rounded-[20px] max-h-[95vh] flex flex-col`
-        } transform ${modalTextColor} border ${
-          isDrawer
-            ? isClosing
-              ? 'animate-drawer-disappear'
-              : 'animate-drawer-appear'
-            : isClosing
-            ? 'animate-modal-disappear'
-            : 'animate-modal-appear'
-        }`}
-        style={{ backgroundColor: modalContentBg, borderColor: modalBorderColor }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4 flex-shrink-0 pb-3 border-b border-slate-200/70 dark:border-slate-800/80">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base sm:text-lg font-bold text-gradient-accent truncate">{title}</h2>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {headerActions}
-            <button
-              onClick={onClose}
-              className={`${
-                darkMode ? 'text-slate-400 hover:text-slate-100' : 'text-slate-500 hover:text-slate-900'
-              } transition-colors p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer`}
-              aria-label="Close modal"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div
-          data-bubble-scroll="true"
-          className={`${
-            size === 'full' || isDrawer
-              ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y'
-              : 'max-h-[75vh] overflow-y-auto overscroll-contain touch-pan-y'
-          } scrollbar-thin pr-1 sm:pr-1.5`}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="liquid-modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={GLASS_SPRING.scrim}
+          className={`fixed inset-0 z-50 flex ${
+            isDrawer
+              ? 'items-stretch justify-end p-0 sm:p-3'
+              : 'items-center justify-center p-2 sm:p-4 overflow-y-auto'
+          } ${backdropBlur ? 'bg-black/40 backdrop-blur-[6px]' : 'bg-black/25'}`}
+          onClick={onClose}
         >
-          {children}
-        </div>
-      </div>
-      <style>{`
-        @keyframes modal-appear {
-          0% {
-            opacity: 0;
-            transform: scale(0.95) translateY(8px);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        @keyframes modal-disappear {
-          0% {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-          100% {
-            opacity: 0;
-            transform: scale(0.95) translateY(8px);
-          }
-        }
-        @keyframes drawer-appear {
-          0% {
-            opacity: 0;
-            transform: translateX(36px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes drawer-disappear {
-          0% {
-            opacity: 1;
-            transform: translateX(0);
-          }
-          100% {
-            opacity: 0;
-            transform: translateX(36px);
-          }
-        }
-        .animate-modal-appear {
-          animation: modal-appear 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-        .animate-modal-disappear {
-          animation: modal-disappear 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
-        .animate-drawer-appear {
-          animation: drawer-appear 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-drawer-disappear {
-          animation: drawer-disappear 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
-      `}</style>
-    </div>
+          <motion.div
+            ref={panelRef}
+            key="liquid-modal-panel"
+            role="dialog"
+            aria-modal="true"
+            initial={
+              isDrawer
+                ? { opacity: 0, x: 40, scale: 0.99 }
+                : { opacity: 0, scale: 0.95, y: 12 }
+            }
+            animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+            exit={
+              isDrawer
+                ? { opacity: 0, x: 32, scale: 0.99 }
+                : { opacity: 0, scale: 0.96, y: 8 }
+            }
+            transition={GLASS_SPRING.spatial}
+            className={`liquid-glass-overlay w-full ${
+              isDrawer
+                ? 'max-w-full sm:max-w-[540px] lg:max-w-[620px] h-full rounded-none sm:rounded-[24px] p-5 sm:p-6 flex flex-col'
+                : `${sizeClasses[size]} p-4 sm:p-6 my-auto rounded-[24px] max-h-[95vh] flex flex-col`
+            } ${modalTextColor}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4 flex-shrink-0 pb-3 border-b border-[var(--border-hairline)]/80">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-lg font-bold text-[var(--text-primary)] truncate">
+                  {title}
+                </h2>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {headerActions}
+                <IconButton
+                  variant="glass"
+                  size="sm"
+                  onClick={onClose}
+                  aria-label="Close modal"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                    className="w-4 h-4"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </IconButton>
+              </div>
+            </div>
+            <div
+              data-bubble-scroll="true"
+              className={`${
+                size === 'full' || isDrawer
+                  ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y'
+                  : 'max-h-[75vh] overflow-y-auto overscroll-contain touch-pan-y'
+              } scrollbar-thin pr-1 sm:pr-1.5`}
+            >
+              {children}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

@@ -207,7 +207,7 @@ export const CreateTaskModal: React.FC = () => {
                 <label htmlFor="task-assignee" className={labelClass}>Assignee</label>
                 {isLoadingUsersForAssignment && (
                 <div className={`flex items-center text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'} h-11 py-2.5 px-3.5 border border-transparent rounded-squircle-sm`}>
-                    <SpinnerIcon className="w-4 h-4 mr-2 animate-spin text-[#4E6126] dark:text-[#CCF048]" /> Loading assignees...
+                    <SpinnerIcon className="w-4 h-4 mr-2 animate-spin text-[var(--accent-text)]" /> Loading assignees...
                 </div>
                 )}
                 {usersForAssignmentError && !isLoadingUsersForAssignment && (

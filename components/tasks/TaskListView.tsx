@@ -40,6 +40,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     currentUser,
     highlightedTaskId,
     startTaskTimer,
+    requestConfirm,
   } = useAppStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,13 +140,16 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       { entity_type: 'task', entity_id: task.id }
     );
 
-    await processTaskAutomationRules({
-      task: { ...task, status: newStatus },
-      previousStatus,
-      users,
-      updateTask,
-      addToast,
-    });
+    await processTaskAutomationRules(
+      { ...task, status: previousStatus },
+      { ...task, status: newStatus },
+      {
+        users,
+        currentUser,
+        updateTask,
+        addToast,
+      }
+    );
   };
 
   const handleStatusToggle = (task: Task, e: React.MouseEvent) => {
@@ -264,13 +268,16 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         'success',
         { entity_type: 'task', entity_id: taskToMove.id }
       );
-      await processTaskAutomationRules({
-        task: { ...taskToMove, status: targetStatus },
-        previousStatus,
-        users,
-        updateTask,
-        addToast,
-      });
+      await processTaskAutomationRules(
+        { ...taskToMove, status: previousStatus },
+        { ...taskToMove, status: targetStatus },
+        {
+          users,
+          currentUser,
+          updateTask,
+          addToast,
+        }
+      );
     }
   };
 
@@ -321,13 +328,16 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         'success',
         { entity_type: 'task', entity_id: taskToMove.id }
       );
-      await processTaskAutomationRules({
-        task: { ...taskToMove, status: targetStatus },
-        previousStatus,
-        users,
-        updateTask,
-        addToast,
-      });
+      await processTaskAutomationRules(
+        { ...taskToMove, status: previousStatus },
+        { ...taskToMove, status: targetStatus },
+        {
+          users,
+          currentUser,
+          updateTask,
+          addToast,
+        }
+      );
     }
   };
 
@@ -402,7 +412,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     const hasRowTyper = activeRowViewers.some(p => p.isTypingComment);
     const hasRowViewer = activeRowViewers.length > 0;
     const presenceRowClass = hasRowEditor
-      ? 'ring-1 ring-inset ring-[#97B832]/50 bg-[var(--accent-lime)]/10'
+      ? 'ring-1 ring-inset ring-[var(--accent-lime)]/50 bg-[var(--accent-lime)]/10'
       : hasRowTyper
       ? 'ring-1 ring-inset ring-amber-500/40 bg-amber-500/5'
       : hasRowViewer
@@ -648,15 +658,22 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             {/* Delete Button */}
             <button
               type="button"
-              onClick={e => {
+              onClick={async e => {
                 e.stopPropagation();
-                if (window.confirm(`Delete task "${task.title}"?`)) {
+                const ok = await requestConfirm({
+                  title: 'Delete Task',
+                  message: 'This removes the task from the project board. You can restore it immediately from the Undo toast.',
+                  itemPreview: task.title,
+                  confirmLabel: 'Delete Task',
+                  tone: 'danger',
+                });
+                if (ok) {
                   deleteTask(task.id);
-                  addToast('Task Deleted', `Deleted "${task.title}"`, 'error');
                 }
               }}
               className="opacity-60 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 rounded-full transition-all cursor-pointer"
               title="Delete Task"
+              aria-label={`Delete task ${task.title}`}
             >
               <ICON_MAP.TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>

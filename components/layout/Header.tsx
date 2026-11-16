@@ -1,20 +1,32 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { AnimatedPopover } from '../shared/Modal';
+import { GLASS_SPRING } from '../shared/LiquidGlass';
 import { QuickUtilitiesDrawer } from '../shared/QuickUtilitiesDrawer';
 import { SegmentedTabs, SegmentedTabOption } from '../shared/EditorialUI';
+import { Button, IconButton } from '../shared/Button';
+import { DefaultGlassBrandMark } from '../shared/OrganizationLogoUploader';
 import { collabService, formatAccurateLastSeen } from '../../services/collabService';
 import soundService from '../../services/soundService';
-import { ActiveView, User, UserPresence, UserRole, normalizeUserRole } from '../../types';
-import { ProfileMiniMenu, StatusDynamicIcon, AvailabilityStatus } from './ProfileMiniMenu';
+import { ActiveView, AvailabilityStatus, User, UserPresence, UserRole, normalizeUserRole } from '../../types';
+import { ProfileMiniMenu, StatusDynamicIcon } from './ProfileMiniMenu';
 export { StatusDynamicIcon } from './ProfileMiniMenu';
 
 export const Header: React.FC = () => {
   const {
     darkMode,
     toggleDarkMode,
+    accentColor,
+    setAccentColor,
+    ambientIntensity,
+    setAmbientIntensity,
+    autoCyclePalette,
+    setAutoCyclePalette,
+    myAvailabilityStatus,
+    setMyAvailabilityStatus,
     activeProject,
     openModal,
     openCreateProjectModal,
@@ -25,7 +37,6 @@ export const Header: React.FC = () => {
     notifications,
     activeView,
     setActiveView,
-    addToast,
     toggleMobileSidebar,
     isSidebarPinned,
     toggleSidebarPinned,
@@ -39,6 +50,10 @@ export const Header: React.FC = () => {
     stopAndLogTaskTimer,
     tasks,
     openViewTaskModal,
+    isViewTaskModalOpen,
+    taskToView,
+    isEditTaskModalOpen,
+    taskToEdit,
   } = useAppStore();
 
   const [timerTick, setTimerTick] = useState(0);
@@ -65,28 +80,6 @@ export const Header: React.FC = () => {
     return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
   }, [activeTimer, timerTick]);
 
-  const [myStatus, setMyStatus] = useState<AvailabilityStatus>(() => {
-    if (typeof window !== 'undefined' && currentUser?.id) {
-      try {
-        const raw = localStorage.getItem('omni_team_statuses');
-        const map = raw ? JSON.parse(raw) : {};
-        if (map[currentUser.id]) return map[currentUser.id];
-      } catch {}
-    }
-    return 'available';
-  });
-
-  useEffect(() => {
-    const handleStatusSync = (e: CustomEvent) => {
-      const payload = e.detail;
-      if (payload && currentUser && payload.userId === currentUser.id) {
-        setMyStatus(payload.availabilityStatus);
-      }
-    };
-    window.addEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
-    return () => window.removeEventListener('omni_remote_user_status_changed', handleStatusSync as EventListener);
-  }, [currentUser?.id]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -103,9 +96,7 @@ export const Header: React.FC = () => {
   }, []);
 
   const handleStatusChange = (newStatus: AvailabilityStatus) => {
-    setMyStatus(newStatus);
-    collabService.broadcastUserStatusChanged(newStatus);
-    addToast('Status Updated', `Availability set to ${newStatus}.`, 'info');
+    setMyAvailabilityStatus(newStatus);
   };
 
   const uniquePresences = useMemo(() => {
@@ -219,25 +210,41 @@ export const Header: React.FC = () => {
 
   const primaryCtaLabel = activeView === 'projects_overview' || !activeProject ? 'New Project' : 'New Task';
 
+  const activeHeaderTask =
+    (isViewTaskModalOpen && taskToView) || (isEditTaskModalOpen && taskToEdit) || null;
+  const orgLogoUrl = currentOrganization?.logoUrl || currentOrganization?.logo_url || '';
+  const contextTitle = activeHeaderTask
+    ? activeHeaderTask.title
+    : activeProject
+      ? activeProject.name
+      : '';
+
   return (
     <header className="relative z-30 shrink-0">
       {/* Desktop Sculpted Nova Top Bezel Layout (lg+) */}
-      <div className="hidden lg:flex items-start justify-between w-full min-h-[60px]">
-        {/* Left Bezel Circular Menu Pocket + Sweeping Shoulder Breadcrumb */}
+      <div className="hidden lg:flex items-start justify-between w-full min-h-[62px] relative">
+        {/* Left Bezel Circular Menu Pocket + Continuous Top Bezel Lip + Context Brand/Title */}
         <div className="flex items-start flex-1 min-w-0">
-          <div className="relative w-[88px] h-[60px] shrink-0 overflow-visible">
+          <div className="relative w-[92px] h-[64px] shrink-0 overflow-visible">
             <svg
-              viewBox="-1 -1 89 70"
-              className="absolute -top-[1px] -left-[1px] w-[89px] h-[70px] block pointer-events-none"
+              viewBox="0 0 92 66"
+              className="absolute top-0 left-0 w-[92px] h-[66px] block pointer-events-none"
               aria-hidden="true"
             >
               <path
-                d="M -1,-1 L 85,-1 L 84,0 A 28 28 0 0 0 56 28 A 28 28 0 0 1 28 56 A 28 12 0 0 0 0 68 L -1,68 Z"
+                d="M 0,0 L 92,0 L 92,10 C 72,10 66,18 60,33 C 54,47 43,54 27,54 C 13,54 3,57 0,66 Z"
                 fill="var(--bg-bezel)"
               />
+              <path
+                d="M 92,9.5 C 72,9.5 66,17.5 60,32.5 C 54,46.5 43,53.5 27,53.5 C 13,53.5 3,56.5 0,65.5"
+                fill="none"
+                stroke="var(--bezel-edge)"
+                strokeWidth="1"
+              />
             </svg>
-            <button
-              type="button"
+            <IconButton
+              variant={isSidebarPinned ? 'lime' : 'glass'}
+              size="md"
               onClick={() => {
                 soundService.play('click_soft');
                 toggleSidebarPinned();
@@ -245,49 +252,77 @@ export const Header: React.FC = () => {
               aria-pressed={isSidebarPinned}
               title={isSidebarPinned ? 'Unpin side menu (hover-to-expand)' : 'Pin side menu open'}
               aria-label={isSidebarPinned ? 'Unpin side menu' : 'Pin side menu open'}
-              className={`absolute top-[10px] left-[10px] w-[36px] h-[36px] rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-sm ${
+              className={`!absolute top-[10px] left-[10px] ${
                 isSidebarPinned
-                  ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] ring-2 ring-[var(--accent-lime)]/35'
-                  : 'bg-[#F4F4EF] text-[#191B17] hover:bg-white dark:bg-[#20241C] dark:text-[#F2F3EE] dark:hover:bg-[#2B3025]'
+                  ? 'ring-2 ring-[var(--accent-lime)]/35'
+                  : '!text-[var(--text-primary)]'
               }`}
             >
               {isSidebarPinned ? (
                 <ICON_MAP.ChevronLeftIcon className="w-4 h-4 stroke-[2.2]" />
               ) : (
-                <ICON_MAP.Bars3Icon className="w-4 h-4" />
+                <ICON_MAP.Bars3Icon className="w-4 h-4 stroke-[2]" />
               )}
-            </button>
+            </IconButton>
           </div>
 
-          <div className="flex items-center gap-2 min-w-0 pt-4 pr-3 pl-1">
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)] min-w-0">
-              <ICON_MAP.BuildingOfficeIcon className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-              <span className="truncate max-w-[140px]">
-                {currentOrganization?.name || 'Personal Workspace'}
-              </span>
-              {activeProject && (
+          <div className="flex flex-col flex-1 min-w-0 -ml-[0.5px] -mr-[0.5px]">
+            <div className="h-[10px] w-full bg-[var(--bg-bezel)] border-b border-[var(--bezel-edge)]" aria-hidden="true" />
+            <div className="flex items-center gap-2 min-w-0 pr-3 pl-1 pt-2.5">
+              {contextTitle ? (
                 <>
-                  <span className="text-[var(--text-muted)]">/</span>
-                  <span className="text-[var(--text-primary)] font-semibold truncate max-w-[150px]">
-                    {activeProject.name}
+                  {activeHeaderTask ? (
+                    <ICON_MAP.CheckCircleIcon className="w-4 h-4 text-[var(--accent-text)] shrink-0" />
+                  ) : (
+                    <ICON_MAP.FolderIcon className="w-4 h-4 text-[var(--accent-text)] shrink-0" />
+                  )}
+                  <span
+                    className="text-[13px] xl:text-sm font-bold text-[var(--text-primary)] truncate min-w-0"
+                    title={contextTitle}
+                  >
+                    {contextTitle}
                   </span>
                 </>
+              ) : (
+                <div
+                  className="inline-flex items-center justify-center h-8 min-w-[34px] max-w-[140px] px-1.5 rounded-xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)] shadow-[inset_0_1px_0_var(--glass-highlight)] text-[var(--accent-text)] overflow-hidden shrink-0"
+                  title={orgLogoUrl ? 'Organization brand logo' : 'Workspace'}
+                >
+                  {orgLogoUrl ? (
+                    <img
+                      src={orgLogoUrl}
+                      alt="Organization logo"
+                      className="h-6 max-w-[124px] w-auto object-contain"
+                    />
+                  ) : (
+                    <DefaultGlassBrandMark className="w-5 h-5" />
+                  )}
+                </div>
               )}
             </div>
           </div>
         </div>
 
         {/* Center Sculpted S-Curve Bezel Dock with Floating View Tabs */}
-        <div className="flex items-start shrink-0 max-w-[58vw]">
+        <div className="flex items-start shrink-0 max-w-[54vw] xl:max-w-[58vw] z-10">
           <svg
-            viewBox="0 0 72 56"
-            className="w-[72px] h-[56px] shrink-0 -mr-[0.5px] pointer-events-none block"
+            viewBox="0 0 64 58"
+            className="w-[64px] h-[58px] shrink-0 -mr-[0.5px] pointer-events-none block"
             aria-hidden="true"
           >
-            <path d="M 0,0 L 72,0 L 72,56 C 40,56 32,0 0,0 Z" fill="var(--bg-bezel)" />
+            <path
+              d="M -0.5,0 L 64.5,0 L 64.5,58 L 58,58 C 28,58 26,10 0,10 L -0.5,10 Z"
+              fill="var(--bg-bezel)"
+            />
+            <path
+              d="M -0.5,9.5 L 0,9.5 C 26,9.5 28,57.5 58,57.5 L 64.5,57.5"
+              fill="none"
+              stroke="var(--bezel-edge)"
+              strokeWidth="1"
+            />
           </svg>
 
-          <div className="h-[56px] bg-[var(--bg-bezel)] px-4 py-[10px] flex items-center justify-center min-w-0">
+          <div className="h-[58px] bg-[var(--bg-bezel)] border-b border-[var(--bezel-edge)] px-2 xl:px-3.5 pt-[10px] pb-[8px] flex items-center justify-center min-w-0">
             <SegmentedTabs
               options={contextualTabs}
               value={activeView === 'task_automations_view' ? 'task_automations' : activeView}
@@ -296,21 +331,48 @@ export const Header: React.FC = () => {
                 setActiveView(view);
               }}
               size="sm"
-              className="!bg-[#ECEFE6]/95 dark:!bg-[#1D2119]/95 !border-white/25 dark:!border-white/10 shadow-xs"
+              className="!bg-[var(--surface-glass-2)] !border-[var(--glass-border-strong)] shadow-xs"
             />
           </div>
 
           <svg
-            viewBox="0 0 72 56"
-            className="w-[72px] h-[56px] shrink-0 -ml-[0.5px] pointer-events-none block"
+            viewBox="0 0 64 58"
+            className="w-[64px] h-[58px] shrink-0 -ml-[0.5px] pointer-events-none block"
             aria-hidden="true"
           >
-            <path d="M 0,0 L 72,0 C 40,0 32,56 0,56 Z" fill="var(--bg-bezel)" />
+            <path
+              d="M -0.5,0 L 64.5,0 L 64.5,10 L 64,10 C 38,10 36,58 6,58 L -0.5,58 Z"
+              fill="var(--bg-bezel)"
+            />
+            <path
+              d="M -0.5,57.5 L 6,57.5 C 36,57.5 38,9.5 64,9.5 L 64.5,9.5"
+              fill="none"
+              stroke="var(--bezel-edge)"
+              strokeWidth="1"
+            />
           </svg>
         </div>
 
-        {/* Right Curved Shoulder Utility Zone */}
-        <div className="flex items-center justify-end gap-1.5 pt-3 pr-4 pl-2 flex-1 min-w-0">
+        {/* Right Curved Shoulder Utility Zone + Matching Corner Bezel Cap */}
+        <div className="flex flex-col flex-1 min-w-0 -ml-[0.5px] relative">
+          <div className="h-[10px] w-full bg-[var(--bg-bezel)] border-b border-[var(--bezel-edge)] pr-[32px]" aria-hidden="true" />
+          <svg
+            viewBox="0 0 34 34"
+            className="absolute top-0 right-0 w-[34px] h-[34px] pointer-events-none block"
+            aria-hidden="true"
+          >
+            <path
+              d="M 0,0 L 34,0 L 34,34 C 34,17 20,10 0,10 Z"
+              fill="var(--bg-bezel)"
+            />
+            <path
+              d="M 0,9.5 C 20,9.5 33.5,17 33.5,34"
+              fill="none"
+              stroke="var(--bezel-edge)"
+              strokeWidth="1"
+            />
+          </svg>
+          <div className="flex items-center justify-end gap-1 xl:gap-1.5 pt-2.5 pr-4 xl:pr-5 pl-1.5 min-w-0">
           {uniquePresences.length > 0 && (
             <div className="hidden 2xl:flex items-center -space-x-1.5 mr-1">
               {uniquePresences.slice(0, 3).map(p => {
@@ -319,7 +381,7 @@ export const Header: React.FC = () => {
                 return (
                   <div
                     key={p.userId}
-                    className="relative ring-2 ring-white/80 dark:ring-[#1A1D17] rounded-full"
+                    className="relative ring-2 ring-[var(--surface-base)] rounded-full"
                     title={`${p.userName} · ${lsInfo.statusLabel}`}
                   >
                     <Avatar
@@ -343,7 +405,12 @@ export const Header: React.FC = () => {
           )}
 
           {activeTimer && (
-            <div className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/75 dark:bg-[#1E221A]/80 backdrop-blur-md border border-white/70 dark:border-white/10 text-xs shadow-2xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={GLASS_SPRING.snappy}
+              className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full glass-bubble-control text-xs"
+            >
               <span
                 className={`w-2 h-2 rounded-full ${
                   activeTimer.isRunning ? 'bg-emerald-600' : 'bg-amber-500'
@@ -367,170 +434,213 @@ export const Header: React.FC = () => {
               >
                 {activeTimer.isRunning ? 'Pause' : 'Resume'}
               </button>
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.94 }}
+                transition={GLASS_SPRING.micro}
                 onClick={stopAndLogTaskTimer}
                 className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] cursor-pointer"
               >
                 Log
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           )}
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="md"
             onClick={openCommandPalette}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/75 dark:bg-[#1E221A]/80 backdrop-blur-md border border-white/70 dark:border-white/10 hover:border-[var(--border-strong)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer shadow-2xs"
+            className="!px-3 !text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             title="Search & AI Command Palette (⌘K)"
             aria-label="Search workspace"
           >
             <ICON_MAP.SearchIcon className="w-3.5 h-3.5" />
             <span className="hidden xl:inline">Search</span>
             <kbd className="hidden 2xl:inline font-mono text-[10px] text-[var(--text-muted)]">⌘K</kbd>
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <IconButton
+            variant="glass"
+            size="md"
             onClick={() => setIsUtilitiesDrawerOpen(true)}
-            className="inline-flex p-2 rounded-full bg-white/75 dark:bg-[#1E221A]/80 backdrop-blur-md border border-white/70 dark:border-white/10 hover:border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer shadow-2xs"
             title="Quick Utilities (Split Screen, Huddle, Scratchpad)"
             aria-label="Quick Utilities"
           >
             <ICON_MAP.Squares2X2Icon className="w-4 h-4" />
-          </button>
+          </IconButton>
 
-          <button
-            type="button"
+          <IconButton
+            variant="glass"
+            size="md"
             onClick={() => setActiveView('inbox_view')}
-            className="relative p-2 rounded-full bg-white/75 dark:bg-[#1E221A]/80 backdrop-blur-md border border-white/70 dark:border-white/10 hover:border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer shadow-2xs"
+            className="relative"
             title="Notifications & Inbox"
             aria-label="Notifications"
           >
             <ICON_MAP.BellIcon className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-white dark:ring-[#1E221A]" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-[var(--surface-base)]" />
             )}
-          </button>
+          </IconButton>
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="md"
             onClick={handlePrimaryCta}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#191B17] text-white hover:bg-[#2C3028] dark:bg-[#CCF048] dark:text-[#131511] dark:hover:bg-[#D9F66A] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shadow-xs"
+            className="!px-3.5 !text-xs"
+            aria-label={primaryCtaLabel}
+            title={primaryCtaLabel}
           >
             <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
             <span className="hidden xl:inline">{primaryCtaLabel}</span>
-          </button>
+          </Button>
 
           {/* Compact Avatar Menu with Unobstructed Status Icon Overlay */}
           <div className="relative" ref={profileMenuRef}>
             {currentUser && (
-              <button
+              <motion.button
                 ref={avatarButtonRef}
                 type="button"
+                whileTap={{ scale: 0.95 }}
+                transition={GLASS_SPRING.micro}
                 onClick={() => setProfileMenuOpen(prev => !prev)}
                 className="flex items-center gap-1 p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)] cursor-pointer"
                 aria-expanded={isProfileMenuOpen}
                 aria-haspopup="true"
                 title={currentUser.full_name || currentUser.email}
               >
-                <span className="relative inline-flex shrink-0">
-                  <Avatar user={currentUser} size="md" disableHoverCard />
-                  <span className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center leading-none pointer-events-none">
-                    <StatusDynamicIcon status={myStatus} className="w-3 h-3 block" />
+                  <span className="relative inline-flex shrink-0">
+                    <Avatar user={currentUser} size="md" disableHoverCard />
+                    <span className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center leading-none pointer-events-none">
+                      <StatusDynamicIcon status={myAvailabilityStatus} className="w-3 h-3 block" />
+                    </span>
                   </span>
-                </span>
-                <ICON_MAP.ChevronDownIcon
-                  className={`w-3.5 h-3.5 text-[var(--text-secondary)] transition-transform duration-150 ${
-                    isProfileMenuOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-            )}
-
-            <AnimatedPopover
-              isOpen={Boolean(isProfileMenuOpen && currentUser)}
-              direction="down"
-              className="editorial-popover absolute right-0 mt-2 w-64 py-1.5 z-50"
-            >
-              {currentUser && (
-                <ProfileMiniMenu
-                  currentUser={currentUser}
-                  currentOrganizationName={currentOrganization?.name}
-                  normalizedRole={normalizedRole}
-                  myStatus={myStatus}
-                  onStatusChange={handleStatusChange}
-                  darkMode={darkMode}
-                  onToggleDarkMode={toggleDarkMode}
-                  onNavigateProfile={() => setActiveView('profile_settings')}
-                  onManageOrganization={() => openOrganizationModal('join')}
-                  canViewSystemLogs={
-                    normalizedRole === UserRole.OWNER || normalizedRole === UserRole.PROJECT_MANAGER
-                  }
-                  onOpenSystemLogs={() =>
-                    window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'))
-                  }
-                  onOpenShortcuts={openShortcutsModal}
-                  onSignOut={signOut}
-                  onClose={() => setProfileMenuOpen(false)}
-                />
+                  <ICON_MAP.ChevronDownIcon
+                    className={`w-3.5 h-3.5 text-[var(--text-secondary)] transition-transform duration-150 ${
+                      isProfileMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </motion.button>
               )}
-            </AnimatedPopover>
+
+              <AnimatedPopover
+                isOpen={Boolean(isProfileMenuOpen && currentUser)}
+                direction="down"
+                className="editorial-popover absolute right-0 mt-2 w-[276px] py-1.5 z-50"
+              >
+                {currentUser && (
+                  <ProfileMiniMenu
+                    currentUser={currentUser}
+                    currentOrganizationName={currentOrganization?.name}
+                    normalizedRole={normalizedRole}
+                    myStatus={myAvailabilityStatus}
+                    onStatusChange={handleStatusChange}
+                    darkMode={darkMode}
+                    onToggleDarkMode={toggleDarkMode}
+                    accentColor={accentColor}
+                    onSelectAccent={accent => {
+                      setAccentColor(accent);
+                    }}
+                    ambientIntensity={ambientIntensity}
+                    onSelectIntensity={setAmbientIntensity}
+                    autoCyclePalette={autoCyclePalette}
+                    onToggleAutoCyclePalette={() => setAutoCyclePalette(!autoCyclePalette)}
+                    onNavigateProfile={() => setActiveView('profile_settings')}
+                    onManageOrganization={() => openOrganizationModal('join')}
+                    canViewSystemLogs={
+                      normalizedRole === UserRole.OWNER || normalizedRole === UserRole.PROJECT_MANAGER
+                    }
+                    onOpenSystemLogs={() =>
+                      window.dispatchEvent(new CustomEvent('omni_open_system_log_monitor'))
+                    }
+                    onOpenShortcuts={openShortcutsModal}
+                    onSignOut={signOut}
+                    onClose={() => setProfileMenuOpen(false)}
+                  />
+                )}
+              </AnimatedPopover>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Mobile & Tablet Compact Header (< lg) */}
-      <div className="lg:hidden px-4 py-2.5 frosted-shell-panel border-b border-[var(--border-hairline)]">
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              type="button"
+      <div className="lg:hidden px-3 sm:px-4 py-2 frosted-shell-panel border-b border-[var(--border-hairline)]">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <IconButton
+              variant="glass"
+              size="md"
               onClick={toggleMobileSidebar}
-              className="p-2 rounded-full bg-white/80 dark:bg-[#1E221A]/85 border border-[var(--border-hairline)] text-[var(--text-primary)] cursor-pointer shrink-0"
+              className="!text-[var(--text-primary)] shrink-0"
               aria-label="Open navigation menu"
             >
               <ICON_MAP.Bars3Icon className="w-4 h-4" />
-            </button>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
-                {activeProject ? activeProject.name : currentOrganization?.name || 'Workspace'}
-              </p>
-              {activeProject && (
-                <p className="text-[10px] text-[var(--text-muted)] truncate">
-                  {currentOrganization?.name || 'Personal'}
+            </IconButton>
+
+            {contextTitle ? (
+              <div className="min-w-0 flex-1 flex items-center gap-1.5">
+                {activeHeaderTask ? (
+                  <ICON_MAP.CheckCircleIcon className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0" />
+                ) : (
+                  <ICON_MAP.FolderIcon className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0" />
+                )}
+                <p
+                  className="text-xs font-bold text-[var(--text-primary)] truncate min-w-0"
+                  title={contextTitle}
+                >
+                  {contextTitle}
                 </p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div
+                className="inline-flex items-center justify-center h-8 min-w-[34px] max-w-[116px] px-1.5 rounded-xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)] shadow-[inset_0_1px_0_var(--glass-highlight)] text-[var(--accent-text)] overflow-hidden shrink-0"
+                title={orgLogoUrl ? 'Organization brand logo' : 'Workspace'}
+              >
+                {orgLogoUrl ? (
+                  <img
+                    src={orgLogoUrl}
+                    alt="Organization logo"
+                    className="h-5 max-w-[100px] w-auto object-contain"
+                  />
+                ) : (
+                  <DefaultGlassBrandMark className="w-4 h-4" />
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
+            <IconButton
+              variant="glass"
+              size="md"
               onClick={openCommandPalette}
-              className="p-2 rounded-full bg-white/75 dark:bg-[#1E221A]/80 border border-[var(--border-hairline)] text-[var(--text-secondary)] cursor-pointer"
               aria-label="Search workspace"
             >
               <ICON_MAP.SearchIcon className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
+            </IconButton>
+            <IconButton
+              variant="glass"
+              size="md"
               onClick={() => setActiveView('inbox_view')}
-              className="relative p-2 rounded-full bg-white/75 dark:bg-[#1E221A]/80 border border-[var(--border-hairline)] text-[var(--text-secondary)] cursor-pointer"
+              className="relative"
               aria-label="Notifications"
             >
               <ICON_MAP.BellIcon className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-white dark:ring-[#1E221A]" />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-[var(--surface-base)]" />
               )}
-            </button>
-            <button
-              type="button"
+            </IconButton>
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handlePrimaryCta}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] text-xs font-semibold cursor-pointer"
+              className="!px-3"
+              aria-label={primaryCtaLabel}
             >
               <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{primaryCtaLabel}</span>
-            </button>
+            </Button>
           </div>
         </div>
 

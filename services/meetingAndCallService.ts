@@ -1109,7 +1109,32 @@ class MeetingAndCallService {
       reactions: [...this.reactions],
       videoQualityMode: this.videoQualityMode,
       echoGuardEnabled: this.echoGuardEnabled,
+      isEchoGated: this.isEchoGated,
     };
+  }
+
+  private syncEchoGateState() {
+    if (!this.echoGuardEnabled || !this.activeCallId) {
+      this.isEchoGated = false;
+      return;
+    }
+    const now = Date.now();
+    let anyRemoteSpeaking = false;
+    this.remoteSpeakingTimestamps.forEach(ts => {
+      if (now - ts < 320) {
+        anyRemoteSpeaking = true;
+      }
+    });
+    this.isEchoGated = anyRemoteSpeaking && now - this.lastLocalSpeechTimestamp > 220;
+    if (this.localStream && this.localUserId) {
+      const call = this.ongoingCalls.get(this.activeCallId);
+      const me = call?.participants.find(p => p.userId === this.localUserId);
+      if (me && !me.isMicMuted) {
+        this.localStream.getAudioTracks().forEach(t => {
+          t.enabled = !this.isEchoGated;
+        });
+      }
+    }
   }
 
   public getVideoQualityMode(): '1080p' | '720p' {

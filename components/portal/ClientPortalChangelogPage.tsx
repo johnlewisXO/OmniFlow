@@ -206,7 +206,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
       status: 'under_review',
       votes: 1,
       voterIds: [currentUser?.id || 'me'],
-      requesterName: currentUser?.name || 'External Partner',
+      requesterName: currentUser?.full_name || currentUser?.email?.split('@')[0] || 'External Partner',
       requesterOrg: newReqOrg.trim() || 'Enterprise Customer',
       impactScore: newReqImpact,
       commentsCount: 0,
@@ -285,7 +285,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
       case 'shipped':
         return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
       case 'in_progress':
-        return 'bg-[var(--accent-lime)]/25 text-[#4E6126] dark:text-[#CCF048] border-[#97B832]/40';
+        return 'bg-[var(--accent-lime)]/25 text-[var(--accent-text)] border-[var(--border-strong)]';
       case 'planned':
         return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
       default:
@@ -422,7 +422,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
                       onClick={() => handleToggleVote(req.id)}
                       className={`w-14 h-16 rounded-xl border flex flex-col items-center justify-center shrink-0 transition cursor-pointer ${
                         hasVoted
-                          ? 'bg-[var(--accent-lime)]/25 border-[#97B832] text-[#4E6126] dark:text-[#CCF048] font-bold'
+                          ? 'bg-[var(--accent-lime)]/25 border-[var(--border-strong)] text-[var(--accent-text)] font-bold'
                           : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-primary)] hover:border-[var(--border-strong)]'
                       }`}
                     >
@@ -518,7 +518,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
                     >
                       <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
                         <span>{item.requesterOrg}</span>
-                        <span className="font-mono font-bold text-[#4E6126] dark:text-[#CCF048]">
+                        <span className="font-mono font-bold text-[var(--accent-text)]">
                           ▲ {item.votes}
                         </span>
                       </div>
@@ -542,7 +542,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
               <HairlineCard key={entry.id} padding="lg" className="space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="px-3 py-1 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-xs font-mono font-bold">
+                    <span className="px-3 py-1 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-xs font-mono font-bold">
                       {entry.version}
                     </span>
                     <span className="text-xs font-mono text-[var(--text-muted)]">{entry.releaseDate}</span>
@@ -564,7 +564,7 @@ export const ClientPortalChangelogPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                   <div className="p-3.5 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] space-y-1.5">
-                    <div className="text-xs font-bold text-[#4E6126] dark:text-[#CCF048]">
+                    <div className="text-xs font-bold text-[var(--accent-text)]">
                       New Features
                     </div>
                     <ul className="space-y-1 text-xs text-[var(--text-secondary)] list-disc list-inside">

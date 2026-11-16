@@ -562,7 +562,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
           <div className="flex items-center gap-2.5 min-w-0">
             <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="sm" className="flex-shrink-0" />
             <div className="min-w-0">
-              <div className="text-[11px] font-bold text-[#4E6126] dark:text-[#CCF048] truncate">
+              <div className="text-[11px] font-bold text-[var(--accent-text)] truncate">
                 {currentTip.title}
               </div>
               <p className="text-[11px] text-[var(--text-secondary)] truncate">
@@ -607,7 +607,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                 title={st.title}
                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   idx === stepIdx % guideSteps.length
-                    ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                    ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                     : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
@@ -625,7 +625,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                 focusStepField(guideSteps[nextIdx]);
                 setTimeout(updateAuthTargetRect, 40);
               }}
-              className="font-semibold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+              className="font-semibold text-[var(--accent-text)] hover:underline cursor-pointer"
             >
               Next ({(stepIdx % guideSteps.length) + 1}/{guideSteps.length}) →
             </button>
@@ -650,7 +650,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                   border: '2px solid #97B832',
                 }}
               >
-                <div className="absolute -top-7 left-2 px-2.5 py-0.5 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5">
+                <div className="absolute -top-7 left-2 px-2.5 py-0.5 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#CCF048] dark:bg-[#191B17]" />
                   <span>{currentTip.title}</span>
                 </div>
@@ -678,7 +678,7 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
                         }}
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
                           active
-                            ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                            ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                             : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
                         }`}
                       >
@@ -717,12 +717,12 @@ export const AIGuidedAuthAssistant: React.FC<AIGuidedAuthAssistantProps> = ({
               <div className="flex items-start gap-2.5">
                 <div className="relative flex-shrink-0">
                   <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="md" />
-                  <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[9px] font-mono font-bold shadow-xs">
+                  <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-[9px] font-mono font-bold shadow-xs">
                     {(stepIdx % guideSteps.length) + 1}/{guideSteps.length}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent-text)]">
                     Auth Walkthrough · {mode.replace('_', ' ')}
                   </div>
                   <h4 className="text-xs font-bold text-[var(--text-primary)] mt-0.5">
@@ -1168,7 +1168,7 @@ export const AIPlatformGuideModal: React.FC<{
           <div
             className={`absolute ${
               isNearTopEdge ? '-bottom-7 right-0' : '-top-7 left-2'
-            } px-2.5 py-0.5 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5`}
+            } px-2.5 py-0.5 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap flex items-center gap-1.5`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#CCF048] dark:bg-[#191B17]" />
             <span>{currentWaypoint?.label || currentStep.shortTitle}</span>
@@ -1199,7 +1199,7 @@ export const AIPlatformGuideModal: React.FC<{
                   onClick={() => handleSelectStep(idx)}
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
                     active
-                      ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] shadow-xs'
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
                   }`}
                 >
@@ -1237,14 +1237,14 @@ export const AIPlatformGuideModal: React.FC<{
         <div className="flex items-start gap-3">
           <div className="relative flex-shrink-0">
             <AIBotFace mood={isAutoPlaying ? 'speaking' : 'guiding'} size="md" />
-            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#191B17] dark:bg-[#CCF048] text-white dark:text-[#131511] text-[9px] font-mono font-bold shadow-xs">
+            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-[9px] font-mono font-bold shadow-xs">
               {activeStepIndex + 1}/{PLATFORM_TOUR_STEPS.length}
             </span>
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048] truncate">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent-text)] truncate">
                 {currentWaypoint?.label || `Step ${activeStepIndex + 1}`}
               </span>
               <span className="text-[10px] font-mono text-[var(--text-muted)] flex-shrink-0">

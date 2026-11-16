@@ -383,7 +383,7 @@ export const ProjectDocsWikiPage: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-[11px] font-semibold text-[#4E6126] dark:text-[#CCF048]">
+                    <span className="text-[11px] font-semibold text-[var(--accent-text)]">
                       {catInfo.label}
                     </span>
                     <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
@@ -409,7 +409,7 @@ export const ProjectDocsWikiPage: React.FC = () => {
               <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-[var(--border-hairline)]">
                 <div className="flex-1 min-w-[240px]">
                   <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mb-1.5">
-                    <span className="font-semibold text-[#4E6126] dark:text-[#CCF048]">
+                    <span className="font-semibold text-[var(--accent-text)]">
                       {CATEGORY_META[activeDoc.category]?.label}
                     </span>
                     <span>·</span>
@@ -502,7 +502,7 @@ export const ProjectDocsWikiPage: React.FC = () => {
               <div className="p-4 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <ICON_MAP.SparklesIcon className="w-4 h-4 text-[#4E6126] dark:text-[#CCF048]" />
+                    <ICON_MAP.SparklesIcon className="w-4 h-4 text-[var(--accent-text)]" />
                     <span className="text-xs font-bold text-[var(--text-primary)]">
                       Linked Architecture & Brainstorm Whiteboard
                     </span>
@@ -572,7 +572,7 @@ export const ProjectDocsWikiPage: React.FC = () => {
                             type="checkbox"
                             checked={spec.completed}
                             onChange={() => handleToggleSpecItem(spec.id)}
-                            className="w-4 h-4 rounded accent-[#6F8254] dark:accent-[#CCF048] cursor-pointer shrink-0"
+                            className="w-4 h-4 rounded accent-[var(--accent-cta)] cursor-pointer shrink-0"
                           />
                           <div className="min-w-0 flex-1">
                             <p

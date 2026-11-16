@@ -5,7 +5,7 @@ import { ICON_MAP } from '../../constants';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
 import { getUserProfileExtensions } from '../../services/supabaseService';
-import { PageHeader, InlineKpiStrip, HairlineCard, StatusDot } from '../shared/EditorialUI';
+import { InlineKpiStrip, HairlineCard, LiquidBezelSection, StatusDot } from '../shared/EditorialUI';
 import { SlimProgressBar } from '../charts/EditorialCharts';
 
 interface WorklogRecord {
@@ -142,44 +142,53 @@ export const WorkloadCapacityPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col p-4 sm:p-6 space-y-5 max-w-[1440px] mx-auto w-full text-[var(--text-primary)]">
-      <PageHeader
+      <LiquidBezelSection
         eyebrow="Resource Capacity · Focus Telemetry"
         title="Team Workload & Time Tracking"
-        subtitle="Balance weekly engineering capacity across active deliverables and log live focus hours directly to sprint tasks."
-      />
-
-      <InlineKpiStrip
-        items={[
-          {
-            id: 'members',
-            label: 'Active Contributors',
-            value: memberWorkloads.length,
-            sublabel: 'Tracked seats',
-            tone: 'default',
-          },
-          {
-            id: 'utilization',
-            label: 'Avg Capacity Load',
-            value: `${avgUtilization}%`,
-            sublabel: 'Weekly allocation',
-            tone: avgUtilization > 90 ? 'warning' : 'lime',
-          },
-          {
-            id: 'hours',
-            label: 'Focus Hours Logged',
-            value: `${totalLoggedHours}h`,
-            sublabel: `${worklogs.length} sessions`,
-            tone: 'success',
-          },
-          {
-            id: 'overloaded',
-            label: 'Overloaded Members',
-            value: overloadedCount,
-            sublabel: overloadedCount > 0 ? 'Needs rebalancing' : 'Healthy balance',
-            tone: overloadedCount > 0 ? 'danger' : 'success',
-          },
-        ]}
-      />
+        subtitle="Balance weekly capacity and log focus hours to sprint tasks."
+        icon={<ICON_MAP.ClockIcon className="w-4 h-4" />}
+        bezelRight={
+          <StatusDot
+            tone={overloadedCount > 0 ? 'warning' : 'success'}
+            label={overloadedCount > 0 ? `${overloadedCount} overloaded` : 'Team capacity balanced'}
+            className="font-semibold text-[var(--text-primary)]"
+          />
+        }
+        bodyClassName="p-4 sm:p-5"
+      >
+        <InlineKpiStrip
+          items={[
+            {
+              id: 'members',
+              label: 'Active Contributors',
+              value: memberWorkloads.length,
+              sublabel: 'Tracked seats',
+              tone: 'default',
+            },
+            {
+              id: 'utilization',
+              label: 'Avg Capacity Load',
+              value: `${avgUtilization}%`,
+              sublabel: 'Weekly allocation',
+              tone: avgUtilization > 90 ? 'warning' : 'lime',
+            },
+            {
+              id: 'hours',
+              label: 'Focus Hours Logged',
+              value: `${totalLoggedHours}h`,
+              sublabel: `${worklogs.length} sessions`,
+              tone: 'success',
+            },
+            {
+              id: 'overloaded',
+              label: 'Overloaded Members',
+              value: overloadedCount,
+              sublabel: overloadedCount > 0 ? 'Needs rebalancing' : 'Healthy balance',
+              tone: overloadedCount > 0 ? 'danger' : 'success',
+            },
+          ]}
+        />
+      </LiquidBezelSection>
 
       {/* Live Focus Timer Deck */}
       <HairlineCard className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">

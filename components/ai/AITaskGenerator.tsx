@@ -71,7 +71,7 @@ export const AITaskGenerator: React.FC<AITaskGeneratorProps> = ({
         size="sm"
         className="mt-2.5"
       >
-        <SparklesIcon className="w-4 h-4 mr-1.5 text-[#4E6126] dark:text-[#CCF048]" />
+        <SparklesIcon className="w-4 h-4 mr-1.5 text-[var(--accent-text)]" />
         {isAISuggesting ? 'Generating...' : 'Suggest Titles'}
       </Button>
 
@@ -86,7 +86,7 @@ export const AITaskGenerator: React.FC<AITaskGeneratorProps> = ({
                 <button
                   type="button"
                   onClick={() => onSuggestionSelect(title)}
-                  className="w-full text-left p-1.5 text-sm rounded-lg transition-colors text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-surface)] cursor-pointer"
+                  className="w-full text-left p-1.5 text-sm rounded-lg transition-colors text-[var(--accent-text)] hover:bg-[var(--bg-surface)] cursor-pointer"
                 >
                   {title}
                 </button>

@@ -270,7 +270,7 @@ export const Avatar: React.FC<AvatarProps> = ({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1.5">
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                    {displayName} {isMe && <span className="text-[10px] text-[#4E6126] dark:text-[#CCF048]">(You)</span>}
+                    {displayName} {isMe && <span className="text-[10px] text-[var(--accent-text)]">(You)</span>}
                   </h4>
                   <span
                     className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold flex-shrink-0 ${
@@ -296,7 +296,7 @@ export const Avatar: React.FC<AvatarProps> = ({
                 )}
 
                 <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048]">
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[var(--accent-text)]">
                     {roleLabel}
                   </span>
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -341,7 +341,7 @@ export const Avatar: React.FC<AvatarProps> = ({
                     </span>
                   </div>
                   <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <ICON_MAP.ClockIcon className="w-3 h-3 text-[#4E6126] dark:text-[#CCF048] flex-shrink-0" />
+                    <ICON_MAP.ClockIcon className="w-3 h-3 text-[var(--accent-text)] flex-shrink-0" />
                     <span className="truncate">{lastSeenInfo.lastSeenText}</span>
                   </div>
                 </div>
@@ -389,7 +389,7 @@ export const Avatar: React.FC<AvatarProps> = ({
                         }
                       }, 90);
                     }}
-                    className="flex-1 py-1.5 px-2 rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs min-w-0 whitespace-nowrap"
+                    className="flex-1 py-1.5 px-2 rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[var(--accent-lime-hover)] dark:text-[#131511] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs min-w-0 whitespace-nowrap"
                     title={isSameOrg ? `Direct message ${displayName}` : 'Invite to Organization'}
                   >
                     <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5 shrink-0" />
@@ -445,12 +445,12 @@ export const Avatar: React.FC<AvatarProps> = ({
                     }}
                     className={`py-1.5 px-2.5 rounded-full border text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                       darkMode
-                        ? 'border-[#2B3026] bg-[#1D2118] hover:bg-[#24291F] hover:border-[#97B832]/60 hover:text-[#CCF048] text-[#F2F3EE]'
-                        : 'border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] hover:border-[#97B832] hover:text-[#4E6126] text-[var(--text-primary)]'
+                        ? 'border-[#2B3026] bg-[#1D2118] hover:bg-[#24291F] hover:border-[var(--border-strong)] hover:text-[#CCF048] text-[#F2F3EE]'
+                        : 'border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] hover:border-[var(--border-strong)] hover:text-[#4E6126] text-[var(--text-primary)]'
                     }`}
                     title={`Video call ${displayName} (preview devices first)`}
                   >
-                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5 text-[#4E6126] dark:text-[#CCF048]" />
+                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                     <span>Video</span>
                   </button>
                 </div>

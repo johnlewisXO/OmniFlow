@@ -29,7 +29,7 @@ export const MyTasksWidget: React.FC = () => {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
-            <ClipboardListIcon className="w-5 h-5 mr-2.5 text-[#4E6126] dark:text-[#CCF048]" />
+            <ClipboardListIcon className="w-5 h-5 mr-2.5 text-[var(--accent-text)]" />
             <h2 className="text-lg font-bold tracking-tight text-[var(--text-primary)]">My Upcoming Tasks</h2>
           </div>
           <span className="text-xs font-mono tabular-nums text-[var(--text-muted)]">
@@ -66,7 +66,7 @@ export const MyTasksWidget: React.FC = () => {
                     {task.title}
                   </span>
                   {task.dueDate && (
-                    <span className="text-[11px] font-mono tabular-nums font-medium text-[#4E6126] dark:text-[#CCF048] flex-shrink-0">
+                    <span className="text-[11px] font-mono tabular-nums font-medium text-[var(--accent-text)] flex-shrink-0">
                       {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </span>
                   )}
@@ -78,7 +78,7 @@ export const MyTasksWidget: React.FC = () => {
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                       task.status === 'in_progress'
-                        ? 'bg-[var(--accent-lime)]/25 text-[#4E6126] dark:text-[#CCF048]'
+                        ? 'bg-[var(--accent-lime)]/25 text-[var(--accent-text)]'
                         : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-hairline)]'
                     }`}
                   >

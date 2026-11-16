@@ -360,12 +360,14 @@ const buildUserFlowTemplate = (projectId?: string): WhiteboardBoard => ({
 export interface WhiteboardStudioPageProps {
   compactMode?: boolean;
   projectIdOverride?: string;
+  embeddedBoardId?: string;
   onCloseCompact?: () => void;
 }
 
 export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
   compactMode = false,
   projectIdOverride,
+  embeddedBoardId,
   onCloseCompact,
 }) => {
   const {
@@ -385,6 +387,22 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
     projectIdOverride || activeProject?.id || projects[0]?.id || 'default'
   );
 
+  const isSpacePressedRef = useRef(false);
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.code === 'Space') isSpacePressedRef.current = true;
+    };
+    const onKeyUp = (ev: KeyboardEvent) => {
+      if (ev.code === 'Space') isSpacePressedRef.current = false;
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
+
   useEffect(() => {
     if (projectIdOverride) {
       setSelectedProjectId(projectIdOverride);
@@ -394,10 +412,11 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
   }, [projectIdOverride, activeProject?.id, selectedProjectId]);
 
   const scopeKey = useMemo(() => {
+    if (embeddedBoardId) return `embed__${embeddedBoardId}`;
     const orgPart = currentOrganization?.id || currentUser?.organization_id || 'global';
     const projPart = selectedProjectId || 'default';
     return `${orgPart}__${projPart}`;
-  }, [currentOrganization?.id, currentUser?.organization_id, selectedProjectId]);
+  }, [embeddedBoardId, currentOrganization?.id, currentUser?.organization_id, selectedProjectId]);
 
   const localStorageKey = `omni_whiteboard_v3_${scopeKey}`;
 
@@ -912,7 +931,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
 
     const pt = screenToCanvas(e.clientX, e.clientY);
 
-    if (activeTool === 'pan' || e.button === 1 || e.spaceKey) {
+    if (activeTool === 'pan' || e.button === 1 || isSpacePressedRef.current) {
       setIsPanning(true);
       setPanOrigin({ x: e.clientX - pan.x, y: e.clientY - pan.y });
       return;
@@ -951,7 +970,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           action: 'upsert_comment',
           comment: newThread,
           actorId: currentUser.id,
-          actorName,
+          actorName: authorName,
         });
       }
       setActiveCommentId(newThread.id);
@@ -1048,7 +1067,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           action: 'upsert_node',
           node: newNode,
           actorId: currentUser.id,
-          actorName,
+          actorName: authorName,
         });
       }
 
@@ -1441,7 +1460,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
         tags: ['whiteboard', node.type],
       });
 
-      if (created?.id) {
+      if (created && 'id' in created && created.id) {
         const updatedNode: WhiteboardNode = {
           ...node,
           linkedTaskId: created.id,
@@ -1506,7 +1525,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
         action: 'upsert_comment',
         comment: updatedThread,
         actorId: currentUser.id,
-        actorName,
+        actorName: authorName,
       });
     }
   };
@@ -1561,13 +1580,11 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
     soundService.play('task_complete');
     const cardSummary = `🎨 **Shared Live Whiteboard: ${activeBoard.name}** (v${boardVersion})\n• **${activeBoard.nodes.length}** canvas nodes · **${activeBoard.connectors.length}** connectors · **${(activeBoard.comments || []).length}** comment threads\n${shareNote.trim() ? `• Note: "${shareNote.trim()}"\n` : ''}👉 Open **Whiteboard Studio** in the sidebar to view and co-edit in real time!`;
 
-    chatService.sendMessage(
-      shareChannelId,
-      cardSummary,
-      currentUser,
-      undefined,
-      false
-    );
+    await chatService.sendMessage({
+      sender: currentUser,
+      channelId: shareChannelId,
+      content: cardSummary,
+    });
     setShowShareModal(false);
     setShareNote('');
     addToast(
@@ -1840,7 +1857,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           {/* Active Collaborators Stack with 1-Click Follow Mode */}
           <div className="flex items-center -space-x-1.5 mr-1">
             <div
-              className="w-7 h-7 rounded-full ring-2 ring-[#97B832] bg-[#191B17] text-[#CCF048] text-[11px] font-bold flex items-center justify-center"
+              className="w-7 h-7 rounded-full ring-2 ring-[var(--accent-lime)] bg-[#191B17] text-[#CCF048] text-[11px] font-bold flex items-center justify-center"
               title={`You (${currentUser?.full_name || 'Active'})`}
             >
               {(currentUser?.full_name || currentUser?.email || 'U').charAt(0).toUpperCase()}
@@ -1881,10 +1898,8 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
               onClick={() => setShowEmoteMenu(prev => !prev)}
               className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
                 showEmoteMenu || isCursorChatOpen
-                  ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511]'
-                  : darkMode
-                    ? 'hover:bg-slate-800 text-slate-300'
-                    : 'hover:bg-slate-100 text-slate-700'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
+                  : 'hover:bg-[var(--surface-nested-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
               title="Cursor Chat (/), Stamps & Emotes (E)"
             >
@@ -2012,7 +2027,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
 
       {/* FOLLOWING SPOTLIGHT BANNER */}
       {followingUserId && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#CCF048] text-[#131511] text-xs font-bold shadow-lg">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-1.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] text-xs font-bold shadow-lg">
           <span>
             Following {remoteCursors[followingUserId]?.userName || 'Teammate'}'s live viewport
           </span>
@@ -2053,7 +2068,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                 }}
                 style={{ backgroundColor: c.hex }}
                 className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
-                  selectedNode.color === c.hex ? 'scale-125 ring-2 ring-offset-1 ring-[#97B832]' : ' opacity-80 hover:opacity-100'
+                  selectedNode.color === c.hex ? 'scale-125 ring-2 ring-offset-1 ring-[var(--accent-lime)]' : ' opacity-80 hover:opacity-100'
                 }`}
                 title={c.label}
               />
@@ -2397,7 +2412,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                           });
                         }}
                         title="Drag to connect to another node"
-                        className={`absolute ${posClass} w-3.5 h-3.5 rounded-full bg-white dark:bg-[#1A1D17] border-2 border-[#97B832] opacity-0 group-hover:opacity-100 ${
+                        className={`absolute ${posClass} w-3.5 h-3.5 rounded-full bg-white dark:bg-[#1A1D17] border-2 border-[var(--border-strong)] opacity-0 group-hover:opacity-100 ${
                           isSelected ? 'opacity-100' : ''
                         } hover:scale-125 transition-all cursor-crosshair z-30`}
                       />
@@ -2709,7 +2724,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
               : 'bg-white/95 border-slate-200 text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-[#97B832] dark:bg-[#CCF048]" />
+          <span className="w-2 h-2 rounded-full bg-[var(--accent-lime)]" />
           <span className="font-bold truncate max-w-[140px]">
             {activeBoard?.name?.split('·')[0] || 'Page 1'}
           </span>
@@ -2729,7 +2744,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
               <button
                 type="button"
                 onClick={handleCreateNewBoardPage}
-                className="text-[11px] font-bold text-[#4E6126] dark:text-[#CCF048] hover:underline cursor-pointer"
+                className="text-[11px] font-bold text-[var(--accent-text)] hover:underline cursor-pointer"
               >
                 + New Page
               </button>
@@ -2773,7 +2788,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                     }}
                     className={`w-full flex items-center justify-between px-2.5 py-1 rounded-lg text-xs text-left cursor-pointer ${
                       selectedNodeId === n.id
-                        ? 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] font-bold'
+                        ? 'bg-[var(--bg-sage)] text-[var(--accent-text)] font-bold'
                         : 'hover:bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)]'
                     }`}
                   >
@@ -2796,7 +2811,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             onClick={() => setActiveTool('select')}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTool === 'select'
-                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Select & Move (V)"
@@ -2808,7 +2823,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             onClick={() => setActiveTool('pan')}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTool === 'pan'
-                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Pan Canvas (H)"
@@ -2823,7 +2838,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('pen')}
           className={`px-3 h-9 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
             activeTool === 'pen'
-              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Freehand Marker / Pen (P)"
@@ -2839,7 +2854,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           className={`px-3 h-9 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
             activeTool === 'sticky'
               ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] shadow-md scale-105'
-              : 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--bg-sage-hover)]'
+              : 'bg-[var(--bg-sage)] text-[var(--accent-text)] hover:bg-[var(--bg-sage-hover)]'
           }`}
           title="Add Sticky Note (S)"
         >
@@ -2854,7 +2869,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             onClick={() => setShowShapeMenu(prev => !prev)}
             className={`px-3 h-9 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
               ['rectangle', 'diamond', 'circle', 'frame'].includes(activeTool)
-                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Shapes & Frames"
@@ -2886,7 +2901,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                   }}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-left cursor-pointer ${
                     activeTool === s.id
-                      ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511]'
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
                       : 'hover:bg-[var(--bg-sage)]'
                   }`}
                 >
@@ -2904,7 +2919,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('text')}
           className={`w-9 h-9 rounded-xl font-serif font-extrabold text-sm flex items-center justify-center transition-all cursor-pointer ${
             activeTool === 'text'
-              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Text Label (T)"
@@ -2918,7 +2933,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('connector')}
           className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
             activeTool === 'connector'
-              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Connect Nodes (L or drag node edge handles)"
@@ -2936,7 +2951,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
             }}
             className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
               activeTool === 'stamp'
-                ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
             }`}
             title="Stamp Sticker on Card (E)"
@@ -2974,7 +2989,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           onClick={() => setActiveTool('comment')}
           className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
             activeTool === 'comment'
-              ? 'bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] shadow-md'
+              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-md'
               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
           }`}
           title="Pin Comment Thread on Canvas (C)"
@@ -3049,7 +3064,7 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
                   <button
                     type="button"
                     onClick={() => handleRestoreSnapshot(snap)}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] hover:bg-[var(--accent-lime)] hover:text-[#131511] cursor-pointer shrink-0 transition-colors"
+                    className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--bg-sage)] text-[var(--accent-text)] hover:bg-[var(--accent-lime)] hover:text-[#131511] cursor-pointer shrink-0 transition-colors"
                   >
                     Restore
                   </button>

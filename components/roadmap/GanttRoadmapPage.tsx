@@ -752,7 +752,7 @@ export const GanttRoadmapPage: React.FC = () => {
                         ? 'bg-[#BE123C] text-white border-[#9F1239]'
                         : item.task.status === TaskStatus.IN_PROGRESS
                         ? 'bg-[#6F8254] text-white border-[#5A6B43]'
-                        : 'bg-[#191B17] dark:bg-[#3A4032] text-white border-transparent';
+                        : 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent';
 
                     return (
                       <div

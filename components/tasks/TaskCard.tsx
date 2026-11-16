@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { Task, TaskPriority, TaskStatus, UserPresence } from '../../types';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Avatar } from '../shared/Avatar';
@@ -6,6 +7,7 @@ import { PRIORITY_STYLES, ICON_MAP } from '../../constants';
 import { collabService } from '../../services/collabService';
 import soundService from '../../services/soundService';
 import { SlimProgressBar } from '../charts/EditorialCharts';
+import { GLASS_SPRING } from '../shared/LiquidGlass';
 
 interface TaskCardProps {
   task: Task;
@@ -31,9 +33,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     currentUser,
     activeTimer,
     startTaskTimer,
+    requestConfirm,
   } = useAppStore();
 
   const [recentRemoteBroadcast, setRecentRemoteBroadcast] = useState<{ actorName: string; summary: string } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const handleRemoteUpdate = (e: CustomEvent) => {
@@ -112,9 +116,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     openEditTaskModal(task.id);
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete task: "${task.title}"?`)) {
+    const ok = await requestConfirm({
+      title: 'Delete Task',
+      message: 'This removes the task from the project board. You can restore it anytime from the Undo toast.',
+      itemPreview: task.title,
+      confirmLabel: 'Delete Task',
+      tone: 'danger',
+    });
+    if (ok) {
       deleteTaskAction(task.id);
     }
   };
@@ -133,20 +144,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     soundService.play('drag_pickup');
+    setIsDragging(true);
     e.dataTransfer.setData('taskId', task.id);
     e.dataTransfer.setData('originalStatus', task.status);
     e.dataTransfer.setData('originalPosition', task.position.toString());
     e.dataTransfer.effectAllowed = 'move';
 
-    const targetElement = e.target as HTMLDivElement;
-    targetElement.classList.add('opacity-50', 'scale-[1.02]');
+    const targetElement = e.currentTarget as HTMLDivElement;
 
     const dragImage = targetElement.cloneNode(true) as HTMLElement;
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
     dragImage.style.width = targetElement.offsetWidth + 'px';
     dragImage.style.height = targetElement.offsetHeight + 'px';
-    dragImage.style.transform = 'rotate(2deg) scale(1.02)';
+    dragImage.style.transform = 'rotate(1.8deg) scale(1.03)';
+    dragImage.style.boxShadow = '0 22px 48px -12px rgba(0, 0, 0, 0.35)';
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, targetElement.offsetWidth / 2, 20);
 
@@ -157,8 +169,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }, 0);
   };
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    (e.target as HTMLDivElement).classList.remove('opacity-50', 'scale-[1.02]');
+  const handleDragEnd = () => {
+    setIsDragging(false);
   };
 
   const priorityDotColor =
@@ -171,18 +183,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       : 'bg-[var(--text-muted)]';
 
   return (
-    <div
-      data-task-id={task.id}
-      className={`editorial-surface p-3.5 cursor-grab active:cursor-grabbing transition-all duration-150 ease-out hover:border-[var(--border-strong)] relative group ${
-        isSelected ? 'ring-2 ring-[var(--text-primary)] border-[var(--text-primary)]' : ''
-      } ${isFocused && !isSelected ? 'ring-2 ring-[var(--accent-lime)]' : ''} ${
-        isHighlighted ? 'ring-2 ring-emerald-500/70' : ''
-      } ${isBlocked ? 'border-amber-500/50' : ''}`}
-      onClick={handleCardClick}
-      draggable={true}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+    <motion.div
+      layout="position"
+      transition={GLASS_SPRING.micro}
     >
+      <div
+        data-task-id={task.id}
+        className={`editorial-surface glass-interactive-card p-3.5 cursor-grab active:cursor-grabbing hover:border-[var(--border-strong)] relative group ${
+          isDragging ? 'glass-drag-source' : ''
+        } ${isSelected ? 'ring-2 ring-[var(--text-primary)] border-[var(--text-primary)]' : ''} ${
+          isFocused && !isSelected ? 'ring-2 ring-[var(--accent-lime)]' : ''
+        } ${isHighlighted ? 'ring-2 ring-emerald-500/70' : ''} ${
+          isBlocked ? 'border-amber-500/50' : ''
+        }`}
+        onClick={handleCardClick}
+        draggable={true}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
       {/* Top Meta Line + Quick Hover Actions */}
       <div className="flex items-center justify-between gap-2 mb-2 min-h-[18px]">
         <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] min-w-0 flex-wrap">
@@ -331,6 +349,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           ) : null}
         </div>
       </div>
-    </div>
+      </div>
+    </motion.div>
   );
 };

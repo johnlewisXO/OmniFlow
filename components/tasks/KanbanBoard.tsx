@@ -5,12 +5,12 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { TASK_STATUS_COLUMNS, ICON_MAP } from '../../constants';
 import { GanttTimelineView } from './GanttTimelineView';
 import { TaskListView } from './TaskListView';
-import { SprintPlanningView } from '../sprints/SprintPlanningView';
 import { AutomatedTriggersModal } from './AutomatedTriggersModal';
 import { Button } from '../shared/Button';
+import { Modal } from '../shared/Modal';
 import soundService from '../../services/soundService';
-import { SegmentedTabs, HairlineCard } from '../shared/EditorialUI';
-import { RadialProgressRing } from '../charts/EditorialCharts';
+import { SegmentedTabs, HairlineCard, FluidCollapse, AnimatedViewStage, FloatingGlassDock } from '../shared/EditorialUI';
+import { LiquidMetricProgress } from '../charts/EditorialCharts';
 
 type SwimlaneType = 'none' | 'assignee' | 'priority';
 
@@ -35,7 +35,7 @@ export const KanbanBoard: React.FC = () => {
     addToast,
   } = useAppStore();
 
-  const [viewMode, setViewMode] = useState<'kanban' | 'sprints' | 'list' | 'gantt'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'gantt'>('kanban');
   const [isAutomationsOpen, setIsAutomationsOpen] = useState(false);
   const [isWipModalOpen, setIsWipModalOpen] = useState(false);
   const [mobileActiveColumn, setMobileActiveColumn] = useState<string>('todo');
@@ -405,7 +405,6 @@ export const KanbanBoard: React.FC = () => {
             onChange={setViewMode}
             options={[
               { id: 'kanban', label: 'Board', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
-              { id: 'sprints', label: 'Sprints', icon: <ICON_MAP.RocketLaunchIcon className="w-3.5 h-3.5" /> },
               { id: 'list', label: 'List', icon: <ICON_MAP.ClipboardListIcon className="w-3.5 h-3.5" /> },
               { id: 'gantt', label: 'Timeline', icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" /> },
             ]}
@@ -434,7 +433,7 @@ export const KanbanBoard: React.FC = () => {
                 <div
                   key={collab.userId}
                   title={`${collab.userName} · Online`}
-                  className="relative w-6 h-6 rounded-full ring-2 ring-[var(--bg-canvas)] overflow-hidden flex items-center justify-center text-[9px] font-bold bg-[#191B17] text-white"
+                  className="relative w-6 h-6 rounded-full ring-2 ring-[var(--bg-canvas)] overflow-hidden flex items-center justify-center text-[9px] font-bold bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]"
                 >
                   {collab.userAvatar ? (
                     <img src={collab.userAvatar} alt={collab.userName} className="w-full h-full object-cover" />
@@ -451,7 +450,7 @@ export const KanbanBoard: React.FC = () => {
             title={`${stats.done} of ${stats.total} tasks completed · ${stats.completedStoryPoints}/${stats.totalStoryPoints} points`}
             className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-xs"
           >
-            <RadialProgressRing value={stats.progressPercent} size={22} strokeWidth={3} tone="lime" showLabel={false} />
+            <LiquidMetricProgress value={stats.progressPercent} tone="lime" compact className="!w-14" />
             <span className="font-mono font-semibold tabular-nums text-[var(--text-primary)]">
               {stats.progressPercent}%
             </span>
@@ -518,9 +517,8 @@ export const KanbanBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* Unified Filter Bar (hidden in Sprints view which has its own Scope & Backlog controls) */}
-      {viewMode !== 'sprints' && (
-        <div className="editorial-surface px-3 py-2 flex items-center gap-2 flex-wrap text-xs">
+      {/* Unified Filter Bar */}
+      <div className="editorial-surface px-3 py-2 flex items-center gap-2 flex-wrap text-xs">
           <div className="relative flex-1 min-w-[180px] lg:max-w-xs flex items-center">
             <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
             <input
@@ -547,7 +545,7 @@ export const KanbanBoard: React.FC = () => {
             onClick={() => setIsFilterDrawerOpen(prev => !prev)}
             className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full font-semibold border cursor-pointer ${
               isFilterDrawerOpen || activeFilterCount > 0
-                ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent'
                 : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
             }`}
           >
@@ -567,7 +565,7 @@ export const KanbanBoard: React.FC = () => {
               onClick={() => setFilterMyTasks(!filterMyTasks)}
               className={`px-3 py-1 rounded-full font-medium border transition-colors cursor-pointer ${
                 filterMyTasks
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent'
                   : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -579,7 +577,7 @@ export const KanbanBoard: React.FC = () => {
               onClick={() => setFilterUnassigned(!filterUnassigned)}
               className={`px-3 py-1 rounded-full font-medium border transition-colors cursor-pointer ${
                 filterUnassigned
-                  ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] border-transparent'
+                  ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent'
                   : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -643,233 +641,237 @@ export const KanbanBoard: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
-      {/* Main Content */}
-      {viewMode === 'sprints' ? (
-        <SprintPlanningView />
-      ) : viewMode === 'kanban' ? (
-        swimlaneMode === 'none' ? (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Mobile Lane Switcher */}
-            <div className="md:hidden mb-3">
-              <SegmentedTabs
-                size="sm"
-                value={mobileActiveColumn}
-                onChange={setMobileActiveColumn}
-                options={TASK_STATUS_COLUMNS.map(col => ({
-                  id: col.id,
-                  label: col.title,
-                  count: (hasActiveFilters ? filteredProjectTasks : rawProjectTasks).filter(t => t.status === col.id).length,
-                }))}
-              />
-            </div>
+      {/* Main Content with Animated View Mode Transition */}
+      <AnimatedViewStage viewKey={`${viewMode}-${swimlaneMode}`} className="flex-1 flex flex-col min-h-0">
+        {viewMode === 'kanban' ? (
+          swimlaneMode === 'none' ? (
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Mobile Lane Switcher */}
+              <div className="md:hidden mb-3">
+                <SegmentedTabs
+                  size="sm"
+                  value={mobileActiveColumn}
+                  onChange={setMobileActiveColumn}
+                  options={TASK_STATUS_COLUMNS.map(col => ({
+                    id: col.id,
+                    label: col.title,
+                    count: (hasActiveFilters ? filteredProjectTasks : rawProjectTasks).filter(t => t.status === col.id).length,
+                  }))}
+                />
+              </div>
 
-            <div className="md:hidden flex-1 flex flex-col pb-4">
-              {TASK_STATUS_COLUMNS.filter(col => col.id === mobileActiveColumn).map(column => (
-                <div key={column.id} className="w-full flex-1 flex flex-col [&>div]:!w-full">
+              <div className="md:hidden flex-1 flex flex-col pb-4">
+                {TASK_STATUS_COLUMNS.filter(col => col.id === mobileActiveColumn).map(column => (
+                  <div key={column.id} className="w-full flex-1 flex flex-col [&>div]:!w-full">
+                    <KanbanColumn
+                      status={column.id as TaskStatus}
+                      title={column.title}
+                      colorClass={column.color}
+                      tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
+                      wipLimit={wipLimits[column.id]}
+                      layoutMode="grid"
+                      selectedTaskIds={selectedTaskIds}
+                      focusedTaskId={focusedTaskId}
+                      onToggleSelectTask={handleToggleSelectTask}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div
+                className={
+                  tabletLayoutMode === 'grid'
+                    ? 'hidden md:grid md:grid-cols-2 md:gap-4 xl:flex xl:items-start xl:gap-4 xl:overflow-x-auto pb-4 scrollbar-thin'
+                    : 'hidden md:flex flex-1 items-start space-x-3 md:space-x-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-thin'
+                }
+              >
+                {TASK_STATUS_COLUMNS.map(column => (
                   <KanbanColumn
+                    key={column.id}
                     status={column.id as TaskStatus}
                     title={column.title}
                     colorClass={column.color}
                     tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
                     wipLimit={wipLimits[column.id]}
-                    layoutMode="grid"
+                    layoutMode={tabletLayoutMode}
                     selectedTaskIds={selectedTaskIds}
                     focusedTaskId={focusedTaskId}
                     onToggleSelectTask={handleToggleSelectTask}
                   />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-
-            <div
-              className={
-                tabletLayoutMode === 'grid'
-                  ? 'hidden md:grid md:grid-cols-2 md:gap-4 xl:flex xl:items-start xl:gap-4 xl:overflow-x-auto pb-4 scrollbar-thin'
-                  : 'hidden md:flex flex-1 items-start space-x-3 md:space-x-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-thin'
-              }
-            >
-              {TASK_STATUS_COLUMNS.map(column => (
-                <KanbanColumn
-                  key={column.id}
-                  status={column.id as TaskStatus}
-                  title={column.title}
-                  colorClass={column.color}
-                  tasksOverride={hasActiveFilters ? filteredProjectTasks : undefined}
-                  wipLimit={wipLimits[column.id]}
-                  layoutMode={tabletLayoutMode}
-                  selectedTaskIds={selectedTaskIds}
-                  focusedTaskId={focusedTaskId}
-                  onToggleSelectTask={handleToggleSelectTask}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col gap-4 pb-4">
-            {swimlanes.map(swimlane => {
-              const isCollapsed = collapsedSwimlanes[swimlane.id];
-              return (
-                <HairlineCard key={swimlane.id} padding="none" className="overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleSwimlane(swimlane.id)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xs text-[var(--text-muted)]">{isCollapsed ? '▶' : '▼'}</span>
-                      {swimlane.avatar ? (
-                        <img src={swimlane.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                      ) : (
-                        <span className="w-5 h-5 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] flex items-center justify-center text-[10px] font-bold">
-                          {swimlane.title.charAt(0)}
-                        </span>
-                      )}
-                      <h3 className="font-bold text-xs sm:text-sm text-[var(--text-primary)]">{swimlane.title}</h3>
-                      <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
-                        {swimlane.tasks.length} tasks
-                      </span>
-                    </div>
-                  </button>
-
-                  {!isCollapsed && (
-                    <div className="p-3 pt-0 flex gap-3 overflow-x-auto scrollbar-thin">
-                      {TASK_STATUS_COLUMNS.map(column => (
-                        <KanbanColumn
-                          key={`${swimlane.id}-${column.id}`}
-                          status={column.id as TaskStatus}
-                          title={column.title}
-                          colorClass={column.color}
-                          tasksOverride={swimlane.tasks}
-                          wipLimit={wipLimits[column.id]}
-                          selectedTaskIds={selectedTaskIds}
-                          focusedTaskId={focusedTaskId}
-                          onToggleSelectTask={handleToggleSelectTask}
+          ) : (
+            <div className="flex-1 flex flex-col gap-4 pb-4">
+              {swimlanes.map(swimlane => {
+                const isCollapsed = Boolean(collapsedSwimlanes[swimlane.id]);
+                return (
+                  <HairlineCard key={swimlane.id} padding="none" className="overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleSwimlane(swimlane.id)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ICON_MAP.ChevronDownIcon
+                          className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform duration-200 ${
+                            isCollapsed ? '-rotate-90' : ''
+                          }`}
                         />
-                      ))}
-                    </div>
-                  )}
-                </HairlineCard>
-              );
-            })}
-          </div>
-        )
-      ) : viewMode === 'list' ? (
-        <TaskListView
-          tasks={filteredProjectTasks}
-          users={users}
-          darkMode={darkMode}
-          onTaskClick={openViewTaskModal}
-          selectedTaskIds={selectedTaskIds}
-          focusedTaskId={focusedTaskId}
-          onToggleSelectTask={handleToggleSelectTask}
-        />
-      ) : (
-        <GanttTimelineView
-          tasks={filteredProjectTasks}
-          users={users}
-          darkMode={darkMode}
-          onTaskClick={openViewTaskModal}
-        />
-      )}
+                        {swimlane.avatar ? (
+                          <img src={swimlane.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        ) : (
+                          <span className="w-5 h-5 rounded-full bg-[var(--bg-sage)] text-[var(--text-primary)] flex items-center justify-center text-[10px] font-bold">
+                            {swimlane.title.charAt(0)}
+                          </span>
+                        )}
+                        <h3 className="font-bold text-xs sm:text-sm text-[var(--text-primary)]">{swimlane.title}</h3>
+                        <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
+                          {swimlane.tasks.length} tasks
+                        </span>
+                      </div>
+                    </button>
 
-      {/* Multi-Select Floating Bulk Action Bar */}
-      {selectedTaskIds.length > 0 && (
-        <div className="fixed bottom-16 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[94vw]">
-          <div className="editorial-popover flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-2.5 rounded-full shadow-2xl">
-            <div className="flex items-center gap-2 pr-2 border-r border-[var(--border-hairline)]">
-              <span className="px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] font-mono font-bold text-xs tabular-nums">
-                {selectedTaskIds.length}
-              </span>
-              <span className="text-xs font-semibold text-[var(--text-primary)] whitespace-nowrap">Selected</span>
+                    <FluidCollapse isOpen={!isCollapsed}>
+                      <div className="p-3 pt-0 flex gap-3 overflow-x-auto scrollbar-thin">
+                        {TASK_STATUS_COLUMNS.map(column => (
+                          <KanbanColumn
+                            key={`${swimlane.id}-${column.id}`}
+                            status={column.id as TaskStatus}
+                            title={column.title}
+                            colorClass={column.color}
+                            tasksOverride={swimlane.tasks}
+                            wipLimit={wipLimits[column.id]}
+                            selectedTaskIds={selectedTaskIds}
+                            focusedTaskId={focusedTaskId}
+                            onToggleSelectTask={handleToggleSelectTask}
+                          />
+                        ))}
+                      </div>
+                    </FluidCollapse>
+                  </HairlineCard>
+                );
+              })}
             </div>
+          )
+        ) : viewMode === 'list' ? (
+          <TaskListView
+            tasks={filteredProjectTasks}
+            users={users}
+            darkMode={darkMode}
+            onTaskClick={openViewTaskModal}
+            selectedTaskIds={selectedTaskIds}
+            focusedTaskId={focusedTaskId}
+            onToggleSelectTask={handleToggleSelectTask}
+          />
+        ) : (
+          <GanttTimelineView
+            tasks={filteredProjectTasks}
+            users={users}
+            darkMode={darkMode}
+            onTaskClick={openViewTaskModal}
+          />
+        )}
+      </AnimatedViewStage>
 
-            <select
-              defaultValue=""
-              onChange={async e => {
-                const val = e.target.value as TaskStatus;
-                if (!val) return;
-                e.target.value = '';
-                await bulkUpdateTasks(selectedTaskIds, { status: val });
-                clearSelectedTasks();
-              }}
-              className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
-            >
-              <option value="" disabled>
-                Status...
-              </option>
-              <option value={TaskStatus.TODO}>To Do</option>
-              <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
-              <option value={TaskStatus.REVIEW}>In Review</option>
-              <option value={TaskStatus.DONE}>Done</option>
-            </select>
-
-            <select
-              defaultValue=""
-              onChange={async e => {
-                const val = e.target.value as TaskPriority;
-                if (!val) return;
-                e.target.value = '';
-                await bulkUpdateTasks(selectedTaskIds, { priority: val });
-                clearSelectedTasks();
-              }}
-              className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
-            >
-              <option value="" disabled>
-                Priority...
-              </option>
-              <option value={TaskPriority.CRITICAL}>Critical</option>
-              <option value={TaskPriority.HIGH}>High</option>
-              <option value={TaskPriority.MEDIUM}>Medium</option>
-              <option value={TaskPriority.LOW}>Low</option>
-            </select>
-
-            <select
-              defaultValue=""
-              onChange={async e => {
-                const val = e.target.value;
-                if (!val) return;
-                e.target.value = '';
-                const assigneeVal = val === 'unassigned' ? undefined : val;
-                await bulkUpdateTasks(selectedTaskIds, { assignee_id: assigneeVal });
-                clearSelectedTasks();
-              }}
-              className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
-            >
-              <option value="" disabled>
-                Assign...
-              </option>
-              <option value="unassigned">Unassigned</option>
-              {users.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name || u.email}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={async () => {
-                await bulkDeleteTasks(selectedTaskIds);
-                clearSelectedTasks();
-              }}
-            >
-              Delete ({selectedTaskIds.length})
-            </Button>
-
-            <button
-              type="button"
-              onClick={clearSelectedTasks}
-              className="px-2 py-1 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
-            >
-              Esc
-            </button>
+      {/* Multi-Select Floating Liquid Glass Bulk Action Dock */}
+      <FloatingGlassDock
+        isVisible={selectedTaskIds.length > 0}
+        className="fixed bottom-16 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[94vw]"
+      >
+        <div className="editorial-popover flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-2.5 rounded-full shadow-2xl">
+          <div className="flex items-center gap-2 pr-2 border-r border-[var(--border-hairline)]">
+            <span className="px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] font-mono font-bold text-xs tabular-nums">
+              {selectedTaskIds.length}
+            </span>
+            <span className="text-xs font-semibold text-[var(--text-primary)] whitespace-nowrap">Selected</span>
           </div>
+
+          <select
+            defaultValue=""
+            onChange={async e => {
+              const val = e.target.value as TaskStatus;
+              if (!val) return;
+              e.target.value = '';
+              await bulkUpdateTasks(selectedTaskIds, { status: val });
+              clearSelectedTasks();
+            }}
+            className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
+          >
+            <option value="" disabled>
+              Status...
+            </option>
+            <option value={TaskStatus.TODO}>To Do</option>
+            <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+            <option value={TaskStatus.REVIEW}>In Review</option>
+            <option value={TaskStatus.DONE}>Done</option>
+          </select>
+
+          <select
+            defaultValue=""
+            onChange={async e => {
+              const val = e.target.value as TaskPriority;
+              if (!val) return;
+              e.target.value = '';
+              await bulkUpdateTasks(selectedTaskIds, { priority: val });
+              clearSelectedTasks();
+            }}
+            className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
+          >
+            <option value="" disabled>
+              Priority...
+            </option>
+            <option value={TaskPriority.CRITICAL}>Critical</option>
+            <option value={TaskPriority.HIGH}>High</option>
+            <option value={TaskPriority.MEDIUM}>Medium</option>
+            <option value={TaskPriority.LOW}>Low</option>
+          </select>
+
+          <select
+            defaultValue=""
+            onChange={async e => {
+              const val = e.target.value;
+              if (!val) return;
+              e.target.value = '';
+              const assigneeVal = val === 'unassigned' ? undefined : val;
+              await bulkUpdateTasks(selectedTaskIds, { assignee_id: assigneeVal });
+              clearSelectedTasks();
+            }}
+            className="px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer"
+          >
+            <option value="" disabled>
+              Assign...
+            </option>
+            <option value="unassigned">Unassigned</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>
+                {u.full_name || u.email}
+              </option>
+            ))}
+          </select>
+
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={async () => {
+              await bulkDeleteTasks(selectedTaskIds);
+              clearSelectedTasks();
+            }}
+          >
+            Delete ({selectedTaskIds.length})
+          </Button>
+
+          <button
+            type="button"
+            onClick={clearSelectedTasks}
+            className="px-2 py-1 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+          >
+            Esc
+          </button>
         </div>
-      )}
+      </FloatingGlassDock>
 
       <AutomatedTriggersModal
         isOpen={isAutomationsOpen}
@@ -878,53 +880,44 @@ export const KanbanBoard: React.FC = () => {
         darkMode={darkMode}
       />
 
-      {isWipModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px] animate-fadeIn">
-          <div className="editorial-popover w-full max-w-md p-6 rounded-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-bold text-[var(--text-primary)]">Configure WIP Limits</h3>
-              <button
-                type="button"
-                onClick={() => setIsWipModalOpen(false)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="text-xs text-[var(--text-secondary)] mb-5">
-              Set maximum task thresholds per column to prevent bottlenecks.
-            </p>
+      <Modal
+        isOpen={isWipModalOpen}
+        onClose={() => setIsWipModalOpen(false)}
+        title="Configure WIP Limits"
+        size="sm"
+      >
+        <p className="text-xs text-[var(--text-secondary)] mb-5">
+          Set maximum task thresholds per column to prevent bottlenecks.
+        </p>
 
-            <div className="space-y-3.5">
-              {TASK_STATUS_COLUMNS.map(col => (
-                <div key={col.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
-                    <span className="text-xs font-semibold text-[var(--text-primary)]">{col.title}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      max="50"
-                      value={wipLimits[col.id] || 0}
-                      onChange={e => handleUpdateWipLimit(col.id, parseInt(e.target.value) || 0)}
-                      className="w-20 px-3 py-1 rounded-xl border text-xs font-mono font-semibold text-center"
-                    />
-                    <span className="text-xs text-[var(--text-muted)]">max</span>
-                  </div>
-                </div>
-              ))}
+        <div className="space-y-3.5">
+          {TASK_STATUS_COLUMNS.map(col => (
+            <div key={col.id} className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
+                <span className="text-xs font-semibold text-[var(--text-primary)]">{col.title}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={wipLimits[col.id] || 0}
+                  onChange={e => handleUpdateWipLimit(col.id, parseInt(e.target.value) || 0)}
+                  className="w-20 px-3 py-1 rounded-xl border text-xs font-mono font-semibold text-center"
+                />
+                <span className="text-xs text-[var(--text-muted)]">max</span>
+              </div>
             </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button variant="primary" size="sm" onClick={() => setIsWipModalOpen(false)}>
-                Done
-              </Button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
+
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" size="sm" onClick={() => setIsWipModalOpen(false)}>
+            Done
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

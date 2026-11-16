@@ -29,7 +29,7 @@ export const FloatingAICopilotButton: React.FC = () => {
             type="button"
             onClick={openCommandPalette}
             title="Command Palette (⌘K)"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
           >
             <AIBotFace mood="idle" size="xs" />
             <span>Ask</span>

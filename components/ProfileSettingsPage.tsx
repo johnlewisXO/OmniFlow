@@ -8,6 +8,8 @@ import { StatusDynamicIcon } from './layout/ProfileMiniMenu';
 import { HairlineCard, StatusDot } from './shared/EditorialUI';
 import { SlimProgressBar } from './charts/EditorialCharts';
 import { Button } from './shared/Button';
+import { PaletteEnvironmentSelector } from './shared/PaletteEnvironmentSelector';
+import { OrganizationLogoUploader } from './shared/OrganizationLogoUploader';
 
 type SettingsTabId = 'identity' | 'capacity' | 'notifications' | 'ai_copilot' | 'security';
 
@@ -47,6 +49,12 @@ export const ProfileSettingsPage: React.FC = () => {
     toggleDarkMode,
     accentColor,
     setAccentColor,
+    ambientIntensity,
+    setAmbientIntensity,
+    autoCyclePalette,
+    setAutoCyclePalette,
+    myAvailabilityStatus,
+    setMyAvailabilityStatus,
     setCurrentUser,
     addToast,
     tasks,
@@ -62,18 +70,6 @@ export const ProfileSettingsPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Live Status
-  const [myStatus, setMyStatus] = useState<'available' | 'away' | 'busy'>(() => {
-    if (typeof window !== 'undefined' && currentUser?.id) {
-      try {
-        const raw = localStorage.getItem('omni_team_statuses');
-        const map = raw ? JSON.parse(raw) : {};
-        if (map[currentUser.id]) return map[currentUser.id];
-      } catch (e) {}
-    }
-    return 'available';
-  });
 
   // Extended Profile Preferences State
   const [prefs, setPrefs] = useState<UserProfilePreferences>(() => {
@@ -139,10 +135,7 @@ export const ProfileSettingsPage: React.FC = () => {
   }, [currentUser?.id]);
 
   const handleStatusChange = (newStatus: 'available' | 'away' | 'busy') => {
-    setMyStatus(newStatus);
-    collabService.broadcastUserStatusChanged(newStatus);
-    const label = newStatus === 'available' ? 'Available' : newStatus === 'away' ? 'Away' : 'Busy / DND';
-    addToast('Status Updated', `Your live status is now "${label}".`, 'info');
+    setMyAvailabilityStatus(newStatus);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -383,8 +376,8 @@ export const ProfileSettingsPage: React.FC = () => {
                   (fullName || currentUser.email || 'U')[0].toUpperCase()
                 )}
               </div>
-              <span className="absolute -bottom-1 -right-1 rounded-full bg-[var(--bg-surface)] p-1 border border-[var(--border-hairline)] shadow-xs">
-                <StatusDynamicIcon status={myStatus} className="w-3.5 h-3.5" />
+              <span className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center leading-none pointer-events-none">
+                <StatusDynamicIcon status={myAvailabilityStatus} className="w-4 h-4 block" />
               </span>
             </div>
 
@@ -427,10 +420,10 @@ export const ProfileSettingsPage: React.FC = () => {
                     key={st}
                     type="button"
                     onClick={() => handleStatusChange(st)}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                      myStatus === st
-                        ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] font-bold'
-                        : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-hairline)]'
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border ${
+                      myAvailabilityStatus === st
+                        ? 'bg-[var(--accent-subtle)] text-[var(--text-primary)] border-[var(--accent-border)] font-bold shadow-[inset_0_1px_0_var(--glass-highlight)]'
+                        : 'bg-[var(--surface-nested-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border-hairline)]'
                     }`}
                   >
                     <StatusDynamicIcon status={st} className="w-3 h-3" />
@@ -487,15 +480,15 @@ export const ProfileSettingsPage: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors cursor-pointer ${
+                className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors cursor-pointer border ${
                   isActive
-                    ? 'bg-[var(--bg-sage)] text-[var(--text-primary)] border border-[var(--border-hairline)]'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-subtle)] hover:text-[var(--text-primary)] border border-transparent'
+                    ? 'bg-[var(--accent-subtle)] text-[var(--text-primary)] border-[var(--accent-border)] shadow-[inset_0_1px_0_var(--glass-highlight)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-nested-subtle)] hover:text-[var(--text-primary)] border-transparent'
                 }`}
               >
                 <Icon
                   className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                    isActive ? 'text-[#6F8254] dark:text-[var(--accent-lime)]' : 'text-[var(--text-muted)]'
+                    isActive ? 'text-[var(--accent-text)]' : 'text-[var(--text-secondary)]'
                   }`}
                 />
                 <div className="min-w-0">
@@ -716,57 +709,79 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Workspace Theme & Color Accent Swatches */}
+                    {/* Workspace Theme, Ambient Environment & Glass Intensity */}
                     <div className="pt-5 border-t border-[var(--border-hairline)]">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <div>
                           <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                            Workspace Theme & Color Accent
+                            Visual Atmosphere &amp; Liquid Glass Environment
                           </h3>
                           <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                            Personalize your workspace accent color and Dark/Light mode. Saved automatically for your next session.
+                            Select an ambient lighting environment to tint background fields, translucent glass planes, and accent highlights.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={toggleDarkMode}
-                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-xs font-semibold text-[var(--text-primary)] transition-colors cursor-pointer shrink-0"
+                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full glass-bubble-control text-xs font-semibold text-[var(--text-primary)] transition-colors cursor-pointer shrink-0"
                         >
-                          {darkMode ? <ICON_MAP.SunIcon className="w-4 h-4 text-amber-400" /> : <ICON_MAP.MoonIcon className="w-4 h-4" />}
-                          <span>{darkMode ? 'Dark Mode Active' : 'Light Mode Active'}</span>
+                          {darkMode ? <ICON_MAP.SunIcon className="w-4 h-4 text-amber-400" /> : <ICON_MAP.MoonIcon className="w-4 h-4 text-[var(--text-secondary)]" />}
+                          <span>{darkMode ? 'Dark Glass Mode' : 'Light Glass Mode'}</span>
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                        {WORKSPACE_ACCENT_PRESETS.map((preset) => {
-                          const isSelected = accentColor === preset.id;
-                          return (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              onClick={() => {
-                                setAccentColor(preset.id as WorkspaceAccentId);
-                                setPrefs((p) => ({ ...p, accentColor: preset.id as WorkspaceAccentId }));
-                                addToast('Accent Updated', `Workspace accent set to ${preset.name}.`, 'info');
-                              }}
-                              className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                                isSelected
-                                  ? 'bg-[var(--bg-sage)] border-[var(--border-strong)]'
-                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:border-[var(--border-strong)]'
-                              }`}
-                            >
-                              <span
-                                className={`w-7 h-7 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white shadow-xs shrink-0`}
-                              >
-                                {isSelected && <ICON_MAP.CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" />}
-                              </span>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold truncate text-[var(--text-primary)]">{preset.name}</div>
-                                <div className="text-[10px] text-[var(--text-muted)] truncate">{preset.tagline}</div>
-                              </div>
-                            </button>
-                          );
-                        })}
+                      <PaletteEnvironmentSelector
+                        compact={false}
+                        darkMode={darkMode}
+                        accentColor={accentColor}
+                        onSelectAccent={(presetId) => {
+                          const preset = WORKSPACE_ACCENT_PRESETS.find(p => p.id === presetId);
+                          setAccentColor(presetId as WorkspaceAccentId);
+                          setPrefs((p) => ({ ...p, accentColor: presetId as WorkspaceAccentId }));
+                          addToast('Environment Updated', `Workspace atmosphere set to ${preset?.name || presetId}.`, 'info');
+                        }}
+                        ambientIntensity={ambientIntensity}
+                        onSelectIntensity={(nextIntensity) => {
+                          setAmbientIntensity(nextIntensity);
+                          setPrefs((p) => ({ ...p, ambientIntensity: nextIntensity }));
+                        }}
+                      />
+
+                      <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
+                        <div>
+                          <div className="text-xs font-bold text-[var(--text-primary)]">
+                            Auto-cycle palette daily
+                          </div>
+                          <div className="text-[11px] text-[var(--text-muted)]">
+                            Slowly dissolves bezels, liquid glass refraction, accents, and mesh gradients across presets every 24 hours.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={autoCyclePalette}
+                          onClick={() => {
+                            const next = !autoCyclePalette;
+                            setAutoCyclePalette(next);
+                            setPrefs((p) => ({ ...p, autoCyclePalette: next }));
+                            addToast(
+                              next ? 'Daily Palette Cycling Enabled' : 'Auto-Cycling Paused',
+                              next
+                                ? 'Workspace palette will smoothly dissolve to the next preset daily (every 24 hours).'
+                                : 'Workspace palette will stay locked to your current choice.',
+                              'info'
+                            );
+                          }}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer ${
+                            autoCyclePalette ? 'bg-[var(--accent-cta)]' : 'bg-[var(--border-strong)]'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-[var(--bg-surface)] shadow-xs transition-transform duration-200 ${
+                              autoCyclePalette ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
                       </div>
                     </div>
 
@@ -816,6 +831,8 @@ export const ProfileSettingsPage: React.FC = () => {
                         </div>
                         <StatusDot tone="success" label="Active Session" className="font-semibold text-emerald-700 dark:text-emerald-400" />
                       </div>
+
+                      <OrganizationLogoUploader compact />
                     </div>
                   </div>
                 </div>
@@ -898,10 +915,10 @@ export const ProfileSettingsPage: React.FC = () => {
                               key={day}
                               type="button"
                               onClick={() => toggleWorkingDay(day)}
-                              className={`px-3.5 py-2 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
+                              className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
                                 active
-                                  ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
-                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                  ? 'bg-[var(--accent-subtle)] text-[var(--text-primary)] border-[var(--accent-border)] shadow-[inset_0_1px_0_var(--glass-highlight)]'
+                                  : 'bg-[var(--surface-nested-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                               }`}
                             >
                               {day}
@@ -948,48 +965,60 @@ export const ProfileSettingsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Workspace Color Accent Swatches */}
-                    <div className="pt-4 border-t border-[var(--border-hairline)]">
-                      <div className="flex items-center justify-between mb-2.5">
+                    {/* Workspace Environment & Daily Auto-Cycle */}
+                    <div className="pt-4 border-t border-[var(--border-hairline)] space-y-3">
+                      <PaletteEnvironmentSelector
+                        compact={false}
+                        darkMode={darkMode}
+                        accentColor={accentColor}
+                        onSelectAccent={(presetId) => {
+                          const preset = WORKSPACE_ACCENT_PRESETS.find(p => p.id === presetId);
+                          setAccentColor(presetId as WorkspaceAccentId);
+                          setPrefs((p) => ({ ...p, accentColor: presetId as WorkspaceAccentId }));
+                          addToast('Environment Updated', `Workspace atmosphere set to ${preset?.name || presetId}.`, 'info');
+                        }}
+                        ambientIntensity={ambientIntensity}
+                        onSelectIntensity={(nextIntensity) => {
+                          setAmbientIntensity(nextIntensity);
+                          setPrefs((p) => ({ ...p, ambientIntensity: nextIntensity }));
+                        }}
+                      />
+
+                      <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
                         <div>
-                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                            Workspace Color Accent (Persisted Across Sessions)
-                          </label>
-                          <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                            Choose your signature accent palette for buttons, active states, and focus rings in both Light and Dark modes.
-                          </p>
+                          <div className="text-xs font-bold text-[var(--text-primary)]">
+                            Auto-cycle palette daily
+                          </div>
+                          <div className="text-[11px] text-[var(--text-muted)]">
+                            Slowly dissolves bezels, liquid glass refraction, accents, and mesh gradients across presets every 24 hours.
+                          </div>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-                        {WORKSPACE_ACCENT_PRESETS.map((preset) => {
-                          const isSelected = accentColor === preset.id;
-                          return (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              onClick={() => {
-                                setAccentColor(preset.id as WorkspaceAccentId);
-                                setPrefs((p) => ({ ...p, accentColor: preset.id as WorkspaceAccentId }));
-                                addToast('Accent Updated', `Workspace accent set to ${preset.name}.`, 'info');
-                              }}
-                              className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                                isSelected
-                                  ? 'bg-[var(--bg-sage)] border-[var(--border-strong)]'
-                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:border-[var(--border-strong)]'
-                              }`}
-                            >
-                              <span
-                                className={`w-8 h-8 rounded-full bg-gradient-to-br ${preset.swatchClass} flex items-center justify-center text-white shadow-xs shrink-0`}
-                              >
-                                {isSelected && <ICON_MAP.CheckIcon className="w-4 h-4 stroke-[2.5]" />}
-                              </span>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold truncate text-[var(--text-primary)]">{preset.name}</div>
-                                <div className="text-[10px] text-[var(--text-muted)] truncate">{preset.tagline}</div>
-                              </div>
-                            </button>
-                          );
-                        })}
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={autoCyclePalette}
+                          onClick={() => {
+                            const next = !autoCyclePalette;
+                            setAutoCyclePalette(next);
+                            setPrefs((p) => ({ ...p, autoCyclePalette: next }));
+                            addToast(
+                              next ? 'Daily Palette Cycling Enabled' : 'Auto-Cycling Paused',
+                              next
+                                ? 'Workspace palette will smoothly dissolve to the next preset daily (every 24 hours).'
+                                : 'Workspace palette will stay locked to your current choice.',
+                              'info'
+                            );
+                          }}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer ${
+                            autoCyclePalette ? 'bg-[var(--accent-cta)]' : 'bg-[var(--border-strong)]'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-[var(--bg-surface)] shadow-xs transition-transform duration-200 ${
+                              autoCyclePalette ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
                       </div>
                     </div>
                   </div>

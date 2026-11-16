@@ -1,8 +1,11 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { ICON_MAP } from '../../constants';
-import { User } from '../../types';
+import { AmbientIntensity, AvailabilityStatus, User, WorkspaceAccentId } from '../../types';
+import { GLASS_SPRING } from '../shared/LiquidGlass';
+import { PaletteEnvironmentSelector } from '../shared/PaletteEnvironmentSelector';
 
-export type AvailabilityStatus = 'available' | 'away' | 'busy';
+export type { AvailabilityStatus };
 
 export const StatusDynamicIcon: React.FC<{
   status: AvailabilityStatus;
@@ -74,6 +77,12 @@ interface ProfileMiniMenuProps {
   onStatusChange: (status: AvailabilityStatus) => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  accentColor: WorkspaceAccentId;
+  onSelectAccent: (accent: WorkspaceAccentId) => void;
+  ambientIntensity: AmbientIntensity;
+  onSelectIntensity: (intensity: AmbientIntensity) => void;
+  autoCyclePalette: boolean;
+  onToggleAutoCyclePalette: () => void;
   onNavigateProfile: () => void;
   onManageOrganization: () => void;
   canViewSystemLogs?: boolean;
@@ -91,6 +100,12 @@ export const ProfileMiniMenu: React.FC<ProfileMiniMenuProps> = ({
   onStatusChange,
   darkMode,
   onToggleDarkMode,
+  accentColor,
+  onSelectAccent,
+  ambientIntensity,
+  onSelectIntensity,
+  autoCyclePalette,
+  onToggleAutoCyclePalette,
   onNavigateProfile,
   onManageOrganization,
   canViewSystemLogs = false,
@@ -106,32 +121,107 @@ export const ProfileMiniMenu: React.FC<ProfileMiniMenuProps> = ({
           {currentUser.full_name || currentUser.email}
         </p>
         <p className="text-[11px] text-[var(--text-muted)] truncate">{currentUser.email}</p>
-        <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] mt-1">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] mt-1 truncate">
           {normalizedRole.replace(/_/g, ' ')} · {currentOrganizationName || 'Personal'}
         </p>
       </div>
 
       <div className="px-3 py-2 border-b border-[var(--border-hairline)] grid grid-cols-3 gap-1">
-        {(['available', 'away', 'busy'] as const).map(st => (
-          <button
-            key={st}
+        {(['available', 'away', 'busy'] as const).map(st => {
+          const isSelected = myStatus === st;
+          return (
+            <motion.button
+              key={st}
+              type="button"
+              whileTap={{ scale: 0.95 }}
+              transition={GLASS_SPRING.micro}
+              onClick={() => onStatusChange(st)}
+              className={`relative py-1.5 px-1.5 rounded-lg text-[11px] font-medium capitalize inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                isSelected
+                  ? 'text-[var(--text-primary)] font-semibold'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-subtle)]'
+              }`}
+            >
+              {isSelected && (
+                <motion.span
+                  layoutId="profile-status-active-pill"
+                  transition={GLASS_SPRING.morph}
+                  className="absolute inset-0 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-border)] shadow-[inset_0_1px_0_var(--glass-highlight)]"
+                  aria-hidden="true"
+                />
+              )}
+              <StatusDynamicIcon status={st} className="relative z-10 w-3.5 h-3.5 shrink-0" />
+              <span className="relative z-10">{st}</span>
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* Grouped Atmosphere, Appearance (Light/Dark) & Daily Auto-Cycle Controls */}
+      <div className="px-3 py-2.5 border-b border-[var(--border-hairline)] space-y-2">
+        <PaletteEnvironmentSelector
+          compact
+          darkMode={darkMode}
+          accentColor={accentColor}
+          onSelectAccent={onSelectAccent}
+          ambientIntensity={ambientIntensity}
+          onSelectIntensity={onSelectIntensity}
+        />
+
+        <div className="space-y-1.5 pt-0.5">
+          <motion.button
             type="button"
-            onClick={() => onStatusChange(st)}
-            className={`py-1.5 px-1.5 rounded-lg text-[11px] font-medium capitalize border inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-              myStatus === st
-                ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--text-primary)] font-semibold'
-                : 'border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface-subtle)]'
-            }`}
+            whileTap={{ scale: 0.985 }}
+            transition={GLASS_SPRING.micro}
+            onClick={onToggleDarkMode}
+            className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-[var(--surface-nested-subtle)] hover:bg-[var(--accent-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] transition-colors cursor-pointer"
           >
-            <StatusDynamicIcon status={st} className="w-3.5 h-3.5 shrink-0" />
-            <span>{st}</span>
-          </button>
-        ))}
+            <span className="flex items-center gap-1.5 text-[11px] font-medium truncate">
+              {darkMode ? (
+                <ICON_MAP.MoonIcon className="w-3.5 h-3.5 shrink-0 text-[var(--accent-text)]" />
+              ) : (
+                <ICON_MAP.SunIcon className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+              )}
+              <span>Appearance</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--surface-glass-2)] border border-[var(--glass-border)] text-[var(--text-primary)] shrink-0">
+              {darkMode ? 'Dark' : 'Light'}
+            </span>
+          </motion.button>
+
+          <motion.button
+            type="button"
+            role="switch"
+            aria-checked={autoCyclePalette}
+            whileTap={{ scale: 0.98 }}
+            transition={GLASS_SPRING.micro}
+            onClick={onToggleAutoCyclePalette}
+            className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-[var(--surface-nested-subtle)] hover:bg-[var(--accent-subtle)] border border-[var(--border-hairline)] transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-primary)] truncate">
+              <ICON_MAP.ClockIcon className="w-3.5 h-3.5 text-[var(--text-secondary)] shrink-0" />
+              <span className="truncate">Auto-cycle theme · Daily</span>
+            </span>
+            <span
+              className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                autoCyclePalette ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-[var(--bg-surface)] shadow-xs transition-transform duration-200 ${
+                  autoCyclePalette ? 'translate-x-3.5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
+          </motion.button>
+        </div>
       </div>
 
       <div className="p-1.5 space-y-0.5">
-        <button
+        <motion.button
           type="button"
+          whileTap={{ scale: 0.985 }}
+          transition={GLASS_SPRING.micro}
           onClick={() => {
             onNavigateProfile();
             onClose();
@@ -140,10 +230,12 @@ export const ProfileMiniMenu: React.FC<ProfileMiniMenuProps> = ({
         >
           <ICON_MAP.UserCircleIcon className="w-4 h-4 shrink-0 text-[var(--text-secondary)]" />
           <span className="truncate">Profile &amp; Workspace Settings</span>
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           type="button"
+          whileTap={{ scale: 0.985 }}
+          transition={GLASS_SPRING.micro}
           onClick={() => {
             onManageOrganization();
             onClose();
@@ -152,29 +244,13 @@ export const ProfileMiniMenu: React.FC<ProfileMiniMenuProps> = ({
         >
           <ICON_MAP.BuildingOfficeIcon className="w-4 h-4 shrink-0 text-[var(--text-secondary)]" />
           <span className="truncate">Switch / Manage Organization</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onToggleDarkMode}
-          className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-colors cursor-pointer"
-        >
-          <span className="flex items-center gap-2.5 truncate">
-            {darkMode ? (
-              <ICON_MAP.SunIcon className="w-4 h-4 shrink-0 text-[var(--text-secondary)]" />
-            ) : (
-              <ICON_MAP.MoonIcon className="w-4 h-4 shrink-0 text-[var(--text-secondary)]" />
-            )}
-            <span>Appearance</span>
-          </span>
-          <span className="text-[11px] font-mono text-[var(--text-muted)] shrink-0">
-            {darkMode ? 'Dark' : 'Light'}
-          </span>
-        </button>
+        </motion.button>
 
         {canViewSystemLogs && (
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.985 }}
+            transition={GLASS_SPRING.micro}
             onClick={() => {
               onOpenSystemLogs();
               onClose();
@@ -183,11 +259,13 @@ export const ProfileMiniMenu: React.FC<ProfileMiniMenuProps> = ({
           >
             <ICON_MAP.TerminalIcon className="w-4 h-4 shrink-0 text-[var(--text-secondary)]" />
             <span className="truncate">System Log Monitor</span>
-          </button>
+          </motion.button>
         )}
 
-        <button
+        <motion.button
           type="button"
+          whileTap={{ scale: 0.985 }}
+          transition={GLASS_SPRING.micro}
           onClick={() => {
             onOpenShortcuts();
             onClose();
@@ -199,12 +277,14 @@ export const ProfileMiniMenu: React.FC<ProfileMiniMenuProps> = ({
             <span>Keyboard Shortcuts</span>
           </span>
           <kbd className="font-mono text-[10px] text-[var(--text-muted)] shrink-0">?</kbd>
-        </button>
+        </motion.button>
       </div>
 
       <div className="px-1.5 pt-1 border-t border-[var(--border-hairline)]">
-        <button
+        <motion.button
           type="button"
+          whileTap={{ scale: 0.985 }}
+          transition={GLASS_SPRING.micro}
           onClick={() => {
             onClose();
             onSignOut();
@@ -213,7 +293,7 @@ export const ProfileMiniMenu: React.FC<ProfileMiniMenuProps> = ({
         >
           <ICON_MAP.LogoutIcon className="w-4 h-4 shrink-0" />
           <span>Sign Out</span>
-        </button>
+        </motion.button>
       </div>
     </div>
   );

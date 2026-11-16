@@ -4,9 +4,11 @@ import { ICON_MAP } from '../../constants';
 import { useAppStore } from '../../hooks/useAppStore';
 import { format, addDays, differenceInDays, isBefore, isAfter, startOfDay } from 'date-fns';
 import { processTaskAutomationRules } from '../../services/automationEngine';
-import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { ResponsiveContainer, Cell, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { TaskLivePresenceBadge } from '../shared/TaskLivePresenceBadge';
 import { collabService } from '../../services/collabService';
+import { LiquidSegmentedDistribution, getEditorialChartTheme } from '../charts/EditorialCharts';
+import { Button, IconButton } from '../shared/Button';
 
 interface GanttTimelineViewProps {
   tasks: Task[];
@@ -22,6 +24,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
   onTaskClick,
 }) => {
   const { updateTask, addToast, projects, openCreateTaskModal, presences, currentUser } = useAppStore();
+  const chartTheme = useMemo(() => getEditorialChartTheme(darkMode), [darkMode]);
 
   const [viewScale, setViewScale] = useState<'days' | 'weeks' | 'months'>('days');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -54,13 +57,16 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
       'success'
     );
 
-    await processTaskAutomationRules({
-      task: { ...task, status: newStatus },
-      previousStatus,
-      users,
-      updateTask,
-      addToast
-    });
+    await processTaskAutomationRules(
+      { ...task, status: previousStatus },
+      { ...task, status: newStatus },
+      {
+        users,
+        currentUser,
+        updateTask,
+        addToast,
+      }
+    );
   };
 
   const formatStatusText = (status: TaskStatus) => {
@@ -176,7 +182,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
       case TaskStatus.REVIEW:
         return 'bg-amber-500 border-amber-600 text-[#131511] shadow-amber-500/20';
       case TaskStatus.IN_PROGRESS:
-        return 'bg-[#191B17] dark:bg-[#CCF048] border-[#2B3026] dark:border-[#97B832] text-white dark:text-[#131511] shadow-xs';
+        return 'bg-[var(--accent-cta)] border-[#2B3026] dark:border-[var(--border-strong)] text-white dark:text-[#131511] shadow-xs';
       default:
         return 'bg-rose-600 border-rose-700 text-white shadow-rose-500/20';
     }
@@ -189,7 +195,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
       case TaskStatus.REVIEW:
         return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
       case TaskStatus.IN_PROGRESS:
-        return 'bg-[var(--bg-sage)] text-[#4E6126] dark:text-[#CCF048] border-[#97B832]/40';
+        return 'bg-[var(--bg-sage)] text-[var(--accent-text)] border-[var(--border-strong)]';
       default:
         return 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30';
     }
@@ -246,7 +252,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
     const hasRowTyper = activeRowViewers.some(p => p.isTypingComment);
     const hasRowViewer = activeRowViewers.length > 0;
     const barRingClass = hasRowEditor
-      ? 'ring-2 ring-[#97B832] shadow-lg'
+      ? 'ring-2 ring-[var(--accent-lime)] shadow-lg'
       : hasRowTyper
         ? 'ring-2 ring-amber-400 shadow-lg'
         : hasRowViewer
@@ -265,9 +271,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
         >
           {/* Left Task Metadata Column (Sticky Left) */}
           {showLeftSidebar && (
-            <div className={`w-[200px] sm:w-[240px] md:w-[280px] min-w-[200px] sm:min-w-[240px] md:min-w-[280px] p-2 sm:p-2.5 flex items-center justify-between gap-1.5 border-r border-slate-200 dark:border-slate-800 flex-shrink-0 sticky left-0 z-30 shadow-xs ${
-              darkMode ? 'bg-slate-900' : 'bg-white'
-            }`}>
+            <div className="w-[200px] sm:w-[240px] md:w-[280px] min-w-[200px] sm:min-w-[240px] md:min-w-[280px] p-2 sm:p-2.5 flex items-center justify-between gap-1.5 border-r border-[var(--border-hairline)] flex-shrink-0 sticky left-0 z-30 shadow-xs bg-[var(--bg-surface)]">
               <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
                 {!isSubtask ? (
                   <button
@@ -330,7 +334,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                     key={idx}
                     style={{ width: `${dayColWidth}px`, minWidth: `${dayColWidth}px` }}
                     className={`border-r border-[var(--border-hairline)] ${
-                      isToday ? 'bg-[var(--accent-lime)]/15 border-[#97B832]/40' : ''
+                      isToday ? 'bg-[var(--accent-lime)]/15 border-[var(--border-strong)]' : ''
                     }`}
                   />
                 );
@@ -420,7 +424,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             <h1 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
               Project Schedule & Gantt Timeline
             </h1>
-            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[#4E6126] dark:text-[#CCF048] font-bold tabular-nums whitespace-nowrap">
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[var(--bg-sage)] border border-[var(--border-strong)] text-[var(--accent-text)] font-bold tabular-nums whitespace-nowrap">
               {allFlatFiltered.length} Scheduled
             </span>
           </div>
@@ -430,92 +434,60 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant={showStatsOverview ? 'lime' : 'subtle'}
+            size="sm"
             onClick={() => setShowStatsOverview((prev) => !prev)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all cursor-pointer whitespace-nowrap ${
-              showStatsOverview
-                ? 'bg-[var(--bg-sage)] border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
-                : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
           >
             {showStatsOverview ? 'Hide Dashboard' : 'Analytics Dashboard'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => openCreateTaskModal()}
-            className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#191B17] hover:bg-[#2A2E25] text-white dark:bg-[#CCF048] dark:hover:bg-[#D9F66A] dark:text-[#131511] shadow-xs transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
           >
             <ICON_MAP.PlusIcon className="w-4 h-4" />
             <span>New Task</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Analytics & Breakdown Cards */}
       {showStatsOverview && (
         <div className="p-3 sm:p-4 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {/* Donut Category / Status Progress Chart */}
-          <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-1.5">
+          {/* Category / Status Liquid Segmented Distribution */}
+          <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col justify-between gap-2.5">
+            <div className="flex items-center justify-between">
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">
                 Category Breakdown
               </h3>
-              <span className="text-xs font-bold text-[#4E6126] dark:text-[#CCF048] tabular-nums">{stats.completionRate}% Done</span>
+              <span className="text-xs font-mono font-bold text-[var(--accent-text)] tabular-nums">
+                {stats.completionRate}% Done
+              </span>
             </div>
 
-            <div className="flex items-center gap-3 h-32">
-              <div className="w-24 h-24 relative flex-shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={stats.donutData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={22}
-                      outerRadius={36}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {stats.donutData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xs font-black text-slate-900 dark:text-white">{stats.total}</span>
-                  <span className="text-[8px] font-semibold text-slate-400 uppercase">Tasks</span>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-1 text-xs">
-                {stats.donutData.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between text-[11px] font-semibold">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-                      <span className="text-slate-600 dark:text-slate-300 truncate">{d.name}</span>
-                    </div>
-                    <span className="font-bold text-slate-900 dark:text-white ml-1">{d.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <LiquidSegmentedDistribution
+              segments={stats.donutData}
+              totalLabel="Tasks"
+              compact
+            />
           </div>
 
           {/* Status Column Bar Chart */}
-          <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col justify-between shadow-xs">
             <div className="flex items-center justify-between mb-1.5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">
                 Status Distribution
               </h3>
-              <span className="text-[10px] text-slate-400">Live Metrics</span>
+              <span className="text-[10px] text-[var(--text-muted)]">Live Metrics</span>
             </div>
 
             <div className="h-32">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.barData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: darkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: darkMode ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '11px', fontWeight: 'bold' }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: chartTheme.axisColor }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: chartTheme.axisColor }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={chartTheme.tooltipStyle} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                     {stats.barData.map((entry, index) => (
                       <Cell key={`bar-${index}`} fill={entry.fill} />
@@ -527,16 +499,16 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           </div>
 
           {/* Schedule Health Card */}
-          <div className={`p-3.5 rounded-xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] flex flex-col justify-between shadow-xs">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">
                   Timeline Bounds
                 </h3>
                 <span className="text-xs font-bold text-emerald-500">Active</span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Execution range: <strong className="text-slate-800 dark:text-slate-200">{format(startDate, 'MMM d, yyyy')}</strong> to <strong className="text-slate-800 dark:text-slate-200">{format(addDays(startDate, totalDays), 'MMM d, yyyy')}</strong>.
+              <p className="text-xs text-[var(--text-secondary)]">
+                Execution range: <strong className="text-[var(--text-primary)]">{format(startDate, 'MMM d, yyyy')}</strong> to <strong className="text-[var(--text-primary)]">{format(addDays(startDate, totalDays), 'MMM d, yyyy')}</strong>.
               </p>
             </div>
 
@@ -567,15 +539,18 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             placeholder="Search timeline tasks..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full search-input !pl-10 !pr-8 !py-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[#97B832] text-xs font-medium outline-hidden transition-all"
+            className="w-full search-input !pl-10 !pr-8 !py-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent-text)] text-xs font-medium outline-hidden transition-all"
           />
           {searchQuery && (
-            <button
+            <IconButton
+              variant="ghost"
+              size="xs"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              aria-label="Clear timeline search"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2"
             >
               <ICON_MAP.XIcon className="w-3.5 h-3.5" />
-            </button>
+            </IconButton>
           )}
         </div>
 
@@ -596,7 +571,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
             onClick={() => setShowLeftSidebar((prev) => !prev)}
             className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap ${
               showLeftSidebar
-                ? 'bg-[var(--bg-sage)] border-[#97B832]/50 text-[#4E6126] dark:text-[#CCF048]'
+                ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--accent-text)]'
                 : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
             }`}
             title="Toggle Task List Sidebar"
@@ -608,19 +583,19 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           <div className="flex rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] p-0.5 overflow-hidden">
             <button
               onClick={() => setViewScale('days')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'days' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'days' ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Days
             </button>
             <button
               onClick={() => setViewScale('weeks')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'weeks' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'weeks' ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Weeks
             </button>
             <button
               onClick={() => setViewScale('months')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'months' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${viewScale === 'months' ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Months
             </button>
@@ -630,13 +605,13 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
           <div className="flex rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface)] p-0.5 overflow-hidden">
             <button
               onClick={() => setHierarchyMode('tree')}
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${hierarchyMode === 'tree' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${hierarchyMode === 'tree' ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Tree
             </button>
             <button
               onClick={() => setHierarchyMode('flat')}
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${hierarchyMode === 'flat' ? 'bg-[#191B17] text-white dark:bg-[#CCF048] dark:text-[#131511]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${hierarchyMode === 'flat' ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               Flat
             </button>
@@ -700,7 +675,7 @@ export const GanttTimelineView: React.FC<GanttTimelineViewProps> = ({
                       key={index}
                       style={{ width: `${dayColWidth}px`, minWidth: `${dayColWidth}px` }}
                       className={`py-2 px-1 text-center border-r border-[var(--border-hairline)] text-[10px] font-semibold transition-colors flex-shrink-0 ${
-                        isToday ? 'bg-[var(--accent-lime)]/20 text-[#4E6126] dark:text-[#CCF048] font-black' : ''
+                        isToday ? 'bg-[var(--accent-lime)]/20 text-[var(--accent-text)] font-black' : ''
                       }`}
                     >
                       <div>{format(d, 'EEE')}</div>

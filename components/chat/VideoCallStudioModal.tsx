@@ -155,10 +155,10 @@ const DockIconButton: React.FC<{
       'bg-amber-500 hover:bg-amber-400 text-[#131511] border border-amber-400 shadow-lg shadow-amber-500/20';
   } else if (accent) {
     stateClass =
-      'bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] border border-[#97B832] shadow-lg shadow-[#CCF048]/20';
+      'bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] border border-[var(--border-strong)] shadow-lg shadow-[#CCF048]/20';
   } else if (active) {
     stateClass =
-      'bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] border border-[#97B832] shadow-lg shadow-[#CCF048]/20';
+      'bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] border border-[var(--border-strong)] shadow-lg shadow-[#CCF048]/20';
   }
 
   return (
@@ -171,7 +171,7 @@ const DockIconButton: React.FC<{
       >
         {children}
         {badge !== undefined && badge !== 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#CCF048] text-[#131511] text-[10px] font-bold flex items-center justify-center ring-2 ring-[#131511]">
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] text-[10px] font-bold flex items-center justify-center ring-2 ring-[#131511]">
             {badge}
           </span>
         )}
@@ -748,7 +748,7 @@ ${actionList}`;
             <button
               type="button"
               onClick={() => handleAcceptIncomingInvite(false)}
-              className="py-2 px-3 rounded-xl bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="py-2 px-3 rounded-xl bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <ICON_MAP.PhoneIcon className="w-4 h-4" />
               <span>Voice Only</span>
@@ -808,7 +808,7 @@ ${actionList}`;
                         );
                         if (s) setPreJoinStream(s);
                       }}
-                      className="px-3.5 py-1.5 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-xs font-semibold cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-xs font-semibold cursor-pointer"
                     >
                       Enable Camera Preview
                     </button>
@@ -945,7 +945,7 @@ ${actionList}`;
               <button
                 type="button"
                 onClick={handleConfirmPreJoin}
-                className="w-full py-2.5 px-4 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-sm font-semibold shadow-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-sm font-semibold shadow-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ICON_MAP.VideoCameraIcon className="w-4 h-4" />
                 <span>Join Meeting Now</span>
@@ -1014,7 +1014,7 @@ ${actionList}`;
             type="button"
             onClick={() => meetingAndCallService.setMinimized(false)}
             title="Expand Call Window"
-            className="p-1.5 rounded-lg bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] cursor-pointer"
+            className="p-1.5 rounded-lg bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] cursor-pointer"
           >
             <ICON_MAP.ArrowsPointingOutIcon className="w-4 h-4" />
           </button>
@@ -1203,7 +1203,7 @@ ${actionList}`;
           onClick={async () => {
             await meetingAndCallService.toggleScreenShare(currentUser.id);
           }}
-          className="px-4 py-2 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shadow-lg shadow-[#CCF048]/20"
+          className="px-4 py-2 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shadow-lg shadow-[#CCF048]/20"
         >
           <ICON_MAP.ComputerDesktopIcon className="w-4 h-4" />
           <span>Share Your Screen Now</span>
@@ -1348,12 +1348,12 @@ ${actionList}`;
             </span>
           )}
           {pinnedUserId === p.userId && (
-            <span className="px-2 py-0.5 rounded-full bg-[#CCF048] text-[#131511] text-[10px] font-semibold">
+            <span className="px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] text-[10px] font-semibold">
               Pinned
             </span>
           )}
           {p.isScreenSharing && p.connectionState === 'connected' && (
-            <span className="px-2 py-0.5 rounded-full bg-[#CCF048] text-[#131511] text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] text-[10px] font-bold">
               Presenting
             </span>
           )}
@@ -1564,7 +1564,7 @@ ${actionList}`;
                   title={mode.label}
                   className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
                     callLayout === mode.id
-                      ? 'bg-[#CCF048] text-[#131511] shadow-sm'
+                      ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] shadow-sm'
                       : 'text-[#A6AC9C] hover:text-white'
                   }`}
                 >
@@ -1581,7 +1581,7 @@ ${actionList}`;
             title={`Active Participants (${connectedParticipants.length}) & Invite Teammates`}
             className={`h-8 px-3 rounded-full border flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeDrawerTab === 'people'
-                ? 'bg-[#CCF048] border-[#97B832] text-[#131511]'
+                ? 'bg-[#CCF048] border-[var(--border-strong)] text-[#131511]'
                 : 'bg-[#1D2118] hover:bg-[#24291F] border-[#2B3026] text-[#F2F3EE]'
             }`}
           >
@@ -1760,7 +1760,7 @@ ${actionList}`;
                       title={t.label}
                       className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                         activeDrawerTab === t.id
-                          ? 'bg-[#CCF048] text-[#131511]'
+                          ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)]'
                           : 'text-[#A6AC9C] hover:text-white hover:bg-[#24291F]'
                       }`}
                     >
@@ -1979,7 +1979,7 @@ ${actionList}`;
                                 );
                               }}
                               title="Ring teammate to join call"
-                              className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <ICON_MAP.PhoneIcon className="w-3 h-3" />
                               <span>Ring</span>
@@ -2038,7 +2038,7 @@ ${actionList}`;
                   <button
                     type="submit"
                     title="Send Message"
-                    className="w-9 h-9 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] flex items-center justify-center cursor-pointer"
+                    className="w-9 h-9 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] flex items-center justify-center cursor-pointer"
                   >
                     <ICON_MAP.PaperAirplaneIcon className="w-4 h-4" />
                   </button>
@@ -2138,7 +2138,7 @@ ${actionList}`;
                       <button
                         type="submit"
                         title="Add Action Item"
-                        className="w-8 h-8 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] flex items-center justify-center cursor-pointer"
+                        className="w-8 h-8 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] flex items-center justify-center cursor-pointer"
                       >
                         <ICON_MAP.PlusIcon className="w-4 h-4" />
                       </button>
@@ -2211,7 +2211,7 @@ ${actionList}`;
                     type="button"
                     onClick={handleGenerateAiMeetingSummary}
                     disabled={isGeneratingAiSummary}
-                    className="w-full py-2 px-3 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-xs font-semibold transition-colors cursor-pointer"
+                    className="w-full py-2 px-3 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-xs font-semibold transition-colors cursor-pointer"
                   >
                     {isGeneratingAiSummary ? 'Synthesizing...' : 'Generate AI Summary'}
                   </button>
@@ -2281,7 +2281,7 @@ ${actionList}`;
                         await meetingAndCallService.toggleCamera(currentUser.id);
                       }
                     }}
-                    className="px-3.5 py-1.5 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-xs font-semibold cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-xs font-semibold cursor-pointer"
                   >
                     Turn On Camera Preview
                   </button>
@@ -2410,7 +2410,7 @@ ${actionList}`;
                       onClick={() => meetingAndCallService.setVideoQualityMode(q)}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold cursor-pointer ${
                         (callState.videoQualityMode || '1080p') === q
-                          ? 'bg-[#CCF048] text-[#131511]'
+                          ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)]'
                           : 'bg-[#24291F] text-[#A6AC9C] hover:text-white'
                       }`}
                     >
@@ -2450,7 +2450,7 @@ ${actionList}`;
                       onClick={() => setBgMode(m)}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold capitalize cursor-pointer ${
                         bgMode === m
-                          ? 'bg-[#CCF048] text-[#131511]'
+                          ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)]'
                           : 'bg-[#24291F] text-[#A6AC9C] hover:text-white'
                       }`}
                     >
@@ -2681,7 +2681,7 @@ class VideoCallErrorBoundary extends React.Component<
                 onClick={() => {
                   this.setState({ hasError: false, errorMessage: '' });
                 }}
-                className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[#D9F66A] text-[#131511] text-[11px] font-semibold cursor-pointer"
+                className="px-2.5 py-1 rounded-full bg-[#CCF048] hover:bg-[var(--accent-lime-hover)] text-[#131511] text-[11px] font-semibold cursor-pointer"
               >
                 Resume
               </button>

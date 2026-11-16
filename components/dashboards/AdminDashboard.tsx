@@ -3,6 +3,7 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import { OverviewPage } from '../overview/OverviewPage';
 import { Button } from '../shared/Button';
+import { OrganizationLogoUploader } from '../shared/OrganizationLogoUploader';
 import { TaskPriority, TaskStatus, normalizeUserRole, AuditLog } from '../../types';
 import supabaseService from '../../services/supabaseService';
 import {
@@ -365,6 +366,8 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
               </span>
             </div>
 
+            <OrganizationLogoUploader />
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div>
                 <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
@@ -432,7 +435,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
                     type="checkbox"
                     checked={orgSettings[item.key]}
                     onChange={e => setOrgSettings(s => ({ ...s, [item.key]: e.target.checked }))}
-                    className="mt-0.5 accent-[#191B17] dark:accent-[#CCF048]"
+                    className="mt-0.5 accent-[var(--accent-cta)]"
                   />
                   <div>
                     <div className="font-semibold text-[var(--text-primary)]">{item.title}</div>

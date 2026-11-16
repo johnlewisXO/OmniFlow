@@ -1999,6 +1999,8 @@ const supabaseService = {
       autoAssignCreator?: boolean;
       requireAcceptanceChecklist?: boolean;
       enablePublicInviteLinks?: boolean;
+      logoUrl?: string;
+      logo_url?: string;
       settings?: any;
     }
   ): Promise<AppOrganizationType> => {
@@ -2048,6 +2050,13 @@ const supabaseService = {
       ...(serverUpdated || {}),
       ...updates,
     };
+    if (updates.logoUrl !== undefined) {
+      mergedOrg.logoUrl = updates.logoUrl;
+      mergedOrg.logo_url = updates.logoUrl;
+    } else if (updates.logo_url !== undefined) {
+      mergedOrg.logoUrl = updates.logo_url;
+      mergedOrg.logo_url = updates.logo_url;
+    }
 
     cacheKnownOrganization(mergedOrg);
 
@@ -2761,6 +2770,42 @@ const supabaseService = {
         }
       };
       reader.onerror = () => reject(new Error('File reading failed'));
+      reader.readAsDataURL(file);
+    });
+  },
+
+  // Organization Logo Upload Helper (PNG, JPG, WebP, SVG)
+  uploadOrganizationLogo: async (orgId: string, file: File): Promise<string> => {
+    const fileExt = (file.name.split('.').pop() || 'png').toLowerCase();
+    const safeOrg = orgId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `org_logo_${safeOrg}_${Date.now()}.${fileExt}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, {
+        upsert: true,
+        contentType: file.type || undefined,
+      });
+
+      if (!uploadError) {
+        const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        if (data?.publicUrl) {
+          return data.publicUrl;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase storage org logo upload failed, using local Data URL fallback:', err);
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to encode organization logo file'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Logo file reading failed'));
       reader.readAsDataURL(file);
     });
   },

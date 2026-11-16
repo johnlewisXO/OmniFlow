@@ -384,7 +384,7 @@ export const TriageIntakePage: React.FC = () => {
               >
                 <div className="space-y-1.5 flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] flex-wrap">
-                    <span className="font-semibold uppercase tracking-wider text-[#4E6126] dark:text-[#CCF048]">
+                    <span className="font-semibold uppercase tracking-wider text-[var(--accent-text)]">
                       {item.category.replace(/_/g, ' ')}
                     </span>
                     <span>·</span>
