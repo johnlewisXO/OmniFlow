@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { VoiceTranscribeButton } from '../shared/VoiceTranscribeButton';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
 import {
@@ -12,6 +14,7 @@ import {
   CalendarEventCategory,
   RsvpStatus,
   VideoCallSession,
+  TaskStatus,
 } from '../../types';
 import chatService, { getE2EEKeyFingerprint } from '../../services/chatService';
 import { collabService, formatAccurateLastSeen } from '../../services/collabService';
@@ -20,6 +23,8 @@ import emailNotificationService from '../../services/emailNotificationService';
 import meetingAndCallService from '../../services/meetingAndCallService';
 import { Avatar } from '../shared/Avatar';
 import { Button } from '../shared/Button';
+import { SegmentedTabs } from '../shared/EditorialUI';
+import { GLASS_SPRING } from '../shared/LiquidGlass';
 import { WhiteboardStudioPage } from '../whiteboard/WhiteboardStudioPage';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '🚀', '🎉', '👀', '🔥', '👏', '💡'];
@@ -153,10 +158,10 @@ const VoiceNotePlayer: React.FC<{
 
   return (
     <div
-      className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl min-w-[210px] sm:min-w-[245px] border ${
+      className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl min-w-[215px] sm:min-w-[255px] transition-all ${
         isMe
-          ? 'bg-[#191B17] text-[#F2F3EE] border-[#2B3026] dark:bg-[#CCF048] dark:text-[#131511] dark:border-[var(--border-strong)]'
-          : 'bg-[var(--bg-surface-subtle)] text-[var(--text-primary)] border-[var(--border-hairline)]'
+          ? 'bg-[var(--accent-cta)]/92 text-[var(--accent-cta-ink)] shadow-[0_6px_18px_-6px_rgba(var(--primary-rgb),0.4),inset_0_1.5px_2px_rgba(255,255,255,0.28)]'
+          : 'editorial-surface-subtle text-[var(--text-primary)] backdrop-blur-md'
       }`}
     >
       <audio
@@ -179,8 +184,8 @@ const VoiceNotePlayer: React.FC<{
         title={isPlaying ? 'Pause voice note' : 'Play voice note'}
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer ${
           isMe
-            ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] hover:bg-[var(--accent-lime-hover)] dark:bg-[#131511] dark:text-[#CCF048]'
-            : 'bg-[#191B17] text-[#CCF048] hover:bg-[#2A2E25] dark:bg-[#CCF048] dark:text-[#131511]'
+            ? 'bg-[var(--accent-cta-ink)]/18 text-[var(--accent-cta-ink)] hover:bg-[var(--accent-cta-ink)]/28'
+            : 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] hover:opacity-90 shadow-xs'
         }`}
       >
         {isPlaying ? (
@@ -210,17 +215,17 @@ const VoiceNotePlayer: React.FC<{
                 className={`flex-1 rounded-full transition-colors ${
                   filled
                     ? isMe
-                      ? 'bg-[#CCF048] dark:bg-[#131511]'
-                      : 'bg-[#4E6126] dark:bg-[#CCF048]'
+                      ? 'bg-[var(--accent-cta-ink)]'
+                      : 'bg-[var(--accent)]'
                     : isMe
-                    ? 'bg-white/25 dark:bg-[#131511]/25'
+                    ? 'bg-[var(--accent-cta-ink)]/28'
                     : 'bg-[var(--border-strong)]'
                 }`}
               />
             );
           })}
         </div>
-        <div className="flex items-center justify-between text-[10px] font-mono opacity-85">
+        <div className="flex items-center justify-between text-[10px] font-mono tabular-nums opacity-85">
           <span>
             {formatAudioDuration(isPlaying || currentTime > 0 ? currentTime : totalDuration)}
           </span>
@@ -232,10 +237,10 @@ const VoiceNotePlayer: React.FC<{
         type="button"
         onClick={cycleSpeed}
         title="Change playback speed"
-        className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono flex-shrink-0 cursor-pointer ${
+        className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono tabular-nums flex-shrink-0 cursor-pointer transition-colors ${
           isMe
-            ? 'bg-white/15 text-white hover:bg-white/25 dark:bg-[#131511]/15 dark:text-[#131511]'
-            : 'bg-[var(--bg-sage)] text-[var(--text-primary)]'
+            ? 'bg-[var(--accent-cta-ink)]/15 text-[var(--accent-cta-ink)] hover:bg-[var(--accent-cta-ink)]/25'
+            : 'bg-[var(--surface-glass-2)] text-[var(--text-primary)] hover:bg-[var(--surface-glass-3)]'
         }`}
       >
         {playbackRate}x
@@ -1309,79 +1314,150 @@ export const TeamsChatPage: React.FC = () => {
   const isCurrentDirectPeerOnline = activeDirectUser ? Boolean(findPresenceForUser(activeDirectUser)) : true;
   const currentTyping = isCurrentDirectPeerOnline ? typingUsers[currentTargetId] || [] : [];
 
+  const formatCompactTimestamp = (iso?: string): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  };
+
+  const formatMessageDayLabel = (iso: string): string => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return 'Today';
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const summarizePreviewText = (msg?: ChatMessage): { text: string; time: string; hasVoice: boolean } => {
+    if (!msg) return { text: '', time: '', hasVoice: false };
+    const hasVoice = Boolean(msg.attachments?.some(a => a.type === 'voice' || a.type === 'audio'));
+    const time = formatCompactTimestamp(msg.created_at);
+    const raw = (msg.content || '').replace(/^\[QUOTE:\{.*?\}\]\n?/, '').trim();
+    if (raw.startsWith('[MEETING_INVITE:')) return { text: 'Calendar meeting invite', time, hasVoice };
+    if (raw.startsWith('[VIDEO_CALL:')) return { text: 'Video room huddle', time, hasVoice };
+    if (hasVoice) return { text: 'Voice note', time, hasVoice: true };
+    if (msg.attachments && msg.attachments.length > 0 && (!raw || raw.startsWith('📎 Shared '))) {
+      return { text: msg.attachments[0]?.name || 'Shared attachment', time, hasVoice };
+    }
+    if (raw.startsWith('🔒 End-to-End Encrypted')) {
+      return { text: 'Encrypted message', time, hasVoice };
+    }
+    return { text: raw, time, hasVoice };
+  };
+
+  // Real store-backed Meeting Insights + Follow-up Tasks segmented tracker (Image 3 inspiration, no circular rings)
+  const meetingInsights = useMemo(() => {
+    const relevantEvents = calendarEvents
+      .filter(ev => {
+        if (activeDirectUser) {
+          return (
+            ev.directUserId === activeDirectUser.id ||
+            ev.attendees?.some(a => a.userId === activeDirectUser.id)
+          );
+        }
+        return !ev.channelId || ev.channelId === activeChannelId;
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    const upcomingEvent = relevantEvents.find(ev => new Date(ev.endTime).getTime() >= Date.now()) || relevantEvents[0];
+
+    const scopedTasks = (tasks || []).filter(t => {
+      if (activeDirectUser) {
+        return t.assignee_id === activeDirectUser.id;
+      }
+      return true;
+    });
+    const completedTasks = scopedTasks.filter(t => t.status === TaskStatus.DONE).length;
+    const totalTasks = scopedTasks.length;
+    const openFollowUps = Math.max(0, totalTasks - completedTasks);
+    const completionRatio = totalTasks > 0 ? completedTasks / totalTasks : 0;
+
+    return {
+      upcomingEvent,
+      totalEventsCount: relevantEvents.length,
+      liveCallsCount: ongoingOrgCalls.filter(c =>
+        (c.participants || []).some(p => p.connectionState === 'connected')
+      ).length,
+      completedTasks,
+      totalTasks,
+      openFollowUps,
+      completionRatio,
+      recentFollowUpTask: scopedTasks.find(t => t.status !== TaskStatus.DONE) || scopedTasks[0] || null,
+    };
+  }, [calendarEvents, activeDirectUser, activeChannelId, tasks, ongoingOrgCalls]);
+
   return (
-    <div className={`flex-1 flex flex-col h-full min-h-0 overflow-hidden ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
-      {/* Fluent 3-Pane Responsive Layout (Inspired by modern teams & chat suites) */}
-      <div className="flex-1 flex p-2 sm:p-3 md:p-4 h-full min-h-0 min-w-0 gap-3 overflow-hidden">
-        {/* Left Sidebar: Channels & Direct Messages (Default view on Mobile & Tablet < lg, persistent sidebar on Desktop lg+) */}
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden text-[var(--text-primary)]">
+      {/* Spatial 3-Pane Liquid Glass Collaboration Suite */}
+      <div className="flex-1 flex p-2 sm:p-3.5 md:p-4 h-full min-h-0 min-w-0 gap-3.5 overflow-hidden">
+        {/* Left Sidebar: Floating Liquid Glass Messages & Channels Directory */}
         <div
           className={`${
             mobilePaneView === 'list' ? 'flex w-full' : 'hidden'
-          } lg:flex lg:w-72 xl:w-80 h-full min-h-0 flex-col flex-shrink-0 rounded-[22px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
+          } lg:flex lg:w-[300px] xl:w-[320px] h-full min-h-0 flex-col flex-shrink-0 rounded-[26px] glass-level-2 overflow-hidden relative`}
         >
-          {/* Fluent Left Directory Header */}
-          <div className="px-3.5 py-3 border-b border-[var(--border-hairline)] flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-[#191B17] text-[#CCF048] dark:bg-[#CCF048] dark:text-[#131511] flex items-center justify-center shadow-xs flex-shrink-0">
-                <ICON_MAP.ChatBubbleLeftIcon className="w-4 h-4" />
+          {/* Directory Header */}
+          <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 border-b border-[var(--border-hairline)]/45">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-[17px] font-bold tracking-tight text-[var(--text-primary)] truncate">
+                  Messages
+                </h2>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="Live realtime sync" />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="text-sm font-bold text-[var(--text-primary)] truncate">
-                    Teams Hub
-                  </h2>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="Live sync" />
-                </div>
-                <p className="text-[10px] text-[var(--text-muted)] truncate tabular-nums">
-                  {channels.length} channels · {directMessageUsers.length + 1} members
-                </p>
-              </div>
+              <p className="text-[11px] text-[var(--text-muted)] truncate tabular-nums">
+                {channels.length} channels · {directMessageUsers.length + 1} teammates
+              </p>
             </div>
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setIsNewChannelModalOpen(true)}
                 title="Create New Channel"
-                className="p-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-all cursor-pointer"
+                className="w-8 h-8 rounded-full glass-bubble-control text-[var(--text-primary)] flex items-center justify-center cursor-pointer"
               >
                 <ICON_MAP.PlusIcon className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                onClick={() => setIsAddPersonModalOpen(true)}
-                title="Start Direct Message"
-                className="p-1.5 rounded-xl bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs transition-all active:scale-95 cursor-pointer"
-              >
-                <ICON_MAP.UserPlusIcon className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
                 onClick={() => setActiveView('calendar_view')}
-                title="Calendar & RSVPs"
-                className="p-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--accent-text)] transition-all cursor-pointer"
+                title="Calendar & Meetings"
+                className="w-8 h-8 rounded-full glass-bubble-control text-[var(--accent-text)] flex items-center justify-center cursor-pointer"
               >
                 <ICON_MAP.CalendarIcon className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Search Bar + Filter Tabs */}
-          <div className="p-3 border-b border-[var(--border-hairline)] space-y-2">
+          {/* Search Pill + Liquid Segmented Tabs */}
+          <div className="px-3.5 py-2.5 space-y-2.5 border-b border-[var(--border-hairline)]/40">
             <div className="relative">
-              <ICON_MAP.SearchIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
+              <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10" />
               <input
                 type="text"
-                placeholder="Search channels or people..."
+                placeholder="Search messages, channels..."
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                className="w-full search-input !pl-10 !pr-8 py-2 text-xs rounded-xl bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)]"
+                className="w-full !pl-9 !pr-8 py-2 text-xs rounded-full bg-[var(--surface-glass-1)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] focus:outline-none"
               />
               {searchFilter && (
                 <button
                   type="button"
                   onClick={() => setSearchFilter('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                   title="Clear search"
                 >
                   <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
@@ -1389,52 +1465,28 @@ export const TeamsChatPage: React.FC = () => {
               )}
             </div>
 
-            {/* Category Filter Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pt-0.5">
-              {[
+            <SegmentedTabs
+              size="sm"
+              value={filterTab}
+              onChange={val => setFilterTab(val)}
+              className="w-full"
+              options={[
                 { id: 'all', label: 'All' },
                 { id: 'channels', label: 'Channels', count: channels.length },
                 { id: 'direct', label: 'Direct', count: directMessageUsers.length },
-                { id: 'starred', label: '★ Starred', count: favouriteIds.length },
-              ].map(tab => {
-                const active = filterTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setFilterTab(tab.id as any)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                      active
-                        ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-2xs font-bold'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)]'
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    {typeof tab.count === 'number' && (
-                      <span
-                        className={`text-[9px] font-mono tabular-nums px-1.5 py-0.2 rounded-full ${
-                          active
-                            ? 'bg-white/20 text-white dark:bg-[#131511]/15 dark:text-[#131511]'
-                            : 'bg-[var(--bg-sage)] text-[var(--text-secondary)]'
-                        }`}
-                      >
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                { id: 'starred', label: 'Starred', count: favouriteIds.length },
+              ]}
+            />
           </div>
 
-          {/* Online Now Horizontal Avatar Strip */}
+          {/* Online Now Avatar Strip */}
           {directMessageUsers.length > 0 && (
-            <div className="px-3 py-2.5 border-b border-[var(--border-hairline)]">
+            <div className="px-3.5 py-2.5 border-b border-[var(--border-hairline)]/40">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
+                <span className="text-[10px] font-semibold tracking-wide text-[var(--text-muted)]">
                   Online Now
                 </span>
-                <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                <span className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
                   {directMessageUsers.filter(u => Boolean(findPresenceForUser(u))).length + 1} active
                 </span>
               </div>
@@ -1458,22 +1510,22 @@ export const TeamsChatPage: React.FC = () => {
                       title={`${safeName(u)} (${isOnline ? 'Online' : 'Offline'})`}
                     >
                       <div
-                        className={`relative p-0.5 rounded-full ${
+                        className={`relative p-0.5 rounded-full transition-shadow ${
                           isSelected
-                            ? 'ring-2 ring-[var(--accent-lime)] dark:ring-[#CCF048]'
+                            ? 'ring-2 ring-[var(--accent)] shadow-[0_0_12px_rgba(var(--primary-rgb),0.45)]'
                             : isOnline
-                            ? 'ring-1 ring-emerald-500/60'
+                            ? 'ring-1 ring-emerald-500/55'
                             : ''
                         }`}
                       >
                         <Avatar user={u} size="sm" />
                         <span
-                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#131511] ${
+                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[var(--bg-surface)] ${
                             isOnline ? 'bg-emerald-500' : 'bg-slate-400'
                           }`}
                         />
                       </div>
-                      <span className="text-[10px] font-semibold truncate max-w-[54px] text-slate-600 dark:text-slate-300">
+                      <span className="text-[10px] font-medium truncate max-w-[54px] text-[var(--text-secondary)]">
                         {safeName(u).split(' ')[0]}
                       </span>
                     </button>
@@ -1483,25 +1535,26 @@ export const TeamsChatPage: React.FC = () => {
             </div>
           )}
 
-          {/* Navigation Directory List */}
-          <div data-bubble-scroll="true" className="flex-1 overflow-y-auto p-2.5 space-y-4 scrollbar-thin">
-            {/* Pinned Favourites Section */}
+          {/* Scrollable Directory Stream */}
+          <div data-bubble-scroll="true" className="flex-1 overflow-y-auto px-2.5 py-3 pb-20 space-y-4 scrollbar-thin">
             {/* Pinned Favourites Section */}
             {(filterTab === 'all' || filterTab === 'starred') && favouriteIds.length > 0 && !searchFilter.trim() && (
               <div>
-                <div className="flex items-center justify-between px-2 mb-1.5">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500 flex items-center gap-1">
-                    <span>★</span>
-                    <span>Favourites ({favouriteIds.length})</span>
+                <div className="flex items-center justify-between px-2.5 mb-1.5">
+                  <span className="text-[10px] font-semibold tracking-wide text-amber-500 flex items-center gap-1">
+                    <ICON_MAP.StarIcon className="w-3 h-3" />
+                    <span>Pinned ({favouriteIds.length})</span>
                   </span>
                 </div>
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {favouriteIds.map(favKey => {
                     if (favKey.startsWith('channel:')) {
                       const cId = favKey.replace('channel:', '');
                       const ch = channels.find(c => c.id === cId);
                       if (!ch) return null;
                       const isActive = !activeDirectUserId && activeChannelId === ch.id;
+                      const chanMsgs = chatService.getChannelMessages(ch.id);
+                      const lastPreview = summarizePreviewText(chanMsgs[chanMsgs.length - 1]);
                       return (
                         <button
                           key={`fav-${favKey}`}
@@ -1511,23 +1564,43 @@ export const TeamsChatPage: React.FC = () => {
                             setActiveDirectUserId(null);
                             setMobilePaneView('chat');
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-2xl text-xs transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
-                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
+                              ? 'bg-[var(--surface-glass-3)] text-[var(--text-primary)] font-semibold shadow-[0_6px_18px_-6px_rgba(0,0,0,0.16),0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass-1)] hover:text-[var(--text-primary)]'
                           }`}
                         >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className={`text-sm font-bold ${isActive ? 'text-[#CCF048] dark:text-[#131511]' : 'text-[var(--accent-text)]'}`}>#</span>
-                            <span className="truncate">{ch.name}</span>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                              isActive
+                                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
+                                : 'bg-[var(--surface-glass-2)] text-[var(--accent-text)]'
+                            }`}>
+                              #
+                            </span>
+                            <div className="min-w-0">
+                              <span className="block truncate font-semibold text-[var(--text-primary)]">{ch.name}</span>
+                              {lastPreview.text && (
+                                <span className="block truncate text-[10px] text-[var(--text-muted)] font-normal">
+                                  {lastPreview.text}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span
-                            onClick={e => toggleFavourite(favKey, e)}
-                            className={`text-xs ${isActive ? 'text-amber-300 dark:text-amber-700' : 'text-amber-400 hover:scale-110'}`}
-                            title="Remove from Favourites"
-                          >
-                            ★
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {lastPreview.time && (
+                              <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
+                                {lastPreview.time}
+                              </span>
+                            )}
+                            <span
+                              onClick={e => toggleFavourite(favKey, e)}
+                              className="text-xs text-amber-400 hover:scale-110 transition-transform"
+                              title="Remove from Starred"
+                            >
+                              ★
+                            </span>
+                          </div>
                         </button>
                       );
                     }
@@ -1537,6 +1610,8 @@ export const TeamsChatPage: React.FC = () => {
                       if (!u) return null;
                       const isActive = activeDirectUserId === u.id;
                       const isOnline = Boolean(findPresenceForUser(u));
+                      const dmMsgs = currentUser ? chatService.getDirectMessages(currentUser.id, u.id) : [];
+                      const lastPreview = summarizePreviewText(dmMsgs[dmMsgs.length - 1]);
                       return (
                         <button
                           key={`fav-${favKey}`}
@@ -1546,30 +1621,44 @@ export const TeamsChatPage: React.FC = () => {
                             setActiveChannelId('');
                             setMobilePaneView('chat');
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-2xl text-xs transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
-                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
+                              ? 'bg-[var(--surface-glass-3)] text-[var(--text-primary)] font-semibold shadow-[0_6px_18px_-6px_rgba(0,0,0,0.16),0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass-1)] hover:text-[var(--text-primary)]'
                           }`}
                         >
-                          <div className="flex items-center gap-2 truncate">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <div className="relative shrink-0">
                               <Avatar user={u} size="sm" />
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-[#131511] ${
+                                className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-[var(--bg-surface)] ${
                                   isOnline ? 'bg-emerald-500' : 'bg-slate-400'
                                 }`}
                               />
                             </div>
-                            <span className="truncate">{safeName(u)}</span>
+                            <div className="min-w-0">
+                              <span className="block truncate font-semibold text-[var(--text-primary)]">{safeName(u)}</span>
+                              {lastPreview.text && (
+                                <span className="block truncate text-[10px] text-[var(--text-muted)] font-normal">
+                                  {lastPreview.text}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span
-                            onClick={e => toggleFavourite(favKey, e)}
-                            className={`text-xs ${isActive ? 'text-amber-300 dark:text-amber-700' : 'text-amber-400 hover:scale-110'}`}
-                            title="Remove from Favourites"
-                          >
-                            ★
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {lastPreview.time && (
+                              <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
+                                {lastPreview.time}
+                              </span>
+                            )}
+                            <span
+                              onClick={e => toggleFavourite(favKey, e)}
+                              className="text-xs text-amber-400 hover:scale-110 transition-transform"
+                              title="Remove from Starred"
+                            >
+                              ★
+                            </span>
+                          </div>
                         </button>
                       );
                     }
@@ -1581,31 +1670,33 @@ export const TeamsChatPage: React.FC = () => {
 
             {/* Empty Starred Notice */}
             {filterTab === 'starred' && favouriteIds.length === 0 && (
-              <div className="py-8 px-4 text-center text-[var(--text-muted)] space-y-1.5">
-                <div className="text-2xl text-amber-400">★</div>
-                <p className="text-xs font-bold text-[var(--text-primary)]">No Starred Chats Yet</p>
-                <p className="text-[11px]">Hover over any channel or colleague and click the star icon to pin your top chats here for quick access.</p>
+              <div className="py-10 px-4 text-center text-[var(--text-muted)] space-y-2">
+                <div className="w-10 h-10 mx-auto rounded-full bg-[var(--surface-glass-2)] flex items-center justify-center text-amber-400">
+                  <ICON_MAP.StarIcon className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-semibold text-[var(--text-primary)]">No Starred Conversations</p>
+                <p className="text-[11px] leading-relaxed">Hover over any channel or teammate and click the star icon to pin it here.</p>
               </div>
             )}
 
             {/* Channels Section */}
             {(filterTab === 'all' || filterTab === 'channels') && (
               <div>
-                <div className="flex items-center justify-between px-2 mb-1">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
+                <div className="flex items-center justify-between px-2.5 mb-1.5">
+                  <span className="text-[10px] font-semibold tracking-wide text-[var(--text-muted)]">
                     Channels ({filteredChannels.length})
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsNewChannelModalOpen(true)}
                     title="Create New Channel"
-                    className="p-1 rounded-md text-[var(--accent-text)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                    className="p-1 rounded-full text-[var(--accent-text)] hover:bg-[var(--surface-glass-2)] transition-colors cursor-pointer"
                   >
                     <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {filteredChannels.map(channel => {
                     const isActive = !activeDirectUserId && activeChannelId === channel.id;
                     const favKey = `channel:${channel.id}`;
@@ -1619,6 +1710,9 @@ export const TeamsChatPage: React.FC = () => {
                         c.channelId === channel.id &&
                         (c.participants || []).some(p => p.connectionState === 'connected')
                     );
+                    const chanMsgs = chatService.getChannelMessages(channel.id);
+                    const lastPreview = summarizePreviewText(chanMsgs[chanMsgs.length - 1]);
+
                     return (
                       <button
                         key={channel.id}
@@ -1628,56 +1722,63 @@ export const TeamsChatPage: React.FC = () => {
                           setActiveDirectUserId(null);
                           setMobilePaneView('chat');
                         }}
-                        className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                        className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition-all cursor-pointer text-left ${
                           isActive
-                            ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
-                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
+                            ? 'bg-[var(--surface-glass-3)] text-[var(--text-primary)] shadow-[0_6px_18px_-6px_rgba(0,0,0,0.16),0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]'
+                            : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass-1)] hover:text-[var(--text-primary)]'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                           <span
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
                               isActive
-                                ? 'bg-white/15 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]'
-                                : 'bg-[var(--bg-sage)] text-[var(--accent-text)]'
+                                ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
+                                : 'bg-[var(--surface-glass-2)] text-[var(--accent-text)]'
                             }`}
                           >
                             #
                           </span>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <span className="truncate font-bold">{channel.name}</span>
+                              <span className="truncate font-semibold text-[var(--text-primary)]">{channel.name}</span>
                               {hasLiveCallInChannel && (
                                 <span
-                                  title="Active video call in channel"
+                                  title="Active video huddle in channel"
                                   className="w-2 h-2 rounded-full bg-emerald-400 animate-ping flex-shrink-0"
                                 />
                               )}
                             </div>
-                            <span
-                              className={`text-[10px] block truncate font-normal ${
-                                isActive ? 'text-white/75 dark:text-[#131511]/75' : 'text-[var(--text-muted)]'
-                              }`}
-                            >
-                              {channel.department} · {memberCount} members
+                            <span className="text-[11px] block truncate text-[var(--text-muted)] font-normal">
+                              {lastPreview.text || `${channel.department} · ${memberCount} members`}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span
-                            onClick={e => toggleFavourite(favKey, e)}
-                            title={isFav ? 'Unstar channel' : 'Star to Favourites'}
-                            className={`text-xs transition-opacity ${
-                              isFav
-                                ? 'text-amber-400 opacity-100'
-                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-[var(--text-muted)]'
-                            }`}
-                          >
-                            {isFav ? '★' : '☆'}
-                          </span>
-                          {channel.isPrivate && (
-                            <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5 opacity-60 flex-shrink-0" />
+
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          {lastPreview.time && (
+                            <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
+                              {lastPreview.time}
+                            </span>
                           )}
+                          <div className="flex items-center gap-1">
+                            {lastPreview.hasVoice && (
+                              <ICON_MAP.MicrophoneIcon className="w-3 h-3 text-[var(--accent-text)]" />
+                            )}
+                            {channel.isPrivate && (
+                              <ICON_MAP.LockClosedIcon className="w-3 h-3 text-[var(--text-muted)]" />
+                            )}
+                            <span
+                              onClick={e => toggleFavourite(favKey, e)}
+                              title={isFav ? 'Unstar channel' : 'Star to Favourites'}
+                              className={`text-xs transition-opacity ${
+                                isFav
+                                  ? 'text-amber-400 opacity-100'
+                                  : 'opacity-0 group-hover:opacity-65 hover:!opacity-100 text-[var(--text-muted)]'
+                              }`}
+                            >
+                              {isFav ? '★' : '☆'}
+                            </span>
+                          </div>
                         </div>
                       </button>
                     );
@@ -1689,31 +1790,31 @@ export const TeamsChatPage: React.FC = () => {
             {/* Direct Messages (1:1) Section */}
             {(filterTab === 'all' || filterTab === 'direct') && (
               <div>
-                <div className="px-2 mb-1 flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
+                <div className="px-2.5 mb-1.5 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold tracking-wide text-[var(--text-muted)]">
                     Direct Messages ({filteredUsers.length})
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsAddPersonModalOpen(true)}
                     title="Start New Direct Message"
-                    className="p-1 rounded-md text-[var(--accent-text)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                    className="p-1 rounded-full text-[var(--accent-text)] hover:bg-[var(--surface-glass-2)] transition-colors cursor-pointer"
                   >
                     <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {filteredUsers.length === 0 ? (
-                    <div className="px-3 py-2 space-y-2">
-                      <p className="text-[11px] text-[var(--text-muted)] italic">No colleagues found</p>
+                    <div className="px-3 py-4 text-center space-y-2">
+                      <p className="text-[11px] text-[var(--text-muted)]">No colleagues matching your filter</p>
                       <button
                         type="button"
                         onClick={() => setIsAddPersonModalOpen(true)}
-                        className="w-full py-1.5 px-2.5 rounded-lg bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="w-full py-2 px-3 rounded-full glass-bubble-control text-[var(--accent-text)] text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <ICON_MAP.PlusIcon className="w-3.5 h-3.5" />
-                        Add Person
+                        <span>Add Teammate</span>
                       </button>
                     </div>
                   ) : (
@@ -1737,15 +1838,8 @@ export const TeamsChatPage: React.FC = () => {
                         ? 'bg-rose-500'
                         : 'bg-emerald-500';
 
-                      const simpleStatusText = isUserTyping
-                        ? 'Typing...'
-                        : !isOnline
-                        ? 'Offline'
-                        : userAvailability === 'away'
-                        ? 'Away'
-                        : userAvailability === 'busy'
-                        ? 'Busy'
-                        : 'Online';
+                      const dmMsgs = currentUser ? chatService.getDirectMessages(currentUser.id, user.id) : [];
+                      const lastPreview = summarizePreviewText(dmMsgs[dmMsgs.length - 1]);
 
                       return (
                         <button
@@ -1764,85 +1858,101 @@ export const TeamsChatPage: React.FC = () => {
                             setActiveChannelId('');
                             setMobilePaneView('chat');
                           }}
-                          className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                          className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition-all cursor-pointer text-left ${
                             isActive
-                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
-                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sage)] hover:text-[var(--text-primary)]'
+                              ? 'bg-[var(--surface-glass-3)] text-[var(--text-primary)] shadow-[0_6px_18px_-6px_rgba(0,0,0,0.16),0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass-1)] hover:text-[var(--text-primary)]'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 truncate">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                             <div className="relative flex-shrink-0">
                               <Avatar user={user} size="sm" />
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#131511] ${statusDotClass}`}
+                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[var(--bg-surface)] ${statusDotClass}`}
                               />
                             </div>
-                            <div className="truncate">
-                              <span className="block truncate font-bold">{safeName(user)}</span>
+                            <div className="min-w-0 flex-1">
+                              <span className="block truncate font-semibold text-[var(--text-primary)]">{safeName(user)}</span>
                               <span
-                                className={`text-[10px] block truncate font-normal ${
+                                className={`text-[11px] block truncate font-normal ${
                                   isUserTyping
-                                    ? isActive
-                                      ? 'text-[#CCF048] dark:text-[#131511] font-semibold'
-                                      : 'text-[var(--accent-text)] font-semibold'
-                                    : isActive
-                                    ? 'text-white/75 dark:text-[#131511]/75'
+                                    ? 'text-[var(--accent-text)] font-medium'
                                     : 'text-[var(--text-muted)]'
                                 }`}
                               >
-                                {simpleStatusText} · {normalizeUserRole(user.role).replace(/_/g, ' ')}
+                                {isUserTyping
+                                  ? 'Typing...'
+                                  : lastPreview.text || `${isOnline ? 'Online' : 'Offline'} · ${normalizeUserRole(user.role).replace(/_/g, ' ')}`}
                               </span>
                             </div>
                           </div>
-                          <span
-                            onClick={e => toggleFavourite(favKey, e)}
-                            title={isFav ? 'Unstar teammate' : 'Star to Favourites'}
-                            className={`text-xs transition-opacity shrink-0 ${
-                              isFav
-                                ? 'text-amber-400 opacity-100'
-                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-[var(--text-muted)]'
-                            }`}
-                          >
-                            {isFav ? '★' : '☆'}
-                          </span>
+
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                            {lastPreview.time && (
+                              <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
+                                {lastPreview.time}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <ICON_MAP.MicrophoneIcon
+                                className={`w-3 h-3 ${
+                                  lastPreview.hasVoice
+                                    ? 'text-[var(--accent-text)]'
+                                    : 'text-[var(--text-muted)] opacity-55'
+                                }`}
+                              />
+                              <span
+                                onClick={e => toggleFavourite(favKey, e)}
+                                title={isFav ? 'Unstar teammate' : 'Star to Favourites'}
+                                className={`text-xs transition-opacity shrink-0 ${
+                                  isFav
+                                    ? 'text-amber-400 opacity-100'
+                                    : 'opacity-0 group-hover:opacity-65 hover:!opacity-100 text-[var(--text-muted)]'
+                                }`}
+                              >
+                                {isFav ? '★' : '☆'}
+                              </span>
+                            </div>
+                          </div>
                         </button>
                       );
                     })
                   )}
-
-                  <div className="pt-1.5 px-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddPersonModalOpen(true)}
-                      className="w-full py-2 px-2.5 rounded-xl border border-dashed border-[var(--border-strong)] hover:border-[var(--border-strong)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--accent-text)] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5" />
-                      <span>+ Add Teammate</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Image 4 Floating Bottom Add Teammate Pill */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+            <button
+              type="button"
+              onClick={() => setIsAddPersonModalOpen(true)}
+              className="pointer-events-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-full glass-bubble-control bg-[var(--surface-glass-3)] text-[var(--text-primary)] text-xs font-semibold shadow-[0_10px_28px_-6px_rgba(0,0,0,0.28)] hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <span>Add Teammate</span>
+              <ICON_MAP.UserPlusIcon className="w-3.5 h-3.5 text-[var(--accent-text)]" />
+            </button>
+          </div>
         </div>
 
-        {/* Center Main Pane: Active Conversation + Sub-Tabs (Messages | Canvas | Files) */}
+        {/* Center Main Pane: Active Liquid Glass Conversation Stage */}
         <div
           className={`${
             mobilePaneView === 'chat' ? 'flex' : 'hidden lg:flex'
-          } flex-1 flex-col h-full min-h-0 min-w-0 rounded-[20px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden`}
+          } flex-1 flex-col h-full min-h-0 min-w-0 rounded-[26px] glass-level-2 overflow-hidden relative`}
         >
-          {/* Conversation Header */}
-          <div className="px-3 sm:px-4 py-2.5 border-b border-[var(--border-hairline)] flex flex-wrap items-center justify-between gap-2 bg-[var(--bg-surface-subtle)]">
+          {/* Floating Glass Conversation Header */}
+          <div className="px-3.5 sm:px-5 py-3 border-b border-[var(--border-hairline)]/45 flex flex-wrap items-center justify-between gap-2.5 bg-[var(--surface-glass-1)]/65 backdrop-blur-md">
             <div className="flex items-center gap-2.5 min-w-0">
               {/* Mobile & Tablet Back Button to return to Channel/DM list */}
               <button
                 type="button"
                 onClick={() => setMobilePaneView('list')}
-                title="Back to Channels & Direct Messages"
-                className="lg:hidden p-2 rounded-[20px] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--text-primary)] cursor-pointer flex-shrink-0"
+                title="Back to Messages & Channels"
+                className="lg:hidden w-9 h-9 rounded-full glass-bubble-control text-[var(--text-primary)] flex items-center justify-center cursor-pointer flex-shrink-0"
               >
-                <ICON_MAP.ChevronLeftIcon className="w-5 h-5" />
+                <ICON_MAP.ChevronLeftIcon className="w-4 h-4" />
               </button>
 
               {activeDirectUser ? (
@@ -1883,7 +1993,7 @@ export const TeamsChatPage: React.FC = () => {
                       <div className="relative flex-shrink-0">
                         <Avatar user={activeDirectUser} size="md" />
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#131511] ${directDotClass}`}
+                          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-[var(--bg-surface)] ${directDotClass}`}
                         />
                       </div>
                       <div className="min-w-0">
@@ -1893,9 +2003,9 @@ export const TeamsChatPage: React.FC = () => {
                           </h2>
                           <span
                             title={`End-to-End Encrypted (Fingerprint: ${e2eeFingerprint})`}
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
                           >
-                            <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
+                            <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">E2EE</span>
                           </span>
                         </div>
@@ -1903,7 +2013,7 @@ export const TeamsChatPage: React.FC = () => {
                           {isDirectUserTyping ? (
                             <span className="text-[var(--accent-text)] font-semibold animate-pulse">Typing...</span>
                           ) : (
-                            <span>{directStatusText}</span>
+                            <span>{directStatusText} · {activeDirectUser.email}</span>
                           )}
                         </p>
                       </div>
@@ -1912,7 +2022,7 @@ export const TeamsChatPage: React.FC = () => {
                 })()
               ) : activeChannel ? (
                 <>
-                  <div className="w-9 h-9 rounded-xl bg-[var(--bg-sage)] text-[var(--accent-text)] font-black text-base flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-[var(--surface-glass-2)] text-[var(--accent-text)] font-bold text-base flex items-center justify-center flex-shrink-0 shadow-[inset_0_1px_2px_var(--glass-bubble-glow)]">
                     #
                   </div>
                   <div className="min-w-0">
@@ -1920,8 +2030,8 @@ export const TeamsChatPage: React.FC = () => {
                       <h2 className="text-sm font-bold text-[var(--text-primary)] truncate">
                         #{activeChannel.name}
                       </h2>
-                      <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-sage)] text-[var(--text-secondary)]">
-                        {activeChannel.department}
+                      <span className="hidden sm:inline text-[11px] text-[var(--text-muted)]">
+                        · {activeChannel.department}
                       </span>
                     </div>
                     <p className="text-[11px] text-[var(--text-muted)] truncate">
@@ -1933,13 +2043,16 @@ export const TeamsChatPage: React.FC = () => {
             </div>
 
             {/* Center Header Sub-Tabs: Messages | Canvas | Files */}
-            <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--bg-sage)] border border-[var(--border-hairline)]">
-              {[
+            <SegmentedTabs
+              size="sm"
+              value={conversationSubTab}
+              onChange={val => setConversationSubTab(val)}
+              options={[
                 {
                   id: 'messages',
                   label: 'Messages',
                   icon: <ICON_MAP.ChatBubbleLeftIcon className="w-3.5 h-3.5" />,
-                  badge: messages.length,
+                  count: messages.length,
                 },
                 {
                   id: 'canvas',
@@ -1950,31 +2063,43 @@ export const TeamsChatPage: React.FC = () => {
                   id: 'files',
                   label: 'Files',
                   icon: <ICON_MAP.FolderIcon className="w-3.5 h-3.5" />,
-                  badge: messages.reduce((acc, m) => acc + (m.attachments?.length || 0), 0),
+                  count: messages.reduce((acc, m) => acc + (m.attachments?.length || 0), 0),
                 },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setConversationSubTab(tab.id as any)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                    conversationSubTab === tab.id
-                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-2xs'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  {tab.icon}
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  {typeof tab.badge === 'number' && tab.badge > 0 && (
-                    <span className="text-[9px] font-mono tabular-nums opacity-75">{tab.badge}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+              ]}
+            />
 
-            {/* Header Right: Icon-First Call, Schedule & Details Drawer Actions */}
+            {/* Image 4 Circular Glass Control Buttons */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {/* Video Call Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!currentUser) return;
+                  const onlineChannelPeers = activeChannelMembers.filter(
+                    m => m.id !== currentUser.id && Boolean(findPresenceForUser(m))
+                  );
+                  window.dispatchEvent(
+                    new CustomEvent('omni_start_video_call', {
+                      detail: {
+                        title: activeDirectUser
+                          ? `Voice Call with ${safeName(activeDirectUser)}`
+                          : `#${activeChannel?.name || 'general'} Voice Huddle`,
+                        type: activeDirectUser ? 'direct' : 'channel',
+                        channelId: activeDirectUser ? undefined : activeChannel?.id,
+                        directUser: activeDirectUser || undefined,
+                        invitedUsers: activeDirectUser ? [activeDirectUser] : onlineChannelPeers,
+                        initialVideo: false,
+                        initialAudio: true,
+                        showLobby: false,
+                      },
+                    })
+                  );
+                }}
+                title="Start Audio Call"
+                className="w-9 h-9 rounded-full glass-bubble-control text-[var(--text-primary)] flex items-center justify-center cursor-pointer"
+              >
+                <ICON_MAP.PhoneIcon className="w-4 h-4" />
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -2004,43 +2129,11 @@ export const TeamsChatPage: React.FC = () => {
                     ? `Start Video Call with ${safeName(activeDirectUser)}`
                     : `Start Video Call in #${activeChannel?.name}`
                 }
-                className="p-2 rounded-xl bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs transition-all cursor-pointer"
+                className="w-9 h-9 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] shadow-[0_6px_16px_-4px_rgba(var(--primary-rgb),0.45),inset_0_1px_2px_rgba(255,255,255,0.28)] flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
               >
                 <ICON_MAP.VideoCameraIcon className="w-4 h-4" />
               </button>
 
-              {/* Audio Call Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!currentUser) return;
-                  const onlineChannelPeers = activeChannelMembers.filter(
-                    m => m.id !== currentUser.id && Boolean(findPresenceForUser(m))
-                  );
-                  window.dispatchEvent(
-                    new CustomEvent('omni_start_video_call', {
-                      detail: {
-                        title: activeDirectUser
-                          ? `Voice Call with ${safeName(activeDirectUser)}`
-                          : `#${activeChannel?.name || 'general'} Voice Huddle`,
-                        type: activeDirectUser ? 'direct' : 'channel',
-                        channelId: activeDirectUser ? undefined : activeChannel?.id,
-                        directUser: activeDirectUser || undefined,
-                        invitedUsers: activeDirectUser ? [activeDirectUser] : onlineChannelPeers,
-                        initialVideo: false,
-                        initialAudio: true,
-                        showLobby: false,
-                      },
-                    })
-                  );
-                }}
-                title="Start Audio Call"
-                className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-colors cursor-pointer"
-              >
-                <ICON_MAP.PhoneIcon className="w-4 h-4" />
-              </button>
-
-              {/* Schedule Meeting Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -2058,23 +2151,22 @@ export const TeamsChatPage: React.FC = () => {
                   setIsScheduleModalOpen(true);
                 }}
                 title="Schedule Meeting"
-                className="p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] transition-colors cursor-pointer"
+                className="w-9 h-9 rounded-full glass-bubble-control text-[var(--accent-text)] flex items-center justify-center cursor-pointer"
               >
                 <ICON_MAP.CalendarIcon className="w-4 h-4" />
               </button>
 
-              {/* Toggle Right Details Drawer */}
               <button
                 type="button"
                 onClick={() => setIsDetailsDrawerOpen(prev => !prev)}
                 title={isDetailsDrawerOpen ? 'Hide Conversation Details' : 'Show Conversation Details'}
-                className={`hidden md:inline-flex p-2 rounded-xl border transition-colors cursor-pointer ${
+                className={`hidden xl:inline-flex w-9 h-9 rounded-full items-center justify-center transition-all cursor-pointer ${
                   isDetailsDrawerOpen
-                    ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] border-transparent shadow-xs'
-                    : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
+                    ? 'bg-[var(--surface-glass-3)] text-[var(--accent-text)] shadow-[inset_0_1.5px_3px_var(--glass-bubble-glow)]'
+                    : 'glass-bubble-control text-[var(--text-secondary)]'
                 }`}
               >
-                <ICON_MAP.ViewColumnsIcon className="w-4 h-4" />
+                <ICON_MAP.InformationCircleIcon className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -2100,41 +2192,39 @@ export const TeamsChatPage: React.FC = () => {
             const amIConnected = connectedParticipants.some(p => p.userId === currentUser?.id);
 
             return (
-              <div className="px-4 py-2.5 bg-emerald-600/15 border-b border-emerald-500/30 flex items-center justify-between gap-3">
+              <div className="mx-3.5 mt-2.5 px-4 py-2 rounded-2xl bg-emerald-500/14 backdrop-blur-md flex items-center justify-between gap-3 shadow-[inset_0_1px_2px_rgba(255,255,255,0.16)]">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping flex-shrink-0" />
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 truncate">
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 truncate">
                     {activeConvCall.title}
                   </span>
-                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 hidden sm:inline">
-                    · {connectedParticipants.length} active in call · {activeConvCall.meetingCode}
+                  <span className="text-[11px] font-mono text-[var(--text-muted)] hidden sm:inline">
+                    · {connectedParticipants.length} active · {activeConvCall.meetingCode}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!currentUser) return;
-                      if (amIConnected) {
-                        meetingAndCallService.setMinimized(false);
-                      } else {
-                        meetingAndCallService.startOrJoinCall({
-                          currentUser,
-                          title: activeConvCall.title,
-                          type: activeConvCall.type,
-                          meetingCode: activeConvCall.meetingCode,
-                          channelId: activeConvCall.channelId,
-                          directUser: activeDirectUser || undefined,
-                          postCallCardToChat: false,
-                        });
-                      }
-                    }}
-                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                    <span>{amIConnected ? 'Return to Call' : 'Join Call'}</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!currentUser) return;
+                    if (amIConnected) {
+                      meetingAndCallService.setMinimized(false);
+                    } else {
+                      meetingAndCallService.startOrJoinCall({
+                        currentUser,
+                        title: activeConvCall.title,
+                        type: activeConvCall.type,
+                        meetingCode: activeConvCall.meetingCode,
+                        channelId: activeConvCall.channelId,
+                        directUser: activeDirectUser || undefined,
+                        postCallCardToChat: false,
+                      });
+                    }
+                  }}
+                  className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+                >
+                  <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                  <span>{amIConnected ? 'Return to Call' : 'Join Call'}</span>
+                </button>
               </div>
             );
           })()}
@@ -2152,8 +2242,8 @@ export const TeamsChatPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold">Shared Files & Media</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Shared Files & Media</h3>
+                  <p className="text-xs text-[var(--text-muted)]">
                     All images, voice notes, and documents shared in this conversation
                   </p>
                 </div>
@@ -2163,7 +2253,7 @@ export const TeamsChatPage: React.FC = () => {
                     setConversationSubTab('messages');
                     setTimeout(() => fileInputRef.current?.click(), 80);
                   }}
-                  className="px-3 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <ICON_MAP.PaperClipIcon className="w-3.5 h-3.5" />
                   <span>Upload File</span>
@@ -2180,7 +2270,7 @@ export const TeamsChatPage: React.FC = () => {
                 );
                 if (allAtts.length === 0) {
                   return (
-                    <div className="py-16 text-center rounded-2xl border border-dashed border-[var(--border-hairline)]">
+                    <div className="py-16 text-center rounded-3xl editorial-surface-subtle">
                       <ICON_MAP.FolderIcon className="w-10 h-10 mx-auto text-[var(--text-muted)] mb-2 opacity-60" />
                       <p className="text-xs font-semibold text-[var(--text-secondary)]">No files shared in this conversation yet</p>
                     </div>
@@ -2191,7 +2281,7 @@ export const TeamsChatPage: React.FC = () => {
                     {allAtts.map((att, idx) => (
                       <div
                         key={idx}
-                        className="p-3 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex items-center justify-between gap-3"
+                        className="p-3 rounded-2xl editorial-surface-subtle flex items-center justify-between gap-3"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {att.type === 'image' ? (
@@ -2202,12 +2292,12 @@ export const TeamsChatPage: React.FC = () => {
                               className="w-10 h-10 rounded-xl object-cover cursor-zoom-in shrink-0"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded-xl bg-[var(--bg-sage)] text-[var(--accent-text)] flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-[var(--surface-glass-2)] text-[var(--accent-text)] flex items-center justify-center shrink-0">
                               <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
                             </div>
                           )}
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-[var(--text-primary)] truncate">{att.name}</div>
+                            <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{att.name}</div>
                             <div className="text-[10px] text-[var(--text-muted)] truncate">
                               By {att.senderName} · {new Date(att.createdAt).toLocaleDateString()}
                             </div>
@@ -2216,7 +2306,7 @@ export const TeamsChatPage: React.FC = () => {
                         <a
                           href={att.url}
                           download={att.name}
-                          className="p-2 rounded-xl bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] shrink-0"
+                          className="w-8 h-8 rounded-full glass-bubble-control text-[var(--accent-text)] flex items-center justify-center shrink-0"
                           title="Download"
                         >
                           <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4" />
@@ -2230,10 +2320,10 @@ export const TeamsChatPage: React.FC = () => {
           ) : (
             <>
               {/* Messages Stream */}
-              <div ref={messagesScrollRef} data-bubble-scroll="true" className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 scrollbar-thin">
+              <div ref={messagesScrollRef} data-bubble-scroll="true" className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-5 md:p-6 space-y-4 scrollbar-thin">
                 {messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-[var(--bg-sage)] text-[var(--accent-text)] flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-[var(--surface-glass-2)] text-[var(--accent-text)] flex items-center justify-center shadow-[inset_0_1.5px_3px_var(--glass-bubble-glow)]">
                       <ICON_MAP.ChatBubbleLeftIcon className="w-6 h-6" />
                     </div>
                     <h3 className="text-base font-bold text-[var(--text-primary)]">
@@ -2248,13 +2338,18 @@ export const TeamsChatPage: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  messages.map(msg => {
+                  messages.map((msg, msgIdx) => {
                     const isMe = msg.sender_id === currentUser?.id;
                     const isPinned = pinnedMessageIds.includes(msg.id);
                     const formattedTime = new Date(msg.created_at).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
                     });
+
+                    const prevMsg = msgIdx > 0 ? messages[msgIdx - 1] : null;
+                    const currentDayStr = new Date(msg.created_at).toDateString();
+                    const prevDayStr = prevMsg ? new Date(prevMsg.created_at).toDateString() : '';
+                    const showDaySeparator = !prevMsg || currentDayStr !== prevDayStr;
 
                     // Parse optional Quote-Reply block prefix [QUOTE:{...}]
                     let quotedMeta: { id?: string; sender?: string; text?: string } | null = null;
@@ -2270,509 +2365,514 @@ export const TeamsChatPage: React.FC = () => {
                     }
 
                     return (
-                      <div
-                        key={msg.id}
-                        className={`flex items-start gap-2.5 sm:gap-3 group transition-all ${isMe ? 'flex-row-reverse' : ''}`}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-[var(--bg-sage)] text-[var(--accent-text)] font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs ring-1 ring-[var(--border-hairline)]">
-                          {msg.sender_avatar ? (
-                            <img src={msg.sender_avatar} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            (msg.sender_name || 'U').charAt(0).toUpperCase()
-                          )}
-                        </div>
-
-                        <div className={`space-y-1.5 max-w-[85%] sm:max-w-[75%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                          <div className={`flex items-center gap-2 text-[10px] ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <span className="font-bold text-slate-800 dark:text-slate-200">
-                              {isMe ? 'You' : msg.sender_name}
+                      <React.Fragment key={msg.id}>
+                        {showDaySeparator && (
+                          <div className="flex items-center justify-center py-1">
+                            <span className="px-3 py-0.5 rounded-full bg-[var(--surface-glass-1)] text-[10px] font-medium text-[var(--text-muted)] shadow-[inset_0_1px_2px_var(--glass-bubble-glow)]">
+                              {formatMessageDayLabel(msg.created_at)}
                             </span>
-                            <span className="text-slate-400 font-mono tabular-nums">{formattedTime}</span>
-                            {isPinned && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 font-bold text-[9px]">
-                                📌 Pinned
-                              </span>
-                            )}
-                            {(msg.is_encrypted || msg.recipient_id) && (
-                              <span
-                                title={`End-to-End Encrypted (AES-256-GCM${
-                                  msg.key_fingerprint ? ` · Key ${msg.key_fingerprint}` : ''
-                                })`}
-                                className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400"
-                              >
-                                <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
-                                E2EE
-                              </span>
+                          </div>
+                        )}
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={GLASS_SPRING.micro}
+                          className={`flex items-start gap-2.5 sm:gap-3 group ${isMe ? 'flex-row-reverse' : ''}`}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-[var(--surface-glass-2)] text-[var(--accent-text)] font-bold text-xs flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs">
+                            {msg.sender_avatar ? (
+                              <img src={msg.sender_avatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              (msg.sender_name || 'U').charAt(0).toUpperCase()
                             )}
                           </div>
 
-                          {(() => {
-                            const rawContent = displayContent;
-                            if (rawContent.startsWith('[MEETING_INVITE:')) {
-                              const closeBracket = rawContent.indexOf(']');
-                              let parsedMeta: any = null;
-                              if (closeBracket > 0) {
-                                try {
-                                  parsedMeta = JSON.parse(rawContent.slice(16, closeBracket));
-                                } catch {}
-                              }
-                              const liveEvent =
-                                (parsedMeta?.eventId &&
-                                  calendarEvents.find(e => e.id === parsedMeta.eventId)) ||
-                                null;
-                              const title = liveEvent?.title || parsedMeta?.title || 'Scheduled Meeting';
-                              const startTime = liveEvent?.startTime || parsedMeta?.startTime;
-                              const meetingCode = liveEvent?.meetingCode || parsedMeta?.meetingCode || 'omni-live';
-                              const organizerName =
-                                liveEvent?.organizerName || parsedMeta?.organizerName || msg.sender_name;
-                              const myRsvp = liveEvent?.attendees.find(
-                                a => a.userId === currentUser?.id
-                              )?.rsvp;
-                              const goingCount = liveEvent
-                                ? liveEvent.attendees.filter(a => a.rsvp === 'going').length
-                                : 1;
-                              const maybeCount = liveEvent
-                                ? liveEvent.attendees.filter(a => a.rsvp === 'maybe').length
-                                : 0;
-                              const pendingCount = liveEvent
-                                ? liveEvent.attendees.filter(a => a.rsvp === 'pending').length
-                                : 0;
-
-                              return (
-                                <div
-                                  className="p-3.5 sm:p-4 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm space-y-3 min-w-[250px] sm:min-w-[320px]"
+                          <div className={`space-y-1.5 max-w-[85%] sm:max-w-[72%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                            <div className={`flex items-center gap-2 text-[10px] ${isMe ? 'justify-end' : 'justify-start'}`}>
+                              <span className="font-semibold text-[var(--text-primary)]">
+                                {isMe ? 'You' : msg.sender_name}
+                              </span>
+                              <span className="text-[var(--text-muted)] font-mono tabular-nums">{formattedTime}</span>
+                              {isPinned && (
+                                <span className="inline-flex items-center gap-0.5 text-amber-500 font-semibold text-[9px]">
+                                  Pinned
+                                </span>
+                              )}
+                              {(msg.is_encrypted || msg.recipient_id) && (
+                                <span
+                                  title={`End-to-End Encrypted (AES-256-GCM${
+                                    msg.key_fingerprint ? ` · Key ${msg.key_fingerprint}` : ''
+                                  })`}
+                                  className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400"
                                 >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="space-y-0.5">
-                                      <div className="text-[10px] font-semibold text-[var(--accent-text)]">
-                                        Calendar Meeting · Room {meetingCode}
-                                      </div>
-                                      <h4 className="text-sm font-bold">{title}</h4>
-                                      {startTime && (
-                                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                                          {new Date(startTime).toLocaleString([], {
-                                            weekday: 'short',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                          })}
+                                  <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
+                                  E2EE
+                                </span>
+                              )}
+                            </div>
+
+                            {(() => {
+                              const rawContent = displayContent;
+                              if (rawContent.startsWith('[MEETING_INVITE:')) {
+                                const closeBracket = rawContent.indexOf(']');
+                                let parsedMeta: any = null;
+                                if (closeBracket > 0) {
+                                  try {
+                                    parsedMeta = JSON.parse(rawContent.slice(16, closeBracket));
+                                  } catch {}
+                                }
+                                const liveEvent =
+                                  (parsedMeta?.eventId &&
+                                    calendarEvents.find(e => e.id === parsedMeta.eventId)) ||
+                                  null;
+                                const title = liveEvent?.title || parsedMeta?.title || 'Scheduled Meeting';
+                                const startTime = liveEvent?.startTime || parsedMeta?.startTime;
+                                const meetingCode = liveEvent?.meetingCode || parsedMeta?.meetingCode || 'omni-live';
+                                const organizerName =
+                                  liveEvent?.organizerName || parsedMeta?.organizerName || msg.sender_name;
+                                const myRsvp = liveEvent?.attendees.find(
+                                  a => a.userId === currentUser?.id
+                                )?.rsvp;
+                                const goingCount = liveEvent
+                                  ? liveEvent.attendees.filter(a => a.rsvp === 'going').length
+                                  : 1;
+                                const maybeCount = liveEvent
+                                  ? liveEvent.attendees.filter(a => a.rsvp === 'maybe').length
+                                  : 0;
+                                const pendingCount = liveEvent
+                                  ? liveEvent.attendees.filter(a => a.rsvp === 'pending').length
+                                  : 0;
+
+                                return (
+                                  <div className="p-4 rounded-[22px] editorial-surface-subtle text-[var(--text-primary)] space-y-3 min-w-[250px] sm:min-w-[320px]">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="space-y-0.5">
+                                        <div className="text-[10px] font-semibold text-[var(--accent-text)]">
+                                          Calendar Meeting · Room {meetingCode}
                                         </div>
-                                      )}
-                                      <div className="text-[11px] text-slate-400">
-                                        By {organizerName} · {goingCount} Going · {maybeCount} Maybe · {pendingCount} Pending
+                                        <h4 className="text-sm font-bold">{title}</h4>
+                                        {startTime && (
+                                          <div className="text-xs text-[var(--text-secondary)] font-mono tabular-nums">
+                                            {new Date(startTime).toLocaleString([], {
+                                              weekday: 'short',
+                                              month: 'short',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                            })}
+                                          </div>
+                                        )}
+                                        <div className="text-[11px] text-[var(--text-muted)]">
+                                          By {organizerName} · {goingCount} Going · {maybeCount} Maybe · {pendingCount} Pending
+                                        </div>
                                       </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (!currentUser) return;
+                                          window.dispatchEvent(
+                                            new CustomEvent('omni_start_video_call', {
+                                              detail: {
+                                                title,
+                                                type: 'scheduled',
+                                                meetingCode,
+                                                calendarEvent: liveEvent || undefined,
+                                                invitedUsers: activeDirectUser
+                                                  ? [activeDirectUser]
+                                                  : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                                                showLobby: true,
+                                              },
+                                            })
+                                          );
+                                        }}
+                                        className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs"
+                                      >
+                                        <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
+                                        <span>Join</span>
+                                      </button>
                                     </div>
 
+                                    {liveEvent && currentUser && (
+                                      <div className="pt-2.5 border-t border-[var(--border-hairline)]/45 flex items-center justify-between gap-2">
+                                        <span className="text-[11px] font-medium text-[var(--text-muted)]">RSVP:</span>
+                                        <div className="flex items-center gap-1.5">
+                                          {(
+                                            [
+                                              { id: 'going', label: '✓ Going' },
+                                              { id: 'maybe', label: '? Maybe' },
+                                              { id: 'declined', label: '✕ Decline' },
+                                            ] as const
+                                          ).map(opt => {
+                                            const active = myRsvp === opt.id;
+                                            return (
+                                              <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => {
+                                                  meetingAndCallService.updateRsvp(
+                                                    liveEvent.id,
+                                                    currentUser,
+                                                    opt.id
+                                                  );
+                                                  addToast(
+                                                    'RSVP Updated',
+                                                    `Responded "${opt.label}" to "${liveEvent.title}".`,
+                                                    'success'
+                                                  );
+                                                }}
+                                                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                                                  active
+                                                    ? opt.id === 'going'
+                                                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
+                                                      : opt.id === 'maybe'
+                                                      ? 'bg-amber-500 text-slate-950'
+                                                      : 'bg-rose-600 text-white'
+                                                    : 'bg-[var(--surface-glass-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-glass-3)]'
+                                                }`}
+                                              >
+                                                {opt.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              if (rawContent.startsWith('[VIDEO_CALL:')) {
+                                const closeBracket = rawContent.indexOf(']');
+                                let parsedCall: any = null;
+                                if (closeBracket > 0) {
+                                  try {
+                                    parsedCall = JSON.parse(rawContent.slice(12, closeBracket));
+                                  } catch {}
+                                }
+                                const callId = parsedCall?.callId;
+                                const callTitle = parsedCall?.title || 'Team Video Call';
+                                const meetingCode = parsedCall?.meetingCode || 'omni-live';
+
+                                const liveSession = ongoingOrgCalls.find(
+                                  c =>
+                                    (callId && c.id === callId) ||
+                                    (meetingCode && c.meetingCode === meetingCode)
+                                );
+                                const connectedCount = liveSession
+                                  ? (liveSession.participants || []).filter(p => p.connectionState === 'connected').length
+                                  : 0;
+                                const endedRecord = chatService.getEndedCallMeta(callId, meetingCode);
+                                const isEnded =
+                                  Boolean(parsedCall?.ended) ||
+                                  Boolean(parsedCall?.endedAt) ||
+                                  Boolean(endedRecord) ||
+                                  connectedCount === 0;
+
+                                const endedTimestampIso =
+                                  parsedCall?.endedAt || endedRecord?.endedAt || msg.created_at;
+                                const endedTimeFormatted = new Date(endedTimestampIso).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                });
+                                const durationLabel =
+                                  parsedCall?.durationText || endedRecord?.durationText || '';
+
+                                if (isEnded) {
+                                  return (
+                                    <div className="p-3.5 rounded-[20px] editorial-surface-subtle flex items-center justify-between gap-4 min-w-[250px] sm:min-w-[290px]">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-8 h-8 rounded-full bg-[var(--surface-glass-2)] text-[var(--text-muted)] flex items-center justify-center flex-shrink-0">
+                                          <ICON_MAP.PhoneXMarkIcon className="w-4 h-4" />
+                                        </div>
+                                        <div className="space-y-0.5 min-w-0">
+                                          <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{callTitle}</div>
+                                          <div className="text-[10px] font-mono text-[var(--text-muted)]">
+                                            Ended {endedTimeFormatted}
+                                            {durationLabel ? ` · ${durationLabel}` : ''}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <span className="text-[10px] font-medium text-[var(--text-muted)] flex-shrink-0">
+                                        Ended
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="p-3.5 rounded-[20px] bg-emerald-500/14 backdrop-blur-md shadow-[inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-between gap-4 min-w-[250px] sm:min-w-[290px]">
+                                    <div className="space-y-0.5 min-w-0">
+                                      <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                        <span>
+                                          Live Room · {connectedCount} in call · {meetingCode}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs font-bold text-[var(--text-primary)] truncate">{callTitle}</div>
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() => {
                                         if (!currentUser) return;
-                                        window.dispatchEvent(
-                                          new CustomEvent('omni_start_video_call', {
-                                            detail: {
-                                              title,
-                                              type: 'scheduled',
-                                              meetingCode,
-                                              calendarEvent: liveEvent || undefined,
-                                              invitedUsers: activeDirectUser
-                                                ? [activeDirectUser]
-                                                : activeChannelMembers.filter(m => m.id !== currentUser.id),
-                                              showLobby: true,
-                                            },
-                                          })
-                                        );
+                                        meetingAndCallService.startOrJoinCall({
+                                          currentUser,
+                                          title: callTitle,
+                                          type: activeDirectUser ? 'direct' : 'channel',
+                                          meetingCode,
+                                          channelId: activeDirectUser ? undefined : activeChannel?.id,
+                                          directUser: activeDirectUser || undefined,
+                                          postCallCardToChat: false,
+                                        });
                                       }}
-                                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+                                      className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0"
                                     >
                                       <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                                      <span>Join</span>
+                                      <span>Join Call</span>
                                     </button>
-                                  </div>
-
-                                  {liveEvent && currentUser && (
-                                    <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
-                                      <span className="text-[11px] font-semibold text-slate-400">RSVP:</span>
-                                      <div className="flex items-center gap-1.5">
-                                        {(
-                                          [
-                                            { id: 'going', label: '✓ Going' },
-                                            { id: 'maybe', label: '? Maybe' },
-                                            { id: 'declined', label: '✕ Decline' },
-                                          ] as const
-                                        ).map(opt => {
-                                          const active = myRsvp === opt.id;
-                                          return (
-                                            <button
-                                              key={opt.id}
-                                              type="button"
-                                              onClick={() => {
-                                                meetingAndCallService.updateRsvp(
-                                                  liveEvent.id,
-                                                  currentUser,
-                                                  opt.id
-                                                );
-                                                addToast(
-                                                  'RSVP Updated',
-                                                  `Responded "${opt.label}" to "${liveEvent.title}".`,
-                                                  'success'
-                                                );
-                                              }}
-                                              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
-                                                active
-                                                  ? opt.id === 'going'
-                                                    ? 'bg-[var(--accent-lime)] text-[var(--accent-ink)] border-[var(--border-strong)]'
-                                                    : opt.id === 'maybe'
-                                                    ? 'bg-amber-500 text-[#131511] border-amber-400'
-                                                    : 'bg-rose-600 text-white border-rose-500'
-                                                  : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] text-[var(--text-secondary)] hover:bg-[var(--bg-sage)]'
-                                              }`}
-                                            >
-                                              {opt.label}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
-
-                            if (rawContent.startsWith('[VIDEO_CALL:')) {
-                              const closeBracket = rawContent.indexOf(']');
-                              let parsedCall: any = null;
-                              if (closeBracket > 0) {
-                                try {
-                                  parsedCall = JSON.parse(rawContent.slice(12, closeBracket));
-                                } catch {}
-                              }
-                              const callId = parsedCall?.callId;
-                              const callTitle = parsedCall?.title || 'Team Video Call';
-                              const meetingCode = parsedCall?.meetingCode || 'omni-live';
-
-                              const liveSession = ongoingOrgCalls.find(
-                                c =>
-                                  (callId && c.id === callId) ||
-                                  (meetingCode && c.meetingCode === meetingCode)
-                              );
-                              const connectedCount = liveSession
-                                ? (liveSession.participants || []).filter(p => p.connectionState === 'connected').length
-                                : 0;
-                              const endedRecord = chatService.getEndedCallMeta(callId, meetingCode);
-                              const isEnded =
-                                Boolean(parsedCall?.ended) ||
-                                Boolean(parsedCall?.endedAt) ||
-                                Boolean(endedRecord) ||
-                                connectedCount === 0;
-
-                              const endedTimestampIso =
-                                parsedCall?.endedAt || endedRecord?.endedAt || msg.created_at;
-                              const endedTimeFormatted = new Date(endedTimestampIso).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              });
-                              const durationLabel =
-                                parsedCall?.durationText || endedRecord?.durationText || '';
-
-                              if (isEnded) {
-                                return (
-                                  <div
-                                    className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between gap-4 min-w-[250px] sm:min-w-[290px] ${
-                                      darkMode
-                                        ? 'bg-slate-800/90 border-slate-700 text-slate-300'
-                                        : 'bg-slate-100 border-slate-200 text-slate-700'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="w-8 h-8 rounded-xl bg-slate-500/15 text-slate-400 flex items-center justify-center flex-shrink-0">
-                                        <ICON_MAP.PhoneXMarkIcon className="w-4 h-4" />
-                                      </div>
-                                      <div className="space-y-0.5 min-w-0">
-                                        <div className="text-xs font-bold truncate">{callTitle}</div>
-                                        <div className="text-[10px] font-mono text-slate-400">
-                                          Call ended at {endedTimeFormatted}
-                                          {durationLabel ? ` · ${durationLabel}` : ''}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <span className="px-2.5 py-1 rounded-lg bg-slate-500/15 text-slate-400 text-[10px] font-semibold flex-shrink-0">
-                                      Ended
-                                    </span>
                                   </div>
                                 );
                               }
 
+                              if (rawContent.startsWith('🎨 **Shared Live Whiteboard:')) {
+                                return (
+                                  <div className="p-3.5 rounded-[20px] editorial-surface-subtle text-[var(--text-primary)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="space-y-1 text-xs whitespace-pre-line">
+                                      {rawContent.replace(/\*\*/g, '')}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConversationSubTab('canvas')}
+                                      className="px-3.5 py-2 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs whitespace-nowrap"
+                                    >
+                                      <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
+                                      <span>Open Canvas ↗</span>
+                                    </button>
+                                  </div>
+                                );
+                              }
+
+                              const isDefaultAttachmentLabel =
+                                rawContent.startsWith('🎙️ Voice note') || rawContent.startsWith('📎 Shared ');
+
+                              if (isDefaultAttachmentLabel && msg.attachments && msg.attachments.length > 0 && !quotedMeta) {
+                                return null;
+                              }
+
                               return (
                                 <div
-                                  className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between gap-4 min-w-[250px] sm:min-w-[290px] ${
-                                    darkMode
-                                      ? 'bg-slate-900/95 border-emerald-500/40 text-white'
-                                      : 'bg-emerald-50/60 border-emerald-200 text-slate-900'
+                                  className={`px-4 py-2.5 sm:py-3 rounded-[20px] text-[13px] leading-relaxed break-words transition-transform duration-200 space-y-2 ${
+                                    isMe
+                                      ? 'bg-[var(--accent-cta)]/92 text-[var(--accent-cta-ink)] rounded-tr-[6px] shadow-[0_8px_20px_-8px_rgba(var(--primary-rgb),0.45),inset_0_1.5px_2px_rgba(255,255,255,0.22)]'
+                                      : 'bg-[var(--surface-glass-3)]/88 backdrop-blur-md text-[var(--text-primary)] rounded-tl-[6px] shadow-[0_6px_18px_-6px_rgba(0,0,0,0.14),0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]'
                                   }`}
                                 >
-                                  <div className="space-y-0.5 min-w-0">
-                                    <div className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1.5">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                      <span>
-                                        Live Room · {connectedCount} in call · {meetingCode}
-                                      </span>
+                                  {/* Image 1 Indented Quote-Reply Vertical Bar */}
+                                  {quotedMeta && (
+                                    <div
+                                      className={`flex items-stretch gap-2.5 pl-1 pr-2 py-1 rounded-xl text-[11px] ${
+                                        isMe
+                                          ? 'bg-black/10 text-[var(--accent-cta-ink)]/90'
+                                          : 'bg-[var(--surface-glass-1)]/70 text-[var(--text-secondary)]'
+                                      }`}
+                                    >
+                                      <span
+                                        className={`w-[3px] rounded-full flex-shrink-0 ${
+                                          isMe ? 'bg-[var(--accent-cta-ink)]/55' : 'bg-[var(--accent)]'
+                                        }`}
+                                      />
+                                      <div className="min-w-0">
+                                        <div className="font-semibold text-[10px] opacity-90">{quotedMeta.sender}</div>
+                                        <div className="truncate opacity-80">{quotedMeta.text}</div>
+                                      </div>
                                     </div>
-                                    <div className="text-xs font-bold truncate">{callTitle}</div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (!currentUser) return;
-                                      meetingAndCallService.startOrJoinCall({
-                                        currentUser,
-                                        title: callTitle,
-                                        type: activeDirectUser ? 'direct' : 'channel',
-                                        meetingCode,
-                                        channelId: activeDirectUser ? undefined : activeChannel?.id,
-                                        directUser: activeDirectUser || undefined,
-                                        postCallCardToChat: false,
-                                      });
-                                    }}
-                                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer flex-shrink-0"
-                                  >
-                                    <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
-                                    <span>Join Call</span>
-                                  </button>
+                                  )}
+                                  <div>{rawContent}</div>
                                 </div>
                               );
-                            }
+                            })()}
 
-                            if (rawContent.startsWith('🎨 **Shared Live Whiteboard:')) {
-                              return (
-                                <div
-                                  className="p-3.5 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-sage)] text-[var(--text-primary)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
-                                >
-                                  <div className="space-y-1 text-xs whitespace-pre-line">
-                                    {rawContent.replace(/\*\*/g, '')}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setConversationSubTab('canvas')}
-                                    className="px-3.5 py-2 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm whitespace-nowrap"
-                                  >
-                                    <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" />
-                                    <span>Open Canvas ↗</span>
-                                  </button>
-                                </div>
-                              );
-                            }
+                            {/* Render Voice Notes, Images, and File Attachments */}
+                            {msg.attachments && msg.attachments.length > 0 && (
+                              <div className={`flex flex-col gap-2 pt-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
+                                {msg.attachments.map((att, idx) => {
+                                  if (att.type === 'voice' || att.type === 'audio') {
+                                    return (
+                                      <VoiceNotePlayer
+                                        key={`${msg.id}-att-${idx}`}
+                                        url={att.url}
+                                        durationSec={att.durationSec}
+                                        isMe={isMe}
+                                        darkMode={darkMode}
+                                      />
+                                    );
+                                  }
 
-                            const isDefaultAttachmentLabel =
-                              rawContent.startsWith('🎙️ Voice note') || rawContent.startsWith('📎 Shared ');
+                                  if (att.type === 'image') {
+                                    return (
+                                      <div
+                                        key={`${msg.id}-att-${idx}`}
+                                        className="relative group/img rounded-[20px] overflow-hidden shadow-[0_8px_22px_-6px_rgba(0,0,0,0.22),0_0_0_1px_var(--glass-bubble-outer)] max-w-[260px] sm:max-w-[320px]"
+                                      >
+                                        <img
+                                          src={att.url}
+                                          alt={att.name}
+                                          onClick={() => setLightboxImage({ url: att.url, name: att.name })}
+                                          className="w-full max-h-60 object-cover cursor-zoom-in hover:scale-[1.02] transition-transform"
+                                        />
+                                        <div className="absolute bottom-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center gap-1">
+                                          <a
+                                            href={att.url}
+                                            download={att.name}
+                                            onClick={e => e.stopPropagation()}
+                                            title="Download image"
+                                            className="w-8 h-8 rounded-full glass-bubble-control bg-black/65 text-white flex items-center justify-center text-xs"
+                                          >
+                                            <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                          </a>
+                                        </div>
+                                      </div>
+                                    );
+                                  }
 
-                            if (isDefaultAttachmentLabel && msg.attachments && msg.attachments.length > 0 && !quotedMeta) {
-                              return null;
-                            }
-
-                            return (
-                              <div
-                                className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-xs transition-transform duration-200 space-y-2 ${
-                                  isMe
-                                    ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] rounded-tr-xs'
-                                    : 'bg-[var(--bg-surface-subtle)] border border-[var(--border-hairline)] text-[var(--text-primary)] rounded-tl-xs'
-                                }`}
-                              >
-                                {/* Inline Quote-Reply Block */}
-                                {quotedMeta && (
-                                  <div
-                                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] ${
-                                      isMe
-                                        ? 'border-white/20 bg-white/10 text-white/85 dark:border-[#131511]/20 dark:bg-[#131511]/10 dark:text-[#131511]/85'
-                                        : 'border-[var(--border-strong)] bg-[var(--bg-sage)] text-[var(--text-secondary)]'
-                                    }`}
-                                  >
-                                    <div className="font-bold text-[10px] opacity-90">{quotedMeta.sender}</div>
-                                    <div className="truncate opacity-80">{quotedMeta.text}</div>
-                                  </div>
-                                )}
-                                <div>{rawContent}</div>
-                              </div>
-                            );
-                          })()}
-
-                          {/* Render Voice Notes, Images, and File Attachments */}
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <div className={`flex flex-col gap-2 pt-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
-                              {msg.attachments.map((att, idx) => {
-                                if (att.type === 'voice' || att.type === 'audio') {
-                                  return (
-                                    <VoiceNotePlayer
-                                      key={`${msg.id}-att-${idx}`}
-                                      url={att.url}
-                                      durationSec={att.durationSec}
-                                      isMe={isMe}
-                                      darkMode={darkMode}
-                                    />
-                                  );
-                                }
-
-                                if (att.type === 'image') {
+                                  const ext = att.name.split('.').pop()?.toUpperCase() || 'FILE';
                                   return (
                                     <div
                                       key={`${msg.id}-att-${idx}`}
-                                      className="relative group/img rounded-2xl overflow-hidden border border-[var(--border-hairline)] shadow-sm max-w-[260px] sm:max-w-[320px]"
+                                      className={`p-3 rounded-[20px] max-w-[280px] sm:max-w-[340px] transition-all ${
+                                        isMe
+                                          ? 'bg-[var(--accent-cta)]/92 text-[var(--accent-cta-ink)] shadow-[0_8px_20px_-8px_rgba(var(--primary-rgb),0.45)]'
+                                          : 'editorial-surface-subtle text-[var(--text-primary)]'
+                                      }`}
                                     >
-                                      <img
-                                        src={att.url}
-                                        alt={att.name}
-                                        onClick={() => setLightboxImage({ url: att.url, name: att.name })}
-                                        className="w-full max-h-60 object-cover cursor-zoom-in hover:scale-[1.02] transition-transform"
-                                      />
-                                      <div className="absolute bottom-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center gap-1">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                          <div
+                                            className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                              isMe
+                                                ? 'bg-[var(--accent-cta-ink)]/15 text-[var(--accent-cta-ink)]'
+                                                : 'bg-[var(--surface-glass-2)] text-[var(--accent-text)]'
+                                            }`}
+                                          >
+                                            <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1.5 truncate">
+                                              <span className="font-semibold text-xs truncate">{att.name}</span>
+                                              <span className="text-[9px] font-mono font-bold uppercase opacity-75">
+                                                {ext}
+                                              </span>
+                                            </div>
+                                            <p className="text-[10px] mt-0.5 truncate opacity-75">
+                                              {ext} Document {att.size ? `· ${formatFileSize(att.size)}` : ''}
+                                            </p>
+                                          </div>
+                                        </div>
                                         <a
                                           href={att.url}
                                           download={att.name}
-                                          onClick={e => e.stopPropagation()}
-                                          title="Download image"
-                                          className="p-1.5 rounded-lg bg-[#131511]/85 text-white hover:bg-[#131511] text-xs"
+                                          title={`Download ${att.name}`}
+                                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
+                                            isMe
+                                              ? 'bg-[var(--accent-cta-ink)]/18 hover:bg-[var(--accent-cta-ink)]/28 text-[var(--accent-cta-ink)]'
+                                              : 'glass-bubble-control text-[var(--text-secondary)]'
+                                          }`}
                                         >
-                                          <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                          <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4" />
                                         </a>
                                       </div>
                                     </div>
                                   );
-                                }
+                                })}
+                              </div>
+                            )}
 
-                                const ext = att.name.split('.').pop()?.toUpperCase() || 'FILE';
-                                return (
-                                  <div
-                                    key={`${msg.id}-att-${idx}`}
-                                    className={`p-3 rounded-2xl border shadow-xs max-w-[280px] sm:max-w-[340px] transition-all ${
-                                      isMe
-                                        ? 'bg-[var(--accent-cta)] border-transparent text-[var(--accent-cta-ink)]'
-                                        : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-primary)]'
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="flex items-center gap-2.5 min-w-0">
-                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                          isMe ? 'bg-white/15 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[var(--accent-text)]'
-                                        }`}>
-                                          <ICON_MAP.DocumentTextIcon className="w-5 h-5" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                          <div className="flex items-center gap-1.5 truncate">
-                                            <span className="font-bold text-xs truncate">{att.name}</span>
-                                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
-                                              isMe ? 'bg-white/20 text-[#CCF048] dark:bg-[#131511]/15 dark:text-[#131511]' : 'bg-[var(--bg-sage)] text-[var(--accent-text)]'
-                                            }`}>
-                                              {ext}
-                                            </span>
-                                          </div>
-                                          <p className={`text-[10px] mt-0.5 truncate ${isMe ? 'text-white/75 dark:text-[#131511]/75' : 'text-[var(--text-muted)]'}`}>
-                                            {ext} Document {att.size ? `· ${formatFileSize(att.size)}` : ''}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <a
-                                        href={att.url}
-                                        download={att.name}
-                                        title={`Download ${att.name}`}
-                                        className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
-                                          isMe
-                                            ? 'bg-white/15 hover:bg-white/25 text-white dark:bg-[#131511]/15 dark:text-[#131511]'
-                                            : 'bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--text-secondary)]'
-                                        }`}
-                                      >
-                                        <ICON_MAP.ArrowDownTrayIcon className="w-4 h-4" />
-                                      </a>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                            {/* Emoji Reactions + Quote-Reply & Pin Action Bar */}
+                            <div
+                              className={`flex items-center gap-1.5 flex-wrap pt-0.5 ${
+                                isMe ? 'justify-end' : 'justify-start'
+                              }`}
+                            >
+                              {msg.reactions &&
+                                Object.entries(msg.reactions).map(([emoji, userIds]) => {
+                                  if (userIds.length === 0) return null;
+                                  const hasReacted = userIds.includes(currentUser?.id || '');
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => handleAddReaction(msg.id, emoji)}
+                                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                                        hasReacted
+                                          ? 'bg-[var(--surface-glass-3)] text-[var(--accent-text)] shadow-[0_0_0_1px_var(--glass-bubble-outer),inset_0_1px_2px_var(--glass-bubble-glow)]'
+                                          : 'bg-[var(--surface-glass-1)] text-[var(--text-secondary)] hover:bg-[var(--surface-glass-2)]'
+                                      }`}
+                                    >
+                                      <span>{emoji}</span>
+                                      <span className="text-[10px] font-bold tabular-nums">{userIds.length}</span>
+                                    </button>
+                                  );
+                                })}
 
-                          {/* Emoji Reactions + Quote-Reply & Pin Action Bar */}
-                          <div
-                            className={`flex items-center gap-1.5 flex-wrap pt-0.5 ${
-                              isMe ? 'justify-end' : 'justify-start'
-                            }`}
-                          >
-                            {msg.reactions &&
-                              Object.entries(msg.reactions).map(([emoji, userIds]) => {
-                                if (userIds.length === 0) return null;
-                                const hasReacted = userIds.includes(currentUser?.id || '');
-                                return (
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setReplyingToMessage(msg)}
+                                  className="px-2 py-0.5 rounded-full hover:bg-[var(--surface-glass-2)] text-[10px] font-semibold text-[var(--text-secondary)] cursor-pointer"
+                                  title="Quote Reply"
+                                >
+                                  ↩ Reply
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => togglePinMessage(msg.id)}
+                                  className={`px-1.5 py-0.5 rounded-full hover:bg-[var(--surface-glass-2)] text-[10px] font-semibold cursor-pointer ${
+                                    isPinned ? 'text-amber-500' : 'text-[var(--text-secondary)]'
+                                  }`}
+                                  title={isPinned ? 'Unpin message' : 'Pin message'}
+                                >
+                                  📌
+                                </button>
+                                {EMOJI_OPTIONS.slice(0, 4).map(emoji => (
                                   <button
                                     key={emoji}
                                     type="button"
                                     onClick={() => handleAddReaction(msg.id, emoji)}
-                                    className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
-                                      hasReacted
-                                        ? 'bg-[var(--bg-sage)] border-[var(--border-strong)] text-[var(--accent-text)]'
-                                        : 'bg-[var(--bg-surface)] border-[var(--border-hairline)] text-[var(--text-secondary)]'
-                                    }`}
+                                    className="w-5 h-5 rounded-full hover:bg-[var(--surface-glass-2)] flex items-center justify-center text-xs transition-colors cursor-pointer"
+                                    title={`React with ${emoji}`}
                                   >
-                                    <span>{emoji}</span>
-                                    <span className="text-[10px] font-bold tabular-nums">{userIds.length}</span>
+                                    {emoji}
                                   </button>
-                                );
-                              })}
-
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                              <button
-                                type="button"
-                                onClick={() => setReplyingToMessage(msg)}
-                                className="px-1.5 py-0.5 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-[10px] font-bold text-slate-500 dark:text-slate-300 cursor-pointer"
-                                title="Quote Reply"
-                              >
-                                ↩ Reply
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => togglePinMessage(msg.id)}
-                                className={`px-1.5 py-0.5 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-[10px] font-bold cursor-pointer ${
-                                  isPinned ? 'text-amber-500' : 'text-slate-500 dark:text-slate-300'
-                                }`}
-                                title={isPinned ? 'Unpin message' : 'Pin message'}
-                              >
-                                📌
-                              </button>
-                              {EMOJI_OPTIONS.slice(0, 4).map(emoji => (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  onClick={() => handleAddReaction(msg.id, emoji)}
-                                  className="w-5 h-5 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 flex items-center justify-center text-xs transition-colors cursor-pointer"
-                                  title={`React with ${emoji}`}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
+                        </motion.div>
+                      </React.Fragment>
                     );
                   })
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Typing Indicator Bar */}
+              {/* Floating Typing Indicator */}
               {currentTyping.length > 0 && (
-                <div className="px-4 py-1.5 bg-[var(--bg-surface-subtle)] border-t border-[var(--border-hairline)] flex items-center gap-2 text-xs text-[var(--accent-text)] animate-pulse">
-                  <span className="flex space-x-1">
-                    <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-[#4E6126] dark:bg-[#CCF048] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </span>
-                  <span>
-                    {currentTyping.join(', ')} {currentTyping.length === 1 ? 'is' : 'are'} typing...
-                  </span>
+                <div className="px-5 pb-1.5 flex items-center gap-2 text-xs text-[var(--accent-text)]">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface-glass-2)] backdrop-blur-md shadow-[inset_0_1px_2px_var(--glass-bubble-glow)]">
+                    <span className="flex space-x-1">
+                      <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                    <span className="text-[11px] font-medium">
+                      {currentTyping.join(', ')} {currentTyping.length === 1 ? 'is' : 'are'} typing...
+                    </span>
+                  </div>
                 </div>
               )}
 
-              {/* Composer Input Bar with Quote-Reply Banner, Voice Notes & File/Image Attachments */}
-              <div className="p-2.5 sm:p-3.5 border-t border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
-                {/* Hidden Multi-File / Image Input */}
+              {/* Floating 3D Liquid Glass Capsule Composer */}
+              <div className="px-3 sm:px-5 pb-3.5 pt-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -2784,19 +2884,22 @@ export const TeamsChatPage: React.FC = () => {
 
                 {/* Active Quote-Reply Preview Bar */}
                 {replyingToMessage && (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-xl bg-[var(--bg-sage)] border border-[var(--border-strong)] text-xs">
-                    <div className="min-w-0">
-                      <span className="font-bold text-[var(--accent-text)]">
-                        Replying to {replyingToMessage.sender_name}
-                      </span>
-                      <p className="text-[11px] text-[var(--text-secondary)] truncate">
-                        {(replyingToMessage.content || '').replace(/^\[QUOTE:\{.*?\}\]\n?/, '')}
-                      </p>
+                  <div className="flex items-center justify-between gap-2 px-3.5 py-2 mb-2 rounded-2xl editorial-surface-subtle text-xs">
+                    <div className="flex items-stretch gap-2.5 min-w-0">
+                      <span className="w-[3px] rounded-full bg-[var(--accent)] flex-shrink-0" />
+                      <div className="min-w-0">
+                        <span className="font-semibold text-[var(--accent-text)]">
+                          Replying to {replyingToMessage.sender_name}
+                        </span>
+                        <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                          {(replyingToMessage.content || '').replace(/^\[QUOTE:\{.*?\}\]\n?/, '')}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setReplyingToMessage(null)}
-                      className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                      className="w-6 h-6 rounded-full hover:bg-[var(--surface-glass-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center cursor-pointer"
                       title="Cancel reply"
                     >
                       ✕
@@ -2810,7 +2913,7 @@ export const TeamsChatPage: React.FC = () => {
                     {pendingAttachments.map((att, idx) => (
                       <div
                         key={idx}
-                        className="relative group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs flex-shrink-0"
+                        className="relative group flex items-center gap-2 px-2.5 py-1.5 rounded-2xl editorial-surface-subtle text-[var(--text-primary)] text-xs flex-shrink-0"
                       >
                         {att.type === 'image' ? (
                           <img src={att.url} alt={att.name} className="w-8 h-8 rounded-lg object-cover" />
@@ -2840,16 +2943,10 @@ export const TeamsChatPage: React.FC = () => {
 
                 {isRecordingVoice ? (
                   /* Active Voice Note Recording Bar */
-                  <div
-                    className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl border ${
-                      darkMode
-                        ? 'bg-rose-950/30 border-rose-500/40 text-rose-200'
-                        : 'bg-rose-50 border-rose-200 text-rose-900'
-                    }`}
-                  >
+                  <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-full bg-rose-500/14 backdrop-blur-md text-rose-600 dark:text-rose-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.2)]">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping flex-shrink-0" />
-                      <span className="text-xs font-bold font-mono">
+                      <span className="text-xs font-semibold font-mono tabular-nums">
                         Recording {formatAudioDuration(recordingSeconds)}
                       </span>
                       <div className="hidden sm:flex items-center gap-0.5 h-4 ml-2">
@@ -2870,7 +2967,7 @@ export const TeamsChatPage: React.FC = () => {
                         type="button"
                         onClick={cancelVoiceRecording}
                         title="Cancel Voice Note"
-                        className="px-2.5 py-1.5 rounded-xl bg-slate-500/15 hover:bg-slate-500/25 text-xs font-semibold cursor-pointer"
+                        className="px-3 py-1.5 rounded-full bg-[var(--surface-glass-2)] text-[var(--text-primary)] text-xs font-semibold cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -2878,7 +2975,7 @@ export const TeamsChatPage: React.FC = () => {
                         type="button"
                         onClick={finishAndSendVoiceRecording}
                         title="Send Voice Note"
-                        className="px-3 py-1.5 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        className="px-4 py-1.5 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
                       >
                         <ICON_MAP.MicrophoneIcon className="w-3.5 h-3.5" />
                         <span>Send</span>
@@ -2887,13 +2984,13 @@ export const TeamsChatPage: React.FC = () => {
                   </div>
                 ) : (
                   <form onSubmit={handleSendMessage} className="space-y-1.5">
-                    <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-xs transition-all">
+                    <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:pl-2.5 sm:pr-1.5 rounded-[24px] bg-[var(--surface-glass-2)] backdrop-blur-xl shadow-[0_8px_24px_-6px_rgba(0,0,0,0.16),0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]">
                       {/* Attach File / Image Button */}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         title="Attach files or images"
-                        className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer flex-shrink-0"
+                        className="w-9 h-9 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass-3)] flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
                       >
                         <ICON_MAP.PlusIcon className="w-4 h-4" />
                       </button>
@@ -2907,40 +3004,50 @@ export const TeamsChatPage: React.FC = () => {
                           rows={1}
                           placeholder={
                             activeDirectUser
-                              ? `Write a message to ${safeName(activeDirectUser)}...`
-                              : `Write a message in #${activeChannel?.name || 'channel'}...`
+                              ? `Message ${safeName(activeDirectUser)}...`
+                              : `Message #${activeChannel?.name || 'channel'}...`
                           }
-                          className="w-full py-1.5 px-2 bg-transparent text-xs text-[var(--text-primary)] resize-none focus:outline-none placeholder:text-[var(--text-muted)] max-h-24 leading-relaxed"
+                          className="w-full py-1.5 px-2 bg-transparent text-xs sm:text-[13px] text-[var(--text-primary)] resize-none focus:outline-none placeholder:text-[var(--text-muted)] max-h-24 leading-relaxed"
                           style={{ border: 'none', boxShadow: 'none' }}
                         />
                       </div>
+
+                      {/* Dictate & Transcribe Voice to Text (gemini-3.5-transcribe) */}
+                      <VoiceTranscribeButton
+                        compact
+                        onTranscript={text =>
+                          setInputText(prev => (prev.trim() ? `${prev.trim()} ${text}` : text))
+                        }
+                        onError={msg => addToast('Transcription Error', msg, 'error')}
+                      />
 
                       {/* Record Voice Note Button */}
                       <button
                         type="button"
                         onClick={startVoiceRecording}
-                        title="Record voice note"
-                        className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[#4E6126] dark:hover:text-[#CCF048] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer flex-shrink-0"
+                        title="Record audio voice note"
+                        className="w-9 h-9 rounded-full text-[var(--text-secondary)] hover:text-[var(--accent-text)] hover:bg-[var(--surface-glass-3)] flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
                       >
                         <ICON_MAP.MicrophoneIcon className="w-4 h-4" />
                       </button>
 
-                      {/* Send Button */}
+                      {/* Luminous Capsule Send Button (Image 4 style) */}
                       <button
                         type="submit"
                         disabled={!inputText.trim() && pendingAttachments.length === 0}
                         title="Send Message"
-                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
+                        className={`h-9 px-3.5 sm:px-4 rounded-full flex items-center justify-center gap-1.5 text-xs font-semibold transition-all flex-shrink-0 cursor-pointer ${
                           inputText.trim() || pendingAttachments.length > 0
-                            ? 'bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] shadow-xs active:scale-95'
-                            : 'bg-[var(--bg-sage)] text-[var(--text-muted)] cursor-not-allowed'
+                            ? 'bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] shadow-[0_6px_16px_-4px_rgba(var(--primary-rgb),0.45)] active:scale-95'
+                            : 'bg-[var(--surface-glass-3)] text-[var(--text-muted)] cursor-not-allowed opacity-60'
                         }`}
                       >
-                        <ICON_MAP.ArrowRightIcon className="w-4 h-4" />
+                        <span className="hidden sm:inline">Send</span>
+                        <ICON_MAP.ArrowRightIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <div className="hidden sm:flex items-center justify-between text-[10px] text-[var(--text-muted)] px-1">
+                    <div className="hidden sm:flex items-center justify-between text-[10px] text-[var(--text-muted)] px-2">
                       <div className="flex items-center gap-1">
                         {EMOJI_OPTIONS.map(emoji => (
                           <button
@@ -2970,23 +3077,21 @@ export const TeamsChatPage: React.FC = () => {
           )}
         </div>
 
-        {/* Right Collapsible Details Inspector Drawer (Inspired by image_9aff3ae0 & image_ae1041ec) */}
+        {/* Right Collapsible Liquid Glass Details & Meeting Insights Drawer */}
         {isDetailsDrawerOpen && (
-          <div
-            className="hidden xl:flex xl:w-80 2xl:w-84 flex-col flex-shrink-0 rounded-[22px] border border-[var(--border-hairline)] bg-[var(--bg-surface)] shadow-sm overflow-hidden"
-          >
+          <div className="hidden xl:flex xl:w-80 2xl:w-[336px] flex-col flex-shrink-0 rounded-[26px] glass-level-2 overflow-hidden">
             {/* Details Header with Close button */}
-            <div className="px-4 py-3 border-b border-[var(--border-hairline)] flex items-center justify-between">
-              <span className="text-xs font-bold text-[var(--text-primary)]">
-                {activeDirectUser ? 'User Details' : 'Channel Details'}
+            <div className="px-4 py-3.5 border-b border-[var(--border-hairline)]/45 flex items-center justify-between">
+              <span className="text-xs font-semibold text-[var(--text-primary)]">
+                {activeDirectUser ? 'Teammate Hub' : 'Channel Hub'}
               </span>
               <button
                 type="button"
                 onClick={() => setIsDetailsDrawerOpen(false)}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-full glass-bubble-control text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center cursor-pointer"
                 title="Close Details"
               >
-                <ICON_MAP.XMarkIcon className="w-4 h-4" />
+                <ICON_MAP.XMarkIcon className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -2995,11 +3100,11 @@ export const TeamsChatPage: React.FC = () => {
               {activeDirectUser ? (
                 <>
                   {/* Centered Profile Hero */}
-                  <div className="flex flex-col items-center text-center pt-2 pb-1 space-y-2">
+                  <div className="flex flex-col items-center text-center pt-1 pb-2 space-y-2">
                     <div className="relative">
                       <Avatar user={activeDirectUser} size="lg" />
                       <span
-                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full ring-2 ring-white dark:ring-[#131511] ${
+                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full ring-2 ring-[var(--bg-surface)] ${
                           Boolean(findPresenceForUser(activeDirectUser)) ? 'bg-emerald-500' : 'bg-slate-400'
                         }`}
                       />
@@ -3008,21 +3113,14 @@ export const TeamsChatPage: React.FC = () => {
                       <h3 className="text-base font-bold text-[var(--text-primary)]">
                         {safeName(activeDirectUser)}
                       </h3>
-                      <div className="mt-1 flex items-center justify-center gap-1.5">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          Boolean(findPresenceForUser(activeDirectUser))
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
-                            : 'bg-slate-500/15 text-[var(--text-muted)] border border-[var(--border-hairline)]'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${Boolean(findPresenceForUser(activeDirectUser)) ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                          {Boolean(findPresenceForUser(activeDirectUser)) ? 'Online' : 'Offline'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[var(--text-muted)] mt-1">{activeDirectUser.email}</p>
+                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                        {Boolean(findPresenceForUser(activeDirectUser)) ? 'Online' : 'Offline'} · {normalizeUserRole(activeDirectUser.role).replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)] truncate max-w-[230px]">{activeDirectUser.email}</p>
                     </div>
 
                     {/* Quick Action Buttons */}
-                    <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                    <div className="grid grid-cols-2 gap-2 w-full pt-1.5">
                       <button
                         type="button"
                         onClick={() => {
@@ -3041,7 +3139,7 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full glass-bubble-control text-[var(--text-primary)] text-xs font-semibold cursor-pointer"
                       >
                         <ICON_MAP.PhoneIcon className="w-3.5 h-3.5" />
                         <span>Call</span>
@@ -3064,61 +3162,19 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[var(--border-strong)] bg-[var(--bg-sage)] hover:bg-[var(--bg-sage-hover)] text-[var(--accent-text)] text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
                         <span>Video</span>
                       </button>
                     </div>
                   </div>
-
-                  {/* Contact Information Card */}
-                  <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
-                      <ICON_MAP.UserCircleIcon className="w-4 h-4 text-[var(--accent-text)]" />
-                      <span>Contact Information</span>
-                    </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex items-start gap-2">
-                        <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Username</span>
-                        <span className="font-semibold text-[var(--accent-text)]">@{activeDirectUser.email.split('@')[0]}</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Email</span>
-                        <span className="font-medium text-[var(--text-secondary)] truncate">{activeDirectUser.email}</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-[var(--text-muted)] w-20 shrink-0 text-[11px]">Role</span>
-                        <span className="font-medium text-[var(--text-secondary)] capitalize">{normalizeUserRole(activeDirectUser.role).replace(/_/g, ' ')}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Activity Section */}
-                  <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
-                      <ICON_MAP.ClockIcon className="w-4 h-4 text-[var(--accent-text)]" />
-                      <span>Activity</span>
-                    </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-muted)] text-[11px]">Last seen</span>
-                        <span className="font-semibold text-[var(--text-primary)]">{Boolean(findPresenceForUser(activeDirectUser)) ? 'Active now' : 'Recently'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-muted)] text-[11px]">Local time</span>
-                        <span className="font-mono text-[11px] text-[var(--text-secondary)]">
-                          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
                 </>
               ) : activeChannel ? (
                 <>
                   {/* Channel Hero */}
-                  <div className="flex flex-col items-center text-center pt-2 pb-1 space-y-2">
-                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-sage)] text-[var(--accent-text)] flex items-center justify-center text-2xl font-black">
+                  <div className="flex flex-col items-center text-center pt-1 pb-2 space-y-2">
+                    <div className="w-14 h-14 rounded-full bg-[var(--surface-glass-2)] text-[var(--accent-text)] flex items-center justify-center text-2xl font-bold shadow-[inset_0_1.5px_3px_var(--glass-bubble-glow)]">
                       #
                     </div>
                     <div>
@@ -3126,18 +3182,13 @@ export const TeamsChatPage: React.FC = () => {
                         #{activeChannel.name}
                       </h3>
                       <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{activeChannel.description || 'Channel conversation'}</p>
-                      <div className="mt-1 flex items-center justify-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-sage)] text-[var(--accent-text)] border border-[var(--border-hairline)]">
-                          {activeChannel.department}
-                        </span>
-                        <span className="text-[10px] text-[var(--text-muted)]">
-                          {activeChannelMembers.length} members
-                        </span>
-                      </div>
+                      <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                        {activeChannel.department} · {activeChannelMembers.length} members
+                      </p>
                     </div>
 
                     {/* Quick Channel Call Buttons */}
-                    <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                    <div className="grid grid-cols-2 gap-2 w-full pt-1.5">
                       <button
                         type="button"
                         onClick={() => {
@@ -3157,7 +3208,7 @@ export const TeamsChatPage: React.FC = () => {
                             })
                           );
                         }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
                       >
                         <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" />
                         <span>Huddle</span>
@@ -3165,7 +3216,7 @@ export const TeamsChatPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsChannelMembersModalOpen(true)}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-full glass-bubble-control text-[var(--text-primary)] text-xs font-semibold cursor-pointer"
                       >
                         <ICON_MAP.UsersIcon className="w-3.5 h-3.5" />
                         <span>Members ({activeChannelMembers.length})</span>
@@ -3175,27 +3226,128 @@ export const TeamsChatPage: React.FC = () => {
                 </>
               ) : null}
 
+              {/* Image 3-Inspired Meeting Insights Card with Segmented Bar Tracker */}
+              <div className="p-3.5 rounded-[20px] editorial-surface-subtle space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)]">
+                    <ICON_MAP.CalendarIcon className="w-4 h-4 text-[var(--accent-text)]" />
+                    <span>Meeting Insights</span>
+                  </div>
+                  <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
+                    {meetingInsights.totalEventsCount} syncs
+                  </span>
+                </div>
+
+                {meetingInsights.upcomingEvent ? (
+                  <div className="p-2.5 rounded-2xl bg-[var(--surface-glass-1)]/70 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                        {meetingInsights.upcomingEvent.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!currentUser) return;
+                          window.dispatchEvent(
+                            new CustomEvent('omni_start_video_call', {
+                              detail: {
+                                title: meetingInsights.upcomingEvent!.title,
+                                type: 'scheduled',
+                                meetingCode: meetingInsights.upcomingEvent!.meetingCode,
+                                calendarEvent: meetingInsights.upcomingEvent,
+                                invitedUsers: activeDirectUser
+                                  ? [activeDirectUser]
+                                  : activeChannelMembers.filter(m => m.id !== currentUser.id),
+                                showLobby: true,
+                              },
+                            })
+                          );
+                        }}
+                        className="px-2.5 py-0.5 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-[10px] font-semibold cursor-pointer shrink-0"
+                      >
+                        Join
+                      </button>
+                    </div>
+                    <p className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
+                      {new Date(meetingInsights.upcomingEvent.startTime).toLocaleString([], {
+                        weekday: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}{' '}
+                      · {meetingInsights.upcomingEvent.attendees?.length || 1} attendees
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--text-muted)]">
+                    <span>No upcoming sync scheduled</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsScheduleModalOpen(true)}
+                      className="text-[var(--accent-text)] font-semibold hover:underline cursor-pointer"
+                    >
+                      Schedule
+                    </button>
+                  </div>
+                )}
+
+                {/* Follow-Up Tasks Segmented Tick Bar (Accomplished X/Y, Image 3 style) */}
+                <div className="pt-1 space-y-2">
+                  <div className="flex items-baseline justify-between text-[11px]">
+                    <span className="text-[var(--text-muted)]">Follow-Up Tasks</span>
+                    <span className="font-mono tabular-nums font-semibold text-[var(--text-primary)]">
+                      Accomplished {meetingInsights.completedTasks}/{meetingInsights.totalTasks}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-12 gap-1">
+                    {Array.from({ length: 12 }).map((_, segIdx) => {
+                      const activeCount = Math.round(meetingInsights.completionRatio * 12);
+                      const filled = segIdx < activeCount;
+                      return (
+                        <span
+                          key={segIdx}
+                          className={`h-2.5 rounded-sm transition-colors ${
+                            filled
+                              ? 'bg-[var(--accent)] shadow-[0_0_8px_rgba(var(--primary-rgb),0.35)]'
+                              : 'bg-[var(--surface-glass-2)]'
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+                  {meetingInsights.recentFollowUpTask && (
+                    <button
+                      type="button"
+                      onClick={() => openViewTaskModal(meetingInsights.recentFollowUpTask!)}
+                      className="w-full flex items-center justify-between text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] pt-0.5 cursor-pointer text-left"
+                    >
+                      <span className="truncate">Next: {meetingInsights.recentFollowUpTask.title}</span>
+                      <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 shrink-0" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Shared Files & Attachments Section */}
-              <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2.5">
-                <div className="flex items-center justify-between text-xs font-bold text-[var(--text-primary)]">
+              <div className="p-3.5 rounded-[20px] editorial-surface-subtle space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-primary)]">
                   <div className="flex items-center gap-1.5">
                     <ICON_MAP.FolderIcon className="w-4 h-4 text-[var(--accent-text)]" />
                     <span>Uploaded Files</span>
                   </div>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-mono tabular-nums text-[var(--text-muted)]">
                     {messages.reduce((a, m) => a + (m.attachments?.length || 0), 0)} files
                   </span>
                 </div>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin">
+                <div className="space-y-1.5 max-h-44 overflow-y-auto scrollbar-thin">
                   {messages.flatMap(m => m.attachments || []).length === 0 ? (
-                    <p className="text-[11px] text-[var(--text-muted)] italic py-1">No uploaded files in this conversation</p>
+                    <p className="text-[11px] text-[var(--text-muted)] py-1">No uploaded files yet</p>
                   ) : (
                     messages.flatMap(m => m.attachments || []).slice(0, 6).map((att, i) => (
                       <a
                         key={`drawer-att-file-${i}`}
                         href={att.url}
                         download={att.name}
-                        className="flex items-center justify-between p-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] hover:bg-[var(--bg-sage)] text-[var(--text-primary)] transition-colors text-xs"
+                        className="flex items-center justify-between p-2 rounded-xl bg-[var(--surface-glass-1)]/70 hover:bg-[var(--surface-glass-2)] text-[var(--text-primary)] transition-colors text-xs"
                       >
                         <div className="flex items-center gap-2 truncate">
                           <ICON_MAP.DocumentTextIcon className="w-4 h-4 text-[var(--accent-text)] shrink-0" />
@@ -3209,48 +3361,46 @@ export const TeamsChatPage: React.FC = () => {
               </div>
 
               {/* Actions Section */}
-              <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+              <div className="p-3.5 rounded-[20px] editorial-surface-subtle space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] mb-1">
                   <ICON_MAP.CogIcon className="w-4 h-4 text-[var(--accent-text)]" />
-                  <span>Actions</span>
+                  <span>Conversation Controls</span>
                 </div>
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (activeDirectUser) {
-                        toggleFavourite(`dm:${activeDirectUser.id}`);
-                      } else if (activeChannel) {
-                        toggleFavourite(`channel:${activeChannel.id}`);
-                      }
-                    }}
-                    className="w-full flex items-center justify-between p-2 rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer text-left"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>★</span>
-                      <span>
-                        {((activeDirectUser && favouriteIds.includes(`dm:${activeDirectUser.id}`)) ||
-                          (activeChannel && favouriteIds.includes(`channel:${activeChannel.id}`)))
-                          ? 'Remove from Starred'
-                          : 'Star Conversation'}
-                      </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeDirectUser) {
+                      toggleFavourite(`dm:${activeDirectUser.id}`);
+                    } else if (activeChannel) {
+                      toggleFavourite(`channel:${activeChannel.id}`);
+                    }
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass-2)] transition-colors cursor-pointer text-left"
+                >
+                  <span className="flex items-center gap-2">
+                    <ICON_MAP.StarIcon className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      {((activeDirectUser && favouriteIds.includes(`dm:${activeDirectUser.id}`)) ||
+                        (activeChannel && favouriteIds.includes(`channel:${activeChannel.id}`)))
+                        ? 'Remove from Starred'
+                        : 'Star Conversation'}
                     </span>
-                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      addToast('Notifications Muted', 'Conversation notifications muted for 8 hours.', 'info');
-                    }}
-                    className="w-full flex items-center justify-between p-2 rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sage)] transition-colors cursor-pointer text-left"
-                  >
-                    <span className="flex items-center gap-2">
-                      <ICON_MAP.BellSlashIcon className="w-4 h-4 text-[var(--text-muted)]" />
-                      <span>Mute Notifications</span>
-                    </span>
-                    <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                  </button>
-                </div>
+                  </span>
+                  <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addToast('Notifications Muted', 'Conversation notifications muted for 8 hours.', 'info');
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass-2)] transition-colors cursor-pointer text-left"
+                >
+                  <span className="flex items-center gap-2">
+                    <ICON_MAP.BellSlashIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                    <span>Mute Notifications</span>
+                  </span>
+                  <ICON_MAP.ChevronRightIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                </button>
               </div>
             </div>
           </div>
@@ -3260,7 +3410,7 @@ export const TeamsChatPage: React.FC = () => {
       {/* Image Attachment Lightbox Modal */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#131511]/90 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-lg animate-fadeIn"
           onClick={() => setLightboxImage(null)}
         >
           <div
@@ -3270,14 +3420,14 @@ export const TeamsChatPage: React.FC = () => {
             <img
               src={lightboxImage.url}
               alt={lightboxImage.name}
-              className="max-w-full max-h-[78vh] rounded-2xl object-contain shadow-2xl border border-[#2B3026]"
+              className="max-w-full max-h-[78vh] rounded-[24px] object-contain shadow-2xl"
             />
-            <div className="flex items-center gap-3 bg-[#1A1D17] px-4 py-2 rounded-full border border-[#2B3026] text-[#F2F3EE] text-xs">
+            <div className="flex items-center gap-3 liquid-glass-overlay px-4 py-2 rounded-full text-[var(--text-primary)] text-xs">
               <span className="font-semibold truncate max-w-xs">{lightboxImage.name}</span>
               <a
                 href={lightboxImage.url}
                 download={lightboxImage.name}
-                className="px-3 py-1 rounded-full bg-[var(--accent-lime)] hover:bg-[var(--accent-lime-hover)] text-[var(--accent-ink)] font-semibold flex items-center gap-1"
+                className="px-3.5 py-1 rounded-full bg-[var(--accent-cta)] hover:bg-[var(--accent-cta-hover)] text-[var(--accent-cta-ink)] font-semibold flex items-center gap-1"
               >
                 <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
                 <span>Download</span>
@@ -3285,7 +3435,7 @@ export const TeamsChatPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setLightboxImage(null)}
-                className="px-3 py-1 rounded-full bg-[#24291F] hover:bg-[#2E3427] text-[#F2F3EE] cursor-pointer"
+                className="px-3.5 py-1 rounded-full glass-bubble-control text-[var(--text-primary)] cursor-pointer"
               >
                 Close
               </button>
@@ -3297,14 +3447,14 @@ export const TeamsChatPage: React.FC = () => {
       {/* 3. Create New Channel & Add Members Modal */}
       {isNewChannelModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-md animate-fadeIn"
           onClick={() => setIsNewChannelModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
+            className="liquid-glass-overlay rounded-[28px] max-w-lg w-full p-6 space-y-4 animate-modal-appear"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]/45">
               <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <ICON_MAP.ChatBubbleLeftIcon className="w-5 h-5 text-[var(--accent-text)]" />
                 Create New Channel / Group
@@ -3312,9 +3462,9 @@ export const TeamsChatPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsNewChannelModalOpen(false)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                className="w-8 h-8 rounded-full glass-bubble-control text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center cursor-pointer"
               >
-                ✕
+                <ICON_MAP.XMarkIcon className="w-4 h-4" />
               </button>
             </div>
 
@@ -3441,12 +3591,12 @@ export const TeamsChatPage: React.FC = () => {
       {/* 4. Manage / Add People to Active Channel Modal */}
       {isChannelMembersModalOpen && activeChannel && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-md animate-fadeIn"
           onClick={() => setIsChannelMembersModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
+            className="liquid-glass-overlay rounded-[28px] max-w-lg w-full p-6 space-y-4 animate-modal-appear"
           >
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div>
@@ -3556,12 +3706,12 @@ export const TeamsChatPage: React.FC = () => {
       {/* 5. Add Person / Start Direct Message Modal */}
       {isAddPersonModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-md animate-fadeIn"
           onClick={() => setIsAddPersonModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear max-h-[90vh] overflow-y-auto scrollbar-thin"
+            className="liquid-glass-overlay rounded-[28px] max-w-lg w-full p-6 space-y-4 animate-modal-appear max-h-[90vh] overflow-y-auto scrollbar-thin"
           >
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div className="flex items-center gap-2">
@@ -3891,12 +4041,12 @@ export const TeamsChatPage: React.FC = () => {
       {/* 6. Quick Schedule Meeting & Send RSVP Invite Modal */}
       {isScheduleModalOpen && currentUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-md animate-fadeIn"
           onClick={() => setIsScheduleModalOpen(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-hairline)] shadow-2xl max-w-lg w-full p-6 space-y-4 animate-modal-appear"
+            className="liquid-glass-overlay rounded-[28px] max-w-lg w-full p-6 space-y-4 animate-modal-appear"
           >
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-hairline)]">
               <div>

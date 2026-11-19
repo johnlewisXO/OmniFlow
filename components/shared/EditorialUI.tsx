@@ -93,7 +93,7 @@ export const InlineKpiStrip: React.FC<{
                 {item.visual ? (
                   <div className="shrink-0">{item.visual}</div>
                 ) : item.tone ? (
-                  <div className="w-8 h-8 rounded-full bg-[var(--surface-nested-subtle)] border border-[var(--border-hairline)] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-[var(--surface-nested-subtle)] shadow-[inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)] flex items-center justify-center shrink-0">
                     <span className={`w-2.5 h-2.5 rounded-full ${toneDotClass[item.tone]}`} />
                   </div>
                 ) : null}
@@ -132,7 +132,7 @@ export const InlineKpiStrip: React.FC<{
               {item.visual ? (
                 <div className="shrink-0">{item.visual}</div>
               ) : item.tone ? (
-                <div className="w-8 h-8 rounded-full bg-[var(--surface-nested-subtle)] border border-[var(--border-hairline)] flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full bg-[var(--surface-nested-subtle)] shadow-[inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)] flex items-center justify-center shrink-0">
                   <span className={`w-2.5 h-2.5 rounded-full ${toneDotClass[item.tone]}`} />
                 </div>
               ) : null}
@@ -191,7 +191,7 @@ export function SegmentedTabs<T extends string = string>({
   return (
     <div
       role="tablist"
-      className={`relative inline-flex items-center gap-0.5 p-1 rounded-full bg-[var(--surface-glass-1)] backdrop-blur-md border border-[var(--glass-border)] shadow-[inset_0_1px_0_var(--glass-highlight)] overflow-x-auto scrollbar-none max-w-full ${className}`}
+      className={`relative inline-flex items-center gap-0.5 p-1 rounded-full bg-[var(--surface-glass-1)] backdrop-blur-md shadow-[0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_4px_var(--glass-bubble-glow),inset_0_-2px_4px_var(--glass-bubble-depth)] overflow-x-auto scrollbar-none max-w-full ${className}`}
     >
       {options.map(opt => {
         const active = opt.id === value;
@@ -216,7 +216,7 @@ export function SegmentedTabs<T extends string = string>({
               <motion.span
                 layoutId={`segmented-active-${pillId}`}
                 transition={GLASS_SPRING.morph}
-                className="absolute inset-0 rounded-full bg-[var(--surface-glass-3)] border border-[var(--glass-border-strong)] shadow-[0_3px_10px_-3px_rgba(0,0,0,0.14),inset_0_1px_0_var(--glass-highlight)]"
+                className="absolute inset-0 rounded-full bg-[var(--surface-glass-3)] shadow-[0_4px_12px_-4px_rgba(0,0,0,0.16),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]"
                 aria-hidden="true"
               />
             )}
@@ -332,7 +332,7 @@ export const LiquidBezelSection: React.FC<{
         )}
       </div>
 
-      <div className={`border-t border-[var(--border-hairline)]/65 ${bodyClassName}`}>
+      <div className={`border-t border-[var(--border-hairline)]/45 ${bodyClassName}`}>
         {children}
       </div>
     </section>

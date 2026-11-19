@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { VoiceTranscribeButton } from '../shared/VoiceTranscribeButton';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Modal, AnimatedPopover } from '../shared/Modal';
@@ -2156,11 +2157,21 @@ export const TaskDetailsModal: React.FC = () => {
                           ))}
                         </div>
                       )}
-                      <div className="flex justify-between items-center mt-2">
+                      <div className="flex flex-wrap justify-between items-center gap-2 mt-2">
                         <span className="text-xs text-slate-500">Pro tip: press <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">M</kbd> to comment</span>
-                        <Button onClick={handleAddComment} disabled={!newComment.trim() || isSubmittingComment} size="sm">
-                          {isSubmittingComment ? 'Saving...' : 'Post Comment'}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <VoiceTranscribeButton
+                            compact
+                            label="Voice Note"
+                            onTranscript={text =>
+                              setNewComment(prev => (prev.trim() ? `${prev.trim()} ${text}` : text))
+                            }
+                            onError={msg => useAppStore.getState().addToast('Transcription Error', msg, 'error')}
+                          />
+                          <Button onClick={handleAddComment} disabled={!newComment.trim() || isSubmittingComment} size="sm">
+                            {isSubmittingComment ? 'Saving...' : 'Post Comment'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -10,7 +10,7 @@ import { DefaultGlassBrandMark } from '../shared/OrganizationLogoUploader';
 import { ProfileMiniMenu, StatusDynamicIcon } from './ProfileMiniMenu';
 import soundService from '../../services/soundService';
 
-type RailGroupId = 'home' | 'comms' | 'work' | 'people' | 'strategy' | 'admin';
+type RailGroupId = 'home' | 'comms' | 'work' | 'people' | 'analytics' | 'ai' | 'governance';
 
 interface RailGroupConfig {
   id: RailGroupId;
@@ -125,17 +125,17 @@ export const Sidebar: React.FC = () => {
     const groups: RailGroupConfig[] = [
       {
         id: 'home',
-        label: 'Home & Focus',
+        label: 'Workspace',
         defaultView: 'overview',
         icon: ICON_MAP.HomeIcon,
-        matchViews: ['overview', 'my_tasks_view'],
+        matchViews: ['overview', 'my_tasks_view', 'inbox_view'],
       },
       {
         id: 'comms',
-        label: 'Inbox & Meet',
-        defaultView: 'inbox_view',
+        label: 'Collaboration',
+        defaultView: 'team_chat_view',
         icon: ICON_MAP.ChatBubbleLeftRightIcon,
-        matchViews: ['inbox_view', 'team_chat_view', 'calendar_view'],
+        matchViews: ['team_chat_view', 'calendar_view', 'async_clips_view', 'whiteboard_view'],
       },
       {
         id: 'work',
@@ -149,11 +149,11 @@ export const Sidebar: React.FC = () => {
         label: 'Team & Capacity',
         defaultView: 'team_management',
         icon: ICON_MAP.UserGroupIcon,
-        matchViews: ['team_management', 'workload_capacity_view', 'user_logs_view'],
+        matchViews: ['team_management', 'workload_capacity_view'],
       },
       {
-        id: 'strategy',
-        label: 'Reports & Strategy',
+        id: 'analytics',
+        label: 'Analytics & Docs',
         defaultView:
           normalizedRole === UserRole.OWNER ||
           normalizedRole === UserRole.ADMIN ||
@@ -161,21 +161,21 @@ export const Sidebar: React.FC = () => {
             ? 'reports_view'
             : 'okrs_goals_view',
         icon: ICON_MAP.ChartBarIcon,
-        matchViews: [
-          'reports_view',
-          'okrs_goals_view',
-          'docs_wiki_view',
-          'whiteboard_view',
-          'async_clips_view',
-          'client_portal_view',
-        ],
+        matchViews: ['reports_view', 'okrs_goals_view', 'docs_wiki_view', 'client_portal_view'],
       },
       {
-        id: 'admin',
-        label: isAdminOrOwner ? 'Governance & AI' : 'Automations & AI',
-        defaultView: isAdminOrOwner ? 'admin_settings' : 'task_automations',
-        icon: ICON_MAP.CogIcon,
-        matchViews: ['admin_settings', 'task_automations', 'task_automations_view', 'ai_copilot_view', 'profile_settings'],
+        id: 'ai',
+        label: 'Aether AI',
+        defaultView: 'ai_copilot_view',
+        icon: ICON_MAP.SparklesIcon,
+        matchViews: ['ai_copilot_view', 'task_automations', 'task_automations_view'],
+      },
+      {
+        id: 'governance',
+        label: isAdminOrOwner ? 'Governance' : 'Settings',
+        defaultView: isAdminOrOwner ? 'admin_settings' : 'profile_settings',
+        icon: ICON_MAP.ShieldCheckIcon,
+        matchViews: ['admin_settings', 'user_logs_view', 'profile_settings'],
       },
     ];
     return groups;
@@ -183,19 +183,13 @@ export const Sidebar: React.FC = () => {
 
   const getGroupItems = (groupId: RailGroupId) => {
     const matchMap: Record<RailGroupId, ActiveView[]> = {
-      home: ['overview', 'my_tasks_view'],
-      comms: ['inbox_view', 'team_chat_view', 'calendar_view'],
+      home: ['overview', 'my_tasks_view', 'inbox_view'],
+      comms: ['team_chat_view', 'calendar_view', 'async_clips_view', 'whiteboard_view'],
       work: ['projects_overview', 'sprints_view', 'gantt_roadmap_view', 'triage_intake_view'],
-      people: ['team_management', 'workload_capacity_view', 'user_logs_view'],
-      strategy: [
-        'reports_view',
-        'okrs_goals_view',
-        'docs_wiki_view',
-        'whiteboard_view',
-        'async_clips_view',
-        'client_portal_view',
-      ],
-      admin: ['task_automations', 'ai_copilot_view'],
+      people: ['team_management', 'workload_capacity_view'],
+      analytics: ['reports_view', 'okrs_goals_view', 'docs_wiki_view', 'client_portal_view'],
+      ai: ['ai_copilot_view', 'task_automations'],
+      governance: isAdminOrOwner ? ['admin_settings', 'user_logs_view', 'profile_settings'] : ['profile_settings'],
     };
 
     return roleFilteredItems.filter(i => matchMap[groupId].includes(i.id));
@@ -470,7 +464,7 @@ export const Sidebar: React.FC = () => {
                         );
                       })}
 
-                      {group.id === 'admin' && isAdminOrOwner && (
+                      {group.id === 'governance' && isAdminOrOwner && (
                         <button
                           type="button"
                           onClick={() => navigateTo('admin_settings')}
@@ -485,7 +479,7 @@ export const Sidebar: React.FC = () => {
                         </button>
                       )}
 
-                      {group.id === 'admin' && (
+                      {group.id === 'governance' && (
                         <button
                           type="button"
                           onClick={() => navigateTo('profile_settings')}

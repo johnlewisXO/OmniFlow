@@ -34,6 +34,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     activeTimer,
     startTaskTimer,
     requestConfirm,
+    updateTask,
+    addToast,
   } = useAppStore();
 
   const [recentRemoteBroadcast, setRecentRemoteBroadcast] = useState<{ actorName: string; summary: string } | null>(null);
@@ -182,6 +184,38 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       ? 'bg-[#7A8F5B]'
       : 'bg-[var(--text-muted)]';
 
+  const statusOrder: TaskStatus[] = [
+    TaskStatus.TODO,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.REVIEW,
+    TaskStatus.DONE,
+  ];
+
+  const handleMoveStatus = async (nextStatus: TaskStatus) => {
+    if (nextStatus === task.status) return;
+    soundService.play(nextStatus === TaskStatus.DONE ? 'task_complete' : 'click_soft');
+    await updateTask(task.id, { status: nextStatus });
+    addToast('Task Moved', `Moved "${task.title}" to ${nextStatus.replace(/_/g, ' ')}.`, 'success');
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openViewTaskModal(task.id);
+      return;
+    }
+    if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      const idx = statusOrder.indexOf(task.status);
+      if (idx === -1) return;
+      const nextIdx = e.key === 'ArrowRight' ? Math.min(statusOrder.length - 1, idx + 1) : Math.max(0, idx - 1);
+      if (nextIdx !== idx) {
+        handleMoveStatus(statusOrder[nextIdx]);
+      }
+    }
+  };
+
   return (
     <motion.div
       layout="position"
@@ -189,7 +223,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     >
       <div
         data-task-id={task.id}
-        className={`editorial-surface glass-interactive-card p-3.5 cursor-grab active:cursor-grabbing hover:border-[var(--border-strong)] relative group ${
+        role="article"
+        tabIndex={0}
+        aria-label={`${task.title}, status ${task.status.replace(/_/g, ' ')}, priority ${task.priority}. Press Enter to open, Alt+Arrow keys to move column.`}
+        onKeyDown={handleCardKeyDown}
+        className={`editorial-surface glass-interactive-card p-3.5 cursor-grab active:cursor-grabbing hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-cta)] relative group ${
           isDragging ? 'glass-drag-source' : ''
         } ${isSelected ? 'ring-2 ring-[var(--text-primary)] border-[var(--text-primary)]' : ''} ${
           isFocused && !isSelected ? 'ring-2 ring-[var(--accent-lime)]' : ''

@@ -117,18 +117,24 @@ export const Header: React.FC = () => {
 
   // Dynamic Nova-Style Centered Top View Tabs matched to active section with icons
   const contextualTabs: SegmentedTabOption<ActiveView>[] = useMemo(() => {
-    if (['overview', 'my_tasks_view', 'calendar_view', 'team_chat_view', 'inbox_view'].includes(activeView)) {
+    if (['overview', 'my_tasks_view', 'inbox_view'].includes(activeView)) {
       return [
         { id: 'overview', label: 'Overview', icon: <ICON_MAP.HomeIcon className="w-3.5 h-3.5" /> },
         { id: 'my_tasks_view', label: 'My Tasks', icon: <ICON_MAP.ClipboardListIcon className="w-3.5 h-3.5" /> },
-        { id: 'calendar_view', label: 'Calendar', icon: <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" /> },
-        { id: 'team_chat_view', label: 'Chat & Meet', icon: <ICON_MAP.ChatBubbleLeftRightIcon className="w-3.5 h-3.5" /> },
         {
           id: 'inbox_view',
           label: 'Inbox',
           icon: <ICON_MAP.InboxIcon className="w-3.5 h-3.5" />,
           count: unreadCount > 0 ? unreadCount : undefined,
         },
+      ];
+    }
+    if (['team_chat_view', 'calendar_view', 'async_clips_view', 'whiteboard_view'].includes(activeView)) {
+      return [
+        { id: 'team_chat_view', label: 'Chat & Meet', icon: <ICON_MAP.ChatBubbleLeftRightIcon className="w-3.5 h-3.5" /> },
+        { id: 'calendar_view', label: 'Calendar', icon: <ICON_MAP.CalendarIcon className="w-3.5 h-3.5" /> },
+        { id: 'async_clips_view', label: 'Video Clips', icon: <ICON_MAP.VideoCameraIcon className="w-3.5 h-3.5" /> },
+        { id: 'whiteboard_view', label: 'Whiteboard', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
       ];
     }
     if (['projects_overview', 'kanban', 'sprints_view', 'gantt_roadmap_view', 'triage_intake_view'].includes(activeView)) {
@@ -145,21 +151,13 @@ export const Header: React.FC = () => {
       );
       return workTabs;
     }
-    if (['team_management', 'workload_capacity_view', 'user_logs_view'].includes(activeView)) {
-      const teamTabs: SegmentedTabOption<ActiveView>[] = [
+    if (['team_management', 'workload_capacity_view'].includes(activeView)) {
+      return [
         { id: 'team_management', label: 'Directory', icon: <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" /> },
         { id: 'workload_capacity_view', label: 'Workload & Timer', icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" /> },
       ];
-      if (normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN) {
-        teamTabs.push({
-          id: 'user_logs_view',
-          label: 'Audit Logs',
-          icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" />,
-        });
-      }
-      return teamTabs;
     }
-    if (['reports_view', 'okrs_goals_view', 'docs_wiki_view', 'whiteboard_view', 'async_clips_view', 'client_portal_view'].includes(activeView)) {
+    if (['reports_view', 'okrs_goals_view', 'docs_wiki_view', 'client_portal_view'].includes(activeView)) {
       const stratTabs: SegmentedTabOption<ActiveView>[] = [];
       if (
         normalizedRole === UserRole.OWNER ||
@@ -175,25 +173,29 @@ export const Header: React.FC = () => {
       stratTabs.push(
         { id: 'okrs_goals_view', label: 'OKRs', icon: <ICON_MAP.FlagIcon className="w-3.5 h-3.5" /> },
         { id: 'docs_wiki_view', label: 'Docs', icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> },
-        { id: 'whiteboard_view', label: 'Whiteboard', icon: <ICON_MAP.Squares2X2Icon className="w-3.5 h-3.5" /> },
         { id: 'client_portal_view', label: 'Portal', icon: <ICON_MAP.GlobeAltIcon className="w-3.5 h-3.5" /> }
       );
       return stratTabs;
     }
-    const adminTabs: SegmentedTabOption<ActiveView>[] = [];
-    if (normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN) {
-      adminTabs.push({
-        id: 'admin_settings',
-        label: 'Governance',
-        icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />,
-      });
+    if (['ai_copilot_view', 'task_automations', 'task_automations_view'].includes(activeView)) {
+      return [
+        { id: 'ai_copilot_view', label: 'Aether AI', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
+        { id: 'task_automations', label: 'Automations', icon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" /> },
+      ];
     }
-    adminTabs.push(
-      { id: 'task_automations', label: 'Automations', icon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" /> },
-      { id: 'ai_copilot_view', label: 'AI Studio', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
-      { id: 'profile_settings', label: 'Preferences', icon: <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5" /> }
-    );
-    return adminTabs;
+    const govTabs: SegmentedTabOption<ActiveView>[] = [];
+    if (normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN) {
+      govTabs.push(
+        { id: 'admin_settings', label: 'Governance', icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" /> },
+        { id: 'user_logs_view', label: 'Audit Logs', icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> }
+      );
+    }
+    govTabs.push({
+      id: 'profile_settings',
+      label: 'Preferences',
+      icon: <ICON_MAP.AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />,
+    });
+    return govTabs;
   }, [activeView, activeProject, unreadCount, normalizedRole]);
 
   const handlePrimaryCta = () => {
@@ -255,7 +257,7 @@ export const Header: React.FC = () => {
               className={`!absolute top-[10px] left-[10px] ${
                 isSidebarPinned
                   ? 'ring-2 ring-[var(--accent-lime)]/35'
-                  : '!text-[var(--text-primary)]'
+                  : '!text-white !bg-white/10 hover:!bg-white/20 !border-white/20'
               }`}
             >
               {isSidebarPinned ? (

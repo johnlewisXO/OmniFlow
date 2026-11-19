@@ -11,7 +11,8 @@ import { Button } from '../shared/Button';
 import soundService from '../../services/soundService';
 
 export const MyTasksPage: React.FC = () => {
-  const { myTasks, projects, openViewTaskModal, updateTask, addToast } = useAppStore();
+  const { myTasks, tasks, currentUser, projects, openViewTaskModal, updateTask, addToast } = useAppStore();
+  const [workScope, setWorkScope] = useState<'assigned' | 'created'>('assigned');
   const [summary, setSummary] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<'all' | 'dueToday' | 'overdue' | 'upcoming' | 'completed'>('all');
@@ -19,6 +20,12 @@ export const MyTasksPage: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+
+  const scopedTasks = useMemo(() => {
+    if (workScope === 'assigned') return myTasks;
+    if (!currentUser) return [];
+    return tasks.filter(t => t.creator_id === currentUser.id);
+  }, [workScope, myTasks, tasks, currentUser]);
 
   const ClipboardListIcon = ICON_MAP.ClipboardListIcon;
   const SpinnerIcon = ICON_MAP.SpinnerIcon;
@@ -42,7 +49,7 @@ export const MyTasksPage: React.FC = () => {
   };
 
   const filteredBaseTasks = useMemo(() => {
-    return myTasks.filter(task => {
+    return scopedTasks.filter(task => {
       if (projectFilter !== 'all' && task.projectId !== projectFilter) return false;
       if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
       if (searchQuery.trim()) {
@@ -54,7 +61,7 @@ export const MyTasksPage: React.FC = () => {
       }
       return true;
     });
-  }, [myTasks, projectFilter, priorityFilter, searchQuery, projects]);
+  }, [scopedTasks, projectFilter, priorityFilter, searchQuery, projects]);
 
   const { overdue, dueToday, upcoming, completed } = useMemo(() => {
     const today = startOfDay(new Date());
@@ -294,6 +301,19 @@ export const MyTasksPage: React.FC = () => {
       {/* 3. Streamlined Navigation & Filter Bar */}
       <HairlineCard padding="sm" className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
+          <SegmentedTabs
+            value={workScope}
+            onChange={setWorkScope}
+            size="sm"
+            options={[
+              { id: 'assigned', label: 'Assigned to Me', count: myTasks.length },
+              {
+                id: 'created',
+                label: 'Created by Me',
+                count: currentUser ? tasks.filter(t => t.creator_id === currentUser.id).length : 0,
+              },
+            ]}
+          />
           <SegmentedTabs
             value={activeFilterTab}
             onChange={setActiveFilterTab}

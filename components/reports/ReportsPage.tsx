@@ -864,6 +864,55 @@ export const ReportsPage: React.FC = () => {
     return null;
   };
 
+  const [tableSearch, setTableSearch] = useState('');
+  const [tableStatusFilter, setTableStatusFilter] = useState<string>('all');
+  const [tableSortKey, setTableSortKey] = useState<'title' | 'priority' | 'status' | 'story_points'>('story_points');
+  const [tableSortDir, setTableSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const executiveTableTasks = useMemo(() => {
+    const q = tableSearch.trim().toLowerCase();
+    const priorityRank: Record<string, number> = {
+      [TaskPriority.CRITICAL]: 4,
+      [TaskPriority.HIGH]: 3,
+      [TaskPriority.MEDIUM]: 2,
+      [TaskPriority.LOW]: 1,
+    };
+    return [...filteredTasks]
+      .filter(t => {
+        if (tableStatusFilter !== 'all' && t.status !== tableStatusFilter) return false;
+        if (!q) return true;
+        const proj = projects.find(p => p.id === t.projectId)?.name || '';
+        const assignee = users.find(u => u.id === t.assignee_id)?.full_name || '';
+        return (
+          t.title.toLowerCase().includes(q) ||
+          proj.toLowerCase().includes(q) ||
+          assignee.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const dir = tableSortDir === 'asc' ? 1 : -1;
+        if (tableSortKey === 'story_points') {
+          return ((a.story_points || 1) - (b.story_points || 1)) * dir;
+        }
+        if (tableSortKey === 'priority') {
+          return ((priorityRank[a.priority] || 0) - (priorityRank[b.priority] || 0)) * dir;
+        }
+        if (tableSortKey === 'status') {
+          return a.status.localeCompare(b.status) * dir;
+        }
+        return a.title.localeCompare(b.title) * dir;
+      });
+  }, [filteredTasks, tableSearch, tableStatusFilter, tableSortKey, tableSortDir, projects, users]);
+
+  const toggleTableSort = (key: 'title' | 'priority' | 'status' | 'story_points') => {
+    if (tableSortKey === key) {
+      setTableSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setTableSortKey(key);
+      setTableSortDir('desc');
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
       <PageHeader
@@ -1136,6 +1185,138 @@ export const ReportsPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {visibleWidgets.map(wId => renderWidgetById(wId))}
           </div>
+
+          {/* Executive Task Drill-Down Table */}
+          <HairlineCard padding="lg" className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Executive Delivery Drill-Down Table</h3>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Showing <span className="font-mono tabular-nums font-semibold">{executiveTableTasks.length}</span> of{' '}
+                  <span className="font-mono tabular-nums">{filteredTasks.length}</span> tasks in scope · Click any row to inspect
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={tableSearch}
+                  onChange={e => setTableSearch(e.target.value)}
+                  placeholder="Search task, project, assignee..."
+                  className="px-3 py-1.5 rounded-full text-xs border w-52 sm:w-60"
+                />
+                <Button variant="outline" size="sm" onClick={() => handleExportFormat('csv')}>
+                  <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleExportFormat('json')}>
+                  JSON
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'all', label: 'All' },
+                { id: TaskStatus.TODO, label: 'To Do' },
+                { id: TaskStatus.IN_PROGRESS, label: 'In Progress' },
+                { id: TaskStatus.REVIEW, label: 'Review' },
+                { id: TaskStatus.DONE, label: 'Done' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setTableStatusFilter(tab.id)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
+                    tableStatusFilter === tab.id
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
+                      : 'bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--border-hairline)] text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                    <th className="py-2.5 pr-3">
+                      <button type="button" onClick={() => toggleTableSort('title')} className="font-semibold hover:text-[var(--text-primary)] cursor-pointer">
+                        Task {tableSortKey === 'title' ? (tableSortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th className="py-2.5 pr-3 font-semibold">Project</th>
+                    <th className="py-2.5 pr-3 font-semibold">Assignee</th>
+                    <th className="py-2.5 pr-3">
+                      <button type="button" onClick={() => toggleTableSort('priority')} className="font-semibold hover:text-[var(--text-primary)] cursor-pointer">
+                        Priority {tableSortKey === 'priority' ? (tableSortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th className="py-2.5 pr-3">
+                      <button type="button" onClick={() => toggleTableSort('status')} className="font-semibold hover:text-[var(--text-primary)] cursor-pointer">
+                        Status {tableSortKey === 'status' ? (tableSortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th className="py-2.5 text-right">
+                      <button type="button" onClick={() => toggleTableSort('story_points')} className="font-semibold hover:text-[var(--text-primary)] cursor-pointer">
+                        Points {tableSortKey === 'story_points' ? (tableSortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-hairline)]">
+                  {executiveTableTasks.slice(0, 25).map(t => {
+                    const proj = projects.find(p => p.id === t.projectId);
+                    const assignee = users.find(u => u.id === t.assignee_id);
+                    return (
+                      <tr
+                        key={t.id}
+                        onClick={() => openViewTaskModal(t.id)}
+                        className="hover:bg-[var(--bg-surface-subtle)] transition-colors cursor-pointer"
+                      >
+                        <td className="py-2.5 pr-3 font-semibold text-[var(--text-primary)] max-w-[260px] truncate">
+                          {t.title}
+                        </td>
+                        <td className="py-2.5 pr-3 text-[var(--text-secondary)] max-w-[160px] truncate">
+                          {proj?.name || 'Workspace'}
+                        </td>
+                        <td className="py-2.5 pr-3 text-[var(--text-secondary)]">
+                          {assignee?.full_name || 'Unassigned'}
+                        </td>
+                        <td className="py-2.5 pr-3">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              t.priority === TaskPriority.CRITICAL
+                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                                : t.priority === TaskPriority.HIGH
+                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                : 'bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)]'
+                            }`}
+                          >
+                            {t.priority}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-3 text-[var(--text-secondary)] capitalize">
+                          {t.status.replace(/_/g, ' ')}
+                        </td>
+                        <td className="py-2.5 text-right font-mono tabular-nums font-semibold text-[var(--text-primary)]">
+                          {t.story_points || 1}p
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {executiveTableTasks.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-[var(--text-muted)]">
+                        No tasks match the current search and filter criteria.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </HairlineCard>
         </div>
       )}
 

@@ -360,14 +360,14 @@ export const computeLiquidGlassTheme = (
   const glass3Alpha = Math.min(darkMode ? 0.68 : 0.66, glass2Alpha + 0.06);
   const glass4Alpha = Math.min(darkMode ? 0.74 : 0.72, glass2Alpha + 0.12);
 
-  // Subtle border & highlight brightness tuned to backdrop luminance + palette
+  // Subtle 3D liquid bubble rim & highlight brightness tuned to backdrop luminance + palette
   const borderMix = blendRgb(
     darkMode ? { r: 255, g: 255, b: 255 } : { r: 24, g: 28, b: 36 },
     ambPrimaryRgb,
     0.84
   );
-  const glassBorderAlpha = darkMode ? 0.12 : 0.1;
-  const glassHighlightAlpha = darkMode ? 0.16 : 0.86;
+  const glassBorderAlpha = darkMode ? 0.055 : 0.065;
+  const glassHighlightAlpha = darkMode ? 0.075 : 0.62;
 
   // Accent system
   const accentRgb = oklchToRgb(darkMode ? env.accentDark : env.accentLight);
@@ -378,7 +378,7 @@ export const computeLiquidGlassTheme = (
   );
   // Subtle translucent accent wash for selected navigation & focus halos
   const accentSubtleAlpha = darkMode ? 0.16 : 0.11;
-  const accentBorderAlpha = darkMode ? 0.34 : 0.26;
+  const accentBorderAlpha = darkMode ? 0.28 : 0.22;
   const accentInkRgb: RgbColor =
     relativeLuminance(accentRgb) > 0.36 ? { r: 20, g: 23, b: 26 } : { r: 248, g: 250, b: 252 };
 
@@ -470,21 +470,24 @@ export const computeLiquidGlassTheme = (
     '--surface-glass-4': rgbToRgba(glassTintBase, glass4Alpha),
     '--surface-popover': darkMode ? 'rgba(14, 18, 28, 0.82)' : 'rgba(255, 255, 255, 0.80)',
     '--surface-input': darkMode ? 'rgba(18, 23, 33, 0.72)' : 'rgba(255, 255, 255, 0.76)',
-    '--surface-nested-subtle': darkMode ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.34)',
-    '--bezel-edge': darkMode ? 'rgba(255, 255, 255, 0.11)' : 'rgba(18, 24, 34, 0.10)',
+    '--surface-nested-subtle': darkMode ? 'rgba(255, 255, 255, 0.035)' : 'rgba(255, 255, 255, 0.36)',
+    '--bezel-edge': darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(18, 24, 34, 0.08)',
 
-    // 3. Global Top-Left Lighting Model (Borders, Specular Rim & Shadows)
+    // 3. Global Top-Left 3D Liquid Bubble Lighting Model (Soft Rim, Meniscus & Shadows)
     '--glass-border': rgbToRgba(borderMix, glassBorderAlpha),
-    '--glass-border-strong': rgbToRgba(borderMix, darkMode ? 0.22 : 0.18),
+    '--glass-border-strong': rgbToRgba(borderMix, darkMode ? 0.11 : 0.12),
     '--glass-highlight': darkMode
       ? `rgba(255, 255, 255, ${glassHighlightAlpha})`
       : `rgba(255, 255, 255, ${glassHighlightAlpha})`,
+    '--glass-bubble-outer': darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.36)',
+    '--glass-bubble-glow': darkMode ? 'rgba(255, 255, 255, 0.065)' : 'rgba(255, 255, 255, 0.66)',
+    '--glass-bubble-depth': darkMode ? 'rgba(0, 0, 0, 0.28)' : 'rgba(18, 24, 34, 0.045)',
     '--glass-shadow': darkMode
-      ? '4px 16px 38px -12px rgba(0, 0, 0, 0.56)'
-      : '4px 12px 30px -12px rgba(18, 24, 34, 0.11)',
+      ? '4px 16px 38px -12px rgba(0, 0, 0, 0.52)'
+      : '4px 12px 30px -12px rgba(18, 24, 34, 0.10)',
     '--glass-shadow-elevated': darkMode
-      ? '8px 28px 64px -14px rgba(0, 0, 0, 0.78)'
-      : '8px 24px 56px -14px rgba(18, 24, 34, 0.22)',
+      ? '8px 28px 64px -14px rgba(0, 0, 0, 0.74)'
+      : '8px 24px 56px -14px rgba(18, 24, 34, 0.20)',
 
     // 4. Crisp 4-Level Neutral Typography Hierarchy
     '--text-primary': rgbToHex(textPrimaryRgb),
@@ -517,8 +520,8 @@ export const computeLiquidGlassTheme = (
     '--bg-sage-hover': rgbToHex(
       blendRgb(sageSurfaceRgb, accentRgb, 0.08)
     ),
-    '--border-hairline': darkMode ? 'rgba(255, 255, 255, 0.09)' : 'rgba(18, 24, 34, 0.09)',
-    '--border-strong': darkMode ? 'rgba(255, 255, 255, 0.17)' : 'rgba(18, 24, 34, 0.16)',
+    '--border-hairline': darkMode ? 'rgba(255, 255, 255, 0.055)' : 'rgba(18, 24, 34, 0.06)',
+    '--border-strong': darkMode ? 'rgba(255, 255, 255, 0.11)' : 'rgba(18, 24, 34, 0.11)',
 
     '--accent-lime': rgbToHex(limeHighlightRgb),
     '--accent-lime-hover': rgbToHex(

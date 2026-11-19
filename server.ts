@@ -39,7 +39,48 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '5mb' }));
+  app.use(express.json({ limit: '25mb' }));
+
+  // 0. Audio Transcription (gemini-3.5-transcribe)
+  app.post('/api/ai/transcribe', async (req, res) => {
+    try {
+      const { audioBase64, mimeType, prompt } = req.body || {};
+      if (!audioBase64 || typeof audioBase64 !== 'string') {
+        return res.status(400).json({ error: 'Missing required audioBase64 payload.' });
+      }
+      const ai = getGenAIClient();
+      if (!ai) {
+        return res.status(503).json({ error: 'Gemini API key is not configured on the server.' });
+      }
+
+      const normalizedMime = (typeof mimeType === 'string' && mimeType.trim())
+        ? mimeType.split(';')[0].trim()
+        : 'audio/webm';
+
+      const audioPart = {
+        inlineData: {
+          mimeType: normalizedMime,
+          data: audioBase64,
+        },
+      };
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-transcribe',
+        contents: {
+          parts: [
+            audioPart,
+            { text: typeof prompt === 'string' && prompt.trim() ? prompt.trim() : 'Transcribe this audio accurately.' },
+          ],
+        },
+      });
+
+      const transcript = (response.text || '').trim();
+      return res.json({ transcript, model: 'gemini-3.5-transcribe' });
+    } catch (error: any) {
+      console.error('[/api/ai/transcribe] Error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to transcribe audio.' });
+    }
+  });
 
   // 1. Task Titles Suggestion
   app.post('/api/ai/task-titles', async (req, res) => {

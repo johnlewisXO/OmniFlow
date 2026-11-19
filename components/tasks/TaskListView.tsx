@@ -46,7 +46,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
-  const [groupBy, setGroupBy] = useState<'status' | 'none'>('status');
+  const [groupBy, setGroupBy] = useState<'status' | 'priority' | 'assignee' | 'none'>('status');
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({});
 
   // Intra-section & Cross-section Drag-and-Drop State
@@ -831,14 +831,64 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
           <select
             value={groupBy}
-            onChange={e => setGroupBy(e.target.value as 'status' | 'none')}
+            onChange={e => setGroupBy(e.target.value as 'status' | 'priority' | 'assignee' | 'none')}
+            aria-label="Group tasks by"
             className="!w-auto !py-1 !px-2.5 text-xs font-semibold rounded-xl"
           >
-            <option value="status">Grouped</option>
+            <option value="status">Group: Status</option>
+            <option value="priority">Group: Priority</option>
+            <option value="assignee">Group: Assignee</option>
             <option value="none">Flat List</option>
           </select>
         </div>
       </div>
+
+      {/* Active Filter Indicators */}
+      {(filterStatus !== 'all' || filterPriority !== 'all' || searchQuery.trim() !== '') && (
+        <div className="px-4 py-2 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-[var(--text-muted)]">Active filters:</span>
+            {filterStatus !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setFilterStatus('all')}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] cursor-pointer"
+              >
+                Status: {filterStatus.replace(/_/g, ' ')} ×
+              </button>
+            )}
+            {filterPriority !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setFilterPriority('all')}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] cursor-pointer"
+              >
+                Priority: {filterPriority} ×
+              </button>
+            )}
+            {searchQuery.trim() !== '' && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] cursor-pointer"
+              >
+                Search: &ldquo;{searchQuery.trim()}&rdquo; ×
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setFilterStatus('all');
+              setFilterPriority('all');
+              setSearchQuery('');
+            }}
+            className="text-[11px] font-semibold text-[var(--accent-cta)] hover:underline cursor-pointer"
+          >
+            Clear all filters
+          </button>
+        </div>
+      )}
 
       {/* Main List Body */}
       <div className="flex-1 min-h-[260px] p-3 sm:p-4">
@@ -849,6 +899,57 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             {renderGroupedTasks(TaskStatus.REVIEW, 'Review', 'bg-amber-500')}
             {renderGroupedTasks(TaskStatus.DONE, 'Done', 'bg-emerald-600')}
           </>
+        ) : groupBy === 'priority' ? (
+          <div className="space-y-4">
+            {[
+              { key: TaskPriority.CRITICAL, label: 'Critical', dot: 'bg-rose-600' },
+              { key: TaskPriority.HIGH, label: 'High', dot: 'bg-amber-500' },
+              { key: TaskPriority.MEDIUM, label: 'Medium', dot: 'bg-[var(--accent-cta)]' },
+              { key: TaskPriority.LOW, label: 'Low', dot: 'bg-[var(--text-muted)]' },
+            ].map(group => {
+              const items = filteredParents.filter(t => t.priority === group.key);
+              if (items.length === 0) return null;
+              return (
+                <div key={group.key} className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] overflow-hidden">
+                  <div className="px-4 py-2.5 bg-[var(--bg-surface-subtle)] border-b border-[var(--border-hairline)] flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${group.dot}`} />
+                    <span className="text-xs font-bold text-[var(--text-primary)]">{group.label}</span>
+                    <span className="text-[11px] font-mono text-[var(--text-muted)]">({items.length})</span>
+                  </div>
+                  {items.map((t, idx) => renderTaskRow(t, t.status, idx, items.length))}
+                </div>
+              );
+            })}
+            {filteredParents.length === 0 && (
+              <div className="p-8 text-center text-xs text-[var(--text-muted)]">No matching tasks found.</div>
+            )}
+          </div>
+        ) : groupBy === 'assignee' ? (
+          <div className="space-y-4">
+            {Array.from(
+              filteredParents.reduce((acc, t) => {
+                const key = t.assignee_id || 'unassigned';
+                if (!acc.has(key)) acc.set(key, []);
+                acc.get(key)!.push(t);
+                return acc;
+              }, new Map<string, Task[]>())
+            ).map(([assigneeId, items]) => {
+              const user = users.find(u => u.id === assigneeId);
+              const label = assigneeId === 'unassigned' ? 'Unassigned' : user?.full_name || user?.email || 'Teammate';
+              return (
+                <div key={assigneeId} className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] overflow-hidden">
+                  <div className="px-4 py-2.5 bg-[var(--bg-surface-subtle)] border-b border-[var(--border-hairline)] flex items-center gap-2">
+                    <span className="text-xs font-bold text-[var(--text-primary)]">{label}</span>
+                    <span className="text-[11px] font-mono text-[var(--text-muted)]">({items.length})</span>
+                  </div>
+                  {items.map((t, idx) => renderTaskRow(t, t.status, idx, items.length))}
+                </div>
+              );
+            })}
+            {filteredParents.length === 0 && (
+              <div className="p-8 text-center text-xs text-[var(--text-muted)]">No matching tasks found.</div>
+            )}
+          </div>
         ) : (
           <div className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface)] overflow-hidden">
             {filteredParents.length === 0 ? (

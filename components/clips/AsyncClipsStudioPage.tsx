@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { transcribeAudioBlob } from '../../services/audioTranscribeService';
 import { useAppStore } from '../../hooks/useAppStore';
 import { AsyncVideoClip, ClipCommentPin, TaskPriority, TaskStatus } from '../../types';
 import { ICON_MAP } from '../../constants';
 import chatService from '../../services/chatService';
+import { saveClipBlob, getClipBlob, getClipStorageStats } from '../../utils/videoClipStorage';
 
 const STORAGE_KEY = 'omni_async_video_clips_v1';
 
@@ -119,9 +121,58 @@ export const AsyncClipsStudioPage: React.FC = () => {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(clips));
+      // Strip transient blob: URLs before persisting metadata; actual blobs live in IndexedDB
+      const serializable = clips.map(c => ({
+        ...c,
+        videoUrl: c.videoUrl?.startsWith('blob:') ? undefined : c.videoUrl,
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
     } catch {}
   }, [clips]);
+
+  // Hydrate persistent IndexedDB video blob for the currently selected clip
+  const [hydratedVideoUrl, setHydratedVideoUrl] = useState<string | null>(null);
+  const [storageStats, setStorageStats] = useState<{ count: number; totalBytes: number }>({
+    count: 0,
+    totalBytes: 0,
+  });
+
+  useEffect(() => {
+    let revokedUrl: string | null = null;
+    let cancelled = false;
+
+    const hydrate = async () => {
+      if (!selectedClip) {
+        setHydratedVideoUrl(null);
+        return;
+      }
+      if (selectedClip.videoUrl && !selectedClip.videoUrl.startsWith('blob:')) {
+        setHydratedVideoUrl(selectedClip.videoUrl);
+        return;
+      }
+      const blob = await getClipBlob(selectedClip.id);
+      if (cancelled) return;
+      if (blob && blob.size > 0) {
+        const freshUrl = URL.createObjectURL(blob);
+        revokedUrl = freshUrl;
+        setHydratedVideoUrl(freshUrl);
+      } else {
+        setHydratedVideoUrl(selectedClip.videoUrl || null);
+      }
+    };
+
+    hydrate();
+    getClipStorageStats().then(stats => {
+      if (!cancelled) setStorageStats(stats);
+    });
+
+    return () => {
+      cancelled = true;
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    };
+  }, [selectedClip?.id, selectedClip?.videoUrl]);
+
+  const effectiveVideoUrl = hydratedVideoUrl || selectedClip?.videoUrl || null;
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -151,7 +202,7 @@ export const AsyncClipsStudioPage: React.FC = () => {
   // Simulated / Interactive Playback Ticker
   useEffect(() => {
     if (!isPlaying || !selectedClip) return;
-    if (selectedClip.videoUrl && videoPlaybackRef.current) {
+    if (effectiveVideoUrl && videoPlaybackRef.current) {
       return;
     }
     const interval = setInterval(() => {
@@ -233,22 +284,38 @@ export const AsyncClipsStudioPage: React.FC = () => {
     }
   };
 
-  const handleFinishRecording = () => {
+  const handleFinishRecording = async () => {
     setIsRecording(false);
     let recordedBlobUrl: string | undefined;
+    let recordedBlob: Blob | null = null;
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {}
+      await new Promise<void>(resolve => {
+        const recorder = mediaRecorderRef.current!;
+        const timeout = setTimeout(() => resolve(), 500);
+        recorder.onstop = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+        try {
+          recorder.stop();
+        } catch {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
     }
+
+    const clipId = `clip-${Date.now()}`;
     if (recordedChunksRef.current.length > 0) {
-      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-      recordedBlobUrl = URL.createObjectURL(blob);
+      recordedBlob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+      recordedBlobUrl = URL.createObjectURL(recordedBlob);
+      await saveClipBlob(clipId, recordedBlob);
+      getClipStorageStats().then(setStorageStats);
     }
     stopAllActiveStreams();
 
-    const finalDuration = Math.max(18, recordingElapsed || 45);
+    const finalDuration = Math.max(3, recordingElapsed || 15);
     const title =
       newClipTitle.trim() ||
       `Workspace Clip — ${activeProject?.name || 'Sprint Sync'} (${new Date().toLocaleTimeString([], {
@@ -257,11 +324,11 @@ export const AsyncClipsStudioPage: React.FC = () => {
       })})`;
 
     const newClip: AsyncVideoClip = {
-      id: `clip-${Date.now()}`,
+      id: clipId,
       title,
       description:
         newClipDesc.trim() ||
-        'Async screen & camera update recorded directly from the Taskly Clips Studio.',
+        'Async screen & camera update recorded directly from the Clips Studio (persisted in IndexedDB).',
       durationSeconds: finalDuration,
       authorId: currentUser?.id || 'me',
       authorName: currentUser?.full_name || currentUser?.email?.split('@')[0] || 'Workspace Member',
@@ -272,10 +339,10 @@ export const AsyncClipsStudioPage: React.FC = () => {
       recordingMode,
       thumbnailColor:
         recordingMode === 'screen_cam'
-          ? 'from-[#2D3822] via-[#1B2214] to-[#131511]'
+          ? 'from-indigo-600/40 via-slate-900 to-black'
           : recordingMode === 'screen_only'
-          ? 'from-[#242D1E] via-[#191F15] to-[#11140E]'
-          : 'from-[#203224] via-[#152218] to-[#111512]',
+          ? 'from-sky-600/40 via-slate-900 to-black'
+          : 'from-emerald-600/40 via-slate-900 to-black',
       transcriptSummary: [
         `00:00 — Context & walkthrough for ${title}`,
         `${formatTimecode(Math.floor(finalDuration * 0.45))} — Live demonstration of key UI & system states`,
@@ -290,10 +357,42 @@ export const AsyncClipsStudioPage: React.FC = () => {
 
     setClips(prev => [newClip, ...prev]);
     setSelectedClipId(newClip.id);
+    if (recordedBlobUrl) setHydratedVideoUrl(recordedBlobUrl);
     setIsRecorderOpen(false);
     setNewClipTitle('');
     setNewClipDesc('');
-    addToast('Async Clip Published', `"${newClip.title}" is ready to watch and share`, 'success');
+    addToast(
+      'Async Clip Saved & Persisted',
+      `"${newClip.title}" is stored in persistent browser storage. Transcribing audio...`,
+      'success'
+    );
+
+    if (recordedBlob && recordedBlob.size > 500) {
+      transcribeAudioBlob(recordedBlob, {
+        prompt: 'Transcribe the spoken audio in this workspace video clip clearly. Break into short readable sentences.',
+      })
+        .then(res => {
+          if (!res.transcript) return;
+          const lines = res.transcript
+            .split(/(?<=[.!?])\s+/)
+            .map(l => l.trim())
+            .filter(Boolean);
+          setClips(prev =>
+            prev.map(c =>
+              c.id === clipId
+                ? {
+                    ...c,
+                    transcriptSummary: lines.length > 0 ? lines : [res.transcript],
+                  }
+                : c
+            )
+          );
+          addToast('Clip Transcribed', `AI transcript generated for "${newClip.title}".`, 'success');
+        })
+        .catch(() => {
+          // Keep default summary if audio track was silent or API unavailable
+        });
+    }
   };
 
   const handleAddTimestampComment = (e: React.FormEvent) => {
@@ -458,14 +557,31 @@ export const AsyncClipsStudioPage: React.FC = () => {
         {selectedClip && (
           <div className="lg:col-span-6 flex flex-col overflow-y-auto scrollbar-thin p-4 lg:p-6 space-y-4">
             {/* Interactive Video Viewport */}
-            <div className="relative aspect-video rounded-2xl overflow-hidden border border-[#2B3026] bg-[#131511] shadow-xl flex flex-col justify-between">
-              {selectedClip.videoUrl ? (
-                <video
-                  ref={videoPlaybackRef}
-                  src={selectedClip.videoUrl}
-                  controls
-                  className="w-full h-full object-contain"
-                />
+            <div className="relative aspect-video rounded-2xl overflow-hidden border border-[var(--glass-border)] bg-black/90 shadow-xl flex flex-col justify-between">
+              {effectiveVideoUrl ? (
+                <>
+                  <video
+                    key={effectiveVideoUrl}
+                    ref={videoPlaybackRef}
+                    src={effectiveVideoUrl}
+                    controls
+                    playsInline
+                    className="w-full h-full object-contain bg-black"
+                  />
+                  <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                    <span className="px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-xl border border-white/15 text-[10px] font-mono text-emerald-300">
+                      Persisted · {storageStats.count} clip{storageStats.count === 1 ? '' : 's'} ({(storageStats.totalBytes / (1024 * 1024)).toFixed(1)} MB)
+                    </span>
+                    <a
+                      href={effectiveVideoUrl}
+                      download={`${selectedClip.title.replace(/[^a-z0-9-_]+/gi, '_')}.webm`}
+                      title="Download recording (.webm)"
+                      className="px-2.5 py-1 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-[10px] font-semibold hover:opacity-90 transition-opacity"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </>
               ) : (
                 /* Interactive Synthesized Canvas Player with Camera Bubble */
                 <div

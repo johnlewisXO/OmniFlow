@@ -289,13 +289,17 @@ export const AIProjectManagerStudio: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full text-[var(--text-primary)] space-y-5 animate-fadeIn">
-      {/* Studio Header */}
+      {/* Aether AI Studio Header */}
       <PageHeader
-        eyebrow="AI-Native Project Co-Pilot · Autonomous Virtual PM"
-        title="AI Project Manager & Strategy Studio"
-        subtitle="Transform natural-language goals into multi-sprint roadmaps, balance team story-point capacity, extract action items from standup transcripts, and resolve delivery risks."
+        eyebrow="Aether Intelligence · Autonomous Delivery Engine"
+        title="Aether AI Command Studio"
+        subtitle="Architect multi-sprint roadmaps from natural language, auto-balance team capacity, extract decisions from meetings, and detect delivery risks."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-glass-2)] border border-[var(--glass-border)] text-[11px] font-medium text-[var(--text-secondary)]">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Aether Engine Ready</span>
+            </span>
             <AIBotFace
               mood={isGeneratingBlueprint || isMaterializing || isRebalancing || isExtractingMeeting ? 'thinking' : 'happy'}
               size="md"
@@ -305,20 +309,24 @@ export const AIProjectManagerStudio: React.FC = () => {
         }
       />
 
-      {/* Segmented Studio Mode Selector */}
-      <div className="flex items-center">
+      {/* Icon-First Studio Mode Selector */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedTabs
           value={activeStudioTab}
           onChange={setActiveStudioTab}
           size="sm"
           options={[
-            { id: 'architect', label: '1. Blueprint Architect', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
-            { id: 'capacity', label: '2. Capacity Balancer', icon: <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" /> },
-            { id: 'meetings', label: '3. Meeting Intelligence', icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> },
-            { id: 'insights', label: '4. Risk & Insights', icon: <ICON_MAP.ChartBarIcon className="w-3.5 h-3.5" /> },
-            { id: 'edge', label: '5. Edge Compute', icon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" /> },
+            { id: 'architect', label: 'Blueprint', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
+            { id: 'capacity', label: 'Capacity', icon: <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" /> },
+            { id: 'meetings', label: 'Meetings', icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> },
+            { id: 'insights', label: 'Risk Scan', icon: <ICON_MAP.ChartBarIcon className="w-3.5 h-3.5" /> },
+            { id: 'edge', label: 'Edge', icon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" /> },
           ]}
         />
+        <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+          <ICON_MAP.FolderIcon className="w-3.5 h-3.5 text-[var(--accent-text)]" />
+          <span>Target: <strong className="text-[var(--text-primary)]">{activeProject?.name || projects[0]?.name || 'Workspace'}</strong></span>
+        </div>
       </div>
 
       {/* TAB 1: AI Initiative Blueprint Architect */}

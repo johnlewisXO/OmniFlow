@@ -512,6 +512,19 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
     [boards, activeBoardId]
   );
 
+  // Whiteboard v2: Undo/Redo history & Task Card Embed picker
+  const [undoStack, setUndoStack] = useState<WhiteboardBoard[]>([]);
+  const [redoStack, setRedoStack] = useState<WhiteboardBoard[]>([]);
+  const [showTaskEmbedMenu, setShowTaskEmbedMenu] = useState(false);
+  const isReplayingHistoryRef = useRef(false);
+  const lastBoardSnapshotRef = useRef<WhiteboardBoard | null>(null);
+
+  useEffect(() => {
+    if (activeBoard) {
+      lastBoardSnapshotRef.current = activeBoard;
+    }
+  }, [activeBoard]);
+
   // Persist locally & to Supabase Cloud Storage on authoritative changes
   const persistAuthoritativeState = useCallback(
     (
@@ -530,6 +543,12 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
           ? { ...b, version: nextVer, updatedBy: actorName, updatedAt: nowIso }
           : b
       );
+
+      if (incrementVersion && !isReplayingHistoryRef.current && lastBoardSnapshotRef.current) {
+        const prevSnap = lastBoardSnapshotRef.current;
+        setUndoStack(prev => [...prev.slice(-24), prevSnap]);
+        setRedoStack([]);
+      }
 
       boardVersionRef.current = nextVer;
       setBoardVersion(nextVer);
@@ -1968,6 +1987,213 @@ export const WhiteboardStudioPage: React.FC<WhiteboardStudioPageProps> = ({
               </div>
             )}
           </div>
+
+          {/* Whiteboard v2: Undo / Redo */}
+          <div
+            className={`hidden md:flex items-center gap-0.5 px-1.5 py-0.5 rounded-xl border ${
+              darkMode ? 'border-white/10 bg-slate-800/70' : 'border-slate-200 bg-slate-100/80'
+            }`}
+          >
+            <button
+              type="button"
+              disabled={undoStack.length === 0}
+              onClick={() => {
+                if (undoStack.length === 0 || !activeBoard) return;
+                const previous = undoStack[undoStack.length - 1];
+                setUndoStack(prev => prev.slice(0, -1));
+                setRedoStack(prev => [...prev.slice(-24), activeBoard]);
+                isReplayingHistoryRef.current = true;
+                const nextBoards = boards.map(b => (b.id === activeBoard.id ? previous : b));
+                setBoards(nextBoards);
+                persistAuthoritativeState(nextBoards, activeBoard.id, true, true);
+                isReplayingHistoryRef.current = false;
+                soundService.play('click_soft');
+              }}
+              title="Undo (Ctrl/Cmd+Z)"
+              className="px-1.5 py-0.5 text-xs font-bold disabled:opacity-35 hover:text-[var(--accent-cta)] cursor-pointer disabled:cursor-not-allowed"
+            >
+              ↶
+            </button>
+            <button
+              type="button"
+              disabled={redoStack.length === 0}
+              onClick={() => {
+                if (redoStack.length === 0 || !activeBoard) return;
+                const next = redoStack[redoStack.length - 1];
+                setRedoStack(prev => prev.slice(0, -1));
+                setUndoStack(prev => [...prev.slice(-24), activeBoard]);
+                isReplayingHistoryRef.current = true;
+                const nextBoards = boards.map(b => (b.id === activeBoard.id ? next : b));
+                setBoards(nextBoards);
+                persistAuthoritativeState(nextBoards, activeBoard.id, true, true);
+                isReplayingHistoryRef.current = false;
+                soundService.play('click_soft');
+              }}
+              title="Redo (Ctrl/Cmd+Shift+Z)"
+              className="px-1.5 py-0.5 text-xs font-bold disabled:opacity-35 hover:text-[var(--accent-cta)] cursor-pointer disabled:cursor-not-allowed"
+            >
+              ↷
+            </button>
+          </div>
+
+          {/* Whiteboard v2: Embed Project Task Card */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowTaskEmbedMenu(prev => !prev)}
+              title="Embed live project task card on canvas"
+              className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-white/10 bg-slate-800/70 hover:bg-slate-700 text-slate-200'
+                  : 'border-slate-200 bg-slate-100/80 hover:bg-slate-200 text-slate-700'
+              }`}
+            >
+              <span>📋</span>
+              <span>Task Card</span>
+            </button>
+            {showTaskEmbedMenu && (
+              <div
+                className={`absolute right-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl border shadow-xl p-2 z-50 space-y-1 ${
+                  darkMode ? 'bg-slate-900 border-white/15 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+                }`}
+              >
+                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider opacity-60">
+                  Embed Live Project Task
+                </div>
+                {tasks.slice(0, 15).map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      if (!activeBoard) return;
+                      const newNode: WhiteboardNode = {
+                        id: `task-node-${Date.now()}`,
+                        type: 'doc_card',
+                        x: Math.round((260 - pan.x) / zoom) + Math.round(Math.random() * 40),
+                        y: Math.round((180 - pan.y) / zoom) + Math.round(Math.random() * 40),
+                        width: 260,
+                        height: 136,
+                        title: t.title,
+                        content: `Status: ${t.status.replace(/_/g, ' ')}\nPriority: ${t.priority}\nPoints: ${t.story_points || 1}p`,
+                        color: 'slate',
+                        linkedTaskId: t.id,
+                        updatedAt: Date.now(),
+                      };
+                      const nextBoards = boards.map(b =>
+                        b.id === activeBoard.id ? { ...b, nodes: [...b.nodes, newNode] } : b
+                      );
+                      setBoards(nextBoards);
+                      persistAuthoritativeState(nextBoards, activeBoard.id, true, true);
+                      setSelectedNodeId(newNode.id);
+                      setShowTaskEmbedMenu(false);
+                      soundService.play('click_soft');
+                      addToast('Task Card Embedded', `Linked "${t.title}" onto the whiteboard.`, 'success');
+                    }}
+                    className={`w-full text-left px-2.5 py-2 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                      darkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="truncate font-medium">{t.title}</span>
+                    <span className="text-[10px] font-mono opacity-60 shrink-0">{t.story_points || 1}p</span>
+                  </button>
+                ))}
+                {tasks.length === 0 && (
+                  <p className="text-xs opacity-60 px-2 py-3 text-center">No project tasks available to embed.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Whiteboard v2: Export PNG */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!activeBoard) return;
+              const canvas = document.createElement('canvas');
+              const pad = 80;
+              const nodes = activeBoard.nodes || [];
+              const maxX = Math.max(1200, ...nodes.map(n => n.x + n.width + pad));
+              const maxY = Math.max(760, ...nodes.map(n => n.y + n.height + pad));
+              canvas.width = Math.min(2800, maxX);
+              canvas.height = Math.min(2000, maxY);
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return;
+
+              ctx.fillStyle = darkMode ? '#0F1115' : '#F8FAFC';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+              // Draw connectors
+              ctx.strokeStyle = darkMode ? '#94A3B8' : '#475569';
+              ctx.lineWidth = 2;
+              (activeBoard.connectors || []).forEach(c => {
+                const from = nodes.find(n => n.id === c.fromNodeId);
+                const to = nodes.find(n => n.id === c.toNodeId);
+                if (!from || !to) return;
+                ctx.beginPath();
+                ctx.moveTo(from.x + from.width / 2, from.y + from.height / 2);
+                ctx.lineTo(to.x + to.width / 2, to.y + to.height / 2);
+                ctx.stroke();
+              });
+
+              // Draw nodes
+              nodes.forEach(n => {
+                ctx.fillStyle =
+                  n.type === 'frame'
+                    ? darkMode
+                      ? 'rgba(255,255,255,0.04)'
+                      : 'rgba(15,23,42,0.03)'
+                    : darkMode
+                    ? '#1E2430'
+                    : '#FFFFFF';
+                ctx.strokeStyle = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(15,23,42,0.15)';
+                ctx.lineWidth = n.type === 'frame' ? 2 : 1.5;
+                ctx.beginPath();
+                ctx.roundRect(n.x, n.y, n.width, n.height, 14);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = darkMode ? '#F8FAFC' : '#0F172A';
+                ctx.font = 'bold 13px Inter, sans-serif';
+                ctx.fillText((n.title || n.type).slice(0, 36), n.x + 14, n.y + 26);
+
+                if (n.content) {
+                  ctx.fillStyle = darkMode ? '#CBD5E1' : '#475569';
+                  ctx.font = '11px Inter, sans-serif';
+                  n.content.split('\n').slice(0, 4).forEach((line, idx) => {
+                    ctx.fillText(line.slice(0, 42), n.x + 14, n.y + 46 + idx * 16);
+                  });
+                }
+              });
+
+              // Draw freehand strokes
+              (activeBoard.strokes || []).forEach(s => {
+                if (!s.points || s.points.length < 2) return;
+                ctx.strokeStyle = s.color || '#6366F1';
+                ctx.lineWidth = s.strokeWidth || 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(s.points[0].x, s.points[0].y);
+                s.points.slice(1).forEach(pt => ctx.lineTo(pt.x, pt.y));
+                ctx.stroke();
+              });
+
+              const link = document.createElement('a');
+              link.download = `${(activeBoard.name || 'whiteboard').replace(/[^a-z0-9-_]+/gi, '_')}.png`;
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+              soundService.play('task_complete');
+              addToast('PNG Exported', `Downloaded "${activeBoard.name}" as a PNG image.`, 'success');
+            }}
+            title="Export whiteboard canvas as PNG"
+            className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+              darkMode
+                ? 'border-white/10 bg-slate-800/70 hover:bg-slate-700 text-slate-200'
+                : 'border-slate-200 bg-slate-100/80 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            <span>🖼️</span>
+            <span>PNG</span>
+          </button>
 
           {/* Zoom Controls (`- 100% +`) */}
           <div
