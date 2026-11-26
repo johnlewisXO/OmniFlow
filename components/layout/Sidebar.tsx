@@ -8,6 +8,7 @@ import { AnimatedPopover } from '../shared/Modal';
 import { GLASS_SPRING, FluidCollapse } from '../shared/LiquidGlass';
 import { DefaultGlassBrandMark } from '../shared/OrganizationLogoUploader';
 import { ProfileMiniMenu, StatusDynamicIcon } from './ProfileMiniMenu';
+import { isPriorityNotification } from '../../utils/notificationPriority';
 import soundService from '../../services/soundService';
 
 type RailGroupId = 'home' | 'comms' | 'work' | 'people' | 'analytics' | 'ai' | 'governance';
@@ -65,7 +66,7 @@ export const Sidebar: React.FC = () => {
   const hoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const normalizedRole = normalizeUserRole(currentUser?.role);
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.read && isPriorityNotification(n)).length;
   const isAdminOrOwner = normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN;
   const orgLogoUrl = currentOrganization?.logoUrl || currentOrganization?.logo_url || '';
 

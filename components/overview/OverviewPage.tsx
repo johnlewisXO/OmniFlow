@@ -27,7 +27,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ showWelcomeMessage =
         <PageHeader
           eyebrow={currentOrganization?.name || 'Workspace'}
           title={`Welcome back, ${currentUser?.full_name?.split(' ')[0] || 'Teammate'}`}
-          subtitle="Focused priorities, live project health, and team delivery velocity."
+          subtitle="Priorities, project health, and sprint velocity."
           actions={
             <SegmentedTabs
               size="sm"

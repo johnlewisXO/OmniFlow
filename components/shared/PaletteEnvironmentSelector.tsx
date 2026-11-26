@@ -57,8 +57,8 @@ export const PaletteEnvironmentSelector: React.FC<PaletteEnvironmentSelectorProp
         </span>
       </div>
 
-      {/* Live Miniature Environment Previews (Aurora · Ocean · Ember · Forest · Violet · Mono) */}
-      <div className={compact ? 'grid grid-cols-3 gap-1.5' : 'grid grid-cols-2 sm:grid-cols-3 gap-3'}>
+      {/* Live Miniature Environment Previews */}
+      <div className={compact ? 'grid grid-cols-4 gap-1.5' : 'grid grid-cols-2 sm:grid-cols-4 gap-3'}>
         {previews.map(({ preset, theme }) => {
           const isSelected = accentColor === preset.id;
 
@@ -103,8 +103,8 @@ export const PaletteEnvironmentSelector: React.FC<PaletteEnvironmentSelectorProp
                   backgroundColor: theme.glassCardBg,
                   borderColor: theme.glassBorder,
                   boxShadow: darkMode
-                    ? 'inset 0 1px 0 rgba(255,255,255,0.14), 0 4px 12px -4px rgba(0,0,0,0.45)'
-                    : 'inset 0 1px 0 rgba(255,255,255,0.85), 0 4px 12px -4px rgba(18,24,34,0.12)',
+                    ? 'inset 0 1px 1px rgba(255,255,255,0.28), 0 4px 12px -4px rgba(0,0,0,0.45)'
+                    : 'inset 0 1.5px 1px rgba(255,255,255,0.94), 0 4px 12px -4px rgba(18,24,34,0.12)',
                 }}
               >
                 {/* Miniature UI Lines + Accent CTA Indicator */}

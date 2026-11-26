@@ -205,7 +205,7 @@ export const TriageIntakePage: React.FC = () => {
       <PageHeader
         eyebrow="Customer & Engineering Intake"
         title="Triage Queue & Bug / Feature Intake"
-        subtitle="Inspect incoming bug reports and feature requests before accepting them into active sprint boards."
+        subtitle="Review incoming bug reports and feature requests."
         actions={
           <SegmentedTabs
             value={activeTab}

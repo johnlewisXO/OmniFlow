@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { ICON_MAP } from '../../constants';
-import { OverviewPage } from '../overview/OverviewPage';
-import { Button } from '../shared/Button';
+import { Button, IconButton } from '../shared/Button';
 import { OrganizationLogoUploader } from '../shared/OrganizationLogoUploader';
-import { TaskPriority, TaskStatus, normalizeUserRole, AuditLog } from '../../types';
+import { TaskStatus, normalizeUserRole, normalizeTaskStatus, AuditLog } from '../../types';
+import { PROJECT_TEMPLATES, ProjectTemplate } from '../../utils/projectTemplates';
 import supabaseService from '../../services/supabaseService';
 import {
   PageHeader,
@@ -26,45 +26,6 @@ interface OrgGovernanceSettings {
 
 const ORG_SETTINGS_STORAGE_KEY = 'omni_org_governance_settings_v1';
 
-const PROJECT_TEMPLATES = [
-  {
-    id: 'tpl-saas-launch',
-    name: 'AI-First SaaS Product Launch',
-    category: 'Product & Engineering',
-    description: 'End-to-end product launch with architecture, security compliance, beta testing, and GTM readiness.',
-    tasks: [
-      { title: 'Define System Architecture & API Contracts', priority: TaskPriority.CRITICAL, points: 8 },
-      { title: 'Implement End-to-End Encryption & RBAC Policies', priority: TaskPriority.HIGH, points: 5 },
-      { title: 'Conduct Load Testing & Telemetry Verification', priority: TaskPriority.HIGH, points: 5 },
-      { title: 'Prepare Production Release Runbook & Stakeholder Brief', priority: TaskPriority.MEDIUM, points: 3 },
-    ],
-  },
-  {
-    id: 'tpl-security-soc2',
-    name: 'SOC2 Type II & Security Hardening',
-    category: 'Security & Compliance',
-    description: 'Comprehensive security audit workflow covering IAM, MFA enforcement, audit trail retention, and pen-testing.',
-    tasks: [
-      { title: 'Audit Organization RBAC Roles & Least-Privilege Access', priority: TaskPriority.CRITICAL, points: 5 },
-      { title: 'Verify Immutable Audit Log Retention & SHA-256 Chain', priority: TaskPriority.HIGH, points: 5 },
-      { title: 'Rotate Organization API Keys & Webhook Secrets', priority: TaskPriority.HIGH, points: 3 },
-      { title: 'Complete External Vulnerability & Penetration Assessment', priority: TaskPriority.MEDIUM, points: 8 },
-    ],
-  },
-  {
-    id: 'tpl-agile-sprint',
-    name: 'High-Velocity Agile Engineering Sprint',
-    category: 'Agile Delivery',
-    description: 'Pre-configured 2-week engineering sprint template with backlog grooming, QA gates, and retro tasks.',
-    tasks: [
-      { title: 'Sprint Backlog Grooming & Fibonacci Estimation', priority: TaskPriority.HIGH, points: 3 },
-      { title: 'Core Feature Implementation & Unit Test Coverage', priority: TaskPriority.CRITICAL, points: 8 },
-      { title: 'End-to-End Regression & Cross-Browser QA', priority: TaskPriority.HIGH, points: 5 },
-      { title: 'Sprint Demo & Velocity Retrospective', priority: TaskPriority.LOW, points: 2 },
-    ],
-  },
-];
-
 export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embeddedInOwner = false }) => {
   const {
     currentUser,
@@ -82,31 +43,44 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
     isUpdatingOrgSettings,
   } = useAppStore();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'org_settings' | 'templates' | 'audit'>('overview');
+  const [activeAdminTab, setActiveAdminTab] = useState<'org_settings' | 'templates' | 'audit'>('org_settings');
   const [deployingTemplateId, setDeployingTemplateId] = useState<string | null>(null);
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<string>('all');
+  const [customTemplateNames, setCustomTemplateNames] = useState<Record<string, string>>({});
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [auditQuery, setAuditQuery] = useState('');
+  const [auditCategory, setAuditCategory] = useState<'all' | 'task' | 'user' | 'governance'>('all');
+  const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
+
+  const buildSettingsFromOrg = (): OrgGovernanceSettings => ({
+    orgDisplayName: currentOrganization?.name || 'Omni Flow Enterprise Workspace',
+    corporateDomain:
+      currentOrganization?.corporateDomain ||
+      currentOrganization?.domain ||
+      currentOrganization?.corporate_domain ||
+      currentUser?.email?.split('@')[1] ||
+      'workspace.live',
+    defaultSprintDurationDays:
+      currentOrganization?.defaultSprintDurationDays || currentOrganization?.default_sprint_duration_days || 14,
+    defaultTaskStatus: normalizeTaskStatus(currentOrganization?.defaultTaskStatus || TaskStatus.TODO),
+    autoAssignCreator: currentOrganization?.autoAssignCreator ?? true,
+    requireAcceptanceChecklist: currentOrganization?.requireAcceptanceChecklist ?? true,
+    enablePublicInviteLinks: currentOrganization?.enablePublicInviteLinks ?? true,
+  });
 
   const [orgSettings, setOrgSettings] = useState<OrgGovernanceSettings>(() => {
     try {
       const raw = localStorage.getItem(ORG_SETTINGS_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          ...parsed,
+          defaultTaskStatus: normalizeTaskStatus(parsed?.defaultTaskStatus),
+        };
+      }
     } catch {}
-    return {
-      orgDisplayName: currentOrganization?.name || 'Omni Flow Enterprise Workspace',
-      corporateDomain:
-        currentOrganization?.corporateDomain ||
-        currentOrganization?.domain ||
-        currentOrganization?.corporate_domain ||
-        currentUser?.email?.split('@')[1] ||
-        'workspace.live',
-      defaultSprintDurationDays:
-        currentOrganization?.defaultSprintDurationDays || currentOrganization?.default_sprint_duration_days || 14,
-      defaultTaskStatus: currentOrganization?.defaultTaskStatus || TaskStatus.TODO,
-      autoAssignCreator: currentOrganization?.autoAssignCreator ?? true,
-      requireAcceptanceChecklist: currentOrganization?.requireAcceptanceChecklist ?? true,
-      enablePublicInviteLinks: currentOrganization?.enablePublicInviteLinks ?? true,
-    };
+    return buildSettingsFromOrg();
   });
 
   useEffect(() => {
@@ -123,7 +97,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
           currentOrganization.defaultSprintDurationDays ||
           currentOrganization.default_sprint_duration_days ||
           prev.defaultSprintDurationDays,
-        defaultTaskStatus: currentOrganization.defaultTaskStatus || prev.defaultTaskStatus,
+        defaultTaskStatus: normalizeTaskStatus(currentOrganization.defaultTaskStatus || prev.defaultTaskStatus),
         autoAssignCreator:
           currentOrganization.autoAssignCreator !== undefined
             ? currentOrganization.autoAssignCreator
@@ -145,11 +119,11 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
     try {
       let dbLogs: AuditLog[] = [];
       if (currentUser?.organization_id) {
-        dbLogs = await supabaseService.getOrganizationAuditLogs(currentUser.organization_id, 40);
+        dbLogs = await supabaseService.getOrganizationAuditLogs(currentUser.organization_id, 50);
       }
 
       const synthesized: AuditLog[] = [];
-      tasks.slice(0, 8).forEach(t => {
+      tasks.slice(0, 10).forEach(t => {
         synthesized.push({
           id: `audit-task-${t.id}`,
           organization_id: currentUser?.organization_id || 'org-local',
@@ -165,7 +139,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
         });
       });
 
-      users.slice(0, 5).forEach(u => {
+      users.slice(0, 6).forEach(u => {
         synthesized.push({
           id: `audit-role-${u.id}`,
           organization_id: currentUser?.organization_id || 'org-local',
@@ -198,26 +172,36 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
     loadRecentAuditActivity();
   }, [currentUser?.organization_id, tasks.length, users.length]);
 
+  const handleResetOrgSettings = () => {
+    const restored = buildSettingsFromOrg();
+    setOrgSettings(restored);
+    addToast('Changes Reset', 'Governance fields restored to saved workspace settings.', 'info');
+  };
+
   const handleSaveOrgSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedStatus = normalizeTaskStatus(orgSettings.defaultTaskStatus);
+    const nextSettings = { ...orgSettings, defaultTaskStatus: normalizedStatus };
+    setOrgSettings(nextSettings);
+
     try {
-      localStorage.setItem(ORG_SETTINGS_STORAGE_KEY, JSON.stringify(orgSettings));
+      localStorage.setItem(ORG_SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings));
     } catch {}
 
     try {
       await updateOrganizationSettings({
-        orgDisplayName: orgSettings.orgDisplayName.trim(),
-        corporateDomain: (orgSettings.corporateDomain || '').trim(),
-        defaultSprintDurationDays: Number(orgSettings.defaultSprintDurationDays) || 14,
-        defaultTaskStatus: orgSettings.defaultTaskStatus,
-        autoAssignCreator: orgSettings.autoAssignCreator,
-        requireAcceptanceChecklist: orgSettings.requireAcceptanceChecklist,
-        enablePublicInviteLinks: orgSettings.enablePublicInviteLinks,
+        orgDisplayName: nextSettings.orgDisplayName.trim(),
+        corporateDomain: (nextSettings.corporateDomain || '').trim(),
+        defaultSprintDurationDays: Number(nextSettings.defaultSprintDurationDays) || 14,
+        defaultTaskStatus: normalizedStatus,
+        autoAssignCreator: nextSettings.autoAssignCreator,
+        requireAcceptanceChecklist: nextSettings.requireAcceptanceChecklist,
+        enablePublicInviteLinks: nextSettings.enablePublicInviteLinks,
       });
 
       addToast(
-        'Organization Settings Saved',
-        `Successfully updated "${orgSettings.orgDisplayName.trim()}" workspace & sprint governance parameters.`,
+        'Governance Settings Saved',
+        `Updated "${nextSettings.orgDisplayName.trim()}" workflow defaults and security rules.`,
         'success'
       );
     } catch (err: any) {
@@ -229,41 +213,116 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
     }
   };
 
-  const handleDeployProjectTemplate = async (template: (typeof PROJECT_TEMPLATES)[0]) => {
+  const handleDeployProjectTemplate = async (template: ProjectTemplate) => {
     setDeployingTemplateId(template.id);
+    const chosenName = (customTemplateNames[template.id] || '').trim() || template.name;
+    const defaultStatus = normalizeTaskStatus(orgSettings.defaultTaskStatus || TaskStatus.TODO);
+
     try {
       const created = await createProject({
-        name: template.name,
+        name: chosenName,
         description: template.description,
       });
       const projectId = (created && 'id' in created ? created.id : undefined) || projects[0]?.id;
-      if (projectId) {
-        for (let i = 0; i < template.tasks.length; i++) {
-          const item = template.tasks[i];
-          const assignee = users.length > 0 ? users[i % users.length] : undefined;
-          await createTask({
-            title: item.title,
-            description: `Initialized from "${template.name}" enterprise project template.`,
-            priority: item.priority,
-            status: orgSettings.defaultTaskStatus || TaskStatus.TODO,
-            projectId,
-            story_points: item.points,
-            assignee_id: assignee?.id,
-          });
-        }
-        setActiveProject(projectId);
-        addToast(
-          'Project Template Provisioned',
-          `Created "${template.name}" with ${template.tasks.length} pre-configured tasks.`,
-          'success'
-        );
-        setActiveView('kanban');
+      if (!projectId) {
+        throw new Error('Could not resolve newly created project ID.');
       }
+
+      for (let i = 0; i < template.tasks.length; i++) {
+        const item = template.tasks[i];
+        const assignee = users.length > 0 ? users[i % users.length] : undefined;
+        await createTask({
+          title: item.title,
+          description: item.description || `Initialized from "${template.name}" project template.`,
+          priority: item.priority,
+          status: normalizeTaskStatus(item.status || defaultStatus),
+          projectId,
+          story_points: item.points,
+          assignee_id: assignee?.id,
+          checklist: (item.checklist || []).map(title => ({
+            id: crypto.randomUUID(),
+            title,
+            completed: false,
+            created_at: new Date().toISOString(),
+          })),
+        });
+      }
+
+      setActiveProject(projectId);
+      addToast(
+        'Template Provisioned',
+        `Created "${chosenName}" with ${template.tasks.length} pre-configured tasks.`,
+        'success'
+      );
+      setActiveView('kanban');
     } catch (err: any) {
       addToast('Template Deployment Failed', err?.message || 'Could not create template project.', 'error');
     } finally {
       setDeployingTemplateId(null);
     }
+  };
+
+  const templateCategories = useMemo(() => {
+    const cats = Array.from(new Set(PROJECT_TEMPLATES.map(t => t.category)));
+    return ['all', ...cats];
+  }, []);
+
+  const filteredTemplates = useMemo(() => {
+    if (templateCategoryFilter === 'all') return PROJECT_TEMPLATES;
+    return PROJECT_TEMPLATES.filter(t => t.category === templateCategoryFilter);
+  }, [templateCategoryFilter]);
+
+  const filteredAuditLogs = useMemo(() => {
+    return auditLogs.filter(log => {
+      if (auditCategory === 'task' && log.target_type !== 'task' && !log.action.includes('task')) {
+        return false;
+      }
+      if (auditCategory === 'user' && log.target_type !== 'user' && !log.action.includes('role') && !log.action.includes('invite')) {
+        return false;
+      }
+      if (
+        auditCategory === 'governance' &&
+        log.target_type !== 'organization' &&
+        !log.action.includes('governance') &&
+        !log.action.includes('security') &&
+        !log.action.includes('org')
+      ) {
+        return false;
+      }
+      if (auditQuery.trim()) {
+        const q = auditQuery.toLowerCase();
+        return (
+          (log.actor_name && log.actor_name.toLowerCase().includes(q)) ||
+          (log.actor_email && log.actor_email.toLowerCase().includes(q)) ||
+          log.action.toLowerCase().includes(q) ||
+          (log.target_name && log.target_name.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [auditLogs, auditCategory, auditQuery]);
+
+  const handleExportAuditCsv = () => {
+    const rows = [
+      ['Timestamp', 'Actor', 'Action', 'Target Type', 'Target Name', 'Details'],
+      ...filteredAuditLogs.map(log => [
+        new Date(log.created_at).toISOString(),
+        log.actor_name || log.actor_email || 'System',
+        log.action,
+        log.target_type,
+        log.target_name || log.target_id || '',
+        JSON.stringify(log.details || {}),
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `workspace-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast('Audit CSV Exported', `Exported ${filteredAuditLogs.length} audit events.`, 'success');
   };
 
   return (
@@ -272,7 +331,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
         <PageHeader
           eyebrow={currentOrganization?.name || 'Administrator'}
           title="Admin Operations Center"
-          subtitle="Manage workspace delivery metrics, governance policies, blueprint templates, and activity feeds."
+          subtitle="Governance policies, blueprint templates, and workspace audit feed."
           actions={
             <>
               <Button variant="outline" size="sm" onClick={() => setActiveView('team_management')}>
@@ -333,10 +392,9 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
           value={activeAdminTab}
           onChange={setActiveAdminTab}
           options={[
-            { id: 'overview', label: 'Overview' },
-            { id: 'org_settings', label: 'Governance & Defaults' },
-            { id: 'templates', label: 'Templates', count: PROJECT_TEMPLATES.length },
-            { id: 'audit', label: 'Audit Feed', count: auditLogs.length },
+            { id: 'org_settings', label: 'Governance & Defaults', icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" /> },
+            { id: 'templates', label: 'Templates', count: PROJECT_TEMPLATES.length, icon: <ICON_MAP.FolderPlusIcon className="w-3.5 h-3.5" /> },
+            { id: 'audit', label: 'Audit Feed', count: auditLogs.length, icon: <ICON_MAP.AuditShieldListIcon className="w-3.5 h-3.5" /> },
           ]}
         />
 
@@ -347,28 +405,28 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
         )}
       </div>
 
-      {activeAdminTab === 'overview' && <OverviewPage showWelcomeMessage={false} />}
-
       {activeAdminTab === 'org_settings' && (
         <HairlineCard padding="lg">
           <form onSubmit={handleSaveOrgSettings} className="space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-[var(--border-hairline)]">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)]">
-                  Organization Governance & Workflow Defaults
+                  Governance & Workflow Defaults
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Updates persist across all users, newly created projects, sprints, and invitations.
+                  Configure organization identity, default sprint cadence, and automation guardrails.
                 </p>
               </div>
-              <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                Default cadence: {orgSettings.defaultSprintDurationDays} days
-              </span>
+              <div className="flex items-center gap-3 text-[11px] font-mono text-[var(--text-muted)]">
+                <span>{orgSettings.defaultSprintDurationDays}d cadence</span>
+                <span>·</span>
+                <span className="uppercase">{orgSettings.defaultTaskStatus.replace('_', ' ')} default</span>
+              </div>
             </div>
 
             <OrganizationLogoUploader />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
               <div>
                 <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
                   Organization Display Name
@@ -402,9 +460,25 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
                   className="w-full p-2.5 rounded-xl border text-xs"
                 >
                   <option value={7}>1 Week (7 Days)</option>
-                  <option value={14}>2 Weeks (14 Days · Standard Agile)</option>
+                  <option value={14}>2 Weeks (14 Days · Standard)</option>
                   <option value={21}>3 Weeks (21 Days)</option>
                   <option value={28}>4 Weeks (28 Days)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">
+                  Default New Task Status
+                </label>
+                <select
+                  value={orgSettings.defaultTaskStatus}
+                  onChange={e =>
+                    setOrgSettings(s => ({ ...s, defaultTaskStatus: normalizeTaskStatus(e.target.value) }))
+                  }
+                  className="w-full p-2.5 rounded-xl border text-xs"
+                >
+                  <option value={TaskStatus.TODO}>To Do</option>
+                  <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                  <option value={TaskStatus.REVIEW}>In Review</option>
                 </select>
               </div>
             </div>
@@ -414,17 +488,17 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
                 {
                   key: 'autoAssignCreator' as const,
                   title: 'Auto-Assign Unassigned Tasks',
-                  desc: 'Automatically assign newly created tasks to the creator when no assignee is chosen.',
+                  desc: 'Assign new tasks to the creator when no owner is selected.',
                 },
                 {
                   key: 'requireAcceptanceChecklist' as const,
                   title: 'Recommend QA Checklists',
-                  desc: 'Prompt acceptance criteria verification before moving items into Review.',
+                  desc: 'Prompt checklist review before transitioning work to Review.',
                 },
                 {
                   key: 'enablePublicInviteLinks' as const,
                   title: 'Tokenized Invite Links',
-                  desc: 'Allow Admins and Project Managers to generate single-use organization invite links.',
+                  desc: 'Allow Admins and PMs to generate single-use invite links.',
                 },
               ].map(item => (
                 <label
@@ -446,8 +520,8 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-hairline)]">
-              <Button variant="outline" size="sm" type="button" onClick={() => setActiveAdminTab('overview')}>
-                Cancel
+              <Button variant="outline" size="sm" type="button" onClick={handleResetOrgSettings}>
+                Reset
               </Button>
               <Button variant="primary" size="sm" type="submit" disabled={isUpdatingOrgSettings}>
                 {isUpdatingOrgSettings ? 'Saving Governance...' : 'Save Organization Governance'}
@@ -459,65 +533,144 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
 
       {activeAdminTab === 'templates' && (
         <HairlineCard padding="lg" className="space-y-4">
-          <div className="pb-3 border-b border-[var(--border-hairline)]">
-            <h3 className="text-base font-bold text-[var(--text-primary)]">Enterprise Project Templates</h3>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-              Provision complete project boards with Fibonacci-estimated starter tasks in one click.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border-hairline)]">
+            <div>
+              <h3 className="text-base font-bold text-[var(--text-primary)]">Project Blueprint Templates</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                Launch pre-structured project boards with checklists and story points in one click.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {templateCategories.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setTemplateCategoryFilter(cat)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
+                    templateCategoryFilter === cat
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-text)] shadow-xs'
+                      : 'bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-hairline)]'
+                  }`}
+                >
+                  {cat === 'all' ? 'All Templates' : cat}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {PROJECT_TEMPLATES.map(tpl => (
-              <div
-                key={tpl.id}
-                className="editorial-surface-subtle p-4 flex flex-col justify-between gap-4"
-              >
-                <div className="space-y-2">
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                    {tpl.category}
-                  </div>
-                  <h4 className="text-sm font-bold text-[var(--text-primary)]">{tpl.name}</h4>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{tpl.description}</p>
-                  <ul className="space-y-1 pt-2 border-t border-[var(--border-hairline)] text-[11px] text-[var(--text-secondary)]">
-                    {tpl.tasks.map((t, i) => (
-                      <li key={i} className="truncate">
-                        · {t.title} <span className="font-mono text-[var(--text-muted)]">({t.points} pts)</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={deployingTemplateId === tpl.id}
-                  onClick={() => handleDeployProjectTemplate(tpl)}
-                  className="w-full"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredTemplates.map(tpl => {
+              const totalPoints = tpl.tasks.reduce((sum, t) => sum + t.points, 0);
+              return (
+                <div
+                  key={tpl.id}
+                  className="editorial-surface-subtle p-4 flex flex-col justify-between gap-4"
                 >
-                  {deployingTemplateId === tpl.id ? 'Provisioning...' : 'Deploy Template →'}
-                </Button>
-              </div>
-            ))}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-[var(--text-muted)]">
+                      <span className="uppercase tracking-wider">{tpl.category}</span>
+                      <span className="tabular-nums">
+                        {tpl.tasks.length} tasks · {totalPoints} pts · ~{tpl.estimatedDays}d
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-[var(--text-primary)]">{tpl.name}</h4>
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{tpl.description}</p>
+                    <ul className="space-y-1 pt-2 border-t border-[var(--border-hairline)] text-[11px] text-[var(--text-secondary)]">
+                      {tpl.tasks.map((t, i) => (
+                        <li key={i} className="flex items-center justify-between gap-2">
+                          <span className="truncate">· {t.title}</span>
+                          <span className="font-mono tabular-nums text-[var(--text-muted)] shrink-0">
+                            {t.points} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-[var(--border-hairline)]">
+                    <input
+                      type="text"
+                      value={customTemplateNames[tpl.id] ?? ''}
+                      onChange={e =>
+                        setCustomTemplateNames(prev => ({ ...prev, [tpl.id]: e.target.value }))
+                      }
+                      placeholder={`Project name (defaults to "${tpl.name}")`}
+                      className="w-full px-3 py-1.5 rounded-xl border text-xs"
+                    />
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={deployingTemplateId === tpl.id}
+                      onClick={() => handleDeployProjectTemplate(tpl)}
+                      className="w-full"
+                    >
+                      {deployingTemplateId === tpl.id ? 'Provisioning Board...' : 'Deploy Template →'}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </HairlineCard>
       )}
 
       {activeAdminTab === 'audit' && (
         <HairlineCard padding="none" className="overflow-hidden">
-          <div className="px-5 py-4 border-b border-[var(--border-hairline)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="px-5 py-4 border-b border-[var(--border-hairline)] flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-[var(--text-primary)]">Live Organization Activity & Audit Feed</h2>
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">Workspace Activity & Audit Feed</h2>
               <p className="text-xs text-[var(--text-secondary)]">
-                Real-time record of task transitions, role assignments, and governance updates.
+                Live record of task transitions, role updates, and governance changes.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportAuditCsv}>
+                <ICON_MAP.ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                Export CSV
+              </Button>
               <Button variant="outline" size="sm" onClick={loadRecentAuditActivity}>
+                <ICON_MAP.ArrowPathIcon className="w-3.5 h-3.5" />
                 Refresh
               </Button>
               <Button variant="primary" size="sm" onClick={() => setActiveView('user_logs_view')}>
-                Full Audit Explorer →
+                Full Explorer →
               </Button>
+            </div>
+          </div>
+
+          <div className="px-5 py-3 border-b border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <SegmentedTabs
+              size="sm"
+              value={auditCategory}
+              onChange={setAuditCategory}
+              options={[
+                { id: 'all', label: 'All' },
+                { id: 'task', label: 'Tasks' },
+                { id: 'user', label: 'Users & Roles' },
+                { id: 'governance', label: 'Governance' },
+              ]}
+            />
+            <div className="relative sm:w-64">
+              <ICON_MAP.SearchIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+              <input
+                type="text"
+                value={auditQuery}
+                onChange={e => setAuditQuery(e.target.value)}
+                placeholder="Filter actor, action, target..."
+                className="w-full search-input !pl-9 !pr-7 !py-1.5 text-xs rounded-full"
+              />
+              {auditQuery && (
+                <IconButton
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setAuditQuery('')}
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  aria-label="Clear filter"
+                >
+                  <ICON_MAP.XMarkIcon className="w-3 h-3" />
+                </IconButton>
+              )}
             </div>
           </div>
 
@@ -525,27 +678,65 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
             <div className="py-10 text-center text-xs text-[var(--text-muted)]">
               Loading organization activity stream...
             </div>
+          ) : filteredAuditLogs.length === 0 ? (
+            <div className="py-10 text-center text-xs text-[var(--text-muted)]">
+              No audit events match the active filter.
+            </div>
           ) : (
-            <div className="divide-y divide-[var(--border-hairline)] max-h-96 overflow-y-auto scrollbar-thin">
-              {auditLogs.slice(0, 12).map(log => (
-                <div key={log.id} className="py-3 px-5 flex items-center justify-between gap-3 text-xs hover:bg-[var(--bg-surface-subtle)]">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-2 h-2 rounded-full bg-[var(--accent-lime)] ring-1 ring-[var(--accent-ink)]/20 shrink-0" />
-                    <span className="font-semibold text-[var(--text-primary)] whitespace-nowrap">
-                      {log.actor_name || log.actor_email || 'System'}
-                    </span>
-                    <span className="font-mono text-[11px] text-[var(--text-secondary)] whitespace-nowrap">
-                      {log.action.replace(/_/g, ' ')}
-                    </span>
-                    <span className="text-[var(--text-muted)] truncate">
-                      · {log.target_name || log.target_type}
-                    </span>
+            <div className="divide-y divide-[var(--border-hairline)] max-h-[420px] overflow-y-auto scrollbar-thin">
+              {filteredAuditLogs.slice(0, 25).map(log => {
+                const isExpanded = expandedAuditId === log.id;
+                return (
+                  <div key={log.id} className="hover:bg-[var(--bg-surface-subtle)] transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedAuditId(isExpanded ? null : log.id)}
+                      className="w-full py-3 px-5 flex items-center justify-between gap-3 text-xs text-left cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-[var(--accent-lime)] ring-1 ring-[var(--accent-ink)]/20 shrink-0" />
+                        <span className="font-semibold text-[var(--text-primary)] whitespace-nowrap">
+                          {log.actor_name || log.actor_email || 'System'}
+                        </span>
+                        <span className="font-mono text-[11px] text-[var(--text-secondary)] whitespace-nowrap">
+                          {log.action.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-[var(--text-muted)] truncate">
+                          · {log.target_name || log.target_type}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)] whitespace-nowrap">
+                          {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <ICON_MAP.ChevronDownIcon
+                          className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${
+                            isExpanded ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-5 pb-3 pl-10">
+                        <pre className="p-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] text-[11px] font-mono text-[var(--text-secondary)] overflow-x-auto">
+                          {JSON.stringify(
+                            {
+                              id: log.id,
+                              actor_email: log.actor_email || 'system',
+                              target_type: log.target_type,
+                              target_id: log.target_id,
+                              details: log.details || {},
+                              created_at: log.created_at,
+                            },
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </div>
+                    )}
                   </div>
-                  <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)] whitespace-nowrap">
-                    {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </HairlineCard>

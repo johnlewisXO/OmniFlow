@@ -29,7 +29,7 @@ export const ProjectManagerDashboard: React.FC = () => {
       <PageHeader
         eyebrow="Delivery & Portfolio Control"
         title="Project Manager Dashboard"
-        subtitle="Coordinate portfolio health, sprint schedules, and team capacity across active initiatives."
+        subtitle="Portfolio health, sprint schedules, and capacity."
         actions={
           <>
             <SegmentedTabs

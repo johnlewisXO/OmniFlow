@@ -2,7 +2,7 @@
 
 
 import { createClient, Session, User as SupabaseAuthUser, PostgrestError, SupabaseClient, AuthError } from '@supabase/supabase-js';
-import { User as AppUserType, Project, Task, TaskStatus, UserRole, normalizeUserRole, Organization as AppOrganizationType, TaskPriority, AuditLog, OrganizationInvitation, OrganizationJoinRequest, UserProfilePreferences } from '../types'; 
+import { User as AppUserType, Project, Task, TaskStatus, normalizeTaskStatus, UserRole, normalizeUserRole, Organization as AppOrganizationType, TaskPriority, AuditLog, OrganizationInvitation, OrganizationJoinRequest, UserProfilePreferences } from '../types'; 
 
 export const getProductionBaseUrl = (): string => {
   const envUrl = (import.meta as any).env?.VITE_APP_URL || (import.meta as any).env?.VITE_SITE_URL;
@@ -372,6 +372,7 @@ const mapDbTaskToAppTask = (dbTask: any): Task => {
   const ext = getTaskExtensions(dbTask.id);
   const appTask: Task = {
     ...rest, 
+    status: normalizeTaskStatus(rest.status),
     projectId: project_id,
     priority: mapDbPriorityToAppPriority(dbPriority), 
     dueDate: due_date,
@@ -411,6 +412,8 @@ const transformTaskToDbFormat = (taskData: Partial<Task>): any => {
         dbData['due_date'] = (value === undefined || value === null || value === '') ? null : value;
       } else if (key === 'priority' && (taskData as any)[key] !== undefined) {
         dbData[dbKey] = String((taskData as any)[key]).toLowerCase();
+      } else if (dbKey === 'status' && (taskData as any)[key] !== undefined) {
+        dbData[dbKey] = normalizeTaskStatus((taskData as any)[key]);
       } else {
         dbData[dbKey] = (taskData as any)[key];
       }
@@ -1597,18 +1600,20 @@ const supabaseService = {
     const { data: authUser } = await supabase.auth.getUser();
     if (!authUser.user) throw new Error("User not authenticated");
     
+    const normalizedStatus = normalizeTaskStatus(taskData.status);
     const { data: countResult, error: countError } = await supabase
       .from('tasks')
       .select('count', { count: 'exact' })
       .eq('project_id', taskData.projectId)
-      .eq('status', taskData.status);
+      .eq('status', normalizedStatus);
     
     if (countError) throw countError;
 
-    const position = countResult[0]?.count || 0;
+    const position = countResult?.[0]?.count || 0;
     
     const dbTaskData = {
-      ...transformTaskToDbFormat(taskData),
+      ...transformTaskToDbFormat({ ...taskData, status: normalizedStatus }),
+      status: normalizedStatus,
       position,
       creator_id: authUser.user.id
     };

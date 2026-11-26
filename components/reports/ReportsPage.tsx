@@ -918,7 +918,7 @@ export const ReportsPage: React.FC = () => {
       <PageHeader
         eyebrow="Analytics & Telemetry"
         title="Performance & Delivery Reports"
-        subtitle="Track sprint throughput, cycle time, and portfolio health with interactive chart drill-down."
+        subtitle="Sprint throughput, cycle time, and portfolio health."
         actions={
           <>
             <SegmentedTabs

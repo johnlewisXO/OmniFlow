@@ -14,7 +14,7 @@ import { ConfirmDialogModal } from './components/shared/ConfirmDialogModal';
 import { useAppStore } from './hooks/useAppStore';
 import supabaseService, { supabase, normalizeAppUser } from './services/supabaseService';
 import { AuthPage } from './components/auth/AuthPage';
-import { User as AppUserType, Project, UserRole, ActiveView } from './types';
+import { User as AppUserType, Project, UserRole, ActiveView, TaskStatus, normalizeTaskStatus } from './types';
 
 // Role Specific Dashboards
 import { AdminDashboard } from './components/dashboards/AdminDashboard';
@@ -830,11 +830,48 @@ const MainAppLayout: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [toggleCommandPalette, openShortcutsModal, openModal, toggleMobileSidebar]);
 
-  const handleCreateProjectSubmit = async (projectData: Pick<Project, 'name' | 'description'>) => {
+  const handleCreateProjectSubmit = async (
+    projectData: Pick<Project, 'name' | 'description'> & { templateId?: string }
+  ) => {
     try {
-        const newProject = await createProjectActionFromStore(projectData);
+      const newProject = await createProjectActionFromStore({
+        name: projectData.name,
+        description: projectData.description,
+      });
+
+      if (newProject && 'id' in newProject && projectData.templateId) {
+        const { PROJECT_TEMPLATES } = await import('./utils/projectTemplates');
+        const template = PROJECT_TEMPLATES.find(t => t.id === projectData.templateId);
+        if (template) {
+          const { createTask, users: storeUsers, currentOrganization: org, setActiveView: goToView } =
+            useAppStore.getState();
+          const defaultStatus = normalizeTaskStatus(org?.defaultTaskStatus || TaskStatus.TODO);
+          for (let i = 0; i < template.tasks.length; i++) {
+            const item = template.tasks[i];
+            const assignee = storeUsers.length > 0 ? storeUsers[i % storeUsers.length] : undefined;
+            await createTask({
+              title: item.title,
+              description: item.description || `Initialized from "${template.name}" template.`,
+              priority: item.priority,
+              status: normalizeTaskStatus(item.status || defaultStatus),
+              projectId: newProject.id,
+              story_points: item.points,
+              assignee_id: assignee?.id,
+              checklist: (item.checklist || []).map(title => ({
+                id: crypto.randomUUID(),
+                title,
+                completed: false,
+                created_at: new Date().toISOString(),
+              })),
+            });
+          }
+          goToView('kanban');
+        }
+      }
+      return newProject;
     } catch (error) {
-        console.error("[App.tsx MainAppLayout] Error calling createProjectActionFromStore:", error);
+      console.error("[App.tsx MainAppLayout] Error calling createProjectActionFromStore:", error);
+      throw error;
     }
   };
 

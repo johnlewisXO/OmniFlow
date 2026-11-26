@@ -6,6 +6,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { PageHeader, InlineKpiStrip, SegmentedTabs, HairlineCard, StatusDot } from '../shared/EditorialUI';
 import { LiquidMetricProgress } from '../charts/EditorialCharts';
 import { Button, IconButton } from '../shared/Button';
+import { isPriorityNotification, getNotificationCategoryMeta } from '../../utils/notificationPriority';
+import { UserRole, normalizeUserRole } from '../../types';
 
 export const InboxPage: React.FC = () => {
   const {
@@ -31,22 +33,9 @@ export const InboxPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'mentions' | 'task_updates' | 'chat'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'system'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'priority' | 'all' | 'system'>('priority');
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const mentionsCount = notifications.filter(
-    n => n.type === 'MENTION' || (n.title || '').toLowerCase().includes('mention')
-  ).length;
-  const taskUpdatesCount = notifications.filter(
-    n => n.type?.startsWith('TASK_') || n.entity_type === 'task'
-  ).length;
-  const chatUpdatesCount = notifications.filter(
-    n => n.entity_type === 'chat' || (n.type || '').includes('CHAT') || (n.title || '').startsWith('💬')
-  ).length;
-  const readPercentage =
-    notifications.length > 0
-      ? Math.round(((notifications.length - unreadCount) / notifications.length) * 100)
-      : 100;
+  const normalizedRole = normalizeUserRole(currentUser?.role);
 
   const enrichedNotifications = useMemo(() => {
     return notifications.map(n => {
@@ -76,30 +65,11 @@ export const InboxPage: React.FC = () => {
       const isChat = n.entity_type === 'chat' || typeStr.includes('CHAT') || (n.title || '').startsWith('💬');
       const isTask = n.entity_type === 'task' || typeStr.startsWith('TASK_') || Boolean(matchedTask);
       const isCalendar = n.entity_type === 'calendar' || typeStr.includes('CALENDAR') || (n.title || '').startsWith('📅');
-      const isTeam = n.entity_type === 'user' || typeStr.includes('ROLE') || typeStr.includes('INVITE');
+      const isTeam = n.entity_type === 'user' || typeStr.includes('ROLE') || typeStr.includes('INVITE') || typeStr.includes('JOIN_REQUEST');
       const isSprint = typeStr.includes('SPRINT') || titleStr.includes('sprint');
-
-      let categoryLabel = 'System';
-      let categoryTone: 'success' | 'warning' | 'danger' | 'neutral' | 'lime' = 'neutral';
-      if (isMention) {
-        categoryLabel = 'Mention';
-        categoryTone = 'lime';
-      } else if (isChat) {
-        categoryLabel = 'Chat';
-        categoryTone = 'success';
-      } else if (isTask) {
-        categoryLabel = 'Task';
-        categoryTone = 'neutral';
-      } else if (isCalendar) {
-        categoryLabel = 'Calendar';
-        categoryTone = 'success';
-      } else if (isSprint) {
-        categoryLabel = 'Sprint';
-        categoryTone = 'warning';
-      } else if (isTeam) {
-        categoryLabel = 'Team';
-        categoryTone = 'success';
-      }
+      const isPriority = isPriorityNotification(n);
+      const categoryMeta = getNotificationCategoryMeta(n);
+      const isAdminGov = categoryMeta.label === 'Admin';
 
       let diffText: string | null = null;
       const arrowMatch = msgStr.match(/([A-Za-z ]+)\s*(?:→|->|to)\s*([A-Za-z ]+)/i);
@@ -109,7 +79,8 @@ export const InboxPage: React.FC = () => {
         diffText = String(matchedTask.status).replace('_', ' ');
       }
 
-      const priority = matchedTask?.priority || (typeStr.includes('DELETED') || typeStr.includes('OVERDUE') ? 'High' : null);
+      const priority =
+        matchedTask?.priority || (typeStr.includes('DELETED') || typeStr.includes('OVERDUE') ? 'High' : null);
 
       return {
         ...n,
@@ -122,16 +93,39 @@ export const InboxPage: React.FC = () => {
         isCalendar,
         isTeam,
         isSprint,
-        categoryLabel,
-        categoryTone,
+        isAdminGov,
+        isPriority,
+        categoryLabel: categoryMeta.label,
+        categoryTone: categoryMeta.tone,
         diffText,
         priority,
       };
     });
   }, [notifications, tasks, projects, users, currentUser]);
 
+  const priorityCount = useMemo(
+    () => enrichedNotifications.filter(n => n.isPriority).length,
+    [enrichedNotifications]
+  );
+  const lowSystemCount = enrichedNotifications.length - priorityCount;
+
+  const baseScopedNotifications = useMemo(() => {
+    if (priorityFilter === 'priority') return enrichedNotifications.filter(n => n.isPriority);
+    if (priorityFilter === 'system') return enrichedNotifications.filter(n => !n.isPriority);
+    return enrichedNotifications;
+  }, [enrichedNotifications, priorityFilter]);
+
+  const unreadCount = baseScopedNotifications.filter(n => !n.read).length;
+  const mentionsCount = baseScopedNotifications.filter(n => n.isMention).length;
+  const taskUpdatesCount = baseScopedNotifications.filter(n => n.isTask).length;
+  const chatUpdatesCount = baseScopedNotifications.filter(n => n.isChat).length;
+  const readPercentage =
+    baseScopedNotifications.length > 0
+      ? Math.round(((baseScopedNotifications.length - unreadCount) / baseScopedNotifications.length) * 100)
+      : 100;
+
   const filteredAndSortedNotifications = useMemo(() => {
-    let filtered = enrichedNotifications;
+    let filtered = baseScopedNotifications;
     if (activeTab === 'unread') {
       filtered = filtered.filter(n => !n.read);
     } else if (activeTab === 'mentions') {
@@ -140,18 +134,6 @@ export const InboxPage: React.FC = () => {
       filtered = filtered.filter(n => n.isTask);
     } else if (activeTab === 'chat') {
       filtered = filtered.filter(n => n.isChat);
-    }
-
-    if (priorityFilter === 'high') {
-      filtered = filtered.filter(
-        n =>
-          n.priority === 'High' ||
-          n.priority === 'Critical' ||
-          n.isMention ||
-          (n.type || '').includes('OVERDUE')
-      );
-    } else if (priorityFilter === 'system') {
-      filtered = filtered.filter(n => !n.isTask && !n.isChat);
     }
 
     if (searchQuery.trim()) {
@@ -172,7 +154,7 @@ export const InboxPage: React.FC = () => {
       }
       return a.read ? 1 : -1;
     });
-  }, [enrichedNotifications, activeTab, priorityFilter, searchQuery]);
+  }, [baseScopedNotifications, activeTab, searchQuery]);
 
   const handleOpenNotificationTarget = (n: (typeof enrichedNotifications)[0]) => {
     markNotificationAsRead(n.id);
@@ -187,6 +169,10 @@ export const InboxPage: React.FC = () => {
     }
     if (n.isCalendar) {
       setActiveView('calendar_view');
+      return;
+    }
+    if (n.isAdminGov && (normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN)) {
+      setActiveView('admin_settings');
       return;
     }
     if (n.isTeam) {
@@ -215,11 +201,10 @@ export const InboxPage: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto w-full text-[var(--text-primary)] space-y-5 animate-fadeIn">
-      {/* 1. Editorial PageHeader */}
       <PageHeader
         eyebrow="Activity Stream"
-        title="Inbox & Activity Feed"
-        subtitle="Real-time task transitions, @mentions, direct messages, and workspace events."
+        title="Inbox & Notifications"
+        subtitle="Priority task updates, @mentions, messages, and governance alerts."
         actions={
           <div className="flex items-center gap-2">
             {lastUndoAction && (
@@ -233,7 +218,7 @@ export const InboxPage: React.FC = () => {
                 <span className="hidden sm:inline ml-1">Undo</span>
               </Button>
             )}
-            {unreadCount > 0 && (
+            {notifications.some(n => !n.read) && (
               <Button
                 variant="primary"
                 size="sm"
@@ -259,7 +244,6 @@ export const InboxPage: React.FC = () => {
         }
       />
 
-      {/* 2. Clickable Inline KPI Strip */}
       <InlineKpiStrip
         items={[
           {
@@ -280,7 +264,7 @@ export const InboxPage: React.FC = () => {
           },
           {
             id: 'task_diffs',
-            label: 'Task Diffs',
+            label: 'Task Updates',
             value: taskUpdatesCount,
             sublabel: 'Status & assignments',
             tone: 'default',
@@ -290,27 +274,20 @@ export const InboxPage: React.FC = () => {
             id: 'cleared',
             label: 'Inbox Cleared',
             value: `${readPercentage}%`,
-            sublabel: `${notifications.length} total events`,
-            visual: (
-              <LiquidMetricProgress
-                value={readPercentage}
-                tone="lime"
-                compact
-              />
-            ),
+            sublabel: `${baseScopedNotifications.length} in view`,
+            visual: <LiquidMetricProgress value={readPercentage} tone="lime" compact />,
             onClick: () => setActiveTab('all'),
           },
         ]}
       />
 
-      {/* 3. Segmented Filter Bar & Search */}
       <HairlineCard padding="sm" className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <SegmentedTabs
           value={activeTab}
           onChange={setActiveTab}
           size="sm"
           options={[
-            { id: 'all', label: 'All', count: notifications.length },
+            { id: 'all', label: 'All', count: baseScopedNotifications.length },
             { id: 'unread', label: 'Unread', count: unreadCount },
             { id: 'mentions', label: 'Mentions', count: mentionsCount },
             { id: 'task_updates', label: 'Tasks', count: taskUpdatesCount },
@@ -324,9 +301,9 @@ export const InboxPage: React.FC = () => {
             onChange={setPriorityFilter}
             size="sm"
             options={[
-              { id: 'all', label: 'All' },
-              { id: 'high', label: 'Priority' },
-              { id: 'system', label: 'System' },
+              { id: 'priority', label: 'Priority', count: priorityCount },
+              { id: 'all', label: 'All', count: enrichedNotifications.length },
+              { id: 'system', label: 'Minor Settings', count: lowSystemCount },
             ]}
           />
 
@@ -355,7 +332,6 @@ export const InboxPage: React.FC = () => {
         </div>
       </HairlineCard>
 
-      {/* 4. Enriched Notifications Feed (Matte Hairline, Lime Unread Indicator) */}
       <div className="space-y-2.5">
         {filteredAndSortedNotifications.length === 0 ? (
           <HairlineCard className="text-center py-14 border-dashed">
@@ -366,7 +342,9 @@ export const InboxPage: React.FC = () => {
             <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm mx-auto">
               {searchQuery
                 ? 'Try clearing your search or switching category filters.'
-                : 'All notifications and task transitions have been reviewed.'}
+                : priorityFilter === 'priority'
+                ? 'All priority task, mention, and governance notifications are reviewed.'
+                : 'No notifications in this filter.'}
             </p>
           </HairlineCard>
         ) : (
@@ -398,10 +376,8 @@ export const InboxPage: React.FC = () => {
                     : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)] hover:bg-[var(--bg-surface)] hover:border-[var(--border-strong)]'
                 }`}
               >
-                {/* Left Unread Indicator Strip */}
                 {isUnread && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--accent-lime)]" />}
 
-                {/* Actor Avatar */}
                 <div className="relative shrink-0 mt-0.5">
                   {n.matchedActor ? (
                     <Avatar user={n.matchedActor} size="md" />
@@ -412,11 +388,14 @@ export const InboxPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Main Content (Zero-Pill Inline Metadata) */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
                     <div className="flex items-center gap-2 flex-wrap min-w-0 text-[11px] text-[var(--text-secondary)]">
-                      <StatusDot tone={n.categoryTone} label={n.categoryLabel} className="font-semibold text-[var(--text-primary)]" />
+                      <StatusDot
+                        tone={n.categoryTone}
+                        label={n.categoryLabel}
+                        className="font-semibold text-[var(--text-primary)]"
+                      />
                       <span className="text-[var(--text-muted)]">·</span>
                       <span className="font-semibold text-[var(--text-primary)] truncate">{actorName}</span>
                       <span className="text-[var(--text-muted)] hidden sm:inline capitalize">({actorRole})</span>
@@ -429,7 +408,9 @@ export const InboxPage: React.FC = () => {
                       {n.diffText && (
                         <>
                           <span className="text-[var(--text-muted)]">·</span>
-                          <span className="font-mono text-[10px] text-[var(--text-primary)] capitalize">{n.diffText}</span>
+                          <span className="font-mono text-[10px] text-[var(--text-primary)] capitalize">
+                            {n.diffText}
+                          </span>
                         </>
                       )}
                       {n.priority && (
@@ -467,11 +448,7 @@ export const InboxPage: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Right Quick Action Bar */}
-                <div
-                  className="flex items-center gap-1.5 shrink-0 self-center"
-                  onClick={e => e.stopPropagation()}
-                >
+                <div className="flex items-center gap-1.5 shrink-0 self-center" onClick={e => e.stopPropagation()}>
                   <IconButton
                     variant="glass"
                     size="sm"
@@ -492,7 +469,7 @@ export const InboxPage: React.FC = () => {
                     }
                   >
                     {n.isChat || n.isMention ? (
-                      <ICON_MAP.ChatBubbleLeftIcon className="w-4 h-4" />
+                      <ICON_MAP.ChatBubbleLeftRightIcon className="w-4 h-4" />
                     ) : (
                       <ICON_MAP.ArrowRightIcon className="w-4 h-4" />
                     )}
@@ -518,4 +495,3 @@ export const InboxPage: React.FC = () => {
     </div>
   );
 };
-

@@ -1,7 +1,7 @@
 
 
 import { useState, useEffect } from 'react';
-import { AppStore, AvailabilityStatus, Task, Project, User, TaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig, WorkspaceAccentId, AmbientIntensity, WORKSPACE_ACCENT_PRESETS, ActiveTaskTimer, UndoActionEntry, ConfirmDialogOptions } from '../types';
+import { AppStore, AvailabilityStatus, Task, Project, User, TaskStatus, normalizeTaskStatus, TaskPriority, UserRole, normalizeUserRole, Organization, ActiveView, OrganizationCheckState, Notification, Sprint, UserPresence, WebhookConfig, WorkspaceAccentId, AmbientIntensity, WORKSPACE_ACCENT_PRESETS, ActiveTaskTimer, UndoActionEntry, ConfirmDialogOptions } from '../types';
 import { ICON_MAP } from '../constants';
 import supabaseService, { supabase, normalizeAppUser, getUserProfileExtensions, saveUserProfileExtension } from '../services/supabaseService';
 import { applyLiquidGlassThemeTokens, normalizeAmbientIntensity } from '../utils/liquidGlassTheme';
@@ -577,7 +577,7 @@ const appActionsCreator = (
             domain: org.domain || org.corporateDomain || org.corporate_domain,
             corporateDomain: org.corporateDomain || org.domain || org.corporate_domain,
             defaultSprintDurationDays: org.defaultSprintDurationDays || (org as any).default_sprint_duration_days || 14,
-            defaultTaskStatus: org.defaultTaskStatus || TaskStatus.TODO,
+            defaultTaskStatus: normalizeTaskStatus(org.defaultTaskStatus),
             autoAssignCreator: org.autoAssignCreator ?? true,
             requireAcceptanceChecklist: org.requireAcceptanceChecklist ?? true,
             enablePublicInviteLinks: org.enablePublicInviteLinks ?? true,
@@ -1441,13 +1441,13 @@ const appActionsCreator = (
         return null;
       }
 
-      const defaultStatus = currentOrganization?.defaultTaskStatus || TaskStatus.TODO;
+      const defaultStatus = normalizeTaskStatus(currentOrganization?.defaultTaskStatus);
       const defaultAssignee = currentOrganization?.autoAssignCreator !== false ? currentUser.id : undefined;
 
       const enrichedTaskData = {
         ...taskData,
         projectId: targetProjectId,
-        status: taskData.status || defaultStatus,
+        status: normalizeTaskStatus(taskData.status || defaultStatus),
         assignee_id: taskData.assignee_id !== undefined ? taskData.assignee_id : defaultAssignee,
       };
 
@@ -2227,6 +2227,10 @@ const appActionsCreator = (
           ? updates.logoUrl
           : currentOrganization?.logoUrl ?? currentOrganization?.logo_url;
 
+      const normalizedDefaultStatus = updates.defaultTaskStatus !== undefined
+        ? normalizeTaskStatus(updates.defaultTaskStatus)
+        : undefined;
+
       updateState(s => ({ ...s, isUpdatingOrgSettings: true }));
       try {
         const updatedOrg = await supabaseService.updateOrganization(orgId, {
@@ -2234,7 +2238,7 @@ const appActionsCreator = (
           orgDisplayName: updates.orgDisplayName,
           corporateDomain: updates.corporateDomain,
           defaultSprintDurationDays: updates.defaultSprintDurationDays,
-          defaultTaskStatus: updates.defaultTaskStatus,
+          defaultTaskStatus: normalizedDefaultStatus,
           autoAssignCreator: updates.autoAssignCreator,
           requireAcceptanceChecklist: updates.requireAcceptanceChecklist,
           enablePublicInviteLinks: updates.enablePublicInviteLinks,
@@ -2252,7 +2256,7 @@ const appActionsCreator = (
           corporateDomain: updates.corporateDomain,
           defaultSprintDurationDays: updates.defaultSprintDurationDays,
           default_sprint_duration_days: updates.defaultSprintDurationDays,
-          defaultTaskStatus: updates.defaultTaskStatus,
+          defaultTaskStatus: normalizedDefaultStatus,
           autoAssignCreator: updates.autoAssignCreator,
           requireAcceptanceChecklist: updates.requireAcceptanceChecklist,
           enablePublicInviteLinks: updates.enablePublicInviteLinks,
@@ -3234,7 +3238,7 @@ const createAppStoreHook = <TState extends StoreState, TActionsCreator extends (
           name: newName || existingOrg.name,
           corporateDomain: orgData.corporateDomain || orgData.domain || existingOrg.corporateDomain,
           defaultSprintDurationDays: orgData.defaultSprintDurationDays ?? existingOrg.defaultSprintDurationDays,
-          defaultTaskStatus: orgData.defaultTaskStatus ?? existingOrg.defaultTaskStatus,
+          defaultTaskStatus: normalizeTaskStatus(orgData.defaultTaskStatus ?? existingOrg.defaultTaskStatus),
           autoAssignCreator: orgData.autoAssignCreator ?? existingOrg.autoAssignCreator,
           requireAcceptanceChecklist: orgData.requireAcceptanceChecklist ?? existingOrg.requireAcceptanceChecklist,
           enablePublicInviteLinks: orgData.enablePublicInviteLinks ?? existingOrg.enablePublicInviteLinks,

@@ -20,6 +20,16 @@ export enum TaskStatus {
   DONE = 'done'
 }
 
+export const normalizeTaskStatus = (rawStatus?: string | TaskStatus | null): TaskStatus => {
+  if (!rawStatus) return TaskStatus.TODO;
+  const norm = String(rawStatus).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (norm === 'todo' || norm === 'to_do' || norm === 'backlog' || norm === 'open') return TaskStatus.TODO;
+  if (norm === 'in_progress' || norm === 'inprogress' || norm === 'doing' || norm === 'active') return TaskStatus.IN_PROGRESS;
+  if (norm === 'review' || norm === 'in_review' || norm === 'qa' || norm === 'testing') return TaskStatus.REVIEW;
+  if (norm === 'done' || norm === 'completed' || norm === 'complete' || norm === 'closed') return TaskStatus.DONE;
+  return TaskStatus.TODO;
+};
+
 export enum UserRole {
   OWNER = 'OWNER', // Manages organization, billing, highest level permissions
   ADMIN = 'ADMIN', // Can manage users, projects, settings within an organization
@@ -38,7 +48,7 @@ export const normalizeUserRole = (rawRole?: string | UserRole | null): UserRole 
   return UserRole.MEMBER;
 };
 
-export type WorkspaceAccentId = 'lime' | 'cobalt' | 'terracotta' | 'emerald' | 'plum' | 'amber';
+export type WorkspaceAccentId = 'lime' | 'cobalt' | 'terracotta' | 'emerald' | 'plum' | 'amber' | 'rose' | 'cyan';
 export type AmbientIntensity = 'subtle' | 'balanced' | 'vivid';
 
 export interface WorkspaceAccentPreset {
@@ -92,20 +102,20 @@ export const WORKSPACE_ACCENT_PRESETS: WorkspaceAccentPreset[] = [
     swatchClass: 'from-sky-400 to-slate-800',
   },
   {
-    id: 'terracotta',
-    name: 'Ember',
-    tagline: 'Sandstone haze, desert dusk & burnt amber',
-    lightHex: '#B45309',
-    darkHex: '#FB923C',
-    bezelHex: '#3B2820',
-    canvasHex: '#F7F3EE',
-    gradientStart: '#FDBA74',
-    gradientEnd: '#B45309',
-    primaryHslLight: '24 85% 37%',
-    primaryHslDark: '28 96% 68%',
-    primaryRgbLight: '180, 83, 9',
-    primaryRgbDark: '251, 146, 60',
-    swatchClass: 'from-orange-400 to-stone-800',
+    id: 'cyan',
+    name: 'Glacier',
+    tagline: 'Arctic ozone, crystal ice & electric teal',
+    lightHex: '#0891B2',
+    darkHex: '#22D3EE',
+    bezelHex: '#12262E',
+    canvasHex: '#F1F8FA',
+    gradientStart: '#67E8F9',
+    gradientEnd: '#0891B2',
+    primaryHslLight: '192 91% 36%',
+    primaryHslDark: '188 86% 53%',
+    primaryRgbLight: '8, 145, 178',
+    primaryRgbDark: '34, 211, 238',
+    swatchClass: 'from-cyan-300 to-slate-900',
   },
   {
     id: 'emerald',
@@ -138,6 +148,38 @@ export const WORKSPACE_ACCENT_PRESETS: WorkspaceAccentPreset[] = [
     primaryRgbLight: '109, 40, 217',
     primaryRgbDark: '167, 139, 250',
     swatchClass: 'from-violet-300 to-indigo-950',
+  },
+  {
+    id: 'rose',
+    name: 'Sakura',
+    tagline: 'Blossom mist, rose quartz & vibrant coral',
+    lightHex: '#BE185D',
+    darkHex: '#FB7185',
+    bezelHex: '#331A26',
+    canvasHex: '#FAF3F6',
+    gradientStart: '#FDA4AF',
+    gradientEnd: '#BE185D',
+    primaryHslLight: '335 78% 42%',
+    primaryHslDark: '351 95% 71%',
+    primaryRgbLight: '190, 24, 93',
+    primaryRgbDark: '251, 113, 133',
+    swatchClass: 'from-rose-300 to-rose-950',
+  },
+  {
+    id: 'terracotta',
+    name: 'Ember',
+    tagline: 'Sandstone haze, desert dusk & burnt amber',
+    lightHex: '#B45309',
+    darkHex: '#FB923C',
+    bezelHex: '#3B2820',
+    canvasHex: '#F7F3EE',
+    gradientStart: '#FDBA74',
+    gradientEnd: '#B45309',
+    primaryHslLight: '24 85% 37%',
+    primaryHslDark: '28 96% 68%',
+    primaryRgbLight: '180, 83, 9',
+    primaryRgbDark: '251, 146, 60',
+    swatchClass: 'from-orange-400 to-stone-800',
   },
   {
     id: 'amber',

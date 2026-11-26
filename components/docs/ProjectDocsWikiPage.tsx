@@ -321,7 +321,7 @@ export const ProjectDocsWikiPage: React.FC = () => {
       <PageHeader
         eyebrow="Knowledge Base & Specifications"
         title="Project Docs, PRDs & Architecture Wiki"
-        subtitle="Write collaborative specifications and convert action items into live Kanban tasks in one click."
+        subtitle="Collaborative PRDs, specs, and one-click task conversion."
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => handleCreateNewDoc('architecture')}>

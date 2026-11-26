@@ -120,6 +120,40 @@ export const PALETTE_ENVIRONMENTS: Record<WorkspaceAccentId, PaletteEnvironmentD
     bezelLight: { l: 0.26, c: 0.036, h: 285 },
     bezelDark: { l: 0.14, c: 0.024, h: 286 },
   },
+  rose: {
+    id: 'rose',
+    experienceName: 'Sakura',
+    tagline: 'Blossom mist, rose quartz & vibrant coral',
+    primaryHue: 348,
+    primaryChroma: 0.108,
+    secondaryHue: 18,
+    secondaryChroma: 0.082,
+    tertiaryHue: 324,
+    tertiaryChroma: 0.088,
+    neutralHue: 346,
+    neutralChroma: 0.011,
+    accentLight: { l: 0.49, c: 0.175, h: 350 },
+    accentDark: { l: 0.74, c: 0.155, h: 355 },
+    bezelLight: { l: 0.25, c: 0.038, h: 346 },
+    bezelDark: { l: 0.14, c: 0.024, h: 346 },
+  },
+  cyan: {
+    id: 'cyan',
+    experienceName: 'Glacier',
+    tagline: 'Arctic ozone, crystal ice & electric cyan',
+    primaryHue: 202,
+    primaryChroma: 0.102,
+    secondaryHue: 178,
+    secondaryChroma: 0.092,
+    tertiaryHue: 222,
+    tertiaryChroma: 0.078,
+    neutralHue: 204,
+    neutralChroma: 0.011,
+    accentLight: { l: 0.50, c: 0.132, h: 204 },
+    accentDark: { l: 0.79, c: 0.132, h: 198 },
+    bezelLight: { l: 0.24, c: 0.032, h: 204 },
+    bezelDark: { l: 0.13, c: 0.022, h: 206 },
+  },
   amber: {
     id: 'amber',
     experienceName: 'Mono',
@@ -473,21 +507,19 @@ export const computeLiquidGlassTheme = (
     '--surface-nested-subtle': darkMode ? 'rgba(255, 255, 255, 0.035)' : 'rgba(255, 255, 255, 0.36)',
     '--bezel-edge': darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(18, 24, 34, 0.08)',
 
-    // 3. Global Top-Left 3D Liquid Bubble Lighting Model (Soft Rim, Meniscus & Shadows)
-    '--glass-border': rgbToRgba(borderMix, glassBorderAlpha),
-    '--glass-border-strong': rgbToRgba(borderMix, darkMode ? 0.11 : 0.12),
-    '--glass-highlight': darkMode
-      ? `rgba(255, 255, 255, ${glassHighlightAlpha})`
-      : `rgba(255, 255, 255, ${glassHighlightAlpha})`,
-    '--glass-bubble-outer': darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.36)',
-    '--glass-bubble-glow': darkMode ? 'rgba(255, 255, 255, 0.065)' : 'rgba(255, 255, 255, 0.66)',
-    '--glass-bubble-depth': darkMode ? 'rgba(0, 0, 0, 0.28)' : 'rgba(18, 24, 34, 0.045)',
+    // 3. Global Top-Left 3D Liquid Water-Bubble Lighting Model (Glossy Specular Rim, Fresnel Glow & Caustic Bounce)
+    '--glass-border': rgbToRgba(borderMix, darkMode ? 0.14 : 0.11),
+    '--glass-border-strong': rgbToRgba(borderMix, darkMode ? 0.22 : 0.18),
+    '--glass-highlight': darkMode ? 'rgba(255, 255, 255, 0.26)' : 'rgba(255, 255, 255, 0.92)',
+    '--glass-bubble-outer': darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.56)',
+    '--glass-bubble-glow': darkMode ? 'rgba(255, 255, 255, 0.20)' : 'rgba(255, 255, 255, 0.88)',
+    '--glass-bubble-depth': darkMode ? 'rgba(0, 0, 0, 0.34)' : 'rgba(18, 24, 34, 0.06)',
     '--glass-shadow': darkMode
-      ? '4px 16px 38px -12px rgba(0, 0, 0, 0.52)'
-      : '4px 12px 30px -12px rgba(18, 24, 34, 0.10)',
+      ? '4px 16px 38px -12px rgba(0, 0, 0, 0.58)'
+      : '4px 12px 30px -12px rgba(18, 24, 34, 0.11)',
     '--glass-shadow-elevated': darkMode
-      ? '8px 28px 64px -14px rgba(0, 0, 0, 0.74)'
-      : '8px 24px 56px -14px rgba(18, 24, 34, 0.20)',
+      ? '8px 28px 64px -14px rgba(0, 0, 0, 0.78)'
+      : '8px 24px 56px -14px rgba(18, 24, 34, 0.22)',
 
     // 4. Crisp 4-Level Neutral Typography Hierarchy
     '--text-primary': rgbToHex(textPrimaryRgb),
