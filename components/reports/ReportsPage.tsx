@@ -916,9 +916,9 @@ export const ReportsPage: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 max-w-[1440px] mx-auto space-y-5">
       <PageHeader
-        eyebrow="Analytics & Telemetry"
-        title="Performance & Delivery Reports"
-        subtitle="Sprint throughput, cycle time, and portfolio health."
+        eyebrow="Reports & Insights"
+        title="Team Progress & Reports"
+        subtitle="Track task progress, completion speed, and project health."
         actions={
           <>
             <SegmentedTabs

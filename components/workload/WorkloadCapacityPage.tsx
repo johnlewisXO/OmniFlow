@@ -143,9 +143,9 @@ export const WorkloadCapacityPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col p-4 sm:p-6 space-y-5 max-w-[1440px] mx-auto w-full text-[var(--text-primary)]">
       <LiquidBezelSection
-        eyebrow="Resource Capacity · Focus Telemetry"
+        eyebrow="Workload & Focus Time"
         title="Team Workload & Time Tracking"
-        subtitle="Balance weekly capacity and log focus hours to sprint tasks."
+        subtitle="Balance weekly tasks and track time spent on project work."
         icon={<ICON_MAP.ClockIcon className="w-4 h-4" />}
         bezelRight={
           <StatusDot

@@ -191,7 +191,7 @@ export function SegmentedTabs<T extends string = string>({
   return (
     <div
       role="tablist"
-      className={`relative inline-flex items-center gap-0.5 p-1 rounded-full bg-[var(--surface-glass-1)] backdrop-blur-md shadow-[0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_4px_var(--glass-bubble-glow),inset_0_-2px_4px_var(--glass-bubble-depth)] overflow-x-auto scrollbar-none max-w-full ${className}`}
+      className={`relative inline-flex items-center gap-0.5 p-1 rounded-full bg-[var(--surface-glass-1)] backdrop-blur-md border border-[var(--glass-border)] shadow-[inset_0_1px_2px_var(--glass-bubble-glow)] overflow-x-auto scrollbar-none max-w-full ${className}`}
     >
       {options.map(opt => {
         const active = opt.id === value;
@@ -216,7 +216,7 @@ export function SegmentedTabs<T extends string = string>({
               <motion.span
                 layoutId={`segmented-active-${pillId}`}
                 transition={GLASS_SPRING.morph}
-                className="absolute inset-0 rounded-full bg-[var(--surface-glass-3)] shadow-[0_4px_12px_-4px_rgba(0,0,0,0.16),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]"
+                className="absolute inset-0 rounded-full bg-[var(--surface-glass-3)] border border-[var(--glass-border-strong)] shadow-[0_2px_8px_-4px_rgba(0,0,0,0.14),inset_0_1px_1px_var(--glass-highlight)]"
                 aria-hidden="true"
               />
             )}
@@ -282,16 +282,16 @@ export const LiquidBezelSection: React.FC<{
   bezelRight,
   children,
   className = '',
-  bodyClassName = 'p-4 sm:p-5',
+  bodyClassName = 'p-5 sm:p-6',
 }) => {
   return (
     <section className={`liquid-bezel-section overflow-hidden ${className}`}>
-      {/* Sculpted Bezel Top Crest with Exact 1:1 Concentric R=32 Circular S-Curve Transition */}
+      {/* Sculpted Bezel Top Crest with Smooth Concave S-Curve Transition */}
       <div className="flex flex-col md:flex-row md:items-start justify-between">
         <div className="flex items-start shrink-0 max-w-full">
-          <div className="bg-[var(--bg-bezel)] text-[#F4F5F0] pl-4 pr-3 sm:pl-5 h-[64px] flex items-center gap-3 min-w-0">
+          <div className="bg-[var(--bg-bezel)] text-[#F4F5F0] pl-5 pr-3 sm:pl-6 h-[62px] flex items-center gap-3 min-w-0">
             {icon && (
-              <div className="w-9 h-9 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-[var(--accent-lime)] text-[var(--accent-ink)] flex items-center justify-center shrink-0">
                 {icon}
               </div>
             )}
@@ -312,27 +312,30 @@ export const LiquidBezelSection: React.FC<{
             </div>
           </div>
 
-          {/* Exact 1:1 Circular R=32 S-Curve Wing (Desktop/Tablet) */}
+          {/* Smooth Bezier S-Curve Wing (Desktop/Tablet) */}
           <svg
-            viewBox="0 0 64 64"
-            className="hidden md:block w-[64px] h-[64px] shrink-0 -ml-[0.5px] pointer-events-none"
+            viewBox="0 0 64 62"
+            className="hidden md:block w-[64px] h-[62px] shrink-0 -ml-[0.5px] pointer-events-none"
             aria-hidden="true"
           >
             <path
-              d="M -0.5,0 L 64,0 A 32 32 0 0 0 32 32 A 32 32 0 0 1 0 64 L -0.5,64 Z"
+              d="M -0.5,0 L 64,0 C 40,0 36,62 0,62 L -0.5,62 Z"
               fill="var(--bg-bezel)"
             />
           </svg>
         </div>
 
         {bezelRight && (
-          <div className="flex-1 min-w-0 min-h-[64px] px-4 py-2.5 md:py-2 md:pr-5 flex items-center justify-start md:justify-end gap-2 flex-wrap">
+          <div className="flex-1 min-w-0 min-h-[62px] px-4 py-2.5 md:py-2 md:pr-6 flex items-center justify-start md:justify-end gap-2 flex-wrap">
             {bezelRight}
           </div>
         )}
       </div>
 
-      <div className={`border-t border-[var(--border-hairline)]/45 ${bodyClassName}`}>
+      <div
+        className={bodyClassName}
+        style={{ borderTop: '1px solid var(--border-hairline)' }}
+      >
         {children}
       </div>
     </section>
@@ -359,18 +362,18 @@ export const LiquidBezelCard: React.FC<{
               aria-hidden="true"
             >
               <path
-                d="M 0,0 L 28.5,0 L 28.5,28 L 28,28 A 14 14 0 0 1 14 14 A 14 14 0 0 0 0 0 Z"
+                d="M 0,0 L 28.5,0 L 28.5,28 L 28,28 C 16,28 14,0 0,0 Z"
                 fill="var(--bg-bezel)"
               />
             </svg>
-            <div className="bg-[var(--bg-bezel)] text-[#F4F5F0] h-[28px] pr-3 pl-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
+            <div className="bg-[var(--bg-bezel)] text-[#F4F5F0] h-[28px] pr-3.5 pl-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
               {cornerLabel}
               {cornerAction}
             </div>
           </div>
         </div>
       )}
-      <div className="flex-1 px-4 pb-4 pt-1 flex flex-col">
+      <div className="flex-1 px-5 pb-5 pt-2 flex flex-col">
         {children}
       </div>
     </div>

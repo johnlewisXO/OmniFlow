@@ -1720,6 +1720,39 @@ function App() {
     }
   }, [currentUser, projects, activeProject, activeView, setActiveProject, setActiveView, appLoading, isLoadingProjects]);
 
+  useEffect(() => {
+    if (!currentUser || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const checkoutSessionId = params.get('checkout_session_id');
+    const checkoutCanceled = params.get('checkout_canceled');
+    const orgIdParam = params.get('org_id') || currentUser.organization_id || 'org-default';
+
+    if (checkoutSessionId) {
+      fetch(`/api/billing/checkout-session/${encodeURIComponent(checkoutSessionId)}?org_id=${encodeURIComponent(orgIdParam)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data?.ok && data.paid) {
+            useAppStore.getState().addToast(
+              'Subscription Activated',
+              'Your workspace plan payment was verified successfully.',
+              'success'
+            );
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          window.history.replaceState(null, '', `${window.location.pathname}#/app/owner_dashboard`);
+        });
+    } else if (checkoutCanceled) {
+      useAppStore.getState().addToast(
+        'Checkout Canceled',
+        'No payment was processed. You can select a plan anytime in Billing.',
+        'info'
+      );
+      window.history.replaceState(null, '', `${window.location.pathname}#/app/owner_dashboard`);
+    }
+  }, [currentUser?.id, currentUser?.organization_id]);
+
 
   const isExplicitAuthRoute =
     currentRoute.startsWith('#/login') ||

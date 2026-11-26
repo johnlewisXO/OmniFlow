@@ -65,6 +65,20 @@ export const AuthPage: React.FC = () => {
     return () => window.removeEventListener('hashchange', syncAuthModeFromHash);
   }, []);
 
+  const [selectedSignupPlan, setSelectedSignupPlan] = useState<'starter' | 'growth_pro' | 'enterprise_ai' | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('omni_selected_plan');
+      if (saved === 'starter' || saved === 'growth_pro' || saved === 'enterprise_ai') return saved;
+    }
+    return null;
+  });
+  const [selectedSignupCycle] = useState<'monthly' | 'annual'>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('omni_selected_billing_cycle') === 'monthly' ? 'monthly' : 'annual';
+    }
+    return 'annual';
+  });
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -711,6 +725,44 @@ export const AuthPage: React.FC = () => {
               setResetSuccessMessage(null);
             }}
           />
+
+          {authMode === 'signup' && selectedSignupPlan && (
+            <div className="p-3 rounded-2xl bg-[var(--bg-sage)] border border-[var(--border-hairline)] flex items-center justify-between gap-3 text-xs">
+              <div className="min-w-0">
+                <div className="font-bold text-[var(--text-primary)] truncate">
+                  Selected Plan:{' '}
+                  {selectedSignupPlan === 'enterprise_ai'
+                    ? 'Enterprise'
+                    : selectedSignupPlan === 'growth_pro'
+                    ? 'Pro Studio'
+                    : 'Starter (Free)'}
+                </div>
+                <div className="text-[11px] text-[var(--text-secondary)]">
+                  {selectedSignupPlan === 'starter'
+                    ? '$0 / month · Choose or upgrade anytime'
+                    : selectedSignupPlan === 'growth_pro'
+                    ? selectedSignupCycle === 'annual'
+                      ? '$22 / mo billed annually · Activate after workspace setup'
+                      : '$29 / mo · Activate after workspace setup'
+                    : selectedSignupCycle === 'annual'
+                    ? '$149 / mo billed annually · Activate after workspace setup'
+                    : '$199 / mo · Activate after workspace setup'}
+                </div>
+              </div>
+              {selectedSignupPlan !== 'starter' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSignupPlan('starter');
+                    sessionStorage.setItem('omni_selected_plan', 'starter');
+                  }}
+                  className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline shrink-0 cursor-pointer"
+                >
+                  Use Free
+                </button>
+              )}
+            </div>
+          )}
 
           {resetSuccessMessage && (
             <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs text-center font-medium leading-relaxed">

@@ -6,6 +6,7 @@ import { ICON_MAP } from '../../constants';
 import supabaseService, { normalizeAppUser, saveUserProfileExtension } from '../../services/supabaseService';
 import { OrganizationJoinRequest, UserRole } from '../../types';
 import { AIBotFace } from '../ai/AIBotFace';
+import { WORKSPACE_PLANS } from '../billing/PlanCheckoutModal';
 
 const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
   let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -48,11 +49,56 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
   const [isSubmittingRequest, setIsSubmittingRequest] = useState<boolean>(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState<boolean>(false);
 
+  // Onboarding Step 2: Plan selection after creating a new workspace
+  const [onboardingStep, setOnboardingStep] = useState<'org_form' | 'choose_plan'>('org_form');
+  const [createdOrgForPlan, setCreatedOrgForPlan] = useState<{ id: string; name: string } | null>(null);
+  const [chosenPlanId, setChosenPlanId] = useState<'starter' | 'growth_pro' | 'enterprise_ai'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('omni_selected_plan');
+      if (saved === 'starter' || saved === 'growth_pro' || saved === 'enterprise_ai') return saved;
+    }
+    return 'starter';
+  });
+  const [chosenCycle, setChosenCycle] = useState<'monthly' | 'annual'>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('omni_selected_billing_cycle') === 'monthly' ? 'monthly' : 'annual';
+    }
+    return 'annual';
+  });
+  const [onboardingPayMethod, setOnboardingPayMethod] = useState<'card' | 'invoice'>('card');
+  const [cardholderName, setCardholderName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+  const [stripeConfigured, setStripeConfigured] = useState(false);
+  const [stripeCheckoutUrl, setStripeCheckoutUrl] = useState<string | null>(null);
+  const [stripeSessionId, setStripeSessionId] = useState<string | null>(null);
+  const [isCompletingPlan, setIsCompletingPlan] = useState(false);
+
   useEffect(() => {
     if (orgModalInitialMode) {
       setSetupMode(orgModalInitialMode);
     }
-  }, [orgModalInitialMode, isOrgModalOpen]);
+    if (!isOrgModalOpen && onboardingStep !== 'choose_plan') {
+      setOnboardingStep('org_form');
+      setCreatedOrgForPlan(null);
+      setStripeCheckoutUrl(null);
+      setStripeSessionId(null);
+    }
+  }, [orgModalInitialMode, isOrgModalOpen, onboardingStep]);
+
+  useEffect(() => {
+    if (onboardingStep === 'choose_plan') {
+      fetch('/api/billing/plans')
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data && typeof data.stripeConfigured === 'boolean') {
+            setStripeConfigured(data.stripeConfigured);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [onboardingStep]);
 
   const [searchResults, setSearchResults] = useState<
     Array<{ id: string; name: string; slug: string; memberCount?: number; leadName?: string }>
@@ -447,15 +493,22 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
       }
     }
 
-    // Case 2: Create New Organization and assign user as OWNER
+    // Case 2: Create New Organization and assign user as OWNER -> transition to Step 2 Plan Selection
     try {
       await joinOrCreateOrganization(cleanName, UserRole.OWNER);
+      const updatedState = useAppStore.getState();
+      const createdId =
+        updatedState.currentOrganization?.id ||
+        updatedState.currentUser?.organization_id ||
+        `org-${Date.now()}`;
+      setCreatedOrgForPlan({ id: createdId, name: cleanName });
+      setFormError(null);
+      setOnboardingStep('choose_plan');
       addToast(
-        'Organization Created!',
-        `Welcome to ${cleanName}! You have been assigned as Organization Owner.`,
+        'Workspace Created!',
+        `${cleanName} is ready. Choose a plan to complete setup.`,
         'success'
       );
-      closeOrganizationModal();
     } catch (error: any) {
       const msg = String(error?.message || '');
       if (
@@ -468,12 +521,106 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
           setSetupMode('join');
           setSelectedExistingOrg(allKnown[0]);
           setFormError(
-            `"${cleanName}" already exists! Switched to Request Access mode — click the button below to send your Join Request to the Project Manager.`
+            `"${cleanName}" already exists! Switched to Join Workspace — click below to send your request.`
           );
           return;
         }
       }
-      setFormError(error.message || 'Failed to create organization.');
+      setFormError(error.message || 'Failed to create workspace.');
+    }
+  };
+
+  const finishPlanOnboarding = () => {
+    sessionStorage.removeItem('omni_selected_plan');
+    sessionStorage.removeItem('omni_selected_billing_cycle');
+    setOnboardingStep('org_form');
+    setCreatedOrgForPlan(null);
+    setStripeCheckoutUrl(null);
+    setStripeSessionId(null);
+    closeOrganizationModal();
+  };
+
+  const handleCompleteOnboardingPlan = async (forceStarter = false) => {
+    const orgId = createdOrgForPlan?.id || currentOrganization?.id || currentUser?.organization_id || 'org-default';
+    const orgName = createdOrgForPlan?.name || organizationName.trim() || 'Your Workspace';
+    const planIdToApply = forceStarter ? 'starter' : chosenPlanId;
+    setFormError(null);
+    setIsCompletingPlan(true);
+
+    try {
+      if (planIdToApply !== 'starter' && stripeConfigured && onboardingPayMethod === 'card') {
+        const stripeInit = await fetch(`/api/billing/${encodeURIComponent(orgId)}/create-checkout-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planId: planIdToApply,
+            billingCycle: chosenCycle,
+            extraSeats: 0,
+            billingEmail: currentUser?.email || '',
+            origin: window.location.origin,
+          }),
+        });
+        const stripeData = await stripeInit.json();
+        if (stripeData?.ok && stripeData.mode === 'stripe' && stripeData.checkoutUrl) {
+          setStripeCheckoutUrl(stripeData.checkoutUrl);
+          setStripeSessionId(stripeData.sessionId || null);
+          setIsCompletingPlan(false);
+          return;
+        }
+      }
+
+      const res = await fetch(`/api/billing/${encodeURIComponent(orgId)}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: planIdToApply,
+          billingCycle: chosenCycle,
+          extraSeats: 0,
+          paymentMethodType: planIdToApply === 'starter' ? 'starter_free' : onboardingPayMethod,
+          cardholderName: cardholderName.trim() || currentUser?.full_name || '',
+          cardNumber: cardNumber.replace(/\s+/g, ''),
+          cardExpiry,
+          cardCvc,
+          companyLegalName: orgName,
+          billingEmail: currentUser?.email || '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setFormError(data?.message || 'Could not complete checkout. Please check your payment details.');
+        setIsCompletingPlan(false);
+        return;
+      }
+
+      const planLabel = WORKSPACE_PLANS.find(p => p.id === planIdToApply)?.name || 'Starter';
+      addToast('Workspace Activated', `${orgName} is active on the ${planLabel} plan.`, 'success');
+      finishPlanOnboarding();
+    } catch (err: any) {
+      setFormError(err?.message || 'Could not activate plan.');
+    } finally {
+      setIsCompletingPlan(false);
+    }
+  };
+
+  const handleVerifyOnboardingStripe = async () => {
+    if (!stripeSessionId || !createdOrgForPlan) return;
+    setIsCompletingPlan(true);
+    setFormError(null);
+    try {
+      const res = await fetch(
+        `/api/billing/checkout-session/${encodeURIComponent(stripeSessionId)}?org_id=${encodeURIComponent(createdOrgForPlan.id)}`
+      );
+      const data = await res.json();
+      if (data?.ok && data.paid) {
+        addToast('Subscription Active', `Welcome to ${createdOrgForPlan.name}!`, 'success');
+        finishPlanOnboarding();
+      } else {
+        setFormError('Payment not confirmed yet. Complete checkout in the Stripe tab, then verify again.');
+      }
+    } catch {
+      setFormError('Could not verify Stripe payment yet.');
+    } finally {
+      setIsCompletingPlan(false);
     }
   };
 
@@ -491,21 +638,22 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
   const requestableRoles: Array<{ role: UserRole; title: string; desc: string }> = [
     {
       role: UserRole.MEMBER,
-      title: 'Team Member (MEMBER)',
-      desc: 'Collaborate on tasks, sprints, Kanban boards, and Teams Chat & Video Calls.',
+      title: 'Team Member',
+      desc: 'Work on tasks, boards, team chat, and video meetings.',
     },
     {
       role: UserRole.PROJECT_MANAGER,
-      title: 'Project Manager (PROJECT_MANAGER)',
-      desc: 'Manage projects, sprints, team roles, and approve incoming organization requests.',
+      title: 'Project Manager',
+      desc: 'Manage projects, sprints, team roles, and join approvals.',
     },
   ];
 
   const isMandatoryOnboarding = !currentUser?.organization_id;
   const isExplicitlyOpen = isOrgModalOpen;
+  const isPlanStepActive = onboardingStep === 'choose_plan';
 
-  // Show modal if user has no org (mandatory) OR opened explicitly from Settings/Header
-  if (authLoading || appLoading || !currentUser || (!isMandatoryOnboarding && !isExplicitlyOpen)) {
+  // Show modal if user has no org (mandatory), opened explicitly, or completing Step 2 plan selection
+  if (authLoading || appLoading || !currentUser || (!isMandatoryOnboarding && !isExplicitlyOpen && !isPlanStepActive)) {
     return null;
   }
 
@@ -513,13 +661,15 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
     <Modal
       isOpen={true}
       backdropBlur={true}
-      onClose={isMandatoryOnboarding ? () => {} : closeOrganizationModal}
+      onClose={isMandatoryOnboarding || isPlanStepActive ? () => {} : closeOrganizationModal}
       title={
-        pendingJoinRequest
-          ? 'Organization Access Request Status'
+        isPlanStepActive
+          ? `Choose Plan for ${createdOrgForPlan?.name || 'Your Workspace'}`
+          : pendingJoinRequest
+          ? 'Workspace Access Request'
           : currentUser.organization_id
-          ? 'Switch Organization or Create New Workspace'
-          : 'Workspace Setup — Search or Create Organization'
+          ? 'Switch or Create a Workspace'
+          : 'Join or Create a Workspace'
       }
     >
       <div className="p-6 space-y-5">
@@ -642,16 +792,241 @@ export const CreateOrJoinOrganizationModal: React.FC = () => {
               </button>
             </div>
           </div>
+        ) : isPlanStepActive ? (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-xs font-bold text-[var(--accent-text)]">
+                  Step 2 of 2 · Activate Plan
+                </div>
+                <p className={`text-xs ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Start free or unlock Pro features right away for <strong>{createdOrgForPlan?.name}</strong>.
+                </p>
+              </div>
+              <div className="inline-flex items-center p-0.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setChosenCycle('monthly')}
+                  className={`px-2.5 py-1 rounded-full font-semibold cursor-pointer ${
+                    chosenCycle === 'monthly'
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
+                      : 'text-[var(--text-secondary)]'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChosenCycle('annual')}
+                  className={`px-2.5 py-1 rounded-full font-semibold cursor-pointer ${
+                    chosenCycle === 'annual'
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
+                      : 'text-[var(--text-secondary)]'
+                  }`}
+                >
+                  Annual (Save 25%)
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {WORKSPACE_PLANS.map(plan => {
+                const active = chosenPlanId === plan.id;
+                const price = chosenCycle === 'annual' ? plan.priceAnnualMonthly : plan.priceMonthly;
+                return (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => {
+                      setChosenPlanId(plan.id);
+                      setStripeCheckoutUrl(null);
+                      setFormError(null);
+                    }}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      active
+                        ? 'bg-[var(--bg-sage)] border-[var(--text-primary)]'
+                        : 'bg-[var(--bg-surface-subtle)] border-[var(--border-hairline)]'
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-[var(--text-primary)]">{plan.name}</div>
+                      <div className="text-lg font-bold font-mono tabular-nums mt-0.5 text-[var(--text-primary)]">
+                        ${price}
+                        <span className="text-[10px] font-sans font-normal text-[var(--text-muted)]">
+                          {plan.priceMonthly === 0 ? ' free' : '/mo'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-[var(--text-secondary)] mt-2 pt-1.5 border-t border-[var(--border-hairline)]">
+                      Up to {plan.maxSeats} seats
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {chosenPlanId !== 'starter' && (
+              <div className="p-3.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)] space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[var(--text-primary)]">Payment Details</span>
+                  <div className="inline-flex items-center gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOnboardingPayMethod('card');
+                        setStripeCheckoutUrl(null);
+                      }}
+                      className={`px-2.5 py-0.5 rounded-full font-semibold cursor-pointer ${
+                        onboardingPayMethod === 'card'
+                          ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
+                          : 'text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      Card
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOnboardingPayMethod('invoice');
+                        setStripeCheckoutUrl(null);
+                      }}
+                      className={`px-2.5 py-0.5 rounded-full font-semibold cursor-pointer ${
+                        onboardingPayMethod === 'invoice'
+                          ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)]'
+                          : 'text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      Company Invoice
+                    </button>
+                  </div>
+                </div>
+
+                {stripeCheckoutUrl ? (
+                  <div className="space-y-2.5">
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Complete your Stripe payment in the new tab, then click Verify &amp; Enter Workspace.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={stripeCheckoutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] text-xs font-bold"
+                      >
+                        Open Stripe Checkout ↗
+                      </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isCompletingPlan}
+                        onClick={handleVerifyOnboardingStripe}
+                      >
+                        {isCompletingPlan ? 'Checking...' : 'Verify & Enter Workspace'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : onboardingPayMethod === 'card' && !stripeConfigured ? (
+                  <div className="space-y-2.5">
+                    <input
+                      type="text"
+                      value={cardholderName}
+                      onChange={e => setCardholderName(e.target.value)}
+                      placeholder="Name on Card"
+                      className="w-full px-3 py-2 rounded-xl border text-xs"
+                    />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={cardNumber}
+                      onChange={e => {
+                        const d = e.target.value.replace(/\D/g, '').slice(0, 16);
+                        setCardNumber(d.replace(/(.{4})/g, '$1 ').trim());
+                      }}
+                      placeholder="Card Number (4000 1234 5678 9010)"
+                      className="w-full px-3 py-2 rounded-xl border text-xs font-mono"
+                    />
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={cardExpiry}
+                        onChange={e => {
+                          const d = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setCardExpiry(d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d);
+                        }}
+                        placeholder="MM/YY"
+                        className="w-full px-3 py-2 rounded-xl border text-xs font-mono"
+                      />
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={cardCvc}
+                        onChange={e => setCardCvc(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        placeholder="CVC"
+                        className="w-full px-3 py-2 rounded-xl border text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                ) : onboardingPayMethod === 'invoice' ? (
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    We will email a Net-30 company invoice to <strong>{currentUser.email}</strong> and activate your plan immediately.
+                  </p>
+                ) : (
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Click below to open Stripe Checkout and activate your plan.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {formError && (
+              <p className="text-xs text-status-error text-center py-2 px-3 rounded-xl border border-status-error/30 bg-status-error/10">
+                {formError}
+              </p>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+              {!stripeCheckoutUrl && (
+                <Button
+                  type="button"
+                  variant="lime"
+                  className="w-full py-2.5 text-xs font-bold"
+                  disabled={isCompletingPlan}
+                  onClick={() => handleCompleteOnboardingPlan(false)}
+                >
+                  {isCompletingPlan
+                    ? 'Activating...'
+                    : chosenPlanId === 'starter'
+                    ? 'Start Free on Starter Plan →'
+                    : stripeConfigured && onboardingPayMethod === 'card'
+                    ? 'Continue to Stripe Checkout →'
+                    : 'Complete Checkout & Enter Workspace →'}
+                </Button>
+              )}
+              {chosenPlanId !== 'starter' && (
+                <button
+                  type="button"
+                  onClick={() => handleCompleteOnboardingPlan(true)}
+                  disabled={isCompletingPlan}
+                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] whitespace-nowrap px-3 py-2 cursor-pointer"
+                >
+                  Skip (Start Free)
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
           <>
             <div className="p-3.5 rounded-2xl bg-[var(--bg-sage)] border border-[var(--border-strong)] flex items-start gap-3">
               <AIBotFace mood="guiding" size="md" className="flex-shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
                 <div className="font-bold text-[var(--accent-text)]">
-                  Zero-Trust Organization Access & Discovery
+                  Join or Create Your Workspace
                 </div>
                 <p className={darkMode ? 'text-slate-300' : 'text-slate-600'}>
-                  Search for an existing organization below to <strong>request access</strong> (a Project Manager or Owner will approve your role as <strong>MEMBER</strong> or <strong>PROJECT_MANAGER</strong>), or enter a new name to create your own workspace as <strong>OWNER</strong>.
+                  Pick an existing company workspace below to request access, or enter a new name to start your own workspace.
                 </p>
               </div>
             </div>

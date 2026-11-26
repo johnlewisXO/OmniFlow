@@ -1054,8 +1054,8 @@ export const ProfileSettingsPage: React.FC = () => {
                       },
                       {
                         key: 'notifyOnDirectMessages',
-                        title: 'Encrypted Direct Messages (E2EE Chat)',
-                        desc: 'Show real-time banner when receiving direct messages in Teams Chat.',
+                        title: 'Private Direct Messages',
+                        desc: 'Show real-time alerts when receiving direct messages in Team Chat.',
                       },
                       {
                         key: 'soundAlertsEnabled',
@@ -1125,9 +1125,9 @@ export const ProfileSettingsPage: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-surface-subtle)]">
                       <div>
-                        <div className="text-xs font-bold">Automatic Fibonacci Story Point Estimation</div>
+                        <div className="text-xs font-bold">Automatic Task Effort Estimation</div>
                         <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                          Allow AI Co-Pilot to suggest effort points and QA checklists when opening tasks.
+                          Allow AI Assistant to suggest effort points and checklists when opening tasks.
                         </div>
                       </div>
                       <button

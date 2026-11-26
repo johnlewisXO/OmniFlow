@@ -29,15 +29,6 @@ import { WhiteboardStudioPage } from '../whiteboard/WhiteboardStudioPage';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '🚀', '🎉', '👀', '🔥', '👏', '💡'];
 
-const SUGGESTED_COLLEAGUES: Array<{ id: string; full_name: string; email: string; role: UserRole }> = [
-  { id: 'seed-alex', full_name: 'Alex Rivera', email: 'alex.rivera@workspace.live', role: UserRole.PROJECT_MANAGER },
-  { id: 'seed-sarah', full_name: 'Sarah Chen', email: 'sarah.chen@workspace.live', role: UserRole.MEMBER },
-  { id: 'seed-marcus', full_name: 'Marcus Vance', email: 'marcus.vance@workspace.live', role: UserRole.MEMBER },
-  { id: 'seed-elena', full_name: 'Elena Rostova', email: 'elena.rostova@workspace.live', role: UserRole.MEMBER },
-  { id: 'seed-david', full_name: 'David Kim', email: 'david.kim@workspace.live', role: UserRole.MEMBER },
-  { id: 'seed-priya', full_name: 'Priya Patel', email: 'priya.patel@workspace.live', role: UserRole.PROJECT_MANAGER },
-];
-
 const safeEmail = (u?: Partial<User> | null): string => {
   if (!u) return '';
   if (typeof u.email === 'string' && u.email.trim()) return u.email.trim();
@@ -158,9 +149,17 @@ const VoiceNotePlayer: React.FC<{
 
   return (
     <div
+      style={
+        isMe
+          ? {
+              backgroundColor: 'var(--accent-cta)',
+              color: 'var(--accent-cta-ink)',
+            }
+          : undefined
+      }
       className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl min-w-[215px] sm:min-w-[255px] transition-all ${
         isMe
-          ? 'bg-[var(--accent-cta)]/92 text-[var(--accent-cta-ink)] shadow-[0_6px_18px_-6px_rgba(var(--primary-rgb),0.4),inset_0_1.5px_2px_rgba(255,255,255,0.28)]'
+          ? 'shadow-[0_6px_18px_-6px_rgba(var(--primary-rgb),0.36),inset_0_1px_1px_rgba(255,255,255,0.22)]'
           : 'editorial-surface-subtle text-[var(--text-primary)] backdrop-blur-md'
       }`}
     >
@@ -182,11 +181,18 @@ const VoiceNotePlayer: React.FC<{
         type="button"
         onClick={togglePlay}
         title={isPlaying ? 'Pause voice note' : 'Play voice note'}
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer ${
+        style={
           isMe
-            ? 'bg-[var(--accent-cta-ink)]/18 text-[var(--accent-cta-ink)] hover:bg-[var(--accent-cta-ink)]/28'
-            : 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] hover:opacity-90 shadow-xs'
-        }`}
+            ? {
+                backgroundColor: 'color-mix(in srgb, var(--accent-cta-ink) 16%, transparent)',
+                color: 'var(--accent-cta-ink)',
+              }
+            : {
+                backgroundColor: 'var(--accent-cta)',
+                color: 'var(--accent-cta-ink)',
+              }
+        }
+        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer hover:opacity-90 shadow-xs"
       >
         {isPlaying ? (
           <span className="text-[10px] font-black tracking-tighter">❚❚</span>
@@ -211,21 +217,22 @@ const VoiceNotePlayer: React.FC<{
             return (
               <span
                 key={i}
-                style={{ height: `${Math.max(20, h)}%` }}
-                className={`flex-1 rounded-full transition-colors ${
-                  filled
+                style={{
+                  height: `${Math.max(20, h)}%`,
+                  backgroundColor: filled
                     ? isMe
-                      ? 'bg-[var(--accent-cta-ink)]'
-                      : 'bg-[var(--accent)]'
+                      ? 'var(--accent-cta-ink)'
+                      : 'var(--accent)'
                     : isMe
-                    ? 'bg-[var(--accent-cta-ink)]/28'
-                    : 'bg-[var(--border-strong)]'
-                }`}
+                    ? 'color-mix(in srgb, var(--accent-cta-ink) 32%, transparent)'
+                    : 'var(--border-strong)',
+                }}
+                className="flex-1 rounded-full transition-colors"
               />
             );
           })}
         </div>
-        <div className="flex items-center justify-between text-[10px] font-mono tabular-nums opacity-85">
+        <div className="flex items-center justify-between text-[10px] font-mono tabular-nums opacity-90">
           <span>
             {formatAudioDuration(isPlaying || currentTime > 0 ? currentTime : totalDuration)}
           </span>
@@ -237,9 +244,17 @@ const VoiceNotePlayer: React.FC<{
         type="button"
         onClick={cycleSpeed}
         title="Change playback speed"
+        style={
+          isMe
+            ? {
+                backgroundColor: 'color-mix(in srgb, var(--accent-cta-ink) 16%, transparent)',
+                color: 'var(--accent-cta-ink)',
+              }
+            : undefined
+        }
         className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono tabular-nums flex-shrink-0 cursor-pointer transition-colors ${
           isMe
-            ? 'bg-[var(--accent-cta-ink)]/15 text-[var(--accent-cta-ink)] hover:bg-[var(--accent-cta-ink)]/25'
+            ? 'hover:opacity-85'
             : 'bg-[var(--surface-glass-2)] text-[var(--text-primary)] hover:bg-[var(--surface-glass-3)]'
         }`}
       >
@@ -2002,11 +2017,11 @@ export const TeamsChatPage: React.FC = () => {
                             {safeName(activeDirectUser)}
                           </h2>
                           <span
-                            title={`End-to-End Encrypted (Fingerprint: ${e2eeFingerprint})`}
+                            title={`Private encrypted chat (Key ID: ${e2eeFingerprint})`}
                             className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
                           >
                             <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">E2EE</span>
+                            <span className="hidden sm:inline">Private</span>
                           </span>
                         </div>
                         <p className="text-[11px] text-[var(--text-secondary)] truncate">
@@ -2406,7 +2421,7 @@ export const TeamsChatPage: React.FC = () => {
                                   className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400"
                                 >
                                   <ICON_MAP.ShieldCheckIcon className="w-3 h-3" />
-                                  E2EE
+                                  Private
                                 </span>
                               )}
                             </div>
@@ -2661,24 +2676,47 @@ export const TeamsChatPage: React.FC = () => {
 
                               return (
                                 <div
-                                  className={`px-4 py-2.5 sm:py-3 rounded-[20px] text-[13px] leading-relaxed break-words transition-transform duration-200 space-y-2 ${
+                                  style={
                                     isMe
-                                      ? 'bg-[var(--accent-cta)]/92 text-[var(--accent-cta-ink)] rounded-tr-[6px] shadow-[0_8px_20px_-8px_rgba(var(--primary-rgb),0.45),inset_0_1.5px_2px_rgba(255,255,255,0.22)]'
-                                      : 'bg-[var(--surface-glass-3)]/88 backdrop-blur-md text-[var(--text-primary)] rounded-tl-[6px] shadow-[0_6px_18px_-6px_rgba(0,0,0,0.14),0_0_0_1px_var(--glass-bubble-outer),inset_0_1.5px_3px_var(--glass-bubble-glow),inset_0_-1.5px_3px_var(--glass-bubble-depth)]'
+                                      ? {
+                                          backgroundColor: 'var(--accent-cta)',
+                                          color: 'var(--accent-cta-ink)',
+                                        }
+                                      : undefined
+                                  }
+                                  className={`px-4 py-2.5 sm:py-3 rounded-[18px] text-[13px] leading-relaxed break-words transition-transform duration-200 space-y-2 ${
+                                    isMe
+                                      ? 'rounded-tr-[6px] shadow-[0_8px_20px_-8px_rgba(var(--primary-rgb),0.40),inset_0_1px_1px_rgba(255,255,255,0.20)]'
+                                      : 'bg-[var(--surface-glass-3)] backdrop-blur-md text-[var(--text-primary)] rounded-tl-[6px] border border-[var(--glass-border)] shadow-[0_6px_18px_-8px_rgba(0,0,0,0.12)]'
                                   }`}
                                 >
-                                  {/* Image 1 Indented Quote-Reply Vertical Bar */}
+                                  {/* Quoted Reply Strip */}
                                   {quotedMeta && (
                                     <div
+                                      style={
+                                        isMe
+                                          ? {
+                                              backgroundColor: 'color-mix(in srgb, var(--accent-cta-ink) 12%, transparent)',
+                                              color: 'var(--accent-cta-ink)',
+                                            }
+                                          : undefined
+                                      }
                                       className={`flex items-stretch gap-2.5 pl-1 pr-2 py-1 rounded-xl text-[11px] ${
                                         isMe
-                                          ? 'bg-black/10 text-[var(--accent-cta-ink)]/90'
-                                          : 'bg-[var(--surface-glass-1)]/70 text-[var(--text-secondary)]'
+                                          ? ''
+                                          : 'bg-[var(--surface-nested-subtle)] text-[var(--text-secondary)]'
                                       }`}
                                     >
                                       <span
+                                        style={
+                                          isMe
+                                            ? {
+                                                backgroundColor: 'color-mix(in srgb, var(--accent-cta-ink) 60%, transparent)',
+                                              }
+                                            : undefined
+                                        }
                                         className={`w-[3px] rounded-full flex-shrink-0 ${
-                                          isMe ? 'bg-[var(--accent-cta-ink)]/55' : 'bg-[var(--accent)]'
+                                          isMe ? '' : 'bg-[var(--accent)]'
                                         }`}
                                       />
                                       <div className="min-w-0">
@@ -2739,18 +2777,34 @@ export const TeamsChatPage: React.FC = () => {
                                   return (
                                     <div
                                       key={`${msg.id}-att-${idx}`}
-                                      className={`p-3 rounded-[20px] max-w-[280px] sm:max-w-[340px] transition-all ${
+                                      style={
                                         isMe
-                                          ? 'bg-[var(--accent-cta)]/92 text-[var(--accent-cta-ink)] shadow-[0_8px_20px_-8px_rgba(var(--primary-rgb),0.45)]'
+                                          ? {
+                                              backgroundColor: 'var(--accent-cta)',
+                                              color: 'var(--accent-cta-ink)',
+                                            }
+                                          : undefined
+                                      }
+                                      className={`p-3 rounded-[18px] max-w-[280px] sm:max-w-[340px] transition-all ${
+                                        isMe
+                                          ? 'shadow-[0_8px_20px_-8px_rgba(var(--primary-rgb),0.40)]'
                                           : 'editorial-surface-subtle text-[var(--text-primary)]'
                                       }`}
                                     >
                                       <div className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-2.5 min-w-0">
                                           <div
+                                            style={
+                                              isMe
+                                                ? {
+                                                    backgroundColor: 'color-mix(in srgb, var(--accent-cta-ink) 16%, transparent)',
+                                                    color: 'var(--accent-cta-ink)',
+                                                  }
+                                                : undefined
+                                            }
                                             className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
                                               isMe
-                                                ? 'bg-[var(--accent-cta-ink)]/15 text-[var(--accent-cta-ink)]'
+                                                ? ''
                                                 : 'bg-[var(--surface-glass-2)] text-[var(--accent-text)]'
                                             }`}
                                           >
@@ -2772,9 +2826,17 @@ export const TeamsChatPage: React.FC = () => {
                                           href={att.url}
                                           download={att.name}
                                           title={`Download ${att.name}`}
+                                          style={
+                                            isMe
+                                              ? {
+                                                  backgroundColor: 'color-mix(in srgb, var(--accent-cta-ink) 18%, transparent)',
+                                                  color: 'var(--accent-cta-ink)',
+                                                }
+                                              : undefined
+                                          }
                                           className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
                                             isMe
-                                              ? 'bg-[var(--accent-cta-ink)]/18 hover:bg-[var(--accent-cta-ink)]/28 text-[var(--accent-cta-ink)]'
+                                              ? 'hover:opacity-85'
                                               : 'glass-bubble-control text-[var(--text-secondary)]'
                                           }`}
                                         >
@@ -3875,38 +3937,7 @@ export const TeamsChatPage: React.FC = () => {
               </div>
             )}
 
-            {/* Suggested External Colleagues to Invite via Link */}
-            {(() => {
-              const availableSuggestions = SUGGESTED_COLLEAGUES.filter(
-                sc =>
-                  !directMessageUsers.some(
-                    u =>
-                      safeEmail(u).toLowerCase() === sc.email.toLowerCase() ||
-                      safeName(u).toLowerCase() === sc.full_name.toLowerCase()
-                  )
-              );
-              if (availableSuggestions.length === 0) return null;
-              return (
-                <div className="space-y-1.5 pt-1">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                    External Contacts · Click to Generate Invite Link
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {availableSuggestions.map(sc => (
-                      <button
-                        key={sc.id}
-                        type="button"
-                        onClick={() => generateInviteForNonOrgUser(sc.full_name, sc.email, sc.role)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[11px] font-bold transition-colors cursor-pointer"
-                      >
-                        <ICON_MAP.PlusIcon className="w-3 h-3" />
-                        <span>Invite {sc.full_name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Teammates outside the workspace receive an invite link above */}
 
             {/* Generated Organization Invite Link Callout */}
             {generatedInviteLinkInfo && (

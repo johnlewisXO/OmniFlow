@@ -330,13 +330,13 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
       {!embeddedInOwner && (
         <PageHeader
           eyebrow={currentOrganization?.name || 'Administrator'}
-          title="Admin Operations Center"
-          subtitle="Governance policies, blueprint templates, and workspace audit feed."
+          title="Workspace Admin"
+          subtitle="Manage workspace defaults, project templates, and team activity."
           actions={
             <>
               <Button variant="outline" size="sm" onClick={() => setActiveView('team_management')}>
                 <ICON_MAP.UsersIcon className="w-3.5 h-3.5" />
-                Team & RBAC ({users.length})
+                Team &amp; Roles ({users.length})
               </Button>
               <StatusDot
                 tone="lime"
@@ -353,9 +353,9 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
           items={[
             {
               id: 'seats',
-              label: 'Provisioned Seats',
+              label: 'Team Seats',
               value: users.length,
-              sublabel: 'Active directory',
+              sublabel: 'Active members',
               tone: 'default',
               onClick: () => setActiveView('team_management'),
             },
@@ -363,7 +363,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
               id: 'sprint-len',
               label: 'Default Sprint Length',
               value: `${orgSettings.defaultSprintDurationDays}d`,
-              sublabel: 'Workflow default',
+              sublabel: 'Workspace default',
               tone: 'lime',
               onClick: () => setActiveAdminTab('org_settings'),
             },
@@ -376,7 +376,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
             },
             {
               id: 'audit',
-              label: 'Audit Events',
+              label: 'Activity Events',
               value: auditLogs.length,
               sublabel: 'Recent activity',
               tone: 'default',
@@ -392,15 +392,15 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
           value={activeAdminTab}
           onChange={setActiveAdminTab}
           options={[
-            { id: 'org_settings', label: 'Governance & Defaults', icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" /> },
+            { id: 'org_settings', label: 'Settings & Defaults', icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" /> },
             { id: 'templates', label: 'Templates', count: PROJECT_TEMPLATES.length, icon: <ICON_MAP.FolderPlusIcon className="w-3.5 h-3.5" /> },
-            { id: 'audit', label: 'Audit Feed', count: auditLogs.length, icon: <ICON_MAP.AuditShieldListIcon className="w-3.5 h-3.5" /> },
+            { id: 'audit', label: 'Activity Log', count: auditLogs.length, icon: <ICON_MAP.AuditShieldListIcon className="w-3.5 h-3.5" /> },
           ]}
         />
 
         {embeddedInOwner && (
           <Button variant="outline" size="sm" onClick={() => setActiveView('team_management')}>
-            Open Team & RBAC ({users.length} seats) →
+            Manage Team &amp; Roles ({users.length} seats) →
           </Button>
         )}
       </div>
@@ -411,14 +411,14 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-[var(--border-hairline)]">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)]">
-                  Governance & Workflow Defaults
+                  Workspace Settings &amp; Defaults
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Configure organization identity, default sprint cadence, and automation guardrails.
+                  Set your workspace name, default sprint length, and helpful workflow defaults.
                 </p>
               </div>
               <div className="flex items-center gap-3 text-[11px] font-mono text-[var(--text-muted)]">
-                <span>{orgSettings.defaultSprintDurationDays}d cadence</span>
+                <span>{orgSettings.defaultSprintDurationDays}d sprint</span>
                 <span>·</span>
                 <span className="uppercase">{orgSettings.defaultTaskStatus.replace('_', ' ')} default</span>
               </div>
@@ -524,7 +524,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
                 Reset
               </Button>
               <Button variant="primary" size="sm" type="submit" disabled={isUpdatingOrgSettings}>
-                {isUpdatingOrgSettings ? 'Saving Governance...' : 'Save Organization Governance'}
+                {isUpdatingOrgSettings ? 'Saving Settings...' : 'Save Workspace Settings'}
               </Button>
             </div>
           </form>
@@ -535,9 +535,9 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
         <HairlineCard padding="lg" className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border-hairline)]">
             <div>
-              <h3 className="text-base font-bold text-[var(--text-primary)]">Project Blueprint Templates</h3>
+              <h3 className="text-base font-bold text-[var(--text-primary)]">Project Templates</h3>
               <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                Launch pre-structured project boards with checklists and story points in one click.
+                Start a ready-to-use project board with tasks and checklists in one click.
               </p>
             </div>
 
@@ -549,7 +549,7 @@ export const AdminDashboard: React.FC<{ embeddedInOwner?: boolean }> = ({ embedd
                   onClick={() => setTemplateCategoryFilter(cat)}
                   className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
                     templateCategoryFilter === cat
-                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-text)] shadow-xs'
+                      ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                       : 'bg-[var(--bg-surface-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-hairline)]'
                   }`}
                 >

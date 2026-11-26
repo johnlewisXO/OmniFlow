@@ -593,7 +593,7 @@ async function startServer() {
   const userRolesFile = path.join(dataDir, 'user_roles.json');
   const joinRequestsFile = path.join(dataDir, 'join_requests.json');
   const organizationsFile = path.join(dataDir, 'organizations.json');
-  const billingSandboxFile = path.join(dataDir, 'billing_sandbox.json');
+  const subscriptionsFile = path.join(dataDir, 'subscriptions.json');
 
   const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sqzjlxayhghoxjloaddo.supabase.co';
   const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxempseGF5aGdob3hqbG9hZGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NDQ4MDksImV4cCI6MjA2NjAyMDgwOX0.80rrMJ7AC-XrcUNozIlMa1kh8SFnKagakG_4XOwVbTY';
@@ -601,7 +601,7 @@ async function startServer() {
   const usersRoleStore = new Map<string, { userId?: string; email?: string; role: string; organizationId?: string; updatedBy?: string; updatedAt: string }>();
   const joinRequestsStore = new Map<string, any>();
   const organizationsStore = new Map<string, any>();
-  const billingSandboxStore = new Map<string, any>();
+  const subscriptionsStore = new Map<string, any>();
 
   // Hydrate from disk
   try {
@@ -638,14 +638,14 @@ async function startServer() {
   }
 
   try {
-    if (fs.existsSync(billingSandboxFile)) {
-      const parsedBilling = JSON.parse(fs.readFileSync(billingSandboxFile, 'utf-8'));
-      for (const [orgId, bdata] of Object.entries(parsedBilling as Record<string, any>)) {
-        billingSandboxStore.set(orgId, bdata);
+    if (fs.existsSync(subscriptionsFile)) {
+      const parsedSubs = JSON.parse(fs.readFileSync(subscriptionsFile, 'utf-8'));
+      for (const [orgId, bdata] of Object.entries(parsedSubs as Record<string, any>)) {
+        subscriptionsStore.set(orgId, bdata);
       }
     }
   } catch (e) {
-    console.warn('[server.ts] Could not hydrate billing_sandbox.json:', e);
+    console.warn('[server.ts] Could not hydrate subscriptions.json:', e);
   }
 
   // Ensure canonical verified organizations are always seeded
@@ -1502,333 +1502,535 @@ async function startServer() {
     });
   });
 
-  // 10. Multi-Method Sandbox Billing & Payment Gateway (/api/billing/*)
-  const persistBillingSandbox = () => {
+  // 10. Workspace Plan Catalog & Stripe / Integrated Checkout (/api/billing/*)
+  const persistSubscriptions = () => {
     try {
       const obj: Record<string, any> = {};
-      for (const [k, v] of billingSandboxStore.entries()) {
+      for (const [k, v] of subscriptionsStore.entries()) {
         obj[k] = v;
       }
-      fs.writeFileSync(billingSandboxFile, JSON.stringify(obj, null, 2), 'utf-8');
+      fs.writeFileSync(subscriptionsFile, JSON.stringify(obj, null, 2), 'utf-8');
     } catch (e) {
-      console.warn('[server.ts] Could not write billing_sandbox.json:', e);
+      console.warn('[server.ts] Could not write subscriptions.json:', e);
     }
   };
 
-  const SANDBOX_PLANS: Record<string, { id: string; name: string; priceMonthly: number; maxSeats: number; aiTokens: string }> = {
-    starter: { id: 'starter', name: 'Starter Core', priceMonthly: 0, maxSeats: 15, aiTokens: '50k / mo' },
-    growth_pro: { id: 'growth_pro', name: 'Growth Pro', priceMonthly: 79, maxSeats: 50, aiTokens: '500k / mo' },
-    enterprise_ai: { id: 'enterprise_ai', name: 'Enterprise AI-Native', priceMonthly: 199, maxSeats: 250, aiTokens: 'Unlimited' },
+  interface WorkspacePlanSpec {
+    id: 'starter' | 'growth_pro' | 'enterprise_ai';
+    name: string;
+    priceMonthly: number;
+    priceAnnualMonthly: number;
+    maxSeats: number;
+    aiTokens: string;
+    tagline: string;
+    features: string[];
+  }
+
+  const PLAN_CATALOG: Record<string, WorkspacePlanSpec> = {
+    starter: {
+      id: 'starter',
+      name: 'Starter',
+      priceMonthly: 0,
+      priceAnnualMonthly: 0,
+      maxSeats: 15,
+      aiTokens: '50k AI credits / mo',
+      tagline: 'Core boards, team chat, and video calls for small squads.',
+      features: [
+        'Up to 15 team seats & 3 active projects',
+        'Kanban, List, and Backlog views',
+        'Team Chat, Voice Notes & Video Calls',
+        'Mobile app navigation & dark/light themes',
+      ],
+    },
+    growth_pro: {
+      id: 'growth_pro',
+      name: 'Pro Studio',
+      priceMonthly: 29,
+      priceAnnualMonthly: 22,
+      maxSeats: 50,
+      aiTokens: '500k AI credits / mo',
+      tagline: 'AI planning assistant, HD screen sharing, and automations.',
+      features: [
+        'Up to 50 team seats & unlimited projects',
+        'AI Workspace Assistant & Meeting Action Extractor',
+        'HD Video Studio, Whiteboard & Video Clips',
+        'Automated Rules, SLAs & Team Approvals',
+      ],
+    },
+    enterprise_ai: {
+      id: 'enterprise_ai',
+      name: 'Enterprise',
+      priceMonthly: 199,
+      priceAnnualMonthly: 149,
+      maxSeats: 250,
+      aiTokens: 'Unlimited AI credits',
+      tagline: 'Full workspace controls, SSO readiness, and priority support.',
+      features: [
+        'Up to 250 team seats & unlimited projects',
+        'Unlimited AI planning, Risk Radar & Voice Transcription',
+        'Full Activity Log exports & Security Controls',
+        'Priority onboarding & custom workspace defaults',
+      ],
+    },
   };
 
-  const createDefaultBillingRecord = (orgId: string) => ({
+  const EXTRA_SEAT_PRICE_MONTHLY = 4; // $4 / extra seat / month
+
+  const calculateServerBillingCents = (
+    planId: string,
+    billingCycle: 'monthly' | 'annual',
+    extraSeats: number,
+    couponCode?: string
+  ) => {
+    const plan = PLAN_CATALOG[planId] || PLAN_CATALOG.starter;
+    const cleanExtraSeats = Math.max(0, Math.min(1000, Math.floor(Number(extraSeats) || 0)));
+    const monthlyUnit = billingCycle === 'annual' ? plan.priceAnnualMonthly : plan.priceMonthly;
+    const seatMonthly = cleanExtraSeats * EXTRA_SEAT_PRICE_MONTHLY;
+    const combinedMonthly = monthlyUnit + seatMonthly;
+    const rawSubtotalCents =
+      billingCycle === 'annual'
+        ? Math.round(combinedMonthly * 12 * 100)
+        : Math.round(combinedMonthly * 100);
+
+    const upperCoupon = String(couponCode || '').trim().toUpperCase();
+    let discountPct = 0;
+    if (upperCoupon === 'WELCOME25' || upperCoupon === 'OPEN25') {
+      discountPct = 25;
+    } else if (upperCoupon === 'FOUNDER50') {
+      discountPct = 50;
+    }
+    const totalCents = Math.max(0, Math.round(rawSubtotalCents * (1 - discountPct / 100)));
+    return {
+      plan,
+      cleanExtraSeats,
+      rawSubtotalCents,
+      discountPct,
+      normalizedCoupon: discountPct > 0 ? upperCoupon : '',
+      totalCents,
+    };
+  };
+
+  const syncOrgSubscriptionTier = (orgId: string, plan: WorkspacePlanSpec, maxSeats: number) => {
+    const existingOrg = organizationsStore.get(orgId);
+    if (existingOrg) {
+      existingOrg.subscriptionPlan = plan.id;
+      existingOrg.maxSeats = maxSeats;
+      existingOrg.updatedAt = new Date().toISOString();
+      organizationsStore.set(orgId, existingOrg);
+      try {
+        const obj: Record<string, any> = {};
+        for (const [k, v] of organizationsStore.entries()) obj[k] = v;
+        fs.writeFileSync(organizationsFile, JSON.stringify(obj, null, 2), 'utf-8');
+      } catch {}
+    }
+  };
+
+  const createDefaultSubscriptionRecord = (orgId: string) => ({
     organizationId: orgId,
-    environment: 'sandbox',
-    planId: 'enterprise_ai',
-    billingCycle: 'annual',
+    planId: 'starter' as const,
+    billingCycle: 'annual' as const,
     extraSeats: 0,
-    subscriptionStatus: 'active',
-    paymentMethodType: 'card',
-    paymentBrand: 'Visa Corporate (Sandbox)',
-    paymentLast4: '4242',
-    billingEmail: 'billing@organization.io',
-    taxId: 'US-EIN-94-3829104',
-    autoTopUpSeats: true,
+    subscriptionStatus: 'active' as const,
+    cancelAtPeriodEnd: false,
+    currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+    paymentMethodType: 'starter_free' as const,
+    paymentBrand: 'Starter Free Plan',
+    paymentLast4: '',
+    billingEmail: '',
+    companyLegalName: '',
+    taxId: '',
     couponCode: '',
     discountPct: 0,
-    ossProjectUrl: '',
-    ossLicense: '',
-    invoices: [
-      {
-        id: 'INV-SBX-2026-10',
-        date: '2026-10-01T10:00:00.000Z',
-        planName: 'Enterprise AI-Native',
-        billingCycle: 'annual',
-        amountCents: 179100,
-        currency: 'USD',
-        status: 'paid',
-        paymentMethodLabel: 'Visa •••• 4242',
-        paymentMethodType: 'card',
-      },
-      {
-        id: 'INV-SBX-2026-09',
-        date: '2026-09-01T10:00:00.000Z',
-        planName: 'Enterprise AI-Native',
-        billingCycle: 'annual',
-        amountCents: 179100,
-        currency: 'USD',
-        status: 'paid',
-        paymentMethodLabel: 'Visa •••• 4242',
-        paymentMethodType: 'card',
-      },
-    ],
-    webhookLogs: [
-      {
-        id: `evt_sbx_init_${Date.now()}`,
-        type: 'customer.subscription.created',
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        signature: 't=1791936000,v1=sbx_hmac_9f8e7d6c5b4a',
-        payload: { organizationId: orgId, planId: 'enterprise_ai', mode: 'sandbox', status: 'active' },
-      },
-    ],
+    invoices: [],
     updatedAt: new Date().toISOString(),
   });
 
-  const getOrCreateBillingRecord = (orgId: string) => {
+  const getOrCreateSubscriptionRecord = (orgId: string) => {
     const key = orgId || 'org-default';
-    let rec = billingSandboxStore.get(key);
+    let rec = subscriptionsStore.get(key);
     if (!rec) {
-      rec = createDefaultBillingRecord(key);
-      billingSandboxStore.set(key, rec);
-      persistBillingSandbox();
+      rec = createDefaultSubscriptionRecord(key);
+      subscriptionsStore.set(key, rec);
+      persistSubscriptions();
     }
     return rec;
   };
 
+  const isValidOriginUrl = (candidate: string | undefined, fallbackReqOrigin: string): string => {
+    if (!candidate) return fallbackReqOrigin;
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.origin;
+      }
+    } catch {}
+    return fallbackReqOrigin;
+  };
+
+  app.get('/api/billing/plans', (_req, res) => {
+    return res.json({
+      ok: true,
+      stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+      plans: PLAN_CATALOG,
+      extraSeatPriceMonthly: EXTRA_SEAT_PRICE_MONTHLY,
+    });
+  });
+
   app.get('/api/billing/:orgId', (req, res) => {
-    const rec = getOrCreateBillingRecord(req.params.orgId);
-    return res.json({ ok: true, billing: rec });
+    const rec = getOrCreateSubscriptionRecord(req.params.orgId);
+    return res.json({
+      ok: true,
+      stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+      plans: PLAN_CATALOG,
+      extraSeatPriceMonthly: EXTRA_SEAT_PRICE_MONTHLY,
+      billing: rec,
+    });
   });
 
-  app.post('/api/billing/:orgId/reset', (req, res) => {
+  app.post('/api/billing/:orgId/create-checkout-session', async (req, res) => {
     const key = req.params.orgId || 'org-default';
-    const fresh = createDefaultBillingRecord(key);
-    billingSandboxStore.set(key, fresh);
-    persistBillingSandbox();
-    return res.json({ ok: true, billing: fresh });
+    const rec = getOrCreateSubscriptionRecord(key);
+    const {
+      planId = 'growth_pro',
+      billingCycle = 'annual',
+      extraSeats = 0,
+      couponCode = '',
+      billingEmail = rec.billingEmail,
+      origin,
+    } = req.body || {};
+
+    const cleanCycle: 'monthly' | 'annual' = billingCycle === 'monthly' ? 'monthly' : 'annual';
+    const pricing = calculateServerBillingCents(planId, cleanCycle, extraSeats, couponCode);
+
+    // Free Starter activates cleanly without Stripe external redirect
+    if (pricing.totalCents === 0) {
+      rec.planId = pricing.plan.id;
+      rec.billingCycle = cleanCycle;
+      rec.extraSeats = pricing.cleanExtraSeats;
+      rec.subscriptionStatus = 'active';
+      rec.cancelAtPeriodEnd = false;
+      rec.paymentMethodType = 'starter_free';
+      rec.paymentBrand = `${pricing.plan.name} (Free)`;
+      rec.paymentLast4 = '';
+      rec.billingEmail = billingEmail || rec.billingEmail;
+      rec.couponCode = pricing.normalizedCoupon;
+      rec.discountPct = pricing.discountPct;
+      rec.updatedAt = new Date().toISOString();
+      subscriptionsStore.set(key, rec);
+      persistSubscriptions();
+      syncOrgSubscriptionTier(key, pricing.plan, pricing.plan.maxSeats + pricing.cleanExtraSeats);
+      return res.json({
+        ok: true,
+        mode: 'activated_free',
+        billing: rec,
+      });
+    }
+
+    const stripeSecret = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecret) {
+      return res.json({
+        ok: true,
+        mode: 'integrated',
+        amountCents: pricing.totalCents,
+        discountPct: pricing.discountPct,
+        plan: pricing.plan,
+      });
+    }
+
+    try {
+      const reqFallbackOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+      const appOrigin = isValidOriginUrl(origin || process.env.APP_URL, reqFallbackOrigin);
+      const successUrl = `${appOrigin}/?checkout_session_id={CHECKOUT_SESSION_ID}&org_id=${encodeURIComponent(key)}#/app`;
+      const cancelUrl = `${appOrigin}/?checkout_canceled=true&org_id=${encodeURIComponent(key)}#/app`;
+
+      const form = new URLSearchParams();
+      form.append('mode', 'subscription');
+      form.append('success_url', successUrl);
+      form.append('cancel_url', cancelUrl);
+      if (billingEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(billingEmail))) {
+        form.append('customer_email', String(billingEmail));
+      }
+      form.append('line_items[0][price_data][currency]', 'usd');
+      form.append('line_items[0][price_data][product_data][name]', `Omni Flow — ${pricing.plan.name}`);
+      form.append(
+        'line_items[0][price_data][product_data][description]',
+        `${pricing.plan.maxSeats + pricing.cleanExtraSeats} team seats (${cleanCycle})`
+      );
+      form.append('line_items[0][price_data][unit_amount]', String(pricing.totalCents));
+      form.append('line_items[0][price_data][recurring][interval]', cleanCycle === 'annual' ? 'year' : 'month');
+      form.append('line_items[0][quantity]', '1');
+      form.append('metadata[organizationId]', key);
+      form.append('metadata[planId]', pricing.plan.id);
+      form.append('metadata[billingCycle]', cleanCycle);
+      form.append('metadata[extraSeats]', String(pricing.cleanExtraSeats));
+
+      const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${stripeSecret}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: form.toString(),
+      });
+
+      const stripeData: any = await stripeRes.json();
+      if (!stripeRes.ok || !stripeData?.url) {
+        return res.status(400).json({
+          ok: false,
+          message: stripeData?.error?.message || 'Could not initialize Stripe checkout session.',
+        });
+      }
+
+      return res.json({
+        ok: true,
+        mode: 'stripe',
+        sessionId: stripeData.id,
+        checkoutUrl: stripeData.url,
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        ok: false,
+        message: err?.message || 'Stripe checkout initialization failed.',
+      });
+    }
   });
 
-  app.post('/api/billing/:orgId/webhook-test', (req, res) => {
-    const key = req.params.orgId || 'org-default';
-    const rec = getOrCreateBillingRecord(key);
-    const { eventType = 'invoice.paid' } = req.body || {};
-    const eventEntry = {
-      id: `evt_sbx_${Date.now().toString(36)}`,
-      type: eventType,
-      createdAt: new Date().toISOString(),
-      signature: `t=${Math.floor(Date.now() / 1000)},v1=sbx_${Math.random().toString(16).slice(2, 14)}`,
-      payload: {
-        organizationId: key,
-        planId: rec.planId,
-        billingCycle: rec.billingCycle,
-        paymentMethodType: rec.paymentMethodType,
-        subscriptionStatus: rec.subscriptionStatus,
-        sandbox: true,
-      },
-    };
-    rec.webhookLogs = [eventEntry, ...(rec.webhookLogs || [])].slice(0, 20);
-    rec.updatedAt = new Date().toISOString();
-    billingSandboxStore.set(key, rec);
-    persistBillingSandbox();
-    return res.json({ ok: true, event: eventEntry, billing: rec });
+  app.get('/api/billing/checkout-session/:sessionId', async (req, res) => {
+    const sessionId = String(req.params.sessionId || '').trim();
+    if (!sessionId) {
+      return res.status(400).json({ ok: false, message: 'Missing checkout session ID.' });
+    }
+
+    const stripeSecret = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecret) {
+      return res.status(400).json({ ok: false, message: 'Stripe verification is not configured.' });
+    }
+
+    try {
+      const stripeRes = await fetch(
+        `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
+        {
+          headers: { Authorization: `Bearer ${stripeSecret}` },
+        }
+      );
+      const session: any = await stripeRes.json();
+      if (!stripeRes.ok) {
+        return res.status(400).json({ ok: false, message: session?.error?.message || 'Session lookup failed.' });
+      }
+
+      const orgId = String(session?.metadata?.organizationId || req.query.org_id || 'org-default');
+      const rec = getOrCreateSubscriptionRecord(orgId);
+      const paid = session.payment_status === 'paid' || session.status === 'complete';
+
+      if (paid) {
+        const planId = session?.metadata?.planId || rec.planId || 'growth_pro';
+        const cycle = session?.metadata?.billingCycle === 'monthly' ? 'monthly' : 'annual';
+        const extraSeats = Number(session?.metadata?.extraSeats || 0);
+        const plan = PLAN_CATALOG[planId] || PLAN_CATALOG.growth_pro;
+
+        const alreadyRecorded = (rec.invoices || []).some((inv: any) => inv.stripeSessionId === session.id);
+        if (!alreadyRecorded) {
+          const inv = {
+            id: `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+            stripeSessionId: session.id,
+            date: new Date().toISOString(),
+            planName: plan.name,
+            billingCycle: cycle,
+            extraSeats,
+            amountCents: Number(session.amount_total ?? 0),
+            currency: String(session.currency || 'USD').toUpperCase(),
+            status: 'paid',
+            paymentMethodLabel: 'Stripe Checkout',
+            paymentMethodType: 'stripe_hosted',
+          };
+          rec.invoices = [inv, ...(rec.invoices || [])].slice(0, 25);
+        }
+
+        rec.planId = plan.id;
+        rec.billingCycle = cycle;
+        rec.extraSeats = extraSeats;
+        rec.subscriptionStatus = 'active';
+        rec.cancelAtPeriodEnd = false;
+        rec.paymentMethodType = 'stripe_hosted';
+        rec.paymentBrand = 'Stripe Checkout';
+        rec.billingEmail = session.customer_details?.email || session.customer_email || rec.billingEmail;
+        rec.stripeCustomerId = session.customer || rec.stripeCustomerId;
+        rec.stripeSubscriptionId = session.subscription || rec.stripeSubscriptionId;
+        rec.currentPeriodEnd = new Date(
+          Date.now() + (cycle === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000
+        ).toISOString();
+        rec.updatedAt = new Date().toISOString();
+        subscriptionsStore.set(orgId, rec);
+        persistSubscriptions();
+        syncOrgSubscriptionTier(orgId, plan, plan.maxSeats + extraSeats);
+      }
+
+      return res.json({
+        ok: true,
+        paid,
+        billing: rec,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, message: err?.message || 'Verification failed.' });
+    }
   });
 
   app.post('/api/billing/:orgId/checkout', (req, res) => {
     const key = req.params.orgId || 'org-default';
-    const rec = getOrCreateBillingRecord(key);
+    const rec = getOrCreateSubscriptionRecord(key);
     const {
-      planId = rec.planId,
-      billingCycle = rec.billingCycle,
+      planId = rec.planId || 'growth_pro',
+      billingCycle = rec.billingCycle || 'annual',
       extraSeats = 0,
       paymentMethodType = 'card',
-      cardNumber = '4242424242424242',
-      simulateOutcome = 'auto',
-      threeDsApproved = false,
-      achRouting = '110000000',
-      achAccount = '000123456789',
-      achMicroCode = '',
-      achMicroVerified = false,
-      walletProvider = 'apple_pay',
-      poNumber = '',
-      companyLegalName = '',
+      cardNumber = '',
+      cardExpiry = '',
+      cardCvc = '',
+      cardholderName = '',
       billingEmail = rec.billingEmail,
-      taxId = rec.taxId,
+      companyLegalName = rec.companyLegalName || '',
+      taxId = rec.taxId || '',
       couponCode = '',
-      ossProjectUrl = '',
-      ossLicense = 'MIT',
     } = req.body || {};
 
-    const plan = SANDBOX_PLANS[planId] || SANDBOX_PLANS.enterprise_ai;
-    const cleanExtraSeats = Math.max(0, Number(extraSeats) || 0);
-    const monthlyBase = plan.priceMonthly + Math.ceil(cleanExtraSeats / 10) * 12;
-    const cycleMultiplier = billingCycle === 'annual' ? 12 * 0.75 : 1;
-    const rawSubtotalCents = Math.round(monthlyBase * cycleMultiplier * 100);
-
-    const upperCoupon = String(couponCode || '').trim().toUpperCase();
-    let discountPct = 0;
-    if (paymentMethodType === 'oss_grant' || upperCoupon === 'OSS-GRANT-100' || upperCoupon === 'DEV-SANDBOX') {
-      discountPct = 100;
-    } else if (upperCoupon === 'DEV50') {
-      discountPct = 50;
-    } else if (upperCoupon === 'OPEN25') {
-      discountPct = 25;
-    }
-
-    const totalCents = Math.max(0, Math.round(rawSubtotalCents * (1 - discountPct / 100)));
+    const cleanCycle: 'monthly' | 'annual' = billingCycle === 'monthly' ? 'monthly' : 'annual';
+    const pricing = calculateServerBillingCents(planId, cleanCycle, extraSeats, couponCode);
     const digits = String(cardNumber || '').replace(/\D/g, '');
-    const last4 = digits.slice(-4) || '4242';
+    const cleanEmail = String(billingEmail || '').trim();
 
-    const pushWebhook = (type: string, extraPayload: Record<string, any> = {}) => {
-      const evt = {
-        id: `evt_sbx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-        type,
-        createdAt: new Date().toISOString(),
-        signature: `t=${Math.floor(Date.now() / 1000)},v1=sbx_${Math.random().toString(16).slice(2, 14)}`,
-        payload: {
-          organizationId: key,
-          planId: plan.id,
-          amountCents: totalCents,
-          paymentMethodType,
-          sandbox: true,
-          ...extraPayload,
-        },
-      };
-      rec.webhookLogs = [evt, ...(rec.webhookLogs || [])].slice(0, 20);
-    };
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ ok: false, message: 'Please enter a valid billing email address.' });
+    }
 
-    // Card outcome simulation (declines & 3DS2 challenge)
-    if (paymentMethodType === 'card' && totalCents > 0) {
-      const isDecline = simulateOutcome === 'decline' || (simulateOutcome === 'auto' && last4 === '0002');
-      if (isDecline) {
-        const failedInv = {
-          id: `INV-SBX-${Date.now().toString().slice(-6)}`,
-          date: new Date().toISOString(),
-          planName: plan.name,
-          billingCycle,
-          amountCents: totalCents,
-          currency: 'USD',
-          status: 'failed',
-          paymentMethodLabel: `Card •••• ${last4}`,
-          paymentMethodType: 'card',
-          failureReason: 'insufficient_funds',
-        };
-        rec.invoices = [failedInv, ...(rec.invoices || [])].slice(0, 20);
-        rec.subscriptionStatus = 'past_due';
-        pushWebhook('charge.failed', { code: 'insufficient_funds', cardLast4: last4 });
-        billingSandboxStore.set(key, rec);
-        persistBillingSandbox();
-        return res.json({
-          ok: false,
-          code: 'insufficient_funds',
-          message: `Sandbox card ending in ${last4} was declined (simulated insufficient funds). Try 4242 or apply OSS-GRANT-100.`,
-          billing: rec,
-        });
+    if (pricing.totalCents > 0 && paymentMethodType === 'card') {
+      if (digits.length < 13 || digits.length > 19) {
+        return res.status(400).json({ ok: false, message: 'Please enter a valid card number.' });
       }
-
-      const needs3ds =
-        !threeDsApproved &&
-        (simulateOutcome === '3ds_required' || (simulateOutcome === 'auto' && last4 === '3155'));
-      if (needs3ds) {
-        pushWebhook('payment_intent.requires_action', { challenge: '3ds2_fingerprint', cardLast4: last4 });
-        billingSandboxStore.set(key, rec);
-        persistBillingSandbox();
-        return res.json({
-          ok: false,
-          requiresAction: true,
-          challengeType: '3ds2',
-          challengeId: `3ds_sbx_${Date.now().toString(36)}`,
-          message: '3D Secure 2.0 Strong Customer Authentication required to complete payment.',
-          billing: rec,
-        });
+      if (!/^\d{2}\/\d{2,4}$/.test(String(cardExpiry || '').trim())) {
+        return res.status(400).json({ ok: false, message: 'Please enter card expiration in MM/YY format.' });
+      }
+      const cleanCvc = String(cardCvc || '').replace(/\D/g, '');
+      if (cleanCvc.length < 3 || cleanCvc.length > 4) {
+        return res.status(400).json({ ok: false, message: 'Please enter a valid 3 or 4 digit security code.' });
       }
     }
 
-    // ACH / SEPA micro-deposit challenge simulation
-    if (paymentMethodType === 'ach' && totalCents > 0) {
-      const codeMatch = String(achMicroCode || '').trim() === '00-00' || String(achMicroCode || '').trim() === '0000';
-      if (!achMicroVerified && !codeMatch) {
-        pushWebhook('payment_intent.requires_action', { challenge: 'ach_micro_deposit', routing: achRouting });
-        billingSandboxStore.set(key, rec);
-        persistBillingSandbox();
-        return res.json({
-          ok: false,
-          requiresAction: true,
-          challengeType: 'ach_micro_deposit',
-          challengeId: `ach_sbx_${Date.now().toString(36)}`,
-          message: 'Enter sandbox micro-deposit code 00-00 to verify bank mandate.',
-          billing: rec,
-        });
-      }
-    }
-
-    // Compute clean label & mask for each payment rail
-    let paymentBrand = 'Visa Corporate (Sandbox)';
-    let paymentMask = last4;
-    if (paymentMethodType === 'card') {
-      paymentBrand = digits.startsWith('5') ? 'Mastercard (Sandbox)' : digits.startsWith('3') ? 'Amex (Sandbox)' : 'Visa (Sandbox)';
+    const last4 = digits.slice(-4);
+    let paymentBrand = `${pricing.plan.name} (Free)`;
+    let paymentMask = '';
+    if (pricing.totalCents === 0) {
+      paymentBrand = `${pricing.plan.name} Plan`;
+    } else if (paymentMethodType === 'invoice') {
+      paymentBrand = companyLegalName ? `Company Invoice (${companyLegalName})` : 'Company Invoice (Net-30)';
+      paymentMask = 'NET30';
+    } else {
+      paymentBrand = digits.startsWith('5')
+        ? 'Mastercard'
+        : digits.startsWith('3')
+        ? 'American Express'
+        : 'Visa';
       paymentMask = last4;
-    } else if (paymentMethodType === 'ach') {
-      paymentBrand = `ACH / SEPA Direct Debit (${String(achRouting).slice(-4) || '0000'})`;
-      paymentMask = String(achAccount).slice(-4) || '6789';
-    } else if (paymentMethodType === 'wallet') {
-      const wMap: Record<string, string> = {
-        apple_pay: 'Apple Pay Express (Passkey)',
-        google_pay: 'Google Pay Express (Token)',
-        open_link: 'OpenLink One-Click Wallet',
-      };
-      paymentBrand = wMap[walletProvider] || 'Digital Wallet Express';
-      paymentMask = 'PASSKEY';
-    } else if (paymentMethodType === 'invoice_po') {
-      paymentBrand = `Net-30 PO (${poNumber || 'PO-2026-101'})`;
-      paymentMask = (poNumber || '101').slice(-4);
-    } else if (paymentMethodType === 'oss_grant') {
-      paymentBrand = `Open Source Grant (${ossLicense || 'MIT'})`;
-      paymentMask = 'OSS-100';
     }
 
-    const invoiceStatus = paymentMethodType === 'invoice_po' && totalCents > 0 ? 'open_net30' : 'paid';
+    const invoiceStatus = paymentMethodType === 'invoice' && pricing.totalCents > 0 ? 'open' : 'paid';
     const newInvoice = {
-      id: `INV-SBX-${Date.now().toString().slice(-6)}`,
+      id: `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
       date: new Date().toISOString(),
-      planName: plan.name,
-      billingCycle,
-      extraSeats: cleanExtraSeats,
-      amountCents: totalCents,
-      discountPct,
-      couponCode: upperCoupon || (paymentMethodType === 'oss_grant' ? 'OSS-GRANT-100' : ''),
+      planName: pricing.plan.name,
+      billingCycle: cleanCycle,
+      extraSeats: pricing.cleanExtraSeats,
+      amountCents: pricing.totalCents,
+      discountPct: pricing.discountPct,
+      couponCode: pricing.normalizedCoupon,
       currency: 'USD',
       status: invoiceStatus,
-      paymentMethodLabel: `${paymentBrand}${paymentMask && paymentMask !== 'PASSKEY' && paymentMask !== 'OSS-100' ? ` •••• ${paymentMask}` : ''}`,
-      paymentMethodType,
-      poNumber: paymentMethodType === 'invoice_po' ? (poNumber || 'PO-2026-101') : undefined,
-      companyLegalName: companyLegalName || undefined,
-      ossProjectUrl: paymentMethodType === 'oss_grant' ? ossProjectUrl : undefined,
+      paymentMethodLabel:
+        paymentMask && paymentMask !== 'NET30'
+          ? `${paymentBrand} •••• ${paymentMask}`
+          : paymentBrand,
+      paymentMethodType: pricing.totalCents === 0 ? 'starter_free' : paymentMethodType,
+      cardholderName: cardholderName ? String(cardholderName).trim() : undefined,
+      companyLegalName: companyLegalName ? String(companyLegalName).trim() : undefined,
     };
 
-    rec.planId = plan.id;
-    rec.billingCycle = billingCycle;
-    rec.extraSeats = cleanExtraSeats;
+    rec.planId = pricing.plan.id;
+    rec.billingCycle = cleanCycle;
+    rec.extraSeats = pricing.cleanExtraSeats;
     rec.subscriptionStatus = 'active';
-    rec.paymentMethodType = paymentMethodType;
+    rec.cancelAtPeriodEnd = false;
+    rec.paymentMethodType = pricing.totalCents === 0 ? 'starter_free' : paymentMethodType;
     rec.paymentBrand = paymentBrand;
     rec.paymentLast4 = paymentMask;
-    rec.billingEmail = billingEmail || rec.billingEmail;
-    rec.taxId = taxId || rec.taxId;
-    rec.couponCode = newInvoice.couponCode;
-    rec.discountPct = discountPct;
-    rec.ossProjectUrl = ossProjectUrl || rec.ossProjectUrl;
-    rec.ossLicense = ossLicense || rec.ossLicense;
-    rec.invoices = [newInvoice, ...(rec.invoices || [])].slice(0, 20);
+    rec.billingEmail = cleanEmail || rec.billingEmail;
+    rec.companyLegalName = String(companyLegalName || rec.companyLegalName || '').trim();
+    rec.taxId = String(taxId || rec.taxId || '').trim();
+    rec.couponCode = pricing.normalizedCoupon;
+    rec.discountPct = pricing.discountPct;
+    rec.currentPeriodEnd = new Date(
+      Date.now() + (cleanCycle === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000
+    ).toISOString();
+    rec.invoices = [newInvoice, ...(rec.invoices || [])].slice(0, 25);
     rec.updatedAt = new Date().toISOString();
 
-    pushWebhook(invoiceStatus === 'paid' ? 'invoice.paid' : 'invoice.finalized_net30', {
-      invoiceId: newInvoice.id,
-      couponCode: newInvoice.couponCode,
-    });
-    pushWebhook('customer.subscription.updated', {
-      planId: plan.id,
-      maxSeats: plan.maxSeats + cleanExtraSeats,
-      billingCycle,
-    });
-
-    billingSandboxStore.set(key, rec);
-    persistBillingSandbox();
+    subscriptionsStore.set(key, rec);
+    persistSubscriptions();
+    syncOrgSubscriptionTier(key, pricing.plan, pricing.plan.maxSeats + pricing.cleanExtraSeats);
 
     return res.json({
       ok: true,
       invoice: newInvoice,
       billing: rec,
     });
+  });
+
+  app.post('/api/billing/:orgId/cancel', (req, res) => {
+    const key = req.params.orgId || 'org-default';
+    const rec = getOrCreateSubscriptionRecord(key);
+    const immediate = Boolean(req.body?.immediate);
+
+    if (immediate) {
+      rec.planId = 'starter';
+      rec.extraSeats = 0;
+      rec.subscriptionStatus = 'active';
+      rec.cancelAtPeriodEnd = false;
+      rec.paymentMethodType = 'starter_free';
+      rec.paymentBrand = 'Starter Free Plan';
+      rec.paymentLast4 = '';
+      syncOrgSubscriptionTier(key, PLAN_CATALOG.starter, PLAN_CATALOG.starter.maxSeats);
+    } else {
+      rec.cancelAtPeriodEnd = true;
+    }
+
+    rec.updatedAt = new Date().toISOString();
+    subscriptionsStore.set(key, rec);
+    persistSubscriptions();
+    return res.json({ ok: true, billing: rec });
+  });
+
+  app.post('/api/billing/webhook', (req, res) => {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const sig = req.headers['stripe-signature'];
+      if (!sig) {
+        return res.status(400).json({ ok: false, message: 'Missing Stripe signature header.' });
+      }
+    }
+    const event = req.body || {};
+    if (event?.type === 'checkout.session.completed' && event?.data?.object?.metadata?.organizationId) {
+      const session = event.data.object;
+      const orgId = String(session.metadata.organizationId);
+      const rec = getOrCreateSubscriptionRecord(orgId);
+      const planId = session.metadata.planId || 'growth_pro';
+      const plan = PLAN_CATALOG[planId] || PLAN_CATALOG.growth_pro;
+      rec.planId = plan.id;
+      rec.subscriptionStatus = 'active';
+      rec.cancelAtPeriodEnd = false;
+      rec.updatedAt = new Date().toISOString();
+      subscriptionsStore.set(orgId, rec);
+      persistSubscriptions();
+      syncOrgSubscriptionTier(orgId, plan, plan.maxSeats + (rec.extraSeats || 0));
+    }
+    return res.json({ received: true });
   });
 
   if (process.env.NODE_ENV !== 'production') {

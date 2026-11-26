@@ -199,14 +199,14 @@ export const Header: React.FC = () => {
       }
       workTabs.push(
         { id: 'sprints_view', label: 'Sprints', icon: <ICON_MAP.RocketLaunchIcon className="w-3.5 h-3.5" /> },
-        { id: 'gantt_roadmap_view', label: 'Roadmap', icon: <ICON_MAP.RoadmapIcon className="w-3.5 h-3.5" /> },
-        { id: 'triage_intake_view', label: 'Triage', icon: <ICON_MAP.FilterIcon className="w-3.5 h-3.5" /> }
+        { id: 'gantt_roadmap_view', label: 'Timeline', icon: <ICON_MAP.RoadmapIcon className="w-3.5 h-3.5" /> },
+        { id: 'triage_intake_view', label: 'Requests', icon: <ICON_MAP.FilterIcon className="w-3.5 h-3.5" /> }
       );
       return workTabs;
     }
     if (['team_management', 'workload_capacity_view'].includes(activeView)) {
       return [
-        { id: 'team_management', label: 'Directory', icon: <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" /> },
+        { id: 'team_management', label: 'Team', icon: <ICON_MAP.UserGroupIcon className="w-3.5 h-3.5" /> },
         { id: 'workload_capacity_view', label: 'Workload & Timer', icon: <ICON_MAP.ClockIcon className="w-3.5 h-3.5" /> },
       ];
     }
@@ -224,23 +224,23 @@ export const Header: React.FC = () => {
         });
       }
       stratTabs.push(
-        { id: 'okrs_goals_view', label: 'OKRs', icon: <ICON_MAP.FlagIcon className="w-3.5 h-3.5" /> },
+        { id: 'okrs_goals_view', label: 'Goals', icon: <ICON_MAP.FlagIcon className="w-3.5 h-3.5" /> },
         { id: 'docs_wiki_view', label: 'Docs', icon: <ICON_MAP.DocumentTextIcon className="w-3.5 h-3.5" /> },
-        { id: 'client_portal_view', label: 'Portal', icon: <ICON_MAP.GlobeAltIcon className="w-3.5 h-3.5" /> }
+        { id: 'client_portal_view', label: 'Client Portal', icon: <ICON_MAP.GlobeAltIcon className="w-3.5 h-3.5" /> }
       );
       return stratTabs;
     }
     if (['ai_copilot_view', 'task_automations', 'task_automations_view'].includes(activeView)) {
       return [
-        { id: 'ai_copilot_view', label: 'Aether AI', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
+        { id: 'ai_copilot_view', label: 'AI Assistant', icon: <ICON_MAP.SparklesIcon className="w-3.5 h-3.5" /> },
         { id: 'task_automations', label: 'Automations', icon: <ICON_MAP.BoltIcon className="w-3.5 h-3.5" /> },
       ];
     }
     const govTabs: SegmentedTabOption<ActiveView>[] = [];
     if (normalizedRole === UserRole.OWNER || normalizedRole === UserRole.ADMIN) {
       govTabs.push(
-        { id: 'admin_settings', label: 'Governance', icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" /> },
-        { id: 'user_logs_view', label: 'Audit Logs', icon: <ICON_MAP.AuditShieldListIcon className="w-3.5 h-3.5" /> }
+        { id: 'admin_settings', label: 'Workspace Admin', icon: <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5" /> },
+        { id: 'user_logs_view', label: 'Activity Log', icon: <ICON_MAP.AuditShieldListIcon className="w-3.5 h-3.5" /> }
       );
     }
     govTabs.push({
@@ -505,10 +505,10 @@ export const Header: React.FC = () => {
                 fill="var(--bg-bezel)"
               />
               <path
-                d="M 92,9.5 C 72,9.5 66,17.5 60,32.5 C 54,46.5 43,53.5 27,53.5 C 13,53.5 3,56.5 0,65.5"
+                d="M 92,9.75 C 72,9.75 66,17.75 60,32.75 C 54,46.75 43,53.75 27,53.75 C 13,53.75 3,56.75 0,65.75"
                 fill="none"
                 stroke="var(--bezel-edge)"
-                strokeWidth="1"
+                strokeWidth="0.75"
               />
             </svg>
             <IconButton
@@ -554,7 +554,7 @@ export const Header: React.FC = () => {
                 </>
               ) : (
                 <div
-                  className="inline-flex items-center justify-center h-8 min-w-[34px] max-w-[140px] px-1.5 rounded-xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)] shadow-[inset_0_1px_0_var(--glass-highlight)] text-[var(--accent-text)] overflow-hidden shrink-0"
+                  className="inline-flex items-center justify-center h-8 min-w-[34px] max-w-[140px] px-1.5 rounded-xl bg-[var(--surface-glass-2)] border border-[var(--glass-border)] text-[var(--accent-text)] overflow-hidden shrink-0"
                   title={orgLogoUrl ? 'Organization brand logo' : 'Workspace'}
                 >
                   {orgLogoUrl ? (
@@ -584,10 +584,10 @@ export const Header: React.FC = () => {
               fill="var(--bg-bezel)"
             />
             <path
-              d="M -0.5,9.5 L 0,9.5 C 26,9.5 28,57.5 58,57.5 L 64.5,57.5"
+              d="M -0.5,9.75 L 0,9.75 C 26,9.75 28,57.75 58,57.75 L 64.5,57.75"
               fill="none"
               stroke="var(--bezel-edge)"
-              strokeWidth="1"
+              strokeWidth="0.75"
             />
           </svg>
 
@@ -600,7 +600,7 @@ export const Header: React.FC = () => {
                 setActiveView(view);
               }}
               size="sm"
-              className="!bg-[var(--surface-glass-2)] !border-[var(--glass-border-strong)] shadow-xs"
+              className="!bg-[var(--surface-glass-2)] !border-[var(--glass-border)]"
             />
           </div>
 
@@ -614,10 +614,10 @@ export const Header: React.FC = () => {
               fill="var(--bg-bezel)"
             />
             <path
-              d="M -0.5,57.5 L 6,57.5 C 36,57.5 38,9.5 64,9.5 L 64.5,9.5"
+              d="M -0.5,57.75 L 6,57.75 C 36,57.75 38,9.75 64,9.75 L 64.5,9.75"
               fill="none"
               stroke="var(--bezel-edge)"
-              strokeWidth="1"
+              strokeWidth="0.75"
             />
           </svg>
         </div>
@@ -635,10 +635,10 @@ export const Header: React.FC = () => {
               fill="var(--bg-bezel)"
             />
             <path
-              d="M 0,9.5 C 20,9.5 33.5,17 33.5,34"
+              d="M 0,9.75 C 20,9.75 33.75,17 33.75,34"
               fill="none"
               stroke="var(--bezel-edge)"
-              strokeWidth="1"
+              strokeWidth="0.75"
             />
           </svg>
           <div className="flex items-center justify-end gap-1 xl:gap-1.5 pt-2.5 pr-4 xl:pr-5 pl-1.5 min-w-0">

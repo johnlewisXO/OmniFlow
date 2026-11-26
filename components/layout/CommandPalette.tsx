@@ -82,7 +82,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
       return [
         `Break down "${taskToView.title.slice(0, 35)}" into subtasks`,
         `Identify blockers and delivery risks for this ticket`,
-        `Estimate Fibonacci story points for "${taskToView.title.slice(0, 30)}"`,
+        `Estimate effort points for "${taskToView.title.slice(0, 30)}"`,
         `Generate a stakeholder update for ${projName}`,
       ];
     }
@@ -271,7 +271,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         id: 'nav-sprints',
         category: 'sprints',
         title: 'Go to Sprint Planning & Backlog',
-        subtitle: `${sprints.length} sprint cycles · Fibonacci story point grooming`,
+        subtitle: `${sprints.length} sprints · task backlog & workload balance`,
         meta: 'Sprints',
         icon: ICON_MAP.RocketLaunchIcon,
         action: () => {

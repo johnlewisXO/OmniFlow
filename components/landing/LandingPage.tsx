@@ -7,23 +7,23 @@ import { ICON_MAP } from '../../constants';
 const IMPACT_METRICS = [
   {
     metric: '42%',
-    unit: 'Faster Sprint Cycle Time in 90 Days',
+    unit: 'Faster Project Delivery in 90 Days',
     detail:
-      'Measured across engineering organizations using AI Co-Pilot story-point estimation and automated WIP bottleneck alerts.',
+      'Teams using smart effort estimates and automatic blocker alerts finish sprints faster with fewer surprises.',
     attribution: 'Regal Logistics · 38 Contributors',
   },
   {
     metric: '100%',
-    unit: 'Multi-Role RBAC & Audit Traceability',
+    unit: 'Clear Roles & Activity History',
     detail:
-      'Every organization join approval, role mutation, and task state transition is cryptographically logged with actor and timestamp.',
-    attribution: 'Innovatech Enterprise · SOC2 Workflow',
+      'Every workspace join approval, role update, and task change is recorded clearly with who did it and when.',
+    attribution: 'Innovatech Enterprise · Verified Teams',
   },
   {
     metric: '<35ms',
-    unit: '1080p60 WebRTC & 48kHz Opus Latency',
+    unit: 'Clear HD Video & Echo-Free Audio',
     detail:
-      'Hardware-level Acoustic Echo Cancellation with direct media track routing eliminates call screeching and context switching.',
+      'Built-in echo cancellation and direct audio routing keep standups and client calls crisp without switching apps.',
     attribution: 'Distributed Product Teams · Global Mesh',
   },
 ];
@@ -32,113 +32,128 @@ const EDGE_FUNCTIONS_SHOWCASE = [
   {
     number: '01',
     fnName: 'ai-copilot-synthesis',
-    title: 'AI Co-Pilot & Executive Report Synthesis',
+    title: 'AI Assistant & Project Summaries',
     description:
-      'Offloads multi-sprint roadmap generation, Fibonacci effort estimation, and portfolio risk radar to server-side Gemini 3.8 Flash & 3.1 Pro endpoints—keeping API keys off the client and browser frames at 60fps.',
-    specs: 'Structured JSON Schema · <420ms TTFB · Zero Client Key Exposure',
+      'Turns plain-English goals into sprint roadmaps, suggests realistic task effort, and highlights delivery risks automatically.',
+    specs: 'Structured Roadmaps · Fast Responses · Private & Secure',
   },
   {
     number: '02',
     fnName: 'transactional-notifications',
-    title: 'Transactional Emails, Org Invites & Approval Webhooks',
+    title: 'Team Invites & Instant Approval Alerts',
     description:
-      'Dispatches Brevo/SMTP organization invites and join-request approval notifications from the Edge with automatic tokenized invite link fallbacks so user onboarding never fails on SMTP rate limits.',
-    specs: 'Brevo SMTP Relay · Tokenized Link Fallback · Instant Realtime Push',
+      'Sends workspace email invites and approval updates with shareable backup invite links so onboarding never stalls.',
+    specs: 'Email Delivery · Backup Invite Links · Instant Notifications',
   },
   {
     number: '03',
     fnName: 'automation-rule-engine',
-    title: 'Scheduled SLA Breach Alerts & Audit Digests',
+    title: 'Smart Rules & Due-Date Reminders',
     description:
-      'Evaluates organization-wide Trigger → Condition → Action rules deterministically on the server, escalating overdue deliverables and compiling weekly compliance audit digests.',
-    specs: 'Cron & Webhook Compatible · Deterministic SLA Evaluation · CSV/PDF Ready',
+      'Runs automatic When → If → Then rules to escalate overdue work, notify teammates, and summarize weekly progress.',
+    specs: 'Scheduled Checks · Automatic Escalations · Easy Exports',
   },
   {
     number: '04',
     fnName: 'webrtc-turn-and-scribe',
-    title: 'Live WebRTC TURN/ICE Provisioning & Meeting Scribe',
+    title: 'HD Video Meetings & Live Transcripts',
     description:
-      'Issues ephemeral STUN/TURN ICE credentials for 1080p/60fps video and screen-sharing across symmetric corporate NATs and extracts structured action items from call transcripts.',
-    specs: '48kHz Opus Stereo · 1080p/720p Adaptive Bitrate · Action Item Extraction',
+      'Powers smooth 1080p video, screen sharing, and automatic meeting transcription that extracts action items into tasks.',
+    specs: 'Crystal Clear Audio · 1080p Screen Share · Meeting Notes to Tasks',
   },
 ];
 
-const PRICING_PLANS = [
+const PRICING_PLANS: Array<{
+  planId: 'starter' | 'growth_pro' | 'enterprise_ai';
+  audience: string;
+  name: string;
+  monthlyPrice: string;
+  annualPrice: string;
+  period: string;
+  description: string;
+  features: string[];
+  ctaText: string;
+  ctaHref: string;
+  highlighted: boolean;
+}> = [
   {
-    audience: 'For Early-Stage Teams',
-    name: 'Starter Workspace',
+    planId: 'starter',
+    audience: 'For Small Teams',
+    name: 'Starter',
     monthlyPrice: '$0',
     annualPrice: '$0',
-    period: 'Forever Free · Up to 5 Members',
+    period: 'Free Forever · Up to 15 Seats',
     description:
-      'Complete core Kanban boards, personal task command center, and real-time team chat for fast-moving startup squads.',
+      'Core Kanban boards, personal task views, and real-time team chat for small squads getting started.',
     features: [
-      'Up to 3 active projects & unlimited tasks',
-      'Kanban, List, and Sprint Backlog views',
-      'AI Task Title & Subtask Breakdown assistant',
-      'Teams Chat & 720p HD Video Standups',
-      'Mobile thumb-bar navigation & dark mode',
+      'Up to 15 team seats & 3 active projects',
+      'Kanban, List, and Backlog views',
+      'AI task title & checklist helper',
+      'Team Chat, Voice Notes & HD Video Standups',
+      'Mobile-friendly navigation & dark/light themes',
     ],
     ctaText: 'Start Free Workspace',
     ctaHref: '#/signup',
     highlighted: false,
   },
   {
-    audience: 'For Scaling Engineering Orgs',
+    planId: 'growth_pro',
+    audience: 'For Growing Teams',
     name: 'Pro Studio',
-    monthlyPrice: '$12',
-    annualPrice: '$9',
-    period: 'per user / month',
+    monthlyPrice: '$29',
+    annualPrice: '$22',
+    period: 'per workspace / month',
     description:
-      'Full autonomous AI Project Manager Studio, 1080p60 WebRTC video + screen share, and automated workflow triggers.',
+      'Full AI Planning Assistant, HD Video Calls with Screen Share, Whiteboard, Video Clips, and Automated Rules.',
     features: [
-      'Unlimited projects, sprints & velocity burndown',
-      'AI Initiative Blueprint Architect & Risk Radar',
-      '1080p/60fps Video Studio + 48kHz Opus Echo Guard',
-      'Automated Triggers, SLA escalations & WIP limits',
-      'Owner & Project Manager Org Join Approval gate',
+      'Up to 50 team seats & unlimited projects',
+      'AI Roadmap Builder & Meeting Action Extractor',
+      '1080p Video Studio, Whiteboards & Video Clips',
+      'Automated Rules, SLAs & Team Approval Gates',
+      'Voice-to-text across calls, notes & tasks',
     ],
-    ctaText: 'Launch Pro Studio',
+    ctaText: 'Start Pro Studio',
     ctaHref: '#/signup',
     highlighted: true,
   },
   {
-    audience: 'For Enterprise Operations',
-    name: 'Enterprise Cloud',
-    monthlyPrice: 'Custom',
-    annualPrice: 'Custom',
-    period: 'Dedicated SLA & Custom Terms',
+    planId: 'enterprise_ai',
+    audience: 'For Larger Organizations',
+    name: 'Enterprise',
+    monthlyPrice: '$199',
+    annualPrice: '$149',
+    period: 'per workspace / month',
     description:
-      'Dedicated Supabase Edge Function throughput, full compliance audit log exports, and custom RBAC governance.',
+      'Expanded seat limits, unlimited AI assistant usage, full activity log exports, and custom workspace controls.',
     features: [
-      'Everything in Pro Studio + unlimited seats',
-      'Dedicated Supabase Edge Function compute & webhooks',
-      'Full immutable Audit Log ledger & CSV/PDF digests',
-      'Custom TURN/ICE enterprise relay & SSO readiness',
-      'Priority architectural onboarding & 99.95% SLA',
+      'Up to 250 team seats & unlimited projects',
+      'Unlimited AI Assistant & Risk Radar reports',
+      'Full Activity Log exports (CSV / JSON)',
+      'Custom workspace defaults & SSO readiness',
+      'Priority onboarding & billing invoices',
     ],
-    ctaText: 'Request Enterprise Briefing',
-    ctaHref: '#enterprise-contact',
+    ctaText: 'Get Enterprise',
+    ctaHref: '#/signup',
     highlighted: false,
   },
 ];
 
 const FAQ_ITEMS = [
   {
-    q: 'How does the Organization Join Approval flow work for new members?',
-    a: 'When a user signs up or requests to join an existing organization (such as regal-logistics), their request is routed to Organization Owners and Project Managers in real time. Once approved via the Inbox or Team Directory, the member’s dashboard unlocks automatically without requiring a page reload.',
+    q: 'How does joining an existing workspace work for new team members?',
+    a: 'When someone signs up and requests to join an existing workspace, Workspace Owners and Project Managers see the request immediately. Once approved, their workspace unlocks automatically without refreshing.',
   },
   {
-    q: 'How does Omni Flow prevent audio echo and screeching on 1080p video calls?',
-    a: 'Omni Flow streams the hardware microphone track directly to WebRTC with native browser Acoustic Echo Cancellation (AEC), noise suppression, and 48kHz Opus encoding—without intermediate WebAudio delay buffers—plus an optional Same-Room Echo Guard for multi-device testing.',
+    q: 'How does Omni Flow keep video calls clear without audio echo?',
+    a: 'Video calls use built-in browser echo cancellation and noise reduction, plus an optional Same-Room Echo Guard toggle when testing multiple devices nearby.',
   },
   {
-    q: 'Where are Supabase Edge Functions used across the platform?',
-    a: 'Heavy operations—including AI Co-Pilot blueprint synthesis, transactional Brevo/SMTP email invites, scheduled SLA automation evaluations, and WebRTC TURN/ICE credential provisioning—run through our Edge Function pipeline (/api/edge/* and supabase/functions/*).',
+    q: 'Can I upgrade, switch plans, or pay by invoice later?',
+    a: 'Yes. Every new workspace can start free on Starter or choose Pro Studio or Enterprise during signup via card checkout, company invoice, or Stripe.',
   },
   {
-    q: 'Is the workspace optimized for mobile phones and tablets?',
-    a: 'Yes. On viewports under 1024px, Omni Flow transitions to a 5-slot glassmorphic bottom thumb-bar dock, single-lane swipeable Kanban switcher, and slide-over sheet drawers with 44x44px touch targets.',
+    q: 'Is Omni Flow easy to use on phones and tablets?',
+    a: 'Yes. On smaller screens, Omni Flow adapts to a clean bottom navigation bar and single-column views so everything stays easy to reach.',
   },
 ];
 
@@ -276,24 +291,24 @@ const LandingPage: React.FC = () => {
               <div className="p-6 sm:p-8 rounded-2xl bg-[#1D2118]/90 border border-[#2B3026] flex flex-col justify-between space-y-6">
                 <div className="space-y-2">
                   <span className="text-xs font-mono text-[#CCF048]">
-                    03. Autonomous AI Co-Pilot &amp; Risk Radar
+                    03. AI Assistant &amp; Risk Alerts
                   </span>
                   <h3 className="text-xl font-bold text-white">
-                    Fibonacci Burndown &amp; Capacity Rebalancing
+                    Smart Progress Tracking &amp; Workload Balance
                   </h3>
                   <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
-                    Track real-time story points across active sprints, generate multi-phase architecture roadmaps, and monitor automated risk radar telemetry in one unified view.
+                    Track sprint effort across active work, generate multi-phase project plans, and catch delivery risks early in one clean view.
                   </p>
                 </div>
                 <div className="relative rounded-xl overflow-hidden border border-[#2B3026] shadow-lg">
                   <img
                     src="/images/landing_copilot_studio.jpg"
-                    alt="AI Project Management Copilot 3D Studio"
+                    alt="AI Project Assistant"
                     className="w-full h-48 object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#131511]/85 via-transparent to-transparent flex items-end p-3">
                     <span className="text-[10px] font-mono text-[#CCF048] font-bold">
-                      Sprint 14 Burndown · 92% On Track
+                      Sprint Progress · 92% On Track
                     </span>
                   </div>
                 </div>
@@ -337,7 +352,7 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
 
-        {/* 4. Supabase Edge Functions & Compute Architecture Section */}
+        {/* 4. Fast Cloud Actions & Automation Section */}
         <section
           id="edge-architecture"
           className="py-20 md:py-28 border-t border-[#2B3026] bg-[#171A14]"
@@ -346,25 +361,24 @@ const LandingPage: React.FC = () => {
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
               <div className="max-w-3xl space-y-3">
                 <div className="text-xs font-mono uppercase tracking-widest text-[#CCF048]">
-                  Supabase Edge Functions &amp; Server Compute
+                  Built-In Automation &amp; Cloud Speed
                 </div>
                 <h2
                   className="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-tight"
                   style={{ textWrap: 'balance' } as React.CSSProperties}
                 >
-                  Demanding Workflows Offloaded to the Edge.
+                  Heavy Tasks Handled Automatically Behind the Scenes.
                 </h2>
                 <p className="text-sm sm:text-base text-[#A6AC9C] leading-relaxed">
-                  Heavy AI synthesis, transactional SMTP/Brevo email delivery, SLA rule evaluation,
-                  and WebRTC TURN provisioning execute on server-side Edge endpoints so your
-                  workspace UI stays instantaneous.
+                  AI planning, team invites, automated deadline checks, and live video meetings all run smoothly so your workspace stays fast.
                 </p>
               </div>
               <a
-                href="#/app"
+                href="#/signup"
+                onClick={() => sessionStorage.setItem('omni_explicit_auth_intent', 'true')}
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs sm:text-sm font-semibold text-white whitespace-nowrap self-start"
               >
-                <span>Inspect Live Edge Telemetry in App</span>
+                <span>Create Your Workspace</span>
                 <span aria-hidden="true">→</span>
               </a>
             </div>
@@ -378,11 +392,10 @@ const LandingPage: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-[#CCF048]">
-                        {fn.number}. supabase/functions/{fn.fnName}
+                        {fn.number}. {fn.title}
                       </span>
-                      <span className="text-emerald-400">● ACTIVE</span>
+                      <span className="text-emerald-400">● READY</span>
                     </div>
-                    <h3 className="text-lg font-bold text-white">{fn.title}</h3>
                     <p className="text-xs sm:text-sm text-[#A6AC9C] leading-relaxed">
                       {fn.description}
                     </p>
@@ -481,6 +494,8 @@ const LandingPage: React.FC = () => {
                     onClick={() => {
                       if (plan.ctaHref.startsWith('#/')) {
                         sessionStorage.setItem('omni_explicit_auth_intent', 'true');
+                        sessionStorage.setItem('omni_selected_plan', plan.planId);
+                        sessionStorage.setItem('omni_selected_billing_cycle', billingCycle);
                       }
                     }}
                     className={`w-full py-3 px-5 rounded-full text-center text-xs sm:text-sm font-semibold transition-all ${

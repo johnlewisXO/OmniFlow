@@ -200,7 +200,7 @@ const RBAC_PERMISSION_MATRIX: {
     },
   },
   {
-    capability: 'Inspect Immutable Security & Audit Logs',
+    capability: 'View Security & Activity Logs',
     category: 'Automation & Security',
     roles: {
       [UserRole.OWNER]: true,

@@ -288,7 +288,7 @@ const geminiService = {
 
     return {
       estimatedStoryPoints: estimatedPoints,
-      estimationRationale: `Scoped at ${estimatedPoints} Fibonacci story points based on deliverable complexity, integration touchpoints, and QA verification requirements.`,
+      estimationRationale: `Scoped at ${estimatedPoints} effort points based on complexity, integration work, and testing needs.`,
       recommendedPriority: isCritical ? task.priority : TaskPriority.HIGH,
       recommendedAssigneeId: leastLoadedUser?.id,
       recommendedAssigneeReason: leastLoadedUser
@@ -535,7 +535,7 @@ const geminiService = {
     if (q.includes('overdue') || q.includes('blocked') || q.includes('critical') || q.includes('stalled')) {
       return {
         intentType: 'filter_tasks',
-        headline: 'Risk & Bottleneck Triage Analysis',
+        headline: 'Risk & Bottleneck Review',
         answerMarkdown: `Scanning **${context?.totalTasks || 0} workspace tasks**: I identified **${context?.criticalCount || 0} Critical/High priority items** and **${context?.overdueCount || 0} overdue deliverables** requiring immediate attention. Focus first on items in *Review* or *In Progress* that block downstream sprint goals.`,
         suggestedActionLabel: 'Open High-Priority Tasks',
         actionPayload: {
@@ -566,9 +566,9 @@ const geminiService = {
     if (q.includes('launch') || q.includes('roadmap') || q.includes('blueprint') || q.includes('by ')) {
       return {
         intentType: 'create_project_blueprint',
-        headline: 'AI Project Architect Blueprint Ready',
-        answerMarkdown: `I can generate a complete multi-sprint execution blueprint for **"${query}"** including milestones, Fibonacci story-point tasks, checklists, and risk mitigations.`,
-        suggestedActionLabel: 'Launch in AI Project Architect',
+        headline: 'AI Project Plan Ready',
+        answerMarkdown: `I can generate a complete multi-sprint plan for **"${query}"** including milestones, effort estimates, checklists, and risk checks.`,
+        suggestedActionLabel: 'Open in Project Planner',
         actionPayload: {
           title: query,
         },
@@ -786,8 +786,8 @@ const geminiService = {
         severity: 'opportunity',
         title: `${unestimatedTasks.length} Backlog Item${unestimatedTasks.length > 1 ? 's' : ''} Missing Story Point Estimates`,
         metric: `${unestimatedTasks.length} unestimated`,
-        description: `Estimating Fibonacci story points on all open tasks improves AI velocity forecasting accuracy by up to 40%.`,
-        recommendation: 'Run AI Effort Estimator to auto-populate Fibonacci story points across unestimated tasks.',
+        description: `Estimating effort points on open tasks makes timeline and workload forecasts much more accurate.`,
+        recommendation: 'Run the Effort Estimator to fill in estimates across unestimated tasks.',
         actionLabel: 'Auto-Estimate Story Points',
         targetEntityId: unestimatedTasks[0]?.id,
         targetEntityType: 'task',

@@ -688,7 +688,7 @@ class MeetingAndCallService {
           },
           {
             id: 'ag-2',
-            title: 'Walk through high-priority backlog tickets & Fibonacci story points',
+            title: 'Review high-priority tasks and upcoming workload',
             durationMinutes: 25,
             completed: false,
             presenterName: currentUser.full_name || currentUser.email,

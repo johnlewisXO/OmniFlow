@@ -93,12 +93,12 @@ const MODE_NAV_ITEMS: {
   shortLabel: string;
   icon: keyof typeof ICON_MAP;
 }[] = [
-  { id: 'copilot', label: 'Co-Pilot Chat', shortLabel: 'Auto', icon: 'SparklesIcon' },
-  { id: 'architect', label: 'Blueprint Architect', shortLabel: 'Blueprint', icon: 'RocketLaunchIcon' },
-  { id: 'meetings', label: 'Meeting Extractor', shortLabel: 'Meetings', icon: 'DocumentTextIcon' },
-  { id: 'capacity', label: 'Capacity Balancer', shortLabel: 'Capacity', icon: 'UserGroupIcon' },
-  { id: 'insights', label: 'Risk Radar', shortLabel: 'Risk Radar', icon: 'ChartBarIcon' },
-  { id: 'edge', label: 'Edge Compute', shortLabel: 'Edge', icon: 'BoltIcon' },
+  { id: 'copilot', label: 'AI Assistant', shortLabel: 'Auto', icon: 'SparklesIcon' },
+  { id: 'architect', label: 'Project Planner', shortLabel: 'Planner', icon: 'RocketLaunchIcon' },
+  { id: 'meetings', label: 'Meeting Notes', shortLabel: 'Meetings', icon: 'DocumentTextIcon' },
+  { id: 'capacity', label: 'Workload Helper', shortLabel: 'Workload', icon: 'UserGroupIcon' },
+  { id: 'insights', label: 'Risk Alerts', shortLabel: 'Risks', icon: 'ChartBarIcon' },
+  { id: 'edge', label: 'Quick Actions', shortLabel: 'Actions', icon: 'BoltIcon' },
 ];
 
 export const AIProjectManagerStudio: React.FC = () => {
@@ -818,13 +818,13 @@ export const AIProjectManagerStudio: React.FC = () => {
             <div className="max-w-5xl mx-auto space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-[var(--text-primary)]">Edge Compute Pipelines</h2>
+                  <h2 className="text-base font-bold text-[var(--text-primary)]">Workspace Quick Actions</h2>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Offload AI risk synthesis, SLA evaluations, transactional alerts, and TURN provisioning.
+                    Run project risk checks, team notifications, rule evaluations, and call setup tools.
                   </p>
                 </div>
                 <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 rounded-full self-start">
-                  4 Pipelines Ready
+                  4 Actions Ready
                 </span>
               </div>
 
@@ -911,7 +911,7 @@ export const AIProjectManagerStudio: React.FC = () => {
               {edgeLogs.length > 0 && (
                 <HairlineCard className="space-y-2.5">
                   <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                    Recent Edge Telemetry
+                    Recent Action Runs
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {edgeLogs.map(log => (
@@ -1011,10 +1011,10 @@ export const AIProjectManagerStudio: React.FC = () => {
                                   >
                                     <ICON_MAP.RocketLaunchIcon className="w-3.5 h-3.5" />
                                     {msg.executedAction
-                                      ? 'Deployed ✓'
+                                      ? 'Project Created ✓'
                                       : isExecutingActionId === msg.id
-                                      ? 'Deploying...'
-                                      : 'Deploy Blueprint'}
+                                      ? 'Creating...'
+                                      : 'Create Project'}
                                   </Button>
                                 </div>
 
@@ -1229,7 +1229,7 @@ export const AIProjectManagerStudio: React.FC = () => {
                           onClick={() => setActiveMode(m.id)}
                           className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
                             active
-                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-text)] shadow-xs'
+                              ? 'bg-[var(--accent-cta)] text-[var(--accent-cta-ink)] shadow-xs'
                               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-subtle)]'
                           }`}
                         >

@@ -48,7 +48,7 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
     });
     addToast(
       'Effort & Priority Applied',
-      `Set task to ${analysis.estimatedStoryPoints} Fibonacci pts (${analysis.recommendedPriority} priority).`,
+      `Set task to ${analysis.estimatedStoryPoints} effort pts (${analysis.recommendedPriority} priority).`,
       'success'
     );
   };
@@ -109,7 +109,7 @@ export const TaskAICopilotPanel: React.FC<TaskAICopilotPanelProps> = ({
     : null;
 
   return (
-    <div className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-sage)]/55 p-4 transition-all text-[var(--text-primary)]">
+    <div className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-sage)] p-4 transition-all text-[var(--text-primary)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <AIBotFace mood={isAnalyzing ? 'thinking' : analysis ? 'happy' : 'idle'} size="sm" className="flex-shrink-0" />

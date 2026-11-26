@@ -140,21 +140,21 @@ export const Sidebar: React.FC = () => {
       },
       {
         id: 'work',
-        label: 'Projects & Delivery',
+        label: 'Projects & Tasks',
         defaultView: 'projects_overview',
         icon: ICON_MAP.FolderIcon,
         matchViews: ['projects_overview', 'kanban', 'sprints_view', 'gantt_roadmap_view', 'triage_intake_view'],
       },
       {
         id: 'people',
-        label: 'Team & Capacity',
+        label: 'Team & Time',
         defaultView: 'team_management',
         icon: ICON_MAP.UserGroupIcon,
         matchViews: ['team_management', 'workload_capacity_view'],
       },
       {
         id: 'analytics',
-        label: 'Analytics & Docs',
+        label: 'Reports & Docs',
         defaultView:
           normalizedRole === UserRole.OWNER ||
           normalizedRole === UserRole.ADMIN ||
@@ -166,14 +166,14 @@ export const Sidebar: React.FC = () => {
       },
       {
         id: 'ai',
-        label: 'Aether AI',
+        label: 'AI & Automations',
         defaultView: 'ai_copilot_view',
         icon: ICON_MAP.SparklesIcon,
         matchViews: ['ai_copilot_view', 'task_automations', 'task_automations_view'],
       },
       {
         id: 'governance',
-        label: isAdminOrOwner ? 'Governance' : 'Settings',
+        label: isAdminOrOwner ? 'Workspace Admin' : 'Settings',
         defaultView: isAdminOrOwner ? 'admin_settings' : 'profile_settings',
         icon: ICON_MAP.ShieldCheckIcon,
         matchViews: ['admin_settings', 'user_logs_view', 'profile_settings'],
@@ -476,7 +476,7 @@ export const Sidebar: React.FC = () => {
                           }`}
                         >
                           <ICON_MAP.ShieldCheckIcon className="w-3.5 h-3.5 shrink-0 opacity-80" />
-                          <span className="truncate">Org Governance &amp; Admin</span>
+                          <span className="truncate">Workspace Admin</span>
                         </button>
                       )}
 

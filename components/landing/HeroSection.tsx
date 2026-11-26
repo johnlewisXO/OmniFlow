@@ -404,14 +404,14 @@ export const HeroSection: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <div className="lg:col-span-5 space-y-4">
                   <div className="text-xs font-semibold uppercase tracking-wider text-[#CCF048]">
-                    Server-Side Gemini 3.8 Flash &amp; Pro Synthesis
+                    AI-Powered Planning Assistant
                   </div>
                   <h3 className="text-xl font-bold text-white">
-                    Natural Language Goal → Multi-Sprint Execution Blueprint
+                    Plain-English Goal → Complete Sprint Plan
                   </h3>
                   <p className="text-xs sm:text-sm text-[#D6DACF] leading-relaxed">
-                    Select an initiative below to preview how the AI Co-Pilot Edge Function
-                    synthesizes Fibonacci story points, release gates, and risk mitigations.
+                    Pick a sample goal below to see how the AI Assistant builds project milestones,
+                    effort estimates, and risk checks automatically.
                   </p>
 
                   <div className="space-y-2.5 pt-1">
@@ -442,12 +442,12 @@ export const HeroSection: React.FC = () => {
                   <div className="relative rounded-xl overflow-hidden border border-[#2B3026] shadow-lg">
                     <img
                       src="/images/landing_copilot_studio.jpg"
-                      alt="3D AI Project Management Copilot Timeline & Risk Matrix"
+                      alt="AI Project Planning Timeline"
                       className="w-full h-44 object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#131511]/90 via-transparent to-transparent flex items-end p-3">
                       <span className="text-[11px] font-mono font-bold text-white">
-                        Fibonacci Sprint Nodes &amp; Autonomous Risk Radar Telemetry
+                        Smart Sprint Milestones &amp; Risk Alerts
                       </span>
                     </div>
                   </div>
@@ -455,7 +455,7 @@ export const HeroSection: React.FC = () => {
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#2B3026]">
                     <div>
                       <span className="text-xs font-mono text-emerald-400">
-                        ● Synthesized via /api/edge/ai-copilot-synthesis
+                        ● Generated automatically by AI Assistant
                       </span>
                       <h4 className="text-base font-bold text-white mt-0.5">
                         {sampleBlueprints[selectedPromptIdx].prompt}

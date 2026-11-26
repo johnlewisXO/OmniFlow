@@ -94,8 +94,8 @@ export const AIInsightsEngineWidget: React.FC<AIInsightsEngineWidgetProps> = ({
         }
         setResolvedIds(prev => [...prev, insight.id]);
         addToast(
-          'AI Story Point Estimation Complete',
-          `Populated Fibonacci story points across ${unestimated.length} backlog task(s).`,
+          'AI Effort Estimation Complete',
+          `Estimated effort points across ${unestimated.length} backlog task(s).`,
           'success'
         );
       } else if (insight.targetEntityType === 'task' && insight.targetEntityId) {
